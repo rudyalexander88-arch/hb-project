@@ -1,0 +1,183 @@
+/* =====================================
+   TABLET
+===================================== */
+
+@media (max-width: 1024px) {
+
+    .contenido-principal{
+        padding:20px;
+    }
+
+    .modulo-header{
+        gap:18px;
+        align-items:flex-start;
+    }
+
+    .cards-resumen{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+
+    .paneles{
+        grid-template-columns:1fr;
+    }
+
+    .acciones-header-despachos{
+        flex-wrap:wrap;
+        justify-content:flex-end;
+    }
+
+    .tabla-responsive{
+        width:100%;
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+    }
+
+    .tabla-responsive table{
+        min-width:760px;
+    }
+
+}
+
+
+/* =====================================
+   MÓVIL GRANDE
+===================================== */
+
+@media (max-width: 768px) {
+
+    .contenido-principal{
+        padding:14px;
+    }
+
+    .modulo-header{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .modulo-header h2{
+        font-size:22px;
+    }
+
+    .modulo-header p{
+        font-size:13px;
+    }
+
+    .acciones-header-despachos{
+        width:100%;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+    }
+
+    .acciones-header-despachos button{
+        width:100%;
+        justify-content:center;
+    }
+
+    .cards-resumen{
+        grid-template-columns:1fr;
+        gap:12px;
+    }
+
+    .card-resumen{
+        min-height:auto;
+        padding:16px;
+    }
+
+    .panel{
+        padding:14px;
+    }
+
+    .panel h3{
+        font-size:16px;
+    }
+
+    .tabla-responsive table{
+        min-width:720px;
+    }
+
+    .modal-contenido{
+        width:96vw;
+        max-width:none;
+        max-height:94vh;
+    }
+
+    #contenidoModal{
+        padding:14px;
+    }
+
+    .grid-form{
+        grid-template-columns:1fr;
+    }
+
+    .acciones-modal{
+        flex-wrap:wrap;
+    }
+
+}
+
+
+/* =====================================
+   MÓVIL PEQUEÑO
+===================================== */
+
+@media (max-width: 480px) {
+
+    .contenido-principal{
+        padding:10px;
+    }
+
+    .modulo-header h2{
+        font-size:19px;
+    }
+
+    .acciones-header-despachos{
+        grid-template-columns:1fr;
+    }
+
+    .btn-ver-todos-despachos,
+    .btn-rojo{
+        min-height:44px;
+        font-size:13px;
+    }
+
+    .card-resumen h3{
+        font-size:13px;
+    }
+
+    .card-resumen > span{
+        font-size:28px;
+    }
+
+    .panel{
+        padding:10px;
+        border-radius:10px;
+    }
+
+    .tabla-responsive table{
+        min-width:680px;
+    }
+
+    .modal-contenido{
+        width:100vw;
+        height:100vh;
+        max-height:100vh;
+        border-radius:0;
+    }
+
+    #contenidoModal{
+        padding:10px;
+    }
+
+    .acciones-modal{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:8px;
+    }
+
+    .acciones-modal button{
+        width:100%;
+        min-height:44px;
+    }
+
+}

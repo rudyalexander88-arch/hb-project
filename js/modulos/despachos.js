@@ -166,6 +166,86 @@ window.Despachos = {
 
         </div>
     `;
+	
+	const modalSistema =
+    document.getElementById("modalSistema");
+
+if (
+    modalSistema &&
+    !modalSistema.dataset.refrescoDespachosConfigurado
+) {
+
+    modalSistema.dataset.refrescoDespachosConfigurado =
+        "true";
+
+    modalSistema.addEventListener(
+        "click",
+        async evento => {
+
+            const elemento =
+                evento.target;
+
+            const boton =
+                elemento.closest(
+                    "button, [role='button'], .cerrar-modal, .modal-close"
+                );
+
+            if (!boton) {
+                return;
+            }
+
+            const texto =
+                String(
+                    boton.textContent || ""
+                ).trim();
+
+            const idClase =
+                (
+                    String(boton.id || "") +
+                    " " +
+                    String(boton.className || "")
+                ).toLowerCase();
+
+            const tieneIconoCerrar =
+                boton.querySelector(
+                    ".fa-xmark, .fa-times, .fa-close"
+                );
+
+            const esBotonCerrar =
+                texto === "×" ||
+                texto === "✕" ||
+                idClase.includes("cerrar") ||
+                idClase.includes("close") ||
+                Boolean(tieneIconoCerrar);
+
+            if (!esBotonCerrar) {
+                return;
+            }
+
+            /*
+             * Esperamos a que el evento original
+             * oculte primero el modal.
+             */
+            setTimeout(async () => {
+
+                if (
+                    modalSistema.classList.contains(
+                        "oculto"
+                    )
+                ) {
+
+                    Conduce.limpiar();
+
+                    await Despachos.cargar();
+
+                }
+
+            }, 50);
+
+        }
+    );
+
+}
 
 	document
 		.getElementById("btnVerTodosDespachos")

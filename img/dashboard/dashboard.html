@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard | Sistema Logístico PT</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <link rel="stylesheet" href="../css/dashboard.css">
+	
+	<link rel="stylesheet" href="../css/despachos.css">
+	
+	<link rel="icon" type="image/png" href="../img/icon.png">
+	
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+    <div class="logo">
+
+        <img src="../img/logo_dashboard.png">
+
+    </div>
+
+    <ul>
+
+       <li id="menuInicio" class="active">
+
+    <i class="fa-solid fa-house"></i>
+
+    Inicio
+
+</li>
+
+
+<li id="menuInventario">
+
+    <i class="fa-solid fa-box"></i>
+
+    Inventario
+
+</li>
+
+
+<li id="menuDespachos">
+
+    <i class="fa-solid fa-truck"></i>
+
+    Despachos
+
+</li>
+
+
+<li id="menuRecepciones">
+
+    <i class="fa-solid fa-arrow-down"></i>
+
+    Recepciones
+
+</li>
+
+
+<li id="menuReportes">
+
+    <i class="fa-solid fa-chart-column"></i>
+
+    Reportes
+
+</li>
+
+
+<li id="menuUsuarios">
+
+    <i class="fa-solid fa-users"></i>
+
+    Usuarios
+
+</li>
+
+
+<li id="menuConfiguracion">
+
+    <i class="fa-solid fa-gear"></i>
+
+    Configuración
+
+</li>
+        <li id="salir">
+
+            <i class="fa-solid fa-right-from-bracket"></i>
+
+            Salir
+
+        </li>
+
+    </ul>
+
+</div>
+
+<div class="contenido">
+
+    <header>
+
+        <div>
+
+            <h2>
+
+                Sistema Logístico Productos Terminados
+
+            </h2>
+
+        </div>
+
+        <div class="usuario">
+
+            <strong id="nombreUsuario"></strong>
+
+            <span id="rolUsuario"></span>
+
+        </div>
+
+    </header>
+
+    <section class="cards">
+
+        <div class="card">
+
+            <i class="fa-solid fa-box"></i>
+
+            <h3>Inventario</h3>
+
+            <h1>0</h1>
+
+        </div>
+
+        <div class="card">
+
+            <i class="fa-solid fa-truck"></i>
+
+            <h3>Despachos Hoy</h3>
+
+            <h1>0</h1>
+
+        </div>
+
+        <div class="card">
+
+            <i class="fa-solid fa-arrow-down"></i>
+
+            <h3>Recepciones</h3>
+
+            <h1>0</h1>
+
+        </div>
+
+        <div class="card">
+
+            <i class="fa-solid fa-triangle-exclamation"></i>
+
+            <h3>Productos Críticos</h3>
+
+            <h1>0</h1>
+
+        </div>
+
+    </section>
+
+    <section id="contenidoPrincipal">
+
+        <h2>
+
+            Bienvenido al Sistema Logístico
+
+        </h2>
+
+        <p>
+
+            Seleccione una opción del menú lateral.
+
+        </p>
+
+    </section>
+
+</div>
+<!-- ===================================== -->
+<!-- MODAL DEL SISTEMA -->
+<!-- ===================================== -->
+
+<div id="modalSistema" class="modal oculto">
+
+    <div class="modal-contenido">
+
+        <div class="modal-header">
+
+            <h2 id="tituloModal"></h2>
+
+            <button id="cerrarModal">
+
+                <i class="fa-solid fa-xmark"></i>
+
+            </button>
+
+        </div>
+
+        <div id="contenidoModal">
+
+        </div>
+
+    </div>
+
+</div>
+<script src="../js/api.js"></script>
+<script src="../js/catalogos.js"></script>
+<script src="../js/conduce.js"></script>
+<script src="../js/modulos/despachos.js"></script>
+<script src="../js/dashboard.js"></script>
+
+</body>
+
+</html>

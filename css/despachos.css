@@ -1402,15 +1402,8 @@
     white-space:nowrap;
 }
 
-#tablaDespachados .acciones-despacho{
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:7px;
-}
 
 .btn-abrir-despacho,
-.btn-ver-despacho,
 .btn-validar-despacho{
     width:34px;
     height:34px;
@@ -1426,11 +1419,6 @@
 
     color:#fff;
     cursor:pointer;
-}
-
-.btn-abrir-despacho,
-.btn-ver-despacho{
-    background:#28A745;
 }
 
 .btn-validar-despacho{
@@ -1457,6 +1445,95 @@
 
 .estado-despacho.completado{
     color:#28A745;
+}
+
+/* =====================================
+   ACCIONES DE LAS TABLAS DE CONDUCES
+===================================== */
+
+#tablaAbiertos td,
+#tablaDespachados td{
+    vertical-align:middle;
+    border-bottom:1px solid #e5e5e5;
+}
+
+#tablaAbiertos .centrado,
+#tablaDespachados .acciones-despacho{
+    height:100%;
+    text-align:center;
+    vertical-align:middle;
+    white-space:nowrap;
+}
+
+/* Importante: el TD conserva su estructura de tabla */
+#tablaDespachados .acciones-despacho{
+    display:table-cell;
+}
+
+/* Estructura común de todos los botones */
+.btn-continuar-borrador,
+.btn-continuar-despacho,
+.btn-abrir-despacho,
+.btn-ver-despacho,
+.btn-editar-despacho{
+    width:32px;
+    height:32px;
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    margin:0 3px;
+    padding:0;
+
+    border:none;
+    border-radius:50%;
+
+    color:#fff;
+    font-size:13px;
+    line-height:1;
+
+    cursor:pointer;
+    vertical-align:middle;
+
+    transition:
+        transform .15s ease,
+        filter .15s ease;
+}
+
+/* Continuar: naranja BON */
+.btn-continuar-borrador,
+.btn-continuar-despacho{
+    background:#F59E0B;
+}
+
+/* Ver: verde */
+.btn-abrir-despacho,
+.btn-ver-despacho{
+    background:#28A745;
+}
+
+/* Editar: naranja BON */
+.btn-editar-despacho{
+    background:#F59E0B;
+}
+
+.btn-continuar-borrador:hover,
+.btn-continuar-despacho:hover,
+.btn-abrir-despacho:hover,
+.btn-ver-despacho:hover,
+.btn-editar-despacho:hover{
+    transform:translateY(-1px);
+    filter:brightness(.92);
+}
+
+.btn-continuar-borrador i,
+.btn-continuar-despacho i,
+.btn-abrir-despacho i,
+.btn-ver-despacho i,
+.btn-editar-despacho i{
+    margin:0;
+    pointer-events:none;
 }
 
 /* =====================================
@@ -1830,3 +1907,176 @@
     background:#208637;
     transform:translateY(-1px);
 }
+/* Estados debajo del número de conduce */
+
+.estado-conduce{
+    display:block;
+    margin-top:3px;
+    font-size:9px;
+    font-weight:700;
+}
+
+.estado-conduce.borrador{
+    color:#F59E0B;
+}
+
+.estado-conduce.despachado{
+    color:#1677C8;
+}
+
+.estado-conduce.completado{
+    color:#28A745;
+}
+
+/* Continuar borrador: naranja */
+
+.btn-continuar-borrador{
+    background:#F59E0B;
+}
+
+/* Editar despacho: azul */
+
+.btn-editar-despacho{
+    background:#1677C8;
+}
+
+/* Ver conduce: verde */
+
+.btn-abrir-despacho,
+.btn-ver-despacho{
+    background:#28A745;
+}
+
+/* =====================================
+   ACCIONES DEL ENCABEZADO
+===================================== */
+
+.acciones-header-despachos{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.btn-ver-todos-despachos{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+
+    padding:11px 17px;
+
+    border:1px solid #28A745;
+    border-radius:9px;
+
+    background:#fff;
+    color:#28A745;
+
+    font-weight:700;
+    cursor:pointer;
+
+    transition:.2s ease;
+}
+
+.btn-ver-todos-despachos:hover{
+    background:#28A745;
+    color:#fff;
+    transform:translateY(-1px);
+}
+
+/* =====================================
+   META DIARIA Y SEMÁFORO
+===================================== */
+
+.card-meta-despachos{
+    position:relative;
+    overflow:hidden;
+
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease;
+}
+
+.card-meta-despachos::before{
+    content:"";
+
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+
+    width:6px;
+
+    background:#E31B23;
+}
+
+.cumplimiento-meta{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:15px;
+
+    margin-top:5px;
+}
+
+.cumplimiento-meta span{
+    padding:5px 9px;
+    border-radius:15px;
+
+    color:#fff;
+    font-size:20px;
+    font-weight:800;
+
+    background:#E31B23;
+}
+
+.cumplimiento-meta small{
+	padding:5px 9px;
+    border-radius:15px;
+    color:#777;
+    font-size:22px;
+	
+}
+
+.card-meta-despachos.semaforo-rojo::before,
+.card-meta-despachos.semaforo-rojo
+.cumplimiento-meta span{
+    background:#E31B23;
+}
+
+.card-meta-despachos.semaforo-naranja::before,
+.card-meta-despachos.semaforo-naranja
+.cumplimiento-meta span{
+    background:#F59E0B;
+}
+
+.card-meta-despachos.semaforo-verde::before,
+.card-meta-despachos.semaforo-verde
+.cumplimiento-meta span{
+    background:#28A745;
+}
+
+.card-meta-despachos.semaforo-rojo{
+    border-color:#E31B23;
+}
+
+.card-meta-despachos.semaforo-naranja{
+    border-color:#F59E0B;
+}
+
+.card-meta-despachos.semaforo-verde{
+    border-color:#28A745;
+}
+
+@media(max-width:700px){
+
+    .acciones-header-despachos{
+        width:100%;
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .acciones-header-despachos button{
+        justify-content:center;
+    }
+
+}
+

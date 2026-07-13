@@ -7,143 +7,191 @@ window.Despachos = {
 
     async cargar() {
 
-        const contenido =
-            document.getElementById("contenidoPrincipal");
+    const contenido =
+        document.getElementById("contenidoPrincipal");
 
-        contenido.innerHTML = `
-            <div class="modulo">
+    contenido.innerHTML = `
+        <div class="modulo">
 
-                <div class="modulo-header">
+            <div class="modulo-header">
 
-                    <div>
-                        <h2>
-                            <i class="fa-solid fa-truck"></i>
-                            Gestión de Despachos
-                        </h2>
+                <div>
+                    <h2>
+                        <i class="fa-solid fa-truck"></i>
+                        Gestión de Despachos
+                    </h2>
 
-                        <p>
-                            Administración de conduces de Productos Terminados
-                        </p>
+                    <p>
+                        Administración de conduces de Productos Terminados
+                    </p>
+                </div>
+
+               <div class="acciones-header-despachos">
+
+				<button
+					id="btnVerTodosDespachos"
+					class="btn-ver-todos-despachos"
+				>
+					<i class="fa-solid fa-table-list"></i>
+					Ver todos los despachos
+				</button>
+
+				<button
+					id="btnNuevoConduce"
+					class="btn-rojo"
+				>
+					<i class="fa-solid fa-plus"></i>
+					Nuevo Conduce
+				</button>
+
+			</div>
+
+            </div>
+
+            <div class="cards-resumen">
+
+                <div class="card-resumen">
+                    <h3>Abiertos</h3>
+                    <span id="totalAbiertos">0</span>
+                </div>
+
+                <div
+					class="card-resumen card-meta-despachos"
+					id="cardMetaDespachos"
+				>
+
+					<h3>Completados Hoy</h3>
+
+					<span id="totalCerrados">0</span>
+
+					<div class="cumplimiento-meta">
+
+						<span id="porcentajeMetaDespachos">
+							0%
+						</span>
+
+						<small id="textoMetaDespachos">
+							Meta: 0
+						</small>
+
+					</div>
+
+				</div>
+
+                <div class="card-resumen">
+
+					<h3>Paquetes enviados hoy</h3>
+
+					<span id="totalTarimas">0</span>
+
+				</div>
+
+            </div>
+
+            <div class="paneles">
+
+                <div class="panel panel-abiertos">
+
+                    <h3>
+                        <i class="fa-solid fa-folder-open"></i>
+                        Conduces Abiertos
+                    </h3>
+
+                    <div class="tabla-responsive">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Conduce</th>
+                                    <th>Creado por</th>
+                                    <th>Fecha</th>
+                                    <th>Líneas</th>
+                                    <th>Unidades</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tablaAbiertos">
+                                <tr>
+                                    <td colspan="6" class="tabla-vacia">
+                                        Cargando conduces abiertos...
+                                    </td>
+                                </tr>
+                            </tbody>
+
+                        </table>
+
                     </div>
-
-                    <button
-                        id="btnNuevoConduce"
-                        class="btn-rojo"
-                    >
-                        <i class="fa-solid fa-plus"></i>
-                        Nuevo Conduce
-                    </button>
 
                 </div>
 
-                <div class="cards-resumen">
+                <div class="panel">
 
-                    <div class="card-resumen">
-                        <h3>Abiertos</h3>
-                        <span id="totalAbiertos">0</span>
-                    </div>
+                    <h3>
+                        <i class="fa-solid fa-box-archive"></i>
+                        Conduces Completados
+                    </h3>
 
-                    <div class="card-resumen">
-                        <h3>Cerrados Hoy</h3>
-                        <span id="totalCerrados">0</span>
-                    </div>
+                    <div class="tabla-responsive">
 
-                    <div class="card-resumen">
-                        <h3>Líneas abiertas</h3>
-                        <span id="totalTarimas">0</span>
-                    </div>
+                        <table>
 
-                </div>
+                            <thead>
+                                <tr>
+                                    <th>Conduce</th>
+                                    <th>Creado por</th>
+                                    <th>Fecha</th>
+                                    <th>Líneas</th>
+                                    <th>Unidades</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
 
-                <div class="paneles">
+                            <tbody id="tablaDespachados">
+                                <tr>
+                                    <td colspan="6" class="tabla-vacia">
+                                        Cargando conduces completados...
+                                    </td>
+                                </tr>
+                            </tbody>
 
-                    <div class="panel panel-abiertos">
-
-                        <h3>
-                            <i class="fa-solid fa-folder-open"></i>
-                            Conduces Abiertos
-                        </h3>
-
-                        <div class="tabla-responsive">
-
-                            <table>
-
-                                <thead>
-                                    <tr>
-                                        <th>Conduce</th>
-                                        <th>Creado por</th>
-                                        <th>Fecha</th>
-                                        <th>Líneas</th>
-                                        <th>Unidades</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody id="tablaAbiertos">
-                                    <tr>
-                                        <td colspan="6" class="tabla-vacia">
-                                            Cargando conduces abiertos...
-                                        </td>
-                                    </tr>
-                                </tbody>
-
-                            </table>
-
-                        </div>
-
-                    </div>
-
-                    <div class="panel">
-
-                        <h3>
-                            <i class="fa-solid fa-box-archive"></i>
-                            Conduces Completados
-                        </h3>
-
-                        <div class="tabla-responsive">
-
-                            <table>
-
-                                <thead>
-                                    <tr>
-                                        <th>Conduce</th>
-                                        <th>Fecha</th>
-                                        <th>Creado por</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody id="tablaDespachados">
-                                    <tr>
-                                        <td colspan="4" class="tabla-vacia">
-                                            Cargando conduces completados...
-                                        </td>
-                                    </tr>
-                                </tbody>
-
-                            </table>
-
-                        </div>
+                        </table>
 
                     </div>
 
                 </div>
 
             </div>
-        `;
 
-        document
-            .getElementById("btnNuevoConduce")
-            .addEventListener("click", () => {
+        </div>
+    `;
 
-                Conduce.limpiar();
-                Despachos.nuevoConduce();
+	document
+		.getElementById("btnVerTodosDespachos")
+		.addEventListener("click", () => {
 
-            });
+			Despachos.notificar(
+				"La consulta general de despachos será construida en el próximo módulo.",
+				"advertencia"
+			);
 
-        await Despachos.cargarConducesAbiertos();
+		});
 
-    },
+    document
+        .getElementById("btnNuevoConduce")
+        .addEventListener("click", () => {
+
+            Conduce.limpiar();
+            Despachos.nuevoConduce();
+
+        });
+
+    await Despachos.cargarConducesAbiertos();
+	
+	await Despachos.cargarResumenDiario();
+
+},
 
 
 async cargarConducesAbiertos() {
@@ -272,7 +320,9 @@ async cargarConducesAbiertos() {
                 conducesAbiertos.map(item => {
 
                     const estado =
-                        String(item.estado || "Borrador").trim();
+                        String(
+                            item.estado || "Borrador"
+                        ).trim();
 
                     const estadoNormalizado =
                         estado.toLowerCase();
@@ -284,18 +334,33 @@ async cargarConducesAbiertos() {
 
                     const fecha =
                         item.fechaTabla
-                            ? String(item.fechaTabla).split(" ")[0]
+                            ? String(
+                                item.fechaTabla
+                            ).split(" ")[0]
                             : "-";
 
-                    const claseBoton =
+                    const botonAccion =
                         estadoNormalizado === "despachado"
-                            ? "btn-continuar-despacho"
-                            : "btn-continuar-borrador";
-
-                    const tituloBoton =
-                        estadoNormalizado === "despachado"
-                            ? "Continuar en Finalizar carga"
-                            : "Continuar carga";
+                            ? `
+                            <button
+                                type="button"
+                                class="btn-editar-despacho btn-continuar-despacho"
+                                data-id-conduce="${item.idConduce}"
+                                title="Continuar en Finalizar carga"
+                            >
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            `
+                            : `
+                            <button
+                                type="button"
+                                class="btn-continuar-borrador"
+                                data-id-conduce="${item.idConduce}"
+                                title="Continuar carga"
+                            >
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            `;
 
                     return `
                         <tr class="${estadoNormalizado}">
@@ -305,12 +370,14 @@ async cargarConducesAbiertos() {
                                     ${item.noConduce || "-"}
                                 </strong>
 
-                                <small class="estado-despacho ${estadoNormalizado}">
+                                <small class="estado-conduce ${estadoNormalizado}">
                                     ${estado}
                                 </small>
                             </td>
 
-                            <td>${realizadoPor}</td>
+                            <td>
+                                ${realizadoPor}
+                            </td>
 
                             <td class="fecha-conduce">
                                 ${fecha}
@@ -326,15 +393,8 @@ async cargarConducesAbiertos() {
                                 ).toLocaleString("es-DO")}
                             </td>
 
-                            <td class="centrado">
-                                <button
-                                    type="button"
-                                    class="${claseBoton}"
-                                    data-id-conduce="${item.idConduce}"
-                                    title="${tituloBoton}"
-                                >
-                                    <i class="fa-solid fa-play"></i>
-                                </button>
+                            <td class="acciones-despacho">
+                                ${botonAccion}
                             </td>
 
                         </tr>
@@ -363,7 +423,7 @@ async cargarConducesAbiertos() {
 
             tablaCompletados.innerHTML = `
                 <tr>
-                    <td colspan="4" class="tabla-vacia">
+                    <td colspan="6" class="tabla-vacia">
                         No hay conduces completados.
                     </td>
                 </tr>
@@ -376,8 +436,15 @@ async cargarConducesAbiertos() {
 
                     const fecha =
                         item.fecha
-                            ? String(item.fecha).split(" ")[0]
+                            ? String(
+                                item.fecha
+                            ).split(" ")[0]
                             : "-";
+
+                    const realizadoPor =
+                        item.realizadoPor ||
+                        item.supervisor ||
+                        "-";
 
                     let botones = `
                         <button
@@ -395,7 +462,7 @@ async cargarConducesAbiertos() {
                         botones += `
                             <button
                                 type="button"
-                                class="btn-abrir-completado"
+                                class="btn-editar-despacho btn-abrir-completado"
                                 data-id-conduce="${item.idConduce}"
                                 title="Abrir asistente en Finalizar carga"
                             >
@@ -413,17 +480,27 @@ async cargarConducesAbiertos() {
                                     ${item.noConduce || "-"}
                                 </strong>
 
-                                <small class="estado-despacho completado">
+                                <small class="estado-conduce completado">
                                     Completado
                                 </small>
+                            </td>
+
+                            <td>
+                                ${realizadoPor}
                             </td>
 
                             <td class="fecha-conduce">
                                 ${fecha}
                             </td>
 
-                            <td>
-                                ${item.realizadoPor || "-"}
+                            <td class="centrado">
+                                ${Number(item.totalLineas || 0)}
+                            </td>
+
+                            <td class="numero">
+                                ${Number(
+                                    item.totalUnidades || 0
+                                ).toLocaleString("es-DO")}
                             </td>
 
                             <td class="acciones-despacho">
@@ -438,56 +515,68 @@ async cargarConducesAbiertos() {
         }
 
         document
-            .querySelectorAll(".btn-continuar-borrador")
+            .querySelectorAll(
+                ".btn-continuar-borrador"
+            )
             .forEach(boton => {
 
                 boton.onclick = async () => {
+
                     await Despachos.continuarBorrador(
                         boton.dataset.idConduce
                     );
+
                 };
 
             });
 
         document
-            .querySelectorAll(".btn-continuar-despacho")
+            .querySelectorAll(
+                ".btn-continuar-despacho"
+            )
             .forEach(boton => {
 
                 boton.onclick = async () => {
+
                     await Despachos.continuarBorrador(
                         boton.dataset.idConduce
                     );
+
                 };
 
             });
 
         document
-    .querySelectorAll(".btn-ver-despacho")
-    .forEach(boton => {
-
-        boton.onclick = async () => {
-
-            await Despachos.abrirVistaConduce(
-                boton.dataset.idConduce
-            );
-
-        };
-
-    });
-
-
-
-        document
-            .querySelectorAll(".btn-abrir-completado")
+            .querySelectorAll(
+                ".btn-ver-despacho"
+            )
             .forEach(boton => {
 
                 boton.onclick = async () => {
+
+                    await Despachos.abrirVistaConduce(
+                        boton.dataset.idConduce
+                    );
+
+                };
+
+            });
+
+        document
+            .querySelectorAll(
+                ".btn-abrir-completado"
+            )
+            .forEach(boton => {
+
+                boton.onclick = async () => {
+
                     await Despachos.continuarBorrador(
                         boton.dataset.idConduce,
                         {
                             permitirCompletado: true
                         }
                     );
+
                 };
 
             });
@@ -509,7 +598,7 @@ async cargarConducesAbiertos() {
 
         tablaCompletados.innerHTML = `
             <tr>
-                <td colspan="4" class="tabla-vacia">
+                <td colspan="6" class="tabla-vacia">
                     No fue posible cargar los conduces completados.
                 </td>
             </tr>
@@ -519,6 +608,110 @@ async cargarConducesAbiertos() {
 
 },
 
+
+async cargarResumenDiario() {
+
+    const totalCerrados =
+        document.getElementById(
+            "totalCerrados"
+        );
+
+    const totalPaquetes =
+        document.getElementById(
+            "totalTarimas"
+        );
+
+    const porcentajeMeta =
+        document.getElementById(
+            "porcentajeMetaDespachos"
+        );
+
+    const textoMeta =
+        document.getElementById(
+            "textoMetaDespachos"
+        );
+
+    const cardMeta =
+        document.getElementById(
+            "cardMetaDespachos"
+        );
+
+    if (
+        !totalCerrados ||
+        !totalPaquetes ||
+        !porcentajeMeta ||
+        !textoMeta ||
+        !cardMeta
+    ) {
+        return;
+    }
+
+    try {
+
+        const respuesta =
+            await API.post({
+                action:
+                    "obtenerResumenDiarioDespachos"
+            });
+
+        if (!respuesta.ok) {
+
+            throw new Error(
+                respuesta.mensaje ||
+                "No fue posible cargar el resumen diario."
+            );
+
+        }
+
+        const datos =
+            respuesta.data || {};
+
+        totalCerrados.textContent =
+            Number(
+                datos.completadosHoy || 0
+            );
+
+        totalPaquetes.textContent =
+            Number(
+                datos.paquetesEnviadosHoy || 0
+            ).toLocaleString("es-DO");
+
+        porcentajeMeta.textContent =
+            `${
+                Number(
+                    datos.porcentajeCumplimiento || 0
+                )
+            }%`;
+
+        textoMeta.textContent =
+            `Meta: ${
+                Number(
+                    datos.metaDespachos || 0
+                )
+            }`;
+
+        cardMeta.classList.remove(
+            "semaforo-rojo",
+            "semaforo-naranja",
+            "semaforo-verde"
+        );
+
+        cardMeta.classList.add(
+            `semaforo-${
+                datos.semaforo || "rojo"
+            }`
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando resumen diario:",
+            error
+        );
+
+    }
+
+},
 
 async continuarBorrador(idConduce, opciones = {}) {
 
@@ -567,15 +760,50 @@ async continuarBorrador(idConduce, opciones = {}) {
                 ? datos.detalle
                 : [];
 
-        const idsNumericos =
-            Conduce.detalle
-                .map(linea => Number(linea.idLinea))
-                .filter(numero => Number.isFinite(numero));
+        const consecutivos =
+    Conduce.detalle
+        .map(linea => {
 
-        Conduce.contadorLineas =
-            idsNumericos.length > 0
-                ? Math.max(...idsNumericos)
-                : Conduce.detalle.length;
+            const idLinea =
+                String(
+                    linea.idLinea || ""
+                ).trim();
+
+            /*
+             * Nuevo formato:
+             * ID_CONDUCE_001
+             */
+            const coincidencia =
+                idLinea.match(
+                    /_(\d{3})$/
+                );
+
+            if (coincidencia) {
+                return Number(
+                    coincidencia[1]
+                );
+            }
+
+            /*
+             * Compatibilidad con líneas antiguas
+             * cuyos ID eran 1, 2, 3...
+             */
+            const idAntiguo =
+                Number(idLinea);
+
+            return Number.isFinite(idAntiguo)
+                ? idAntiguo
+                : 0;
+
+        })
+        .filter(numero =>
+            Number.isFinite(numero)
+        );
+
+Conduce.contadorLineas =
+    consecutivos.length > 0
+        ? Math.max(...consecutivos)
+        : 0;
 
         Despachos.normalizarDetalleCarga();
 
@@ -2663,6 +2891,35 @@ async modalAgregarRecorte() {
 },
 
 
+generarIdLinea() {
+
+    const idConduce =
+        String(
+            Conduce.encabezado.idConduce || ""
+        ).trim();
+
+    if (!idConduce) {
+
+        throw new Error(
+            "El conduce debe estar guardado antes de agregar líneas."
+        );
+
+    }
+
+    Conduce.contadorLineas =
+        Number(
+            Conduce.contadorLineas || 0
+        ) + 1;
+
+    const consecutivo =
+        String(
+            Conduce.contadorLineas
+        ).padStart(3, "0");
+
+    return `${idConduce}_${consecutivo}`;
+
+},
+
 async agregarLinea(
     material,
     fechaProduccion,
@@ -2670,7 +2927,11 @@ async agregarLinea(
     tipo = "Tarima"
 ) {
 
-    Conduce.contadorLineas++;
+    const idLinea =
+    Despachos.generarIdLinea();
+
+	const ordenCreacion =
+    Conduce.contadorLineas;
 
     let lote = "";
     let fechaVencimiento = "";
@@ -2691,8 +2952,7 @@ async agregarLinea(
 
     const linea = {
 
-        idLinea:
-            Conduce.contadorLineas,
+        idLinea: idLinea,
 
         tipo: tipo,
 
@@ -2726,7 +2986,7 @@ async agregarLinea(
             Number(material.base || 0) *
             Number(material.altura || 0),
 			
-		ordenCreacion: Conduce.contadorLineas,
+		ordenCreacion: ordenCreacion,
 		posicion: 0,
 
     };
@@ -2751,7 +3011,11 @@ async agregarRecorte(
     destino
 ) {
 
-    Conduce.contadorLineas++;
+    const idLinea =
+    Despachos.generarIdLinea();
+
+	const ordenCreacion =
+    Conduce.contadorLineas;
 
     const lote =
         Despachos.calcularLote(
@@ -2767,7 +3031,7 @@ async agregarRecorte(
     const linea = {
 
         idLinea:
-            Conduce.contadorLineas,
+			idLinea,
 
         tipo: "Recorte",
 
@@ -2799,7 +3063,8 @@ async agregarRecorte(
         cantidad:
             Number(cantidad),
 			
-		ordenCreacion: Conduce.contadorLineas,
+		ordenCreacion:
+			ordenCreacion,
 		posicion: "",	
 
     };
@@ -2972,11 +3237,11 @@ refrescarCarga() {
                 <td>${linea.cantidad}</td>
 
                 <td>
-                    <button class="btn-icono" onclick="Despachos.editarLinea(${linea.idLinea})">
+                    <button class="btn-icono" onclick='Despachos.editarLinea(${JSON.stringify(linea.idLinea)})'>
                         <i class="fa-solid fa-pen"></i>
                     </button>
 
-                    <button class="btn-icono rojo" onclick="Despachos.eliminarLinea(${linea.idLinea})">
+                    <button class="btn-icono rojo" onclick='Despachos.eliminarLinea(${JSON.stringify(linea.idLinea)})'>
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </td>
@@ -3014,11 +3279,11 @@ refrescarCarga() {
                     <td>${linea.cantidad}</td>
 
                     <td>
-                        <button class="btn-icono" onclick="Despachos.editarLinea(${linea.idLinea})">
+                        <button class="btn-icono" onclick='Despachos.editarLinea(${JSON.stringify(linea.idLinea)})'>
                             <i class="fa-solid fa-pen"></i>
                         </button>
 
-                        <button class="btn-icono rojo" onclick="Despachos.eliminarLinea(${linea.idLinea})">
+                        <button class="btn-icono rojo" onclick='Despachos.eliminarLinea(${JSON.stringify(linea.idLinea)})'>
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </td>
@@ -3058,7 +3323,11 @@ editarPorPosicion(posicion) {
 
 editarLinea(idLinea) {
 
-    const linea = Conduce.detalle.find(l => l.idLinea === idLinea);
+    const linea = Conduce.detalle.find(
+			item =>
+				String(item.idLinea) ===
+				String(idLinea)
+		);
 
     if (!linea) {
         Despachos.notificar("No se encontró la línea seleccionada.", "error");
@@ -3250,8 +3519,10 @@ editarLinea(idLinea) {
 async eliminarLinea(idLinea) {
 
     const existe = Conduce.detalle.some(
-        linea => linea.idLinea === idLinea
-    );
+			linea =>
+				String(linea.idLinea) ===
+				String(idLinea)
+		);
 
     if (!existe) {
 
@@ -3265,8 +3536,10 @@ async eliminarLinea(idLinea) {
     }
 
     Conduce.detalle = Conduce.detalle.filter(
-        linea => linea.idLinea !== idLinea
-    );
+			linea =>
+				String(linea.idLinea) !==
+				String(idLinea)
+		);
 
     Despachos.normalizarDetalleCarga();
     Despachos.refrescarCarga();
@@ -5439,11 +5712,12 @@ async construirHTMLConduceFinal() {
         "";
 
     const logoUrl =
-        configuracion.LogoURL ||
-        "";
+    configuracion.LogoURL ||
+    "";
 
-   const logoDocumento =
-    configuracion.LogoURL || "";
+const logoDocumento =
+    document.querySelector(".sidebar .logo img")?.src ||
+    logoUrl;
 
     const noConduce =
         Conduce.encabezado.noConduce ||

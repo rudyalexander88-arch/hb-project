@@ -2,6 +2,18 @@
    TABLET
 ===================================== */
 
+/* =====================================
+   BARRA MÓVIL
+===================================== */
+
+.barra-movil{
+    display:none;
+}
+
+.fondo-menu-movil{
+    display:none;
+}
+
 @media (max-width: 1024px) {
 
     .contenido-principal{
@@ -44,6 +56,220 @@
 ===================================== */
 
 @media (max-width: 768px) {
+	
+	/* =====================================
+   CABECERA MÓVIL
+===================================== */
+
+body{
+    overflow-x:hidden;
+}
+
+body.menu-movil-abierto{
+    overflow:hidden;
+}
+
+.barra-movil{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    z-index:1200;
+
+    height:72px;
+
+    display:grid;
+    grid-template-columns:44px minmax(0, 1fr) auto;
+    align-items:center;
+    gap:10px;
+
+    padding:8px 14px;
+
+    background:#fff;
+    border-bottom:1px solid #e5e5e5;
+    box-shadow:0 4px 14px rgba(0,0,0,.09);
+}
+
+.btn-menu-movil{
+    width:42px;
+    height:42px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    padding:0;
+
+    border:none;
+    border-radius:8px;
+
+    background:#E31B23;
+    color:#fff;
+
+    font-size:20px;
+    cursor:pointer;
+}
+
+.marca-movil{
+    min-width:0;
+
+    display:flex;
+    align-items:center;
+    gap:9px;
+}
+
+.marca-movil img{
+    width:42px;
+    height:42px;
+
+    object-fit:contain;
+    flex-shrink:0;
+}
+
+.marca-movil div{
+    min-width:0;
+}
+
+.marca-movil strong,
+.marca-movil span{
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.marca-movil strong{
+    color:#222;
+    font-size:14px;
+}
+
+.marca-movil span{
+    margin-top:2px;
+    color:#777;
+    font-size:10px;
+}
+
+.usuario-movil{
+    max-width:105px;
+    min-width:0;
+    text-align:right;
+}
+
+.usuario-movil strong,
+.usuario-movil span{
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.usuario-movil strong{
+    font-size:11px;
+}
+
+.usuario-movil span{
+    margin-top:2px;
+    color:#777;
+    font-size:9px;
+}
+
+/* =====================================
+   SIDEBAR DESPLEGABLE
+===================================== */
+
+.sidebar{
+    position:fixed !important;
+    top:0;
+    left:0;
+    bottom:0;
+    z-index:1300;
+
+    width:275px !important;
+    height:100vh;
+
+    transform:translateX(-105%);
+    transition:transform .25s ease;
+
+    overflow-y:auto;
+    background:#fff;
+    box-shadow:8px 0 25px rgba(0,0,0,.18);
+}
+
+.sidebar.sidebar-abierto{
+    transform:translateX(0);
+}
+
+.fondo-menu-movil{
+    position:fixed;
+    inset:0;
+    z-index:1250;
+
+    display:block;
+
+    background:rgba(0,0,0,.45);
+
+    opacity:0;
+    visibility:hidden;
+
+    transition:
+        opacity .25s ease,
+        visibility .25s ease;
+}
+
+.fondo-menu-movil.visible{
+    opacity:1;
+    visibility:visible;
+}
+
+/* =====================================
+   CONTENIDO GENERAL
+===================================== */
+
+		.main-content,
+		.contenido-dashboard,
+		.contenido-principal{
+			width:100% !important;
+			max-width:100% !important;
+
+			margin-left:0 !important;
+			padding-top:88px !important;
+
+			overflow-x:hidden;
+			box-sizing:border-box;
+		}
+
+		#contenidoPrincipal{
+			width:100%;
+			max-width:100%;
+			min-width:0;
+		}
+
+		.modulo,
+		.paneles,
+		.panel,
+		.cards-resumen,
+		.modulo-header{
+			width:100%;
+			max-width:100%;
+			min-width:0;
+			box-sizing:border-box;
+		}
+
+		.modulo-header{
+			padding-left:0;
+			padding-right:0;
+		}
+
+		.paneles{
+			display:grid;
+			grid-template-columns:1fr;
+		}
+
+		.tabla-responsive{
+			max-width:100%;
+			overflow-x:auto;
+			-webkit-overflow-scrolling:touch;
+		}
 
     .contenido-principal{
         padding:14px;
@@ -121,7 +347,49 @@
    MÓVIL PEQUEÑO
 ===================================== */
 
-@media (max-width: 480px) {
+		@media (max-width: 480px) {
+			
+			.barra-movil{
+			height:68px;
+			grid-template-columns:40px minmax(0, 1fr) 78px;
+			padding:7px 10px;
+		}
+
+		.btn-menu-movil{
+			width:38px;
+			height:38px;
+		}
+
+		.marca-movil img{
+			width:38px;
+			height:38px;
+		}
+
+		.marca-movil strong{
+			font-size:12px;
+		}
+
+		.marca-movil span{
+			font-size:9px;
+		}
+
+		.usuario-movil{
+			max-width:78px;
+		}
+
+		.usuario-movil strong{
+			font-size:9px;
+		}
+
+		.usuario-movil span{
+			font-size:8px;
+		}
+
+		.main-content,
+		.contenido-dashboard,
+		.contenido-principal{
+			padding-top:80px !important;
+		}
 
     .contenido-principal{
         padding:10px;

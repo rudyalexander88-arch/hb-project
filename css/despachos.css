@@ -30,15 +30,57 @@
 
 }
 
-.btn-rojo{
+/* =====================================
+   BOTONES PRINCIPALES DEL MÓDULO
+===================================== */
 
-    background:#D71920;
-    color:#fff;
+.btn-ver-todos-despachos,
+.btn-nuevo-conduce{
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+
+    min-width:185px;
+    height:44px;
+
+    padding:0 20px;
+
     border:none;
-    padding:12px 22px;
-    border-radius:8px;
+    border-radius:10px;
+
+    font-size:14px;
+    font-weight:600;
+
+    color:#fff;
+
     cursor:pointer;
-    transition:.3s;
+
+    transition:.25s;
+
+    box-shadow:0 6px 16px rgba(0,0,0,.12);
+
+}
+
+.btn-ver-todos-despachos{
+
+    background:#28a745;
+
+}
+
+.btn-nuevo-conduce{
+
+    background:#f39c12;
+
+}
+
+.btn-ver-todos-despachos:hover,
+.btn-nuevo-conduce:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:0 10px 24px rgba(0,0,0,.18);
 
 }
 
@@ -1034,23 +1076,7 @@
     font-weight:700;
 }
 
-.btn-continuar-borrador{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:6px;
 
-    background:#28A745;
-    color:#fff;
-
-    border:none;
-    border-radius:7px;
-
-    padding:8px 12px;
-
-    cursor:pointer;
-    white-space:nowrap;
-}
 
 .btn-continuar-borrador:hover{
     background:#208637;
@@ -1167,11 +1193,11 @@
 
     font-weight:700;
 
-    padding:14px 24px;
+    padding:10px 24px;
 
     border:none;
 
-    border-radius:15px;
+    border-radius:10px;
 
     display:flex;
     align-items:center;
@@ -1404,22 +1430,7 @@
 
 
 .btn-abrir-despacho,
-.btn-validar-despacho{
-    width:34px;
-    height:34px;
 
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-
-    padding:0;
-
-    border:none;
-    border-radius:50%;
-
-    color:#fff;
-    cursor:pointer;
-}
 
 .btn-validar-despacho{
     background:#F59E0B;
@@ -1507,11 +1518,7 @@
     background:#F59E0B;
 }
 
-/* Ver: verde */
-.btn-abrir-despacho,
-.btn-ver-despacho{
-    background:#28A745;
-}
+
 
 /* Editar: naranja BON */
 .btn-editar-despacho{
@@ -1957,24 +1964,6 @@
     gap:12px;
 }
 
-.btn-ver-todos-despachos{
-    display:inline-flex;
-    align-items:center;
-    gap:7px;
-
-    padding:11px 17px;
-
-    border:1px solid #28A745;
-    border-radius:9px;
-
-    background:#fff;
-    color:#28A745;
-
-    font-weight:700;
-    cursor:pointer;
-
-    transition:.2s ease;
-}
 
 .btn-ver-todos-despachos:hover{
     background:#28A745;
@@ -2080,3 +2069,60 @@
 
 }
 
+/* =====================================
+   BOTONES DE ACCIÓN
+===================================== */
+
+.btn-accion{
+    width:34px;
+    height:34px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border:none;
+    border-radius:50%;
+
+    color:#fff;
+    cursor:pointer;
+
+    transition:.25s;
+    font-size:14px;
+}
+
+.btn-accion:hover{
+    transform:scale(1.08);
+    box-shadow:0 3px 10px rgba(0,0,0,.20);
+}
+
+/* Continuar */
+
+.btn-continuar-borrador,
+.btn-continuar-despacho{
+    background:#f39c12;
+}
+
+/* Ver */
+
+.btn-ver-despacho{
+    background:#28a745;
+}
+
+/* Editar */
+
+.btn-validar-despacho{
+    background:#3498db;
+}
+
+/* Imprimir */
+
+.btn-imprimir{
+    background:#444;
+}
+
+/* Eliminar */
+
+.btn-eliminar{
+    background:#dc3545;
+}

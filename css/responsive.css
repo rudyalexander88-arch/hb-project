@@ -3,18 +3,9 @@
    Sistema Logístico PT
 ===================================== */
 
-.barra-movil{
-    display:none;
-}
-
+.barra-movil,
 .fondo-menu-movil{
     display:none;
-}
-
-html,
-body{
-    max-width:100%;
-    overflow-x:hidden;
 }
 
 /* =====================================
@@ -23,21 +14,25 @@ body{
 
 @media (max-width:1024px){
 
-    .contenido-principal{
-        padding:20px;
+    .contenido{
+        padding:22px;
+    }
+
+    .cards{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .cards-resumen{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .paneles{
+        grid-template-columns:1fr;
     }
 
     .modulo-header{
         gap:18px;
         align-items:flex-start;
-    }
-
-    .cards-resumen{
-        grid-template-columns:repeat(2, minmax(0, 1fr));
-    }
-
-    .paneles{
-        grid-template-columns:1fr;
     }
 
     .acciones-header-despachos{
@@ -58,7 +53,7 @@ body{
 }
 
 /* =====================================
-   MÓVIL GRANDE
+   MÓVIL / MENÚ DESPLEGABLE
 ===================================== */
 
 @media (max-width:768px){
@@ -74,19 +69,24 @@ body{
         overflow:hidden;
     }
 
+    /* Barra superior */
+
     .barra-movil{
         position:fixed;
         top:0;
         left:0;
         right:0;
         z-index:3000;
+
         height:72px;
+
         display:grid;
-        grid-template-columns:44px minmax(0, 1fr) auto;
+        grid-template-columns:44px minmax(0,1fr) auto;
         align-items:center;
         gap:10px;
+
         padding:8px 14px;
-        box-sizing:border-box;
+
         background:#fff;
         border-bottom:1px solid #e5e5e5;
         box-shadow:0 4px 14px rgba(0,0,0,.09);
@@ -95,18 +95,20 @@ body{
     .btn-menu-movil{
         width:42px;
         height:42px;
+
         display:flex;
         align-items:center;
         justify-content:center;
+
         padding:0;
         border:none;
         border-radius:8px;
+
         background:#E31B23;
         color:#fff;
+
         font-size:20px;
         cursor:pointer;
-        position:relative;
-        z-index:3002;
     }
 
     .marca-movil{
@@ -123,35 +125,13 @@ body{
         flex-shrink:0;
     }
 
-    .marca-movil div{
+    .marca-movil div,
+    .usuario-movil{
         min-width:0;
     }
 
     .marca-movil strong,
-    .marca-movil span{
-        display:block;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-    }
-
-    .marca-movil strong{
-        color:#222;
-        font-size:14px;
-    }
-
-    .marca-movil span{
-        margin-top:2px;
-        color:#777;
-        font-size:10px;
-    }
-
-    .usuario-movil{
-        max-width:105px;
-        min-width:0;
-        text-align:right;
-    }
-
+    .marca-movil span,
     .usuario-movil strong,
     .usuario-movil span{
         display:block;
@@ -160,15 +140,33 @@ body{
         white-space:nowrap;
     }
 
+    .marca-movil strong{
+        font-size:14px;
+        color:#222;
+    }
+
+    .marca-movil span{
+        margin-top:2px;
+        font-size:10px;
+        color:#777;
+    }
+
+    .usuario-movil{
+        max-width:105px;
+        text-align:right;
+    }
+
     .usuario-movil strong{
         font-size:11px;
     }
 
     .usuario-movil span{
         margin-top:2px;
-        color:#777;
         font-size:9px;
+        color:#777;
     }
+
+    /* Sidebar móvil */
 
     #sidebarPrincipal,
     .sidebar{
@@ -177,22 +175,28 @@ body{
         left:0 !important;
         bottom:0 !important;
         z-index:3100 !important;
+
         width:270px !important;
         max-width:82vw !important;
         height:100dvh !important;
-        min-height:100vh !important;
+
         display:flex !important;
         flex-direction:column !important;
+
         margin:0 !important;
-        padding-top:12px !important;
-        background:#fff !important;
-        box-shadow:8px 0 24px rgba(0,0,0,.24) !important;
+        padding:18px 14px 24px !important;
+
         overflow-y:auto !important;
         overflow-x:hidden !important;
-        transform:translate3d(-110%,0,0) !important;
+
+        background:#fff !important;
+        box-shadow:8px 0 24px rgba(0,0,0,.22) !important;
+
+        transform:translate3d(-105%,0,0) !important;
         visibility:hidden !important;
         pointer-events:none !important;
-        transition:transform .25s ease, visibility .25s ease !important;
+
+        transition:transform .25s ease,visibility .25s ease !important;
     }
 
     #sidebarPrincipal.sidebar-abierto,
@@ -202,17 +206,32 @@ body{
         pointer-events:auto !important;
     }
 
+    #sidebarPrincipal .logo,
+    .sidebar .logo{
+        flex:0 0 auto;
+    }
+
+    #sidebarPrincipal ul,
+    .sidebar ul{
+        flex:1 0 auto;
+        width:100%;
+    }
+
     #fondoMenuMovil,
     .fondo-menu-movil{
         position:fixed !important;
         inset:0 !important;
         z-index:3050 !important;
+
         display:block !important;
+
         background:rgba(0,0,0,.52) !important;
+
         opacity:0 !important;
         visibility:hidden !important;
         pointer-events:none !important;
-        transition:opacity .25s ease, visibility .25s ease !important;
+
+        transition:opacity .25s ease,visibility .25s ease !important;
     }
 
     #fondoMenuMovil.visible,
@@ -222,43 +241,57 @@ body{
         pointer-events:auto !important;
     }
 
-    .main-content,
-    .contenido-dashboard,
-    .contenido-principal,
-    main{
+    /* Contenido */
+
+    .contenido{
         width:100% !important;
         max-width:100% !important;
         min-width:0 !important;
+
         margin-left:0 !important;
-        padding-top:88px !important;
-        box-sizing:border-box !important;
+        padding:88px 14px 18px !important;
+
         overflow-x:hidden !important;
     }
 
-    .contenido-principal{
-        padding-left:14px !important;
-        padding-right:14px !important;
-        padding-bottom:18px !important;
+    header{
+        align-items:flex-start;
+        gap:12px;
+    }
+
+    .cards{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+        gap:12px !important;
+    }
+
+    .card{
+        min-width:0;
+        padding:16px 10px;
     }
 
     #contenidoPrincipal,
     .modulo,
-    .paneles,
-    .panel,
+    .modulo-header,
     .cards-resumen,
-    .modulo-header{
+    .paneles,
+    .panel{
         width:100% !important;
         max-width:100% !important;
         min-width:0 !important;
-        box-sizing:border-box !important;
+    }
+
+    #contenidoPrincipal{
+        padding:16px;
+    }
+
+    .modulo{
+        padding:0 !important;
     }
 
     .modulo-header{
         flex-direction:column !important;
         align-items:stretch !important;
         gap:14px !important;
-        padding-left:0 !important;
-        padding-right:0 !important;
     }
 
     .modulo-header h2{
@@ -278,28 +311,8 @@ body{
 
     .acciones-header-despachos button{
         width:100% !important;
-        justify-content:center !important;
-    }
-
-    .dashboard-cards,
-    .cards-dashboard,
-    .cards-kpi{
-        width:100% !important;
-        max-width:100% !important;
-        display:grid !important;
-        grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
-        gap:12px !important;
-    }
-
-    .dashboard-cards > *,
-    .cards-dashboard > *,
-    .cards-kpi > *{
-        width:100% !important;
         min-width:0 !important;
-        max-width:100% !important;
-        margin:0 !important;
-        padding:16px 10px !important;
-        box-sizing:border-box !important;
+        justify-content:center !important;
     }
 
     .cards-resumen{
@@ -311,24 +324,18 @@ body{
     .card-resumen{
         width:100% !important;
         min-width:0 !important;
-        max-width:100% !important;
         min-height:auto !important;
         padding:16px !important;
-        box-sizing:border-box !important;
     }
 
     .paneles{
         display:grid !important;
-        grid-template-columns:minmax(0, 1fr) !important;
+        grid-template-columns:minmax(0,1fr) !important;
         gap:14px !important;
     }
 
     .panel{
         padding:14px !important;
-    }
-
-    .panel h3{
-        font-size:16px;
     }
 
     .tabla-responsive{
@@ -339,9 +346,10 @@ body{
     }
 
     .tabla-responsive table{
-        width:100%;
         min-width:720px;
     }
+
+    /* Modales */
 
     .modal-contenido{
         width:96vw !important;
@@ -350,7 +358,7 @@ body{
     }
 
     #contenidoModal{
-        padding:14px;
+        padding:14px !important;
     }
 
     .grid-form{
@@ -370,7 +378,7 @@ body{
 
     .barra-movil{
         height:68px;
-        grid-template-columns:40px minmax(0, 1fr) 78px;
+        grid-template-columns:40px minmax(0,1fr) 78px;
         padding:7px 10px;
     }
 
@@ -410,17 +418,27 @@ body{
         max-width:84vw !important;
     }
 
-    .main-content,
-    .contenido-dashboard,
-    .contenido-principal,
-    main{
-        padding-top:80px !important;
+    .contenido{
+        padding:80px 10px 14px !important;
     }
 
-    .contenido-principal{
-        padding-left:10px !important;
-        padding-right:10px !important;
-        padding-bottom:14px !important;
+    header{
+        margin-bottom:20px;
+    }
+
+    .cards{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+        gap:10px !important;
+    }
+
+    .card{
+        min-height:118px;
+        padding:14px 8px;
+    }
+
+    #contenidoPrincipal{
+        padding:12px;
+        border-radius:12px;
     }
 
     .modulo-header h2{
@@ -432,27 +450,10 @@ body{
     }
 
     .btn-ver-todos-despachos,
-    .btn-rojo{
+    #btnNuevoConduce,
+    .btn-nuevo-conduce{
         min-height:44px;
         font-size:13px;
-    }
-
-    .dashboard-cards,
-    .cards-dashboard,
-    .cards-kpi{
-        grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
-        gap:10px !important;
-    }
-
-    .dashboard-cards > *,
-    .cards-dashboard > *,
-    .cards-kpi > *{
-        min-height:118px !important;
-        padding:14px 8px !important;
-    }
-
-    .cards-resumen{
-        grid-template-columns:1fr !important;
     }
 
     .card-resumen h3{
@@ -480,7 +481,7 @@ body{
     }
 
     #contenidoModal{
-        padding:10px;
+        padding:10px !important;
     }
 
     .acciones-modal{
@@ -494,6 +495,4 @@ body{
         min-height:44px;
     }
 }
-
-
 

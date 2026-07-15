@@ -1,0 +1,532 @@
+/* ===========================
+   RESET
+=========================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family:'Poppins',sans-serif;
+    background:#ffffff;
+    overflow:hidden;
+    color:#333;
+
+}
+
+/*==========================
+FONDO
+==========================*/
+
+.background-pattern{
+
+    position: fixed;
+    inset: 0;
+
+    background-image: url("../img/fondo.png");
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+
+    opacity: 0.70;
+
+    z-index: -2;
+
+}
+
+
+/*==========================
+NAVBAR
+==========================*/
+
+header{
+
+    width:100%;
+    position:fixed;
+    top:0;
+    left:0;
+
+    background:white;
+
+    box-shadow:0 2px 10px rgba(0,0,0,.06);
+
+    z-index:999;
+
+}
+
+nav{
+
+    max-width:1300px;
+
+    margin:auto;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:15px 40px;
+
+}
+
+.logo-nav{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+}
+
+.logo-nav img{
+
+    width:55px;
+
+}
+
+.logo-nav span{
+
+    font-size:18px;
+
+    font-weight:600;
+
+    color:#D71920;
+
+}
+
+nav ul{
+
+    display:flex;
+
+    list-style:none;
+
+    gap:35px;
+
+}
+
+nav a{
+
+    text-decoration:none;
+
+    color:#444;
+
+    font-weight:500;
+
+    transition:.3s;
+
+}
+
+nav a:hover{
+
+    color:#D71920;
+
+}
+
+
+/*==========================
+PANTALLA PRINCIPAL
+==========================*/
+
+.welcome-screen{
+
+    width:100%;
+    height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+
+/*==========================
+LOGO
+==========================*/
+
+#logoContainer{
+
+    position:fixed;
+
+    top:50%;
+    left:50%;
+
+    transform:translate(-50%, -50%);
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+
+    transition:all 1.5s ease;
+
+    z-index:100;
+
+}
+
+.main-logo{
+
+    width:180px;
+
+    z-index:2;
+
+    animation:logoZoom 2s ease forwards;
+
+}
+
+
+/*==========================
+BORDE CIRCULAR
+==========================*/
+
+.circle-border{
+
+    position:absolute;
+
+    width:230px;
+
+    height:230px;
+
+    border-radius:50%;
+
+    background:conic-gradient(
+
+    #D71920,
+
+    #F28C28,
+
+    #4CAF50,
+
+    #D71920
+
+    );
+
+    animation:rotateBorder 6s linear infinite;
+
+    z-index:1;
+
+}
+
+.circle-border::after{
+
+    content:"";
+
+    position:absolute;
+
+    inset:8px;
+
+    background:white;
+
+    border-radius:50%;
+
+}
+
+
+/*==========================
+ANIMACIONES
+==========================*/
+
+@keyframes rotateBorder{
+
+    from{
+
+        transform:rotate(0deg);
+
+    }
+
+    to{
+
+        transform:rotate(360deg);
+
+    }
+
+}
+
+@keyframes logoZoom{
+
+    0%{
+
+        transform:scale(.5);
+
+        opacity:0;
+
+    }
+
+    50%{
+
+        opacity:1;
+
+    }
+
+    100%{
+
+        transform:scale(1);
+
+    }
+
+}
+
+
+/*==========================
+LOGIN
+==========================*/
+
+.login-section{
+    position: fixed;
+    top: 250px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .8s ease;
+    z-index: 50;
+}
+
+.login-section.show{
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.hidden{
+    pointer-events: none;
+}
+
+.login-card{
+
+    width:390px;
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:40px;
+
+    box-shadow:0 20px 40px rgba(0,0,0,.12);
+
+}
+
+.login-card h2{
+
+    color:#D71920;
+
+    text-align:center;
+
+    margin-bottom:8px;
+
+}
+
+.login-card p{
+
+    text-align:center;
+
+    margin-bottom:30px;
+
+    color:#666;
+
+}
+
+
+/*==========================
+INPUTS
+==========================*/
+
+.input-group{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    border:2px solid #ececec;
+
+    border-radius:12px;
+
+    padding:15px;
+
+    margin-bottom:18px;
+
+    transition:.35s;
+
+}
+
+.input-group i{
+
+    color:#D71920;
+
+}
+
+.input-group input{
+
+    border:none;
+
+    outline:none;
+
+    width:100%;
+
+    font-size:15px;
+
+}
+
+.input-group:focus-within{
+
+    border-color:#D71920;
+
+    box-shadow:0 0 15px rgba(242,140,40,.35);
+
+}
+
+
+/*==========================
+CHECKBOX
+==========================*/
+
+.remember{
+
+    margin-bottom:25px;
+
+    font-size:14px;
+
+}
+
+
+/*==========================
+BOTON
+==========================*/
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    border:none;
+
+    border-radius:12px;
+
+    cursor:pointer;
+
+    color:white;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    background:linear-gradient(
+
+    90deg,
+
+    #D71920,
+
+    #F28C28,
+
+    #4CAF50
+
+    );
+
+    transition:.35s;
+
+}
+
+button:hover{
+
+    transform:scale(1.03);
+
+    box-shadow:0 10px 25px rgba(0,0,0,.2);
+
+}
+
+
+/*==========================
+LINK
+==========================*/
+
+.forgot{
+
+    display:block;
+
+    text-align:center;
+
+    margin-top:25px;
+
+    color:#D71920;
+
+    text-decoration:none;
+
+}
+
+
+/*==========================
+FOOTER
+==========================*/
+
+footer{
+
+    position:fixed;
+
+    bottom:15px;
+
+    width:100%;
+
+    text-align:center;
+
+    color:#777;
+
+    font-size:13px;
+
+}
+
+
+/*==========================
+RESPONSIVE
+==========================*/
+
+@media(max-width:768px){
+
+nav{
+
+flex-direction:column;
+
+gap:15px;
+
+}
+
+nav ul{
+
+gap:18px;
+
+flex-wrap:wrap;
+
+justify-content:center;
+
+}
+
+.login-card{
+
+width:90%;
+
+}
+
+.main-logo{
+
+width:140px;
+
+}
+
+.circle-border{
+
+width:180px;
+
+height:180px;
+
+}
+
+}

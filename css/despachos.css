@@ -49,7 +49,7 @@
 
     border:none;
     border-radius:10px;
-
+	font-family:inherit;
     font-size:14px;
     font-weight:600;
 
@@ -61,6 +61,70 @@
 
     box-shadow:0 6px 16px rgba(0,0,0,.12);
 
+}
+
+
+
+/* =====================================
+   ACCIONES PRINCIPALES DE DESPACHOS
+===================================== */
+
+.btn-principal-despachos,
+.btn-ver-todos-despachos,
+.btn-inspeccionar-contenedor,
+.btn-nuevo-conduce{
+    min-width:185px;
+    height:44px;
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+
+    padding:0 20px;
+
+    border:none;
+    border-radius:10px;
+
+    color:#fff;
+
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+
+    cursor:pointer;
+
+    box-shadow:
+        0 6px 16px rgba(0,0,0,.12);
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease,
+        filter .2s ease;
+}
+
+.btn-principal-despachos:hover,
+.btn-ver-todos-despachos:hover,
+.btn-inspeccionar-contenedor:hover,
+.btn-nuevo-conduce:hover{
+    transform:translateY(-2px);
+
+    box-shadow:
+        0 9px 22px rgba(0,0,0,.17);
+
+    filter:brightness(1.04);
+}
+
+.btn-ver-todos-despachos{
+    background:#28a745;
+}
+
+.btn-inspeccionar-contenedor{
+    background:#d71920;
+}
+
+.btn-nuevo-conduce{
+    background:#f59e0b;
 }
 
 .btn-ver-todos-despachos{
@@ -102,7 +166,7 @@
 .card-resumen{
 
     background:#fff;
-    border-radius:12px;
+    border-radius:10px;
     padding:20px;
     text-align:center;
     box-shadow:0 8px 18px rgba(0,0,0,.08);
@@ -2125,4 +2189,533 @@
 
 .btn-eliminar{
     background:#dc3545;
+}
+
+/* ==========================================
+   MODAL PERSONALIZADO: CONFIRMACIÓN FRIOBOX
+   Archivo: css/despachos.css
+   Ubicación: pegar al final del archivo
+   ========================================== */
+
+.modal-confirmacion-friobox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-confirmacion-friobox__fondo {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 24, 28, 0.72);
+    backdrop-filter: blur(3px);
+}
+
+.modal-confirmacion-friobox__tarjeta {
+    position: relative;
+    width: min(520px, 100%);
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+    animation: aparecerConfirmacionFrioBox 0.2s ease-out;
+}
+
+.modal-confirmacion-friobox__icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    margin: 24px auto 8px;
+    border-radius: 50%;
+    background: #fff3e8;
+    color: #ef6c00;
+    font-size: 24px;
+}
+
+.modal-confirmacion-friobox__contenido {
+    padding: 0 28px 24px;
+    text-align: center;
+}
+
+.modal-confirmacion-friobox__contenido h3 {
+    margin: 0 0 12px;
+    color: #222222;
+    font-size: 22px;
+}
+
+.modal-confirmacion-friobox__contenido p {
+    margin: 6px 0;
+    color: #555555;
+    line-height: 1.5;
+}
+
+.modal-confirmacion-friobox__resumen {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 14px;
+    margin-top: 22px;
+    padding: 16px;
+    border: 1px solid #ececec;
+    border-radius: 12px;
+    background: #fafafa;
+    text-align: left;
+}
+
+.modal-confirmacion-friobox__resumen div {
+    min-width: 0;
+}
+
+.modal-confirmacion-friobox__resumen span {
+    display: block;
+    margin-bottom: 6px;
+    color: #888888;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.modal-confirmacion-friobox__resumen strong {
+    color: #333333;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.modal-confirmacion-friobox__resumen i {
+    color: #ef6c00;
+}
+
+.modal-confirmacion-friobox__acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 18px 24px;
+    border-top: 1px solid #eeeeee;
+    background: #f8f8f8;
+}
+
+.btn-confirmacion-friobox {
+    min-height: 42px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        background 0.15s ease;
+}
+
+.btn-confirmacion-friobox:hover {
+    transform: translateY(-1px);
+}
+
+.btn-confirmacion-friobox--no {
+    background: #e9ecef;
+    color: #333333;
+}
+
+.btn-confirmacion-friobox--no:hover {
+    background: #dde1e4;
+}
+
+.btn-confirmacion-friobox--si {
+    background: #ef6c00;
+    color: #ffffff;
+    box-shadow: 0 5px 14px rgba(239, 108, 0, 0.28);
+}
+
+.btn-confirmacion-friobox--si:hover {
+    background: #d96000;
+}
+
+.btn-confirmacion-friobox:focus-visible {
+    outline: 3px solid rgba(239, 108, 0, 0.28);
+    outline-offset: 2px;
+}
+
+@keyframes aparecerConfirmacionFrioBox {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 600px) {
+
+    .modal-confirmacion-friobox__contenido {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .modal-confirmacion-friobox__resumen {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .modal-confirmacion-friobox__resumen i {
+        transform: rotate(90deg);
+    }
+
+    .modal-confirmacion-friobox__acciones {
+        flex-direction: column-reverse;
+    }
+
+    .btn-confirmacion-friobox {
+        width: 100%;
+    }
+
+}
+// ======================================================
+// ARCHIVO: Despachos.gs
+// FUNCIÓN: obtenerResumenDiarioDespachos()
+//
+// UBICACIÓN:
+// Reemplaza únicamente la función completa que ya tiene
+// este mismo nombre. No reemplaces el archivo completo.
+// ======================================================
+
+function obtenerResumenDiarioDespachos() {
+
+  const hojaDespacho =
+    getSheet(SHEETS.DESPACHO);
+
+  const hojaConfiguracion =
+    getSheet(SHEETS.CONFIGURACION);
+
+  if (
+    !hojaDespacho ||
+    !hojaConfiguracion
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontraron las hojas Despacho o Configuracion."
+    });
+
+  }
+
+  const zonaHoraria =
+    Session.getScriptTimeZone();
+
+  const hoy =
+    Utilities.formatDate(
+      new Date(),
+      zonaHoraria,
+      "yyyy-MM-dd"
+    );
+
+  const datos =
+    hojaDespacho
+      .getDataRange()
+      .getValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: {
+        completadosHoy: 0,
+        paquetesEnviadosHoy: 0,
+        metaDespachos: 0,
+        porcentajeCumplimiento: 0,
+        semaforo: "rojo"
+      }
+    });
+
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return String(valor || "").trim();
+    });
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  const indiceFechaDespacho =
+    encabezados.indexOf(
+      "Fecha_Despacho"
+    );
+
+  const indiceFechaCompletado =
+    encabezados.indexOf(
+      "Fecha_Completado"
+    );
+
+  const indiceTotalUnidades =
+    encabezados.indexOf(
+      "Total_Unidades"
+    );
+
+  if (
+    indiceEstado === -1 ||
+    indiceFechaDespacho === -1 ||
+    indiceFechaCompletado === -1 ||
+    indiceTotalUnidades === -1
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan columnas requeridas en la hoja Despacho."
+    });
+
+  }
+
+  const convertirFecha = function(valor) {
+
+    if (!valor) {
+      return null;
+    }
+
+    if (
+      valor instanceof Date &&
+      !isNaN(valor.getTime())
+    ) {
+      return valor;
+    }
+
+    const texto =
+      String(valor || "").trim();
+
+    /*
+     * Admite fechas guardadas o mostradas como:
+     * 14/07/2026
+     * 14/07/2026 08:35:20
+     * 14/07/2026, 8:35:20 p. m.
+     */
+    const coincidencia =
+      texto.match(
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
+      );
+
+    if (coincidencia) {
+
+      const dia =
+        Number(coincidencia[1]);
+
+      const mes =
+        Number(coincidencia[2]) - 1;
+
+      const ano =
+        Number(coincidencia[3]);
+
+      let hora =
+        Number(
+          coincidencia[4] || 0
+        );
+
+      const minutos =
+        Number(
+          coincidencia[5] || 0
+        );
+
+      const segundos =
+        Number(
+          coincidencia[6] || 0
+        );
+
+      const periodo =
+        String(
+          coincidencia[7] || ""
+        )
+          .toLowerCase()
+          .replace(/\s|\./g, "");
+
+      if (
+        periodo === "pm" &&
+        hora < 12
+      ) {
+        hora += 12;
+      }
+
+      if (
+        periodo === "am" &&
+        hora === 12
+      ) {
+        hora = 0;
+      }
+
+      const fecha =
+        new Date(
+          ano,
+          mes,
+          dia,
+          hora,
+          minutos,
+          segundos
+        );
+
+      return isNaN(fecha.getTime())
+        ? null
+        : fecha;
+
+    }
+
+    const fechaAlternativa =
+      new Date(texto);
+
+    return isNaN(
+      fechaAlternativa.getTime()
+    )
+      ? null
+      : fechaAlternativa;
+
+  };
+
+  const fechaEsHoy = function(valor) {
+
+    const fecha =
+      convertirFecha(valor);
+
+    if (!fecha) {
+      return false;
+    }
+
+    return Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      "yyyy-MM-dd"
+    ) === hoy;
+
+  };
+
+  let completadosHoy = 0;
+  let paquetesEnviadosHoy = 0;
+
+  datos
+    .slice(1)
+    .forEach(function(fila) {
+
+      const estado =
+        String(
+          fila[indiceEstado] || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      const fechaDespacho =
+        fila[indiceFechaDespacho];
+
+      const fechaCompletado =
+        fila[indiceFechaCompletado];
+
+      if (
+        estado === "completado" &&
+        fechaEsHoy(fechaCompletado)
+      ) {
+
+        completadosHoy++;
+
+      }
+
+      if (
+        (
+          estado === "despachado" ||
+          estado === "completado"
+        ) &&
+        fechaEsHoy(fechaDespacho)
+      ) {
+
+        paquetesEnviadosHoy +=
+          Number(
+            fila[
+              indiceTotalUnidades
+            ] || 0
+          );
+
+      }
+
+    });
+
+  const configuracion =
+    hojaConfiguracion
+      .getDataRange()
+      .getValues();
+
+  let metaDespachos = 0;
+
+  for (
+    let i = 1;
+    i < configuracion.length;
+    i++
+  ) {
+
+    if (
+      String(
+        configuracion[i][0] || ""
+      ).trim() ===
+      "Meta_Despachos_Diaria"
+    ) {
+
+      metaDespachos =
+        Number(
+          configuracion[i][1] || 0
+        );
+
+      break;
+
+    }
+
+  }
+
+  const porcentajeCumplimiento =
+    metaDespachos > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (
+              completadosHoy /
+              metaDespachos
+            ) * 100
+          )
+        )
+      : 0;
+
+  let semaforo = "rojo";
+
+  if (
+    porcentajeCumplimiento >= 95
+  ) {
+
+    semaforo = "verde";
+
+  } else if (
+    porcentajeCumplimiento >= 70
+  ) {
+
+    semaforo = "naranja";
+
+  }
+
+  return respuesta({
+    ok: true,
+    data: {
+      completadosHoy:
+        completadosHoy,
+      paquetesEnviadosHoy:
+        paquetesEnviadosHoy,
+      metaDespachos:
+        metaDespachos,
+      porcentajeCumplimiento:
+        porcentajeCumplimiento,
+      semaforo:
+        semaforo
+    }
+  });
+
 }

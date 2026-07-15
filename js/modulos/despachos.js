@@ -35,6 +35,18 @@ window.Despachos = {
 					<i class="fa-solid fa-table-list"></i>
 					Ver todos los despachos
 				</button>
+				
+				<button
+					type="button"
+					id="btnInspeccionarContenedor"
+					class="btn-principal-despachos btn-inspeccionar-contenedor"
+				>
+					<i class="fa-solid fa-clipboard-check"></i>
+
+					<span>
+						Inspeccionar contenedor
+					</span>
+				</button>
 
 				<button
 					id="btnNuevoConduce"
@@ -257,6 +269,25 @@ if (
 			);
 
 		});
+		
+		
+		const btnInspeccionarContenedor =
+			document.getElementById(
+				"btnInspeccionarContenedor"
+			);
+
+		if (btnInspeccionarContenedor) {
+
+			btnInspeccionarContenedor.addEventListener(
+				"click",
+				() => {
+
+					InspeccionContenedores.abrir();
+
+				}
+			);
+
+		}
 
     document
         .getElementById("btnNuevoConduce")
@@ -1264,17 +1295,17 @@ async verConduce(idConduce) {
 
 
 
-   nuevoConduce() {
+   async nuevoConduce() {
 
-    document.getElementById("tituloModal").textContent = "Asistente de Despacho";
+    document.getElementById("tituloModal").textContent =
+        "Asistente de Despacho";
 
     document.getElementById("contenidoModal").innerHTML = `
         <div class="pasos-asistente">
             <div class="paso activo">1. Información</div>
-			<div class="paso">2. Destinos</div>
-			<div class="paso">3. Carga</div>
-			<div class="paso">4. Calidad</div>
-			
+            <div class="paso">2. Destinos</div>
+            <div class="paso">3. Carga</div>
+            <div class="paso">4. Calidad</div>
         </div>
 
         <div class="formulario-conduce">
@@ -1285,40 +1316,202 @@ async verConduce(idConduce) {
 
                 <div class="campo">
                     <label>Creado por</label>
-                    <input type="text" id="supervisorConduce" readonly>
+                    <input
+                        type="text"
+                        id="supervisorConduce"
+                        readonly
+                    >
                 </div>
 
                 <div class="campo">
                     <label>Chofer</label>
+
                     <select id="choferConduce">
-                        <option value="">Cargando choferes...</option>
+                        <option value="">
+                            Cargando choferes...
+                        </option>
                     </select>
                 </div>
 
                 <div class="campo">
+
                     <label>Unidad de carga</label>
-                    <select id="unidadConduce">
-                        <option value="">Cargando unidades...</option>
-                    </select>
+
+                    <div
+                        style="
+                            display:flex;
+                            gap:8px;
+                            align-items:center;
+                        "
+                    >
+
+                        <select
+                            id="unidadConduce"
+                            style="flex:1;"
+                        >
+                            <option value="">
+                                Cargando unidades...
+                            </option>
+                        </select>
+
+                        <button
+                            type="button"
+                            id="btnUnidadTemporal"
+                            class="btn-secundario"
+                            title="Agregar otro contenedor"
+                            style="
+                                width:42px;
+                                min-width:42px;
+                                height:42px;
+                                padding:0;
+                            "
+                        >
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+
+                    </div>
+
                 </div>
 
                 <div class="campo">
                     <label>Cantidad de destinos</label>
+
                     <select id="cantidadDestinos">
-                        <option value="1">1 destino</option>
-                        <option value="2">2 destinos</option>
+                        <option value="1">
+                            1 destino
+                        </option>
+
+                        <option value="2">
+                            2 destinos
+                        </option>
                     </select>
+                </div>
+
+            </div>
+
+            <div
+                id="panelUnidadTemporal"
+                class="campo-full"
+                style="
+                    display:none;
+                    margin-top:18px;
+                    padding:16px;
+                    border:1px solid #dddddd;
+                    border-radius:8px;
+                "
+            >
+
+                <h4 style="margin-top:0;">
+                    Agregar otro contenedor
+                </h4>
+
+                <div class="grid-form">
+
+                    <div class="campo">
+                        <label>Identificación</label>
+
+                        <input
+                            type="text"
+                            id="identificacionUnidadTemporal"
+                            placeholder="Ej.: TTNU-849166-0"
+                        >
+                    </div>
+
+                    <div class="campo">
+                        <label>Tipo de contenedor</label>
+
+                        <input
+                            type="text"
+                            id="tipoContenedorTemporal"
+                            placeholder="Ej.: Refrigerado"
+                        >
+                    </div>
+
+                    <div class="campo">
+                        <label>Tamaño</label>
+
+                        <input
+                            type="text"
+                            id="tamanoContenedorTemporal"
+                            placeholder="Ej.: 40 pies"
+                        >
+                    </div>
+
+                </div>
+
+                <label
+                    style="
+                        display:flex;
+                        gap:8px;
+                        align-items:center;
+                        margin-top:12px;
+                    "
+                >
+                    <input
+                        type="checkbox"
+                        id="guardarUnidadFuturo"
+                    >
+                    Guardar este contenedor para usos futuros
+                </label>
+
+                <label
+                    style="
+                        display:flex;
+                        gap:8px;
+                        align-items:center;
+                        margin-top:10px;
+                    "
+                >
+                    <input
+                        type="checkbox"
+                        id="establecerUnidadPredeterminada"
+                        disabled
+                    >
+                    Establecerlo como predeterminado para este chofer
+                </label>
+
+                <div
+                    style="
+                        display:flex;
+                        justify-content:flex-end;
+                        gap:10px;
+                        margin-top:16px;
+                    "
+                >
+
+                    <button
+                        type="button"
+                        class="btn-secundario"
+                        id="btnCancelarUnidadTemporal"
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn-verde"
+                        id="btnAplicarUnidadTemporal"
+                    >
+                        Aplicar contenedor
+                    </button>
+
                 </div>
 
             </div>
 
             <div class="acciones-modal">
 
-                <button class="btn-secundario" id="btnCancelarConduce">
+                <button
+                    class="btn-secundario"
+                    id="btnCancelarConduce"
+                >
                     Cancelar
                 </button>
 
-                <button class="btn-verde" id="btnPasoDestinos">
+                <button
+                    class="btn-verde"
+                    id="btnPasoDestinos"
+                >
                     Siguiente
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
@@ -1329,73 +1522,196 @@ async verConduce(idConduce) {
     `;
 
     const usuario = JSON.parse(
-    localStorage.getItem("sesion") || sessionStorage.getItem("sesion")
-);
-    document.getElementById("supervisorConduce").value = usuario.nombre;
+        localStorage.getItem("sesion") ||
+        sessionStorage.getItem("sesion") ||
+        "{}"
+    );
 
-    Despachos.cargarChoferes();
-    Despachos.cargarUnidades();
-
-    document.getElementById("btnCancelarConduce").onclick = () => {
+    document.getElementById(
+        "supervisorConduce"
+    ).value = usuario.nombre || "";
 
     document
         .getElementById("modalSistema")
-        .classList.add("oculto");
+        .classList.remove("oculto");
 
-    Conduce.limpiar();
+    await Promise.all([
+        Despachos.cargarChoferes(),
+        Despachos.cargarUnidades()
+    ]);
 
-    document.getElementById("tituloModal").textContent = "";
-    document.getElementById("contenidoModal").innerHTML = "";
+    const selectChofer =
+        document.getElementById(
+            "choferConduce"
+        );
 
-};
+    const selectUnidad =
+        document.getElementById(
+            "unidadConduce"
+        );
 
-    document.getElementById("btnPasoDestinos").onclick = () => {
+    selectChofer.onchange = () => {
 
-        const chofer = document.getElementById("choferConduce").value;
-        const unidad = document.getElementById("unidadConduce").value;
+        Despachos.seleccionarUnidadPredeterminadaChofer(
+            selectChofer.value,
+            selectUnidad
+        );
+
+    };
+
+    document.getElementById(
+        "btnUnidadTemporal"
+    ).onclick = () => {
+
+        const panel =
+            document.getElementById(
+                "panelUnidadTemporal"
+            );
+
+        panel.style.display =
+            panel.style.display === "none"
+                ? "block"
+                : "none";
+
+    };
+
+    document.getElementById(
+        "guardarUnidadFuturo"
+    ).onchange = evento => {
+
+        const guardar =
+            evento.target.checked;
+
+        const checkPredeterminado =
+            document.getElementById(
+                "establecerUnidadPredeterminada"
+            );
+
+        checkPredeterminado.disabled =
+            !guardar;
+
+        if (!guardar) {
+            checkPredeterminado.checked =
+                false;
+        }
+
+    };
+
+    document.getElementById(
+        "btnCancelarUnidadTemporal"
+    ).onclick = () => {
+
+        Despachos.cerrarPanelUnidadTemporal();
+
+    };
+
+    document.getElementById(
+        "btnAplicarUnidadTemporal"
+    ).onclick = async () => {
+
+        await Despachos.aplicarUnidadTemporal();
+
+    };
+
+    document.getElementById(
+        "btnCancelarConduce"
+    ).onclick = () => {
+
+        document
+            .getElementById("modalSistema")
+            .classList.add("oculto");
+
+        Conduce.limpiar();
+
+        document.getElementById(
+            "tituloModal"
+        ).textContent = "";
+
+        document.getElementById(
+            "contenidoModal"
+        ).innerHTML = "";
+
+    };
+
+    document.getElementById(
+        "btnPasoDestinos"
+    ).onclick = () => {
+
+        const chofer =
+            document.getElementById(
+                "choferConduce"
+            ).value;
+
+        const unidad =
+            document.getElementById(
+                "unidadConduce"
+            ).value;
 
         if (chofer === "") {
-            Despachos.notificar("Debe seleccionar un chofer.", "error");
+
+            Despachos.notificar(
+                "Debe seleccionar un chofer.",
+                "error"
+            );
+
             return;
+
         }
 
         if (unidad === "") {
-            Despachos.notificar("Debe seleccionar una unidad de carga.", "error");
+
+            Despachos.notificar(
+                "Debe seleccionar una unidad de carga.",
+                "error"
+            );
+
             return;
+
         }
-		
-	Conduce.encabezado.supervisor = usuario.nombre;
-	Conduce.encabezado.chofer = chofer;
-	Conduce.encabezado.unidad = unidad;
-	Conduce.encabezado.cantidadDestinos = Number(
-    document.getElementById("cantidadDestinos").value
-	);	
-	
-		if (!Conduce.encabezado.idConduce) {
-			Conduce.encabezado.idConduce = "";
-		}
 
-		if (!Conduce.encabezado.noConduce) {
-			Conduce.encabezado.noConduce = "";
-		}
+        Conduce.encabezado.supervisor =
+            usuario.nombre;
 
-		if (!Conduce.encabezado.estado) {
-			Conduce.encabezado.estado = "Borrador";
-		}
+        Conduce.encabezado.chofer =
+            chofer;
 
-		if (!Conduce.encabezado.fechaCreacion) {
-			Conduce.encabezado.fechaCreacion = "";
-		}
+        Conduce.encabezado.unidad =
+            unidad;
 
-		if (!Conduce.encabezado.usuarioCreador) {
-			Conduce.encabezado.usuarioCreador = usuario.usuario || usuario.nombre;
-		}
+        Conduce.encabezado.cantidadDestinos =
+            Number(
+                document.getElementById(
+                    "cantidadDestinos"
+                ).value
+            );
+
+        if (!Conduce.encabezado.idConduce) {
+            Conduce.encabezado.idConduce = "";
+        }
+
+        if (!Conduce.encabezado.noConduce) {
+            Conduce.encabezado.noConduce = "";
+        }
+
+        if (!Conduce.encabezado.estado) {
+            Conduce.encabezado.estado = "Borrador";
+        }
+
+        if (!Conduce.encabezado.fechaCreacion) {
+            Conduce.encabezado.fechaCreacion = "";
+        }
+
+        if (!Conduce.encabezado.usuarioCreador) {
+
+            Conduce.encabezado.usuarioCreador =
+                usuario.usuario ||
+                usuario.nombre;
+
+        }
 
         Despachos.pasoDestinos();
 
     };
-
-    document.getElementById("modalSistema").classList.remove("oculto");
 
 },
 
@@ -1459,6 +1775,221 @@ prepararCambioRuta() {
      * el número visible según los nuevos destinos.
      */
     Conduce.encabezado.requiereRenumeracion = true;
+
+},
+
+
+esFrioBoxDestino(valor) {
+
+    return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase()
+        .includes("friobox");
+
+},
+
+async confirmarFrioBoxComoDestinoFinal(
+    destino1,
+    precinto1,
+    destino2,
+    precinto2
+) {
+
+    const cantidadDestinos =
+        Number(
+            Conduce.encabezado.cantidadDestinos || 1
+        );
+
+    const rutaActual = {
+        destino1: destino1,
+        precinto1: precinto1,
+        destino2: destino2,
+        precinto2: precinto2
+    };
+
+    if (cantidadDestinos !== 2) {
+        return rutaActual;
+    }
+
+    const frioBoxEstaPrimero =
+        Despachos.esFrioBoxDestino(destino1);
+
+    const frioBoxEstaSegundo =
+        Despachos.esFrioBoxDestino(destino2);
+
+    /*
+     * Solo preguntamos cuando FrioBox quedó
+     * colocado como destino 1.
+     */
+    if (
+        !frioBoxEstaPrimero ||
+        frioBoxEstaSegundo
+    ) {
+        return rutaActual;
+    }
+
+    const moverFrioBoxAlFinal =
+        await new Promise(resolve => {
+
+            const modalAnterior =
+                document.getElementById(
+                    "modalConfirmacionFrioBox"
+                );
+
+            if (modalAnterior) {
+                modalAnterior.remove();
+            }
+
+            const modal =
+                document.createElement("div");
+
+            modal.id =
+                "modalConfirmacionFrioBox";
+
+            modal.className =
+                "modal-confirmacion-friobox";
+
+            modal.innerHTML = `
+                <div class="modal-confirmacion-friobox__fondo"></div>
+
+                <div
+                    class="modal-confirmacion-friobox__tarjeta"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="tituloConfirmacionFrioBox"
+                >
+                    <div class="modal-confirmacion-friobox__icono">
+                        <i class="fa-solid fa-route"></i>
+                    </div>
+
+                    <div class="modal-confirmacion-friobox__contenido">
+
+                        <h3 id="tituloConfirmacionFrioBox">
+                            Confirmar orden de la ruta
+                        </h3>
+
+                        <p>
+                            FrioBox está colocado como
+                            <strong>destino 1</strong>.
+                        </p>
+
+                        <p>
+                            ¿Desea establecer FrioBox como
+                            destino final de la ruta?
+                        </p>
+
+                        <div class="modal-confirmacion-friobox__resumen">
+
+                            <div>
+                                <span>Orden actual</span>
+                                <strong>
+                                    1. ${destino1}<br>
+                                    2. ${destino2}
+                                </strong>
+                            </div>
+
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+
+                            <div>
+                                <span>Nuevo orden</span>
+                                <strong>
+                                    1. ${destino2}<br>
+                                    2. ${destino1}
+                                </strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="modal-confirmacion-friobox__acciones">
+
+                        <button
+                            type="button"
+                            class="btn-confirmacion-friobox btn-confirmacion-friobox--no"
+                            id="btnMantenerOrdenFrioBox"
+                        >
+                            No, mantener orden
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn-confirmacion-friobox btn-confirmacion-friobox--si"
+                            id="btnMoverFrioBoxFinal"
+                        >
+                            Sí, colocar al final
+                        </button>
+
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const cerrar = respuesta => {
+
+                document.removeEventListener(
+                    "keydown",
+                    manejarEscape
+                );
+
+                modal.remove();
+
+                resolve(respuesta);
+
+            };
+
+            const manejarEscape = evento => {
+
+                if (evento.key === "Escape") {
+                    cerrar(false);
+                }
+
+            };
+
+            document.addEventListener(
+                "keydown",
+                manejarEscape
+            );
+
+            modal
+                .querySelector(
+                    "#btnMantenerOrdenFrioBox"
+                )
+                .onclick = () => cerrar(false);
+
+            modal
+                .querySelector(
+                    "#btnMoverFrioBoxFinal"
+                )
+                .onclick = () => cerrar(true);
+
+            modal
+                .querySelector(
+                    ".modal-confirmacion-friobox__fondo"
+                )
+                .onclick = () => cerrar(false);
+
+            modal
+                .querySelector(
+                    "#btnMoverFrioBoxFinal"
+                )
+                .focus();
+
+        });
+
+    if (!moverFrioBoxAlFinal) {
+        return rutaActual;
+    }
+
+    return {
+        destino1: destino2,
+        precinto1: precinto2,
+        destino2: destino1,
+        precinto2: precinto1
+    };
 
 },
 
@@ -1613,17 +2144,17 @@ prepararCambioRuta() {
 
     document.getElementById("btnPasoCarga").onclick = async () => {
 
-        const destino1 =
+        let destino1 =
             document.getElementById("destino1").value;
 
-        const precinto1 =
+        let precinto1 =
             document.getElementById("precinto1").value.trim();
 
-        const destino2 = cantidadDestinos === "2"
+        let destino2 = cantidadDestinos === "2"
             ? document.getElementById("destino2").value
             : "";
 
-        const precinto2 = cantidadDestinos === "2"
+        let precinto2 = cantidadDestinos === "2"
             ? document.getElementById("precinto2").value.trim()
             : "";
 
@@ -1694,6 +2225,30 @@ prepararCambioRuta() {
                 return;
 
             }
+
+        }
+
+        if (cantidadDestinos === "2") {
+
+            const rutaConfirmada =
+                await Despachos.confirmarFrioBoxComoDestinoFinal(
+                    destino1,
+                    precinto1,
+                    destino2,
+                    precinto2
+                );
+
+            destino1 =
+                rutaConfirmada.destino1;
+
+            precinto1 =
+                rutaConfirmada.precinto1;
+
+            destino2 =
+                rutaConfirmada.destino2;
+
+            precinto2 =
+                rutaConfirmada.precinto2;
 
         }
 
@@ -1794,7 +2349,7 @@ prepararCambioRuta() {
 
 
 
-pasoCarga() {
+async pasoCarga() {
 
     document.getElementById("contenidoModal").innerHTML = `
         <div class="barra-superior-carga">
@@ -1911,6 +2466,22 @@ pasoCarga() {
                     : ""
             }
 
+            <div class="resumen-inspeccion-conduce">
+
+                <span>
+                    Formulario de inspección
+                </span>
+
+                <strong id="numeroInspeccionConduce">
+                    Consultando...
+                </strong>
+
+                <small id="estadoInspeccionConduce">
+                    Verificando inspección vinculada
+                </small>
+
+            </div>
+
             <button
                 type="button"
                 class="btn-editar-resumen"
@@ -1972,8 +2543,19 @@ pasoCarga() {
     Despachos.modalAgregarRecorte();
 	};
 
-    document.getElementById("btnPasoResumen").onclick = () => {
-    Despachos.validarPasoCarga();
+    document.getElementById("btnPasoResumen").onclick = async () => {
+
+        const inspeccionDisponible =
+            await Despachos.cargarInspeccionConduce({
+                notificarSiFalta: true
+            });
+
+        if (!inspeccionDisponible) {
+            return;
+        }
+
+        Despachos.validarPasoCarga();
+
 	};
 	
 	document.getElementById("btnGuardarBorrador").onclick = async () => {
@@ -1996,12 +2578,210 @@ pasoCarga() {
 
     Despachos.refrescarCarga();
 
+    await Despachos.cargarInspeccionConduce();
+
 },
+
+
+async cargarInspeccionConduce(
+    opciones = {}
+) {
+
+    const numeroElemento =
+        document.getElementById(
+            "numeroInspeccionConduce"
+        );
+
+    const estadoElemento =
+        document.getElementById(
+            "estadoInspeccionConduce"
+        );
+
+    const idConduce =
+        String(
+            Conduce.encabezado.idConduce || ""
+        ).trim();
+
+    if (!idConduce) {
+
+        Conduce.encabezado.numeroInspeccion =
+            "";
+
+        if (numeroElemento) {
+            numeroElemento.textContent =
+                "No disponible";
+        }
+
+        if (estadoElemento) {
+            estadoElemento.textContent =
+                "Primero debe guardarse el conduce";
+            estadoElemento.className =
+                "inspeccion-conduce-pendiente";
+        }
+
+        if (
+            opciones.notificarSiFalta === true
+        ) {
+
+            Despachos.notificar(
+                "Primero debe guardar el conduce antes de validar su inspección.",
+                "advertencia"
+            );
+
+        }
+
+        return false;
+
+    }
+
+    try {
+
+        const respuesta =
+            await API.post({
+                action:
+                    "obtenerInspeccionConduce",
+                idConduce:
+                    idConduce
+            });
+
+        const datos =
+            respuesta && respuesta.ok
+                ? respuesta.data || {}
+                : {};
+
+        const numeroFormulario =
+            String(
+                datos.numeroFormulario || ""
+            ).trim();
+
+        const estado =
+            String(
+                datos.estado || ""
+            ).trim();
+
+        const completada =
+            respuesta &&
+            respuesta.ok &&
+            datos.completada === true &&
+            numeroFormulario !== "";
+
+        Conduce.encabezado.numeroInspeccion =
+            completada
+                ? numeroFormulario
+                : "";
+
+        if (numeroElemento) {
+
+            numeroElemento.textContent =
+                completada
+                    ? numeroFormulario
+                    : "Pendiente";
+
+        }
+
+        if (estadoElemento) {
+
+            estadoElemento.textContent =
+                completada
+                    ? "Inspección completada"
+                    : (
+                        estado
+                            ? `Estado: ${estado}`
+                            : "No existe una inspección completada"
+                    );
+
+            estadoElemento.className =
+                completada
+                    ? "inspeccion-conduce-completada"
+                    : "inspeccion-conduce-pendiente";
+
+        }
+
+        if (
+            !completada &&
+            opciones.notificarSiFalta === true
+        ) {
+
+            Despachos.notificar(
+                "Debe completar la inspección del contenedor antes de pasar al Paso 4.",
+                "error"
+            );
+
+        }
+
+        return completada;
+
+    } catch (error) {
+
+        console.error(
+            "Error consultando la inspección del conduce:",
+            error
+        );
+
+        Conduce.encabezado.numeroInspeccion =
+            "";
+
+        if (numeroElemento) {
+            numeroElemento.textContent =
+                "Error";
+        }
+
+        if (estadoElemento) {
+            estadoElemento.textContent =
+                "No fue posible comprobar la inspección";
+            estadoElemento.className =
+                "inspeccion-conduce-pendiente";
+        }
+
+        if (
+            opciones.notificarSiFalta === true
+        ) {
+
+            Despachos.notificar(
+                "No fue posible comprobar la inspección del contenedor.",
+                "error"
+            );
+
+        }
+
+        return false;
+
+    }
+
+},
+
 
 async editarInformacionConduce() {
 
-    const choferes = await Catalogos.cargarChoferes();
-    const unidades = await Catalogos.cargarUnidades();
+    const choferesCatalogo =
+        await Catalogos.cargarChoferes();
+
+    const unidadesCatalogo =
+        await Catalogos.cargarUnidades();
+
+    const choferes =
+        Array.isArray(choferesCatalogo)
+            ? choferesCatalogo
+            : [];
+
+    const unidades =
+        Array.isArray(unidadesCatalogo)
+            ? unidadesCatalogo.filter(unidad => {
+
+                const tipo = String(
+                    unidad.tipo ||
+                    unidad.Tipo ||
+                    unidad.tipoUnidad ||
+                    unidad.tipo_unidad ||
+                    ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+                return tipo === "contenedor";
+
+            })
+            : [];
 
     const opcionesChoferes = choferes.map(chofer => `
         <option
@@ -2046,7 +2826,7 @@ async editarInformacionConduce() {
                     <label>Chofer</label>
 
                     <select id="editarChofer">
-                        <option value="">Seleccione un chofer</option>
+                        <option value="" disabled hidden></option>
                         ${opcionesChoferes}
                     </select>
                 </div>
@@ -2055,7 +2835,7 @@ async editarInformacionConduce() {
                     <label>Unidad de carga</label>
 
                     <select id="editarUnidad">
-                        <option value="">Seleccione una unidad</option>
+                        <option value="" disabled hidden></option>
                         ${opcionesUnidades}
                     </select>
                 </div>
@@ -7048,6 +7828,402 @@ async verConduce(idConduce) {
 
 
 
+seleccionarUnidadPredeterminadaChofer(
+    valorChofer,
+    selectUnidad
+) {
+
+    const choferes =
+        Array.isArray(
+            Despachos.choferesDisponibles
+        )
+            ? Despachos.choferesDisponibles
+            : [];
+
+    const unidades =
+        Array.isArray(
+            Despachos.unidadesDisponibles
+        )
+            ? Despachos.unidadesDisponibles
+            : [];
+
+    const chofer =
+        choferes.find(item =>
+            item.texto === valorChofer
+        );
+
+    if (
+        !chofer ||
+        !chofer.contenedorPorDefecto ||
+        !selectUnidad
+    ) {
+        return;
+    }
+
+    const predeterminado =
+        String(
+            chofer.contenedorPorDefecto
+        ).trim();
+
+    const unidad =
+        unidades.find(item => {
+
+            const id =
+                String(
+                    item.id || ""
+                ).trim();
+
+            const identificacion =
+                String(
+                    item.identificacion || ""
+                ).trim();
+
+            const texto =
+                String(
+                    item.texto || ""
+                ).trim();
+
+            return (
+                id === predeterminado ||
+                identificacion === predeterminado ||
+                texto === predeterminado ||
+                texto.startsWith(
+                    predeterminado + " - "
+                )
+            );
+
+        });
+
+    if (unidad) {
+
+        selectUnidad.value =
+            unidad.texto;
+
+    }
+
+},
+
+cerrarPanelUnidadTemporal() {
+
+    const panel =
+        document.getElementById(
+            "panelUnidadTemporal"
+        );
+
+    if (panel) {
+        panel.style.display = "none";
+    }
+
+    const identificacion =
+        document.getElementById(
+            "identificacionUnidadTemporal"
+        );
+
+    const tipo =
+        document.getElementById(
+            "tipoContenedorTemporal"
+        );
+
+    const tamano =
+        document.getElementById(
+            "tamanoContenedorTemporal"
+        );
+
+    const guardar =
+        document.getElementById(
+            "guardarUnidadFuturo"
+        );
+
+    const predeterminado =
+        document.getElementById(
+            "establecerUnidadPredeterminada"
+        );
+
+    if (identificacion) {
+        identificacion.value = "";
+    }
+
+    if (tipo) {
+        tipo.value = "";
+    }
+
+    if (tamano) {
+        tamano.value = "";
+    }
+
+    if (guardar) {
+        guardar.checked = false;
+    }
+
+    if (predeterminado) {
+        predeterminado.checked = false;
+        predeterminado.disabled = true;
+    }
+
+},
+
+async aplicarUnidadTemporal() {
+
+    const identificacion =
+        String(
+            document.getElementById(
+                "identificacionUnidadTemporal"
+            ).value || ""
+        ).trim();
+
+    const tipoContenedor =
+        String(
+            document.getElementById(
+                "tipoContenedorTemporal"
+            ).value || ""
+        ).trim();
+
+    const tamanoContenedor =
+        String(
+            document.getElementById(
+                "tamanoContenedorTemporal"
+            ).value || ""
+        ).trim();
+
+    const guardarParaFuturo =
+        document.getElementById(
+            "guardarUnidadFuturo"
+        ).checked;
+
+    const establecerPredeterminado =
+        document.getElementById(
+            "establecerUnidadPredeterminada"
+        ).checked;
+
+    const selectChofer =
+        document.getElementById(
+            "choferConduce"
+        );
+
+    const selectUnidad =
+        document.getElementById(
+            "unidadConduce"
+        );
+
+    if (!identificacion) {
+
+        Despachos.notificar(
+            "Debe indicar la identificación del contenedor.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    if (
+        establecerPredeterminado &&
+        !selectChofer.value
+    ) {
+
+        Despachos.notificar(
+            "Debe seleccionar primero un chofer.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    if (!guardarParaFuturo) {
+
+        const textoTemporal =
+            "TEMP - " + identificacion;
+
+        const opcion =
+            document.createElement(
+                "option"
+            );
+
+        opcion.value = textoTemporal;
+        opcion.textContent =
+            textoTemporal;
+
+        selectUnidad.appendChild(opcion);
+        selectUnidad.value =
+            textoTemporal;
+
+        Despachos.cerrarPanelUnidadTemporal();
+
+        Despachos.notificar(
+            "Contenedor temporal aplicado al despacho.",
+            "exito"
+        );
+
+        return;
+
+    }
+
+    const choferes =
+        Array.isArray(
+            Despachos.choferesDisponibles
+        )
+            ? Despachos.choferesDisponibles
+            : [];
+
+    const chofer =
+        choferes.find(item =>
+            item.texto === selectChofer.value
+        );
+
+    try {
+
+        const resultado =
+            await API.post({
+                action:
+                    "guardarUnidadCargaNueva",
+
+                identificacion:
+                    identificacion,
+
+                tipoContenedor:
+                    tipoContenedor,
+
+                tamanoContenedor:
+                    tamanoContenedor,
+
+                idChofer:
+                    chofer
+                        ? chofer.id
+                        : "",
+
+                establecerPredeterminado:
+                    establecerPredeterminado
+            });
+
+        if (!resultado.ok) {
+
+            Despachos.notificar(
+                resultado.mensaje ||
+                "No fue posible guardar el contenedor.",
+                "error"
+            );
+
+            return;
+
+        }
+
+        const unidad =
+            resultado.data &&
+            resultado.data.unidad
+                ? resultado.data.unidad
+                : null;
+
+        if (!unidad) {
+
+            Despachos.notificar(
+                "El servidor no devolvió la unidad guardada.",
+                "error"
+            );
+
+            return;
+
+        }
+
+        const yaExiste =
+            Array.from(
+                selectUnidad.options
+            ).some(
+                opcion =>
+                    opcion.value ===
+                    unidad.texto
+            );
+
+        if (!yaExiste) {
+
+            const opcion =
+                document.createElement(
+                    "option"
+                );
+
+            opcion.value =
+                unidad.texto;
+
+            opcion.textContent =
+                unidad.texto;
+
+            selectUnidad.appendChild(
+                opcion
+            );
+
+        }
+
+        selectUnidad.value =
+            unidad.texto;
+
+        if (
+            !Array.isArray(
+                Despachos.unidadesDisponibles
+            )
+        ) {
+
+            Despachos.unidadesDisponibles =
+                [];
+
+        }
+
+        const indiceUnidad =
+            Despachos.unidadesDisponibles
+                .findIndex(
+                    item =>
+                        item.id === unidad.id
+                );
+
+        if (indiceUnidad === -1) {
+
+            Despachos.unidadesDisponibles.push(
+                unidad
+            );
+
+        } else {
+
+            Despachos.unidadesDisponibles[
+                indiceUnidad
+            ] = unidad;
+
+        }
+
+        if (
+            establecerPredeterminado &&
+            chofer
+        ) {
+
+            chofer.contenedorPorDefecto =
+                unidad.id;
+
+        }
+
+        Despachos.cerrarPanelUnidadTemporal();
+
+        Despachos.notificar(
+            establecerPredeterminado
+                ? "Contenedor guardado y establecido como predeterminado."
+                : "Contenedor guardado para usos futuros.",
+            "exito"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Error guardando contenedor:",
+            error
+        );
+
+        Despachos.notificar(
+            "No fue posible guardar el contenedor.",
+            "error"
+        );
+
+    }
+
+},
+
+
 	notificar(mensaje, tipo = "info") {
 
     const notificacionAnterior = document.querySelector(".notificacion-sistema");
@@ -7083,35 +8259,182 @@ async verConduce(idConduce) {
 },
 async cargarChoferes() {
 
-    const select = document.getElementById("choferConduce");
-    const choferes = await Catalogos.cargarChoferes();
+    const select =
+        document.getElementById(
+            "choferConduce"
+        );
 
-    select.innerHTML = `<option value="">Seleccione un chofer</option>`;
+    if (!select) {
+        return;
+    }
 
-    choferes.forEach(chofer => {
-        select.innerHTML += `
-            <option value="${chofer.texto}">
-                ${chofer.texto}
+    try {
+
+        const catalogo =
+            await Catalogos.cargarChoferes();
+
+        const choferes =
+            Array.isArray(catalogo)
+                ? catalogo
+                : [];
+
+        Despachos.choferesDisponibles =
+            choferes;
+
+        select.innerHTML = `
+            <option
+                value=""
+                selected
+                disabled
+                hidden
+            ></option>
+        `;
+
+        choferes.forEach(chofer => {
+
+            const opcion =
+                document.createElement(
+                    "option"
+                );
+
+            opcion.value =
+                chofer.texto;
+
+            opcion.textContent =
+                chofer.texto;
+
+            select.appendChild(opcion);
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando choferes:",
+            error
+        );
+
+        select.innerHTML = `
+            <option value="">
+                Error al cargar choferes
             </option>
         `;
-    });
+
+        Despachos.notificar(
+            "No fue posible cargar los choferes.",
+            "error"
+        );
+
+    }
 
 },
 
 async cargarUnidades() {
 
-    const select = document.getElementById("unidadConduce");
-    const unidades = await Catalogos.cargarUnidades();
+    const select =
+        document.getElementById(
+            "unidadConduce"
+        );
 
-    select.innerHTML = `<option value="">Seleccione una unidad</option>`;
+    if (!select) {
+        return;
+    }
 
-    unidades.forEach(unidad => {
-        select.innerHTML += `
-            <option value="${unidad.texto}">
-                ${unidad.texto}
+    try {
+
+        const unidadesCatalogo =
+            await Catalogos.cargarUnidades();
+
+        const unidades =
+            Array.isArray(unidadesCatalogo)
+                ? unidadesCatalogo
+                : [];
+
+        const contenedores =
+            unidades.filter(unidad => {
+
+                const tipo =
+                    String(
+                        unidad.tipo ||
+                        unidad.Tipo ||
+                        unidad.tipoUnidad ||
+                        unidad.tipo_unidad ||
+                        ""
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                return tipo === "contenedor";
+
+            });
+
+        Despachos.unidadesDisponibles =
+            contenedores;
+
+        select.innerHTML = `
+            <option
+                value=""
+                selected
+                disabled
+                hidden
+            ></option>
+        `;
+
+        contenedores.forEach(unidad => {
+
+            const texto =
+                String(
+                    unidad.texto ||
+                    unidad.identificacion ||
+                    unidad.id ||
+                    ""
+                ).trim();
+
+            if (!texto) {
+                return;
+            }
+
+            const opcion =
+                document.createElement(
+                    "option"
+                );
+
+            opcion.value = texto;
+            opcion.textContent = texto;
+
+            select.appendChild(opcion);
+
+        });
+
+        if (contenedores.length === 0) {
+
+            select.innerHTML = `
+                <option value="">
+                    No hay contenedores disponibles
+                </option>
+            `;
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando unidades de carga:",
+            error
+        );
+
+        select.innerHTML = `
+            <option value="">
+                Error al cargar contenedores
             </option>
         `;
-    });
+
+        Despachos.notificar(
+            "No fue posible cargar los contenedores.",
+            "error"
+        );
+
+    }
 
 },
 	

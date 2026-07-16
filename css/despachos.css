@@ -2719,3 +2719,420 @@ function obtenerResumenDiarioDespachos() {
   });
 
 }
+
+
+/* =====================================================
+   VISOR DE INSPECCIONES REALIZADAS
+   ===================================================== */
+
+.btn-ver-inspecciones{
+    background:#1677C8;
+}
+
+.btn-ver-inspecciones:hover{
+    background:#1167AD;
+}
+
+.visor-inspecciones{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    padding-top:16px;
+}
+
+.estado-carga-inspecciones,
+.estado-vacio-inspecciones{
+    min-height:260px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:30px;
+    color:#777;
+    text-align:center;
+}
+
+.estado-carga-inspecciones i,
+.estado-vacio-inspecciones i{
+    color:#1677C8;
+    font-size:34px;
+}
+
+.estado-error-inspecciones i{
+    color:#D71920;
+}
+
+.estado-vacio-inspecciones strong{
+    color:#333;
+    font-size:17px;
+}
+
+.resumen-inspecciones{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(120px,1fr));
+    gap:12px;
+}
+
+.tarjeta-resumen-inspeccion{
+    position:relative;
+    overflow:hidden;
+    min-height:92px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    padding:14px;
+    background:#fff;
+    border:1px solid #e3e3e3;
+    border-radius:12px;
+    box-shadow:0 5px 14px rgba(0,0,0,.06);
+}
+
+.tarjeta-resumen-inspeccion::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:5px;
+    background:#777;
+}
+
+.tarjeta-resumen-inspeccion span{
+    color:#777;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+}
+
+.tarjeta-resumen-inspeccion strong{
+    color:#222;
+    font-size:25px;
+}
+
+.tarjeta-resumen-inspeccion.total::before{background:#1677C8;}
+.tarjeta-resumen-inspeccion.completadas::before{background:#28A745;}
+.tarjeta-resumen-inspeccion.conformes::before{background:#138A3D;}
+.tarjeta-resumen-inspeccion.hallazgos::before{background:#D71920;}
+.tarjeta-resumen-inspeccion.pendientes::before{background:#F59E0B;}
+
+.filtros-inspecciones{
+    display:grid;
+    grid-template-columns:minmax(260px,2fr) repeat(5,minmax(125px,1fr)) auto;
+    gap:10px;
+    align-items:end;
+    padding:14px;
+    background:#f8f8f8;
+    border:1px solid #e5e5e5;
+    border-radius:12px;
+}
+
+.filtro-inspecciones{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.filtro-inspecciones label{
+    color:#555;
+    font-size:11px;
+    font-weight:700;
+}
+
+.filtro-inspecciones input,
+.filtro-inspecciones select{
+    width:100%;
+    height:40px;
+    padding:0 11px;
+    border:1px solid #d8d8d8;
+    border-radius:8px;
+    background:#fff;
+    font-family:inherit;
+    font-size:12px;
+}
+
+.filtro-inspecciones input:focus,
+.filtro-inspecciones select:focus{
+    outline:none;
+    border-color:#1677C8;
+    box-shadow:0 0 0 3px rgba(22,119,200,.12);
+}
+
+.entrada-busqueda-inspecciones{
+    position:relative;
+}
+
+.entrada-busqueda-inspecciones i{
+    position:absolute;
+    left:12px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#888;
+}
+
+.entrada-busqueda-inspecciones input{
+    padding-left:34px;
+}
+
+.btn-limpiar-filtros-inspecciones{
+    height:40px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:0 14px;
+    border:none;
+    border-radius:8px;
+    background:#e7e7e7;
+    color:#333;
+    font-family:inherit;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.btn-limpiar-filtros-inspecciones:hover{
+    background:#d8d8d8;
+}
+
+.contador-resultados-inspecciones{
+    color:#666;
+    font-size:12px;
+    font-weight:600;
+    text-align:right;
+}
+
+.lista-inspecciones{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+
+.tarjeta-inspeccion-realizada{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:13px;
+    padding:15px;
+    background:#fff;
+    border:1px solid #e1e1e1;
+    border-radius:12px;
+    box-shadow:0 5px 14px rgba(0,0,0,.06);
+    transition:transform .16s ease,box-shadow .16s ease;
+}
+
+.tarjeta-inspeccion-realizada:hover{
+    transform:translateY(-2px);
+    box-shadow:0 9px 20px rgba(0,0,0,.09);
+}
+
+.cabecera-tarjeta-inspeccion{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    padding-bottom:10px;
+    border-bottom:1px solid #eee;
+}
+
+.cabecera-tarjeta-inspeccion > div:first-child{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+
+.cabecera-tarjeta-inspeccion > div:first-child span{
+    color:#888;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+}
+
+.cabecera-tarjeta-inspeccion > div:first-child strong{
+    color:#222;
+    font-size:18px;
+}
+
+.etiquetas-inspeccion{
+    display:flex;
+    justify-content:flex-end;
+    gap:6px;
+    flex-wrap:wrap;
+}
+
+.etiqueta-inspeccion{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:25px;
+    padding:4px 9px;
+    border-radius:15px;
+    font-size:10px;
+    font-weight:700;
+}
+
+.etiqueta-inspeccion.exito{
+    color:#176B35;
+    background:#EAF6EE;
+    border:1px solid #85BE96;
+}
+
+.etiqueta-inspeccion.error{
+    color:#A31218;
+    background:#FCE8E8;
+    border:1px solid #E19A9E;
+}
+
+.etiqueta-inspeccion.advertencia{
+    color:#8A6200;
+    background:#FFF5D6;
+    border:1px solid #E0C56D;
+}
+
+.etiqueta-inspeccion.neutral{
+    color:#555;
+    background:#eee;
+    border:1px solid #d4d4d4;
+}
+
+.datos-tarjeta-inspeccion{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px 14px;
+}
+
+.datos-tarjeta-inspeccion div{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+
+.datos-tarjeta-inspeccion span{
+    color:#888;
+    font-size:10px;
+    text-transform:uppercase;
+}
+
+.datos-tarjeta-inspeccion strong{
+    overflow:hidden;
+    color:#333;
+    font-size:12px;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.pie-tarjeta-inspeccion{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding-top:10px;
+    border-top:1px solid #eee;
+}
+
+.pie-tarjeta-inspeccion > span{
+    color:#666;
+    font-size:11px;
+}
+
+.pie-tarjeta-inspeccion > span i{
+    margin-right:5px;
+    color:#1677C8;
+}
+
+.btn-abrir-pdf-inspeccion{
+    min-height:36px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:7px 13px;
+    border:none;
+    border-radius:8px;
+    background:#D71920;
+    color:#fff;
+    font-family:inherit;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.btn-abrir-pdf-inspeccion:hover:not(:disabled){
+    background:#B91419;
+    transform:translateY(-1px);
+}
+
+.btn-abrir-pdf-inspeccion:disabled{
+    background:#cfcfcf;
+    color:#777;
+    cursor:not-allowed;
+}
+
+.acciones-visor-inspecciones{
+    display:flex;
+    justify-content:flex-end;
+    padding:4px 0 10px;
+}
+
+@media(max-width:1200px){
+    .filtros-inspecciones{
+        grid-template-columns:repeat(3,minmax(150px,1fr));
+    }
+
+    .filtro-busqueda-inspecciones{
+        grid-column:1 / -1;
+    }
+
+    .resumen-inspecciones{
+        grid-template-columns:repeat(5,minmax(100px,1fr));
+    }
+}
+
+@media(max-width:850px){
+    .resumen-inspecciones{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .tarjeta-resumen-inspeccion.total{
+        grid-column:1 / -1;
+    }
+
+    .filtros-inspecciones{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .lista-inspecciones{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:600px){
+    .filtros-inspecciones{
+        grid-template-columns:1fr;
+    }
+
+    .filtro-busqueda-inspecciones{
+        grid-column:auto;
+    }
+
+    .datos-tarjeta-inspeccion{
+        grid-template-columns:1fr;
+    }
+
+    .cabecera-tarjeta-inspeccion,
+    .pie-tarjeta-inspeccion{
+        align-items:stretch;
+        flex-direction:column;
+    }
+
+    .etiquetas-inspeccion{
+        justify-content:flex-start;
+    }
+
+    .btn-abrir-pdf-inspeccion{
+        width:100%;
+    }
+}

@@ -2711,9 +2711,12 @@ formatearTamanoContenedor(
                 try {
                     await this.cargarEvidenciasGuardadas();
                     this.mostrarPasoEvidencias();
-                    if (!this.validarEvidenciasPorCategoria()) return;
+                    if (!this.validarEvidenciasPorCategoria()) {
+                        return;
+                    }
+
                     this.pasoActual = 4;
-                    if (window.Despachos?.notificar) Despachos.notificar("Todas las evidencias fueron almacenadas correctamente.", "exito");
+                    this.mostrarPasoFinalizar();
                 } finally {
                     if (document.body.contains(btnContinuar)) btnContinuar.disabled = false;
                 }
@@ -2746,6 +2749,585 @@ formatearTamanoContenedor(
 
     },
 
+
+
+
+    obtenerResumenFinalInspeccion() {
+
+        let cumple = 0;
+        let noCumple = 0;
+        let noAplica = 0;
+
+        this.catalogo.forEach(punto => {
+
+            const respuesta =
+                this.respuestasBASC[
+                    String(
+                        punto.codigo || ""
+                    ).trim()
+                ] || {};
+
+            if (respuesta.estado === "Cumple") cumple++;
+            if (respuesta.estado === "No cumple") noCumple++;
+            if (respuesta.estado === "No aplica") noAplica++;
+
+        });
+
+        const totalEvidencias =
+            Object.values(
+                this.evidenciasPorCategoria
+            ).reduce(
+                (total, evidencias) =>
+                    total +
+                    (
+                        Array.isArray(evidencias)
+                            ? evidencias.length
+                            : 0
+                    ),
+                0
+            );
+
+        return {
+            total: this.catalogo.length,
+            cumple: cumple,
+            noCumple: noCumple,
+            noAplica: noAplica,
+            totalEvidencias: totalEvidencias,
+            resultado:
+                noCumple > 0
+                    ? "Con hallazgos"
+                    : "Conforme"
+        };
+
+    },
+
+
+    mostrarPasoFinalizar() {
+
+        const contenidoModal =
+            document.getElementById(
+                "contenidoModal"
+            );
+
+        if (!contenidoModal) return;
+
+        const resumen =
+            this.obtenerResumenFinalInspeccion();
+
+        const despacho =
+            this.datosConduce?.despacho || {};
+
+        const contenedor =
+            this.datosConduce?.contenedor || {};
+
+        const chofer =
+            this.datosConduce?.chofer || {};
+
+        const sellos =
+            Array.isArray(
+                this.datosConduce?.sellos
+            )
+                ? this.datosConduce.sellos
+                : [];
+
+        const selloDestino1 =
+            sellos.find(item =>
+                Number(item.orden || 0) === 1
+            ) || {};
+
+        const selloDestino2 =
+            sellos.find(item =>
+                Number(item.orden || 0) === 2
+            ) || {};
+
+        const inspector =
+            this.obtenerInspectorActual();
+
+        contenidoModal.innerHTML = `
+            <section class="asistente-inspeccion">
+
+                <div class="inspeccion-pasos">
+                    <div class="paso-inspeccion completado">1. Información</div>
+                    <div class="paso-inspeccion completado">2. Inspección BASC</div>
+                    <div class="paso-inspeccion completado">3. Evidencias</div>
+                    <div class="paso-inspeccion activo">4. Finalizar</div>
+                </div>
+
+                <div class="inspeccion-encabezado">
+                    <div>
+                        <h2>Finalizar inspección</h2>
+                        <p>Revise el resumen antes de cerrar y generar el documento oficial.</p>
+                    </div>
+                    <span class="estado-inspeccion">Revisión final</span>
+                </div>
+
+                ${this.crearFichaDocumentalInspeccion("Revisión final")}
+
+                <div class="resumen-final-inspeccion">
+                    <article class="tarjeta-resumen-final">
+                        <span>Total de puntos</span>
+                        <strong>${resumen.total}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final resumen-cumple">
+                        <span>Cumple</span>
+                        <strong>${resumen.cumple}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final resumen-no-cumple">
+                        <span>No cumple</span>
+                        <strong>${resumen.noCumple}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final">
+                        <span>No aplica</span>
+                        <strong>${resumen.noAplica}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final">
+                        <span>Evidencias activas</span>
+                        <strong>${resumen.totalEvidencias}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final">
+                        <span>Resultado preliminar</span>
+                        <strong>${resumen.resultado}</strong>
+                    </article>
+                </div>
+
+                <div class="grid-final-inspeccion">
+
+                    <div class="tarjeta-inspeccion">
+
+                        <h3>Datos del despacho</h3>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Puerto de salida</span>
+                            <strong>${this.datosConduce?.empresaOrigen || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Conduce</span>
+                            <strong>${despacho.noConduce || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Destino 1</span>
+                            <strong>${despacho.destino1 || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Destino 2</span>
+                            <strong>${despacho.destino2 || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Supervisor</span>
+                            <strong>${despacho.supervisor || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Chofer</span>
+                            <strong>${chofer.nombre || despacho.chofer || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Inspector</span>
+                            <strong>${inspector.nombre || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Cantidad de destinos</span>
+                            <strong>${Number(despacho.cantidadDestinos || 1)}</strong>
+                        </div>
+
+                    </div>
+
+                    <div class="tarjeta-inspeccion">
+
+                        <h3>Contenedor</h3>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Identificación</span>
+                            <strong>${contenedor.identificacion || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Tipo</span>
+                            <strong>${contenedor.tipo || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Tamaño</span>
+                            <strong>${this.formatearTamanoContenedor(contenedor.tamano)}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Chasis sugerido</span>
+                            <strong>${chofer.chasisPorDefecto || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Transporte</span>
+                            <strong>${this.datosConduce?.tipoTransporte || "Terrestre"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Sello destino 1</span>
+                            <strong>${selloDestino1.numero || despacho.precinto1 || "-"}</strong>
+                        </div>
+
+                        ${
+                            Number(
+                                despacho.cantidadDestinos || 1
+                            ) === 2
+                                ? `
+                                    <div class="fila-dato-inspeccion">
+                                        <span>Sello destino 2</span>
+                                        <strong>${selloDestino2.numero || despacho.precinto2 || "-"}</strong>
+                                    </div>
+                                `
+                                : ""
+                        }
+
+                        <div class="fila-dato-inspeccion">
+                            <span>ID de inspección</span>
+                            <strong>${this.idInspeccion || "-"}</strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="tarjeta-inspeccion observaciones-finales-inspeccion">
+
+                    <h3>Observaciones generales</h3>
+
+                    <div class="campo-inspeccion campo-completo">
+                        <label for="observacionesFinalesInspeccion">
+                            Comentario de cierre
+                        </label>
+
+                        <textarea
+                            id="observacionesFinalesInspeccion"
+                            rows="5"
+                            placeholder="Agregue una observación general si corresponde..."
+                        ></textarea>
+                    </div>
+
+                </div>
+
+                <div class="aviso-final-inspeccion">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <div>
+                        <strong>Al finalizar se generará el PDF oficial.</strong>
+                        <p>
+                            La inspección quedará marcada como completada y el documento se guardará junto a sus evidencias.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="acciones-inspeccion">
+                    <button
+                        type="button"
+                        id="btnVolverEvidenciasInspeccion"
+                        class="btn-secundario-inspeccion"
+                    >
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Volver a evidencias
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnFinalizarInspeccion"
+                        class="btn-iniciar-inspeccion"
+                    >
+                        <i class="fa-solid fa-circle-check"></i>
+                        Finalizar y generar PDF
+                    </button>
+                </div>
+
+            </section>
+        `;
+
+        this.configurarEventosPasoFinalizar();
+
+    },
+
+
+    configurarEventosPasoFinalizar() {
+
+        const btnVolver =
+            document.getElementById(
+                "btnVolverEvidenciasInspeccion"
+            );
+
+        const btnFinalizar =
+            document.getElementById(
+                "btnFinalizarInspeccion"
+            );
+
+        if (btnVolver) {
+
+            btnVolver.addEventListener(
+                "click",
+                () => {
+
+                    this.pasoActual = 3;
+                    this.mostrarPasoEvidencias();
+
+                }
+            );
+
+        }
+
+        if (btnFinalizar) {
+
+            btnFinalizar.addEventListener(
+                "click",
+                async () => {
+
+                    await this.finalizarInspeccion(
+                        btnFinalizar
+                    );
+
+                }
+            );
+
+        }
+
+    },
+
+
+    async finalizarInspeccion(
+        boton
+    ) {
+
+        const observaciones =
+            String(
+                document
+                    .getElementById(
+                        "observacionesFinalesInspeccion"
+                    )
+                    ?.value || ""
+            ).trim();
+
+        const inspector =
+            this.obtenerInspectorActual();
+
+        const contenidoOriginal =
+            boton ? boton.innerHTML : "";
+
+        try {
+
+            if (boton) {
+                boton.disabled = true;
+                boton.innerHTML = `
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    Generando documento...
+                `;
+            }
+
+            await this.cargarEvidenciasGuardadas();
+
+            if (!this.validarEvidenciasPorCategoria()) {
+                throw new Error(
+                    "Todas las zonas deben conservar al menos una evidencia activa."
+                );
+            }
+
+            const respuesta =
+                await API.post({
+                    action:
+                        "finalizarInspeccionContenedor",
+                    idInspeccion:
+                        this.idInspeccion,
+                    observacionesGenerales:
+                        observaciones,
+                    usuario:
+                        inspector.nombre
+                });
+
+            if (!respuesta || !respuesta.ok) {
+                throw new Error(
+                    respuesta?.mensaje ||
+                    "No fue posible finalizar la inspección."
+                );
+            }
+
+            this.mostrarInspeccionFinalizada(
+                respuesta.data || {}
+            );
+
+            if (window.Despachos?.notificar) {
+                Despachos.notificar(
+                    "Inspección finalizada y PDF generado correctamente.",
+                    "exito"
+                );
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Error finalizando inspección:",
+                error
+            );
+
+            if (window.Despachos?.notificar) {
+                Despachos.notificar(
+                    error.message ||
+                    "No fue posible finalizar la inspección.",
+                    "error"
+                );
+            }
+
+        } finally {
+
+            if (
+                boton &&
+                document.body.contains(boton)
+            ) {
+                boton.disabled = false;
+                boton.innerHTML = contenidoOriginal;
+            }
+
+        }
+
+    },
+
+
+    mostrarInspeccionFinalizada(
+        datos
+    ) {
+
+        const contenidoModal =
+            document.getElementById(
+                "contenidoModal"
+            );
+
+        if (!contenidoModal) return;
+
+        const pdfUrl =
+            String(
+                datos.pdfUrl ||
+                datos.PDF_URL ||
+                ""
+            ).trim();
+
+        contenidoModal.innerHTML = `
+            <section class="asistente-inspeccion">
+
+                <div class="resultado-final-inspeccion">
+
+                    <div class="resultado-final-inspeccion__icono">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+
+                    <span>Inspección completada</span>
+
+                    <h2>El registro fue cerrado correctamente</h2>
+
+                    <p>
+                        El PDF oficial quedó guardado junto a las evidencias de la inspección.
+                    </p>
+
+                    <div class="resultado-final-inspeccion__datos">
+                        <div>
+                            <span>ID de inspección</span>
+                            <strong>${this.idInspeccion || "-"}</strong>
+                        </div>
+
+                        <div>
+                            <span>Resultado</span>
+                            <strong>${datos.resultado || "-"}</strong>
+                        </div>
+
+                        <div>
+                            <span>Total de evidencias</span>
+                            <strong>${datos.totalEvidencias || 0}</strong>
+                        </div>
+                    </div>
+
+                    <div class="acciones-inspeccion acciones-finalizadas">
+
+                        ${
+                            pdfUrl
+                                ? `
+                                    <a
+                                        href="${pdfUrl}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="btn-secundario-inspeccion enlace-boton-inspeccion"
+                                    >
+                                        <i class="fa-solid fa-file-pdf"></i>
+                                        Abrir PDF
+                                    </a>
+
+                                    <button
+                                        type="button"
+                                        id="btnImprimirPDFInspeccion"
+                                        class="btn-secundario-inspeccion"
+                                        data-url="${pdfUrl}"
+                                    >
+                                        <i class="fa-solid fa-print"></i>
+                                        Imprimir
+                                    </button>
+                                `
+                                : ""
+                        }
+
+                        <button
+                            type="button"
+                            id="btnCerrarInspeccionFinalizada"
+                            class="btn-iniciar-inspeccion"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+
+                </div>
+
+            </section>
+        `;
+
+        document
+            .getElementById(
+                "btnImprimirPDFInspeccion"
+            )
+            ?.addEventListener(
+                "click",
+                evento => {
+
+                    const url =
+                        evento.currentTarget
+                            .dataset.url;
+
+                    if (url) {
+                        window.open(
+                            url,
+                            "_blank",
+                            "noopener"
+                        );
+                    }
+
+                }
+            );
+
+        document
+            .getElementById(
+                "btnCerrarInspeccionFinalizada"
+            )
+            ?.addEventListener(
+                "click",
+                () => {
+
+                    document
+                        .getElementById(
+                            "modalSistema"
+                        )
+                        ?.classList.add(
+                            "oculto"
+                        );
+
+                }
+            );
+
+    },
 
 
     mostrarDatosConduceVacios() {

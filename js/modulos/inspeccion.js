@@ -3094,6 +3094,157 @@ formatearTamanoContenedor(
     },
 
 
+    async obtenerLogoDashboardBase64() {
+
+        const selectores = [
+            'img[src*="logo_dashboard"]',
+            '#logoDashboard',
+            '.logo-dashboard img',
+            '.sidebar-logo img',
+            '.dashboard-logo img',
+            'header img[src*="logo"]'
+        ];
+
+        let imagen = null;
+
+        for (const selector of selectores) {
+
+            imagen =
+                document.querySelector(
+                    selector
+                );
+
+            if (imagen) {
+                break;
+            }
+
+        }
+
+        if (!imagen) {
+            return "";
+        }
+
+        try {
+
+            if (!imagen.complete) {
+
+                await new Promise(resolve => {
+
+                    imagen.addEventListener(
+                        "load",
+                        resolve,
+                        {
+                            once: true
+                        }
+                    );
+
+                    setTimeout(
+                        resolve,
+                        1500
+                    );
+
+                });
+
+            }
+
+            const ancho =
+                imagen.naturalWidth ||
+                imagen.width;
+
+            const alto =
+                imagen.naturalHeight ||
+                imagen.height;
+
+            if (!ancho || !alto) {
+                return "";
+            }
+
+            const canvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            canvas.width = ancho;
+            canvas.height = alto;
+
+            const contexto =
+                canvas.getContext(
+                    "2d"
+                );
+
+            contexto.drawImage(
+                imagen,
+                0,
+                0,
+                ancho,
+                alto
+            );
+
+            return canvas.toDataURL(
+                "image/png"
+            );
+
+        } catch (errorCanvas) {
+
+            console.warn(
+                "No fue posible convertir el logo del dashboard mediante canvas:",
+                errorCanvas
+            );
+
+        }
+
+        try {
+
+            const respuesta =
+                await fetch(
+                    imagen.currentSrc ||
+                    imagen.src
+                );
+
+            if (!respuesta.ok) {
+                return "";
+            }
+
+            const blob =
+                await respuesta.blob();
+
+            return await new Promise(
+                (resolve, reject) => {
+
+                    const lector =
+                        new FileReader();
+
+                    lector.onload = () =>
+                        resolve(
+                            String(
+                                lector.result || ""
+                            )
+                        );
+
+                    lector.onerror =
+                        reject;
+
+                    lector.readAsDataURL(
+                        blob
+                    );
+
+                }
+            );
+
+        } catch (errorFetch) {
+
+            console.warn(
+                "No fue posible leer el logo del dashboard:",
+                errorFetch
+            );
+
+            return "";
+
+        }
+
+    },
+
+
     async finalizarInspeccion(
         boton
     ) {
@@ -3131,6 +3282,10 @@ formatearTamanoContenedor(
                 );
             }
 
+            const logoEmpresaBase64 =
+                await this
+                    .obtenerLogoDashboardBase64();
+
             const respuesta =
                 await API.post({
                     action:
@@ -3140,7 +3295,9 @@ formatearTamanoContenedor(
                     observacionesGenerales:
                         observaciones,
                     usuario:
-                        inspector.nombre
+                        inspector.nombre,
+                    logoEmpresaBase64:
+                        logoEmpresaBase64
                 });
 
             if (!respuesta || !respuesta.ok) {

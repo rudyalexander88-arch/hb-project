@@ -1052,3 +1052,78 @@
     }
 
 }
+
+
+/* ======================================================
+   PANEL Z10 — SELLO DE LLEGADA
+   ====================================================== */
+
+.panel-sello-llegada-basc {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.punto-sello-llegada {
+    border-left: 5px solid #ef6c00;
+}
+
+.tarjeta-numero-sello-llegada {
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.campo-numero-sello-llegada {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.campo-numero-sello-llegada label {
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.input-icono-sello-llegada {
+    position: relative;
+}
+
+.input-icono-sello-llegada i {
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    transform: translateY(-50%);
+    color: #ef6c00;
+}
+
+.input-icono-sello-llegada input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 16px 12px 46px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font: inherit;
+    color: #111827;
+    background: #ffffff;
+    box-sizing: border-box;
+    outline: none;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.input-icono-sello-llegada input:focus {
+    border-color: #ef6c00;
+    box-shadow: 0 0 0 3px rgba(239, 108, 0, 0.14);
+}
+
+@media (max-width: 768px) {
+
+    .tarjeta-numero-sello-llegada {
+        padding: 16px;
+    }
+
+}

@@ -43,7 +43,7 @@ const InspeccionContenedores = {
 
     temporizadoresGuardadoBASC: {},
 
-        guardadoCategoriaEnCurso: {},
+    guardadoCategoriaEnCurso: {},
     selloLlegada: "",
     
         categoriasBASC: [
@@ -1292,16 +1292,68 @@ formatearTamanoContenedor(
 
 
     obtenerCategoriasOrdenadasBASC(
-        grupos
+    grupos
+) {
+
+    const categorias =
+        Object.keys(grupos);
+
+    /*
+     * Agregamos Z10 como una categoría más del sistema.
+     * Todavía no pertenece al catálogo BASC; simplemente
+     * aparecerá junto a las demás tarjetas.
+     */
+    if (
+        !categorias.includes(
+            "Sello de llegada"
+        )
     ) {
 
-        return Object.keys(grupos).sort((categoriaA, categoriaB) => {
-            const configA = this.obtenerConfiguracionCategoriaBASC(categoriaA);
-            const configB = this.obtenerConfiguracionCategoriaBASC(categoriaB);
-            return configA.orden - configB.orden;
-        });
+        categorias.push(
+            "Sello de llegada"
+        );
 
-    },
+    }
+
+    return categorias.sort(
+        (categoriaA, categoriaB) => {
+
+            /*
+             * Z10 siempre será la última categoría.
+             */
+            if (
+                categoriaA ===
+                "Sello de llegada"
+            ) {
+                return 1;
+            }
+
+            if (
+                categoriaB ===
+                "Sello de llegada"
+            ) {
+                return -1;
+            }
+
+            const configA =
+                this.obtenerConfiguracionCategoriaBASC(
+                    categoriaA
+                );
+
+            const configB =
+                this.obtenerConfiguracionCategoriaBASC(
+                    categoriaB
+                );
+
+            return (
+                configA.orden -
+                configB.orden
+            );
+
+        }
+    );
+
+},
 
 
     obtenerCodigoZonaCategoria(
@@ -1347,38 +1399,51 @@ formatearTamanoContenedor(
     },
 
 
-    agruparCatalogoBASC() {
+   agruparCatalogoBASC() {
 
-        const grupos = {};
+    const grupos = {};
 
-        this.catalogo
-            .slice()
-            .sort(function(a, b) {
+    this.catalogo
+        .slice()
+        .sort(function(a, b) {
 
-                return (
-                    Number(a.orden || 0) -
-                    Number(b.orden || 0)
+            return (
+                Number(a.orden || 0) -
+                Number(b.orden || 0)
+            );
+
+        })
+        .forEach(item => {
+
+            const categoria =
+                this.normalizarCategoriaBASC(
+                    item.categoria
                 );
 
-            })
-            .forEach(item => {
+            if (!grupos[categoria]) {
+                grupos[categoria] = [];
+            }
 
-                const categoria =
-                    this.normalizarCategoriaBASC(
-                        item.categoria
-                    );
+            grupos[categoria].push(item);
 
-                if (!grupos[categoria]) {
-                    grupos[categoria] = [];
-                }
+        });
 
-                grupos[categoria].push(item);
+    /*
+     * Z10 debe existir como una categoría del Paso 2,
+     * aunque todavía no tenga puntos dentro del catálogo.
+     */
+    const categoriaSello =
+        this.normalizarCategoriaBASC(
+            "Sello de llegada"
+        );
 
-            });
+    if (!grupos[categoriaSello]) {
+        grupos[categoriaSello] = [];
+    }
 
-        return grupos;
+    return grupos;
 
-    },
+},
 
 
     obtenerResumenCategoriaBASC(
@@ -1596,17 +1661,241 @@ formatearTamanoContenedor(
         const puntos =
             grupos[categoria] || [];
 
-        if (puntos.length === 0) {
-            contenedor.innerHTML = `<div class="zona-basc-vacia"><i class="fa-solid fa-list-check"></i><strong>No hay puntos disponibles.</strong></div>`;
-            return;
-        }
+        if (
+    puntos.length === 0 &&
+    categoria !== "Sello de llegada"
+) {
+
+    contenedor.innerHTML = `
+        <div class="zona-basc-vacia">
+            <i class="fa-solid fa-list-check"></i>
+            <strong>No hay puntos disponibles.</strong>
+        </div>
+    `;
+
+    return;
+
+}
 
         const resumen =
             this.obtenerResumenCategoriaBASC(
                 categoria,
                 puntos
             );
+			
+	if (categoria === "Sello de llegada") {
 
+    contenedor.innerHTML = `
+        <div class="encabezado-detalle-zona">
+            <div>
+                <span>Zona seleccionada</span>
+                <h3>Sello de llegada</h3>
+                <p>Verifique el estado físico del sello antes de abrir el contenedor.</p>
+            </div>
+
+            <div class="estado-detalle-zona pendiente">
+                <i class="fa-solid fa-clock"></i>
+                Pendiente
+            </div>
+        </div>
+
+        <div class="panel-sello-llegada-basc">
+
+            <article class="punto-basc punto-sello-llegada">
+                <div class="punto-basc-identificacion">
+                    <span class="numero-punto-basc">1</span>
+
+                    <div>
+                        <span class="codigo-punto-basc">Z10-01</span>
+                        <p>¿El sello fue recibido sin marcas, deformaciones o señales de manipulación?</p>
+                    </div>
+                </div>
+
+                <div class="opciones-resultado-basc">
+                    <label class="opcion-resultado-basc cumple">
+                        <input
+                            type="radio"
+                            name="resultadoBASC_Z10_01"
+                            value="Cumple"
+                        >
+                        <span>
+                            <i class="fa-solid fa-check"></i>
+                            Cumple
+                        </span>
+                    </label>
+
+                    <label class="opcion-resultado-basc no-cumple">
+                        <input
+                            type="radio"
+                            name="resultadoBASC_Z10_01"
+                            value="No cumple"
+                        >
+                        <span>
+                            <i class="fa-solid fa-xmark"></i>
+                            No cumple
+                        </span>
+                    </label>
+                </div>
+            </article>
+
+            <article class="punto-basc punto-sello-llegada">
+                <div class="punto-basc-identificacion">
+                    <span class="numero-punto-basc">2</span>
+
+                    <div>
+                        <span class="codigo-punto-basc">Z10-02</span>
+                        <p>¿El sello se encuentra intacto y correctamente colocado?</p>
+                    </div>
+                </div>
+
+                <div class="opciones-resultado-basc">
+                    <label class="opcion-resultado-basc cumple">
+                        <input
+                            type="radio"
+                            name="resultadoBASC_Z10_02"
+                            value="Cumple"
+                        >
+                        <span>
+                            <i class="fa-solid fa-check"></i>
+                            Cumple
+                        </span>
+                    </label>
+
+                    <label class="opcion-resultado-basc no-cumple">
+                        <input
+                            type="radio"
+                            name="resultadoBASC_Z10_02"
+                            value="No cumple"
+                        >
+                        <span>
+                            <i class="fa-solid fa-xmark"></i>
+                            No cumple
+                        </span>
+                    </label>
+                </div>
+            </article>
+
+            <article class="tarjeta-numero-sello-llegada">
+                <div class="campo-numero-sello-llegada">
+                    <label for="numeroSelloLlegadaBASC">
+                        Número del sello
+                    </label>
+
+                    <div class="input-icono-sello-llegada">
+                        <i class="fa-solid fa-lock"></i>
+
+                        <input
+                            type="text"
+                            id="numeroSelloLlegadaBASC"
+                            placeholder="Digite el número del sello"
+                            autocomplete="off"
+                        >
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    `;
+	contenedor
+    .querySelectorAll(
+        '.opcion-resultado-basc input[type="radio"]'
+    )
+    .forEach(input => {
+
+        input.addEventListener("change", () => {
+
+            const grupo =
+                input.closest(
+                    ".opciones-resultado-basc"
+                );
+
+            if (!grupo) {
+                return;
+            }
+
+            grupo
+                .querySelectorAll(
+                    ".opcion-resultado-basc"
+                )
+                .forEach(opcion => {
+
+                    opcion.classList.remove(
+                        "seleccionada"
+                    );
+
+                });
+
+            const opcionSeleccionada =
+                input.closest(
+                    ".opcion-resultado-basc"
+                );
+
+            if (opcionSeleccionada) {
+
+                opcionSeleccionada.classList.add(
+                    "seleccionada"
+                );
+
+            }
+
+            if (
+                input.name ===
+                "resultadoBASC_Z10_01"
+            ) {
+
+                this.datosSelloLlegadaBASC.estadoFisico =
+                    input.value;
+
+            }
+
+            if (
+                input.name ===
+                "resultadoBASC_Z10_02"
+            ) {
+
+                this.datosSelloLlegadaBASC.colocacion =
+                    input.value;
+
+            }
+
+        });
+
+    });
+	
+	const inputNumeroSello =
+    document.getElementById(
+        "numeroSelloLlegadaBASC"
+    );
+
+if (inputNumeroSello) {
+
+    inputNumeroSello.addEventListener(
+        "input",
+        () => {
+
+            this.datosSelloLlegadaBASC.numeroSello =
+                inputNumeroSello.value.trim();
+
+        }
+    );
+
+}
+	
+
+    return;
+	
+	if (!this.datosSelloLlegadaBASC) {
+
+    this.datosSelloLlegadaBASC = {
+        estadoFisico: "",
+        colocacion: "",
+        numeroSello: ""
+    };
+
+}
+	
+}
+			
         contenedor.innerHTML = `
             <div class="encabezado-detalle-zona">
                 <div>

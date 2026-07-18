@@ -1292,68 +1292,30 @@ formatearTamanoContenedor(
 
 
     obtenerCategoriasOrdenadasBASC(
-    grupos
-) {
-
-    const categorias =
-        Object.keys(grupos);
-
-    /*
-     * Agregamos Z10 como una categoría más del sistema.
-     * Todavía no pertenece al catálogo BASC; simplemente
-     * aparecerá junto a las demás tarjetas.
-     */
-    if (
-        !categorias.includes(
-            "Sello de llegada"
-        )
+        grupos
     ) {
 
-        categorias.push(
-            "Sello de llegada"
-        );
+        return Object.keys(grupos)
+            .sort((categoriaA, categoriaB) => {
 
-    }
+                const configA =
+                    this.obtenerConfiguracionCategoriaBASC(
+                        categoriaA
+                    );
 
-    return categorias.sort(
-        (categoriaA, categoriaB) => {
+                const configB =
+                    this.obtenerConfiguracionCategoriaBASC(
+                        categoriaB
+                    );
 
-            /*
-             * Z10 siempre será la última categoría.
-             */
-            if (
-                categoriaA ===
-                "Sello de llegada"
-            ) {
-                return 1;
-            }
-
-            if (
-                categoriaB ===
-                "Sello de llegada"
-            ) {
-                return -1;
-            }
-
-            const configA =
-                this.obtenerConfiguracionCategoriaBASC(
-                    categoriaA
+                return (
+                    configA.orden -
+                    configB.orden
                 );
 
-            const configB =
-                this.obtenerConfiguracionCategoriaBASC(
-                    categoriaB
-                );
+            });
 
-            return (
-                configA.orden -
-                configB.orden
-            );
-
-        }
-    );
-
-},
+    },
 
 
     obtenerCodigoZonaCategoria(
@@ -1399,51 +1361,38 @@ formatearTamanoContenedor(
     },
 
 
-   agruparCatalogoBASC() {
+    agruparCatalogoBASC() {
 
-    const grupos = {};
+        const grupos = {};
 
-    this.catalogo
-        .slice()
-        .sort(function(a, b) {
+        this.catalogo
+            .slice()
+            .sort(function(a, b) {
 
-            return (
-                Number(a.orden || 0) -
-                Number(b.orden || 0)
-            );
-
-        })
-        .forEach(item => {
-
-            const categoria =
-                this.normalizarCategoriaBASC(
-                    item.categoria
+                return (
+                    Number(a.orden || 0) -
+                    Number(b.orden || 0)
                 );
 
-            if (!grupos[categoria]) {
-                grupos[categoria] = [];
-            }
+            })
+            .forEach(item => {
 
-            grupos[categoria].push(item);
+                const categoria =
+                    this.normalizarCategoriaBASC(
+                        item.categoria
+                    );
 
-        });
+                if (!grupos[categoria]) {
+                    grupos[categoria] = [];
+                }
 
-    /*
-     * Z10 debe existir como una categoría del Paso 2,
-     * aunque todavía no tenga puntos dentro del catálogo.
-     */
-    const categoriaSello =
-        this.normalizarCategoriaBASC(
-            "Sello de llegada"
-        );
+                grupos[categoria].push(item);
 
-    if (!grupos[categoriaSello]) {
-        grupos[categoriaSello] = [];
-    }
+            });
 
-    return grupos;
+        return grupos;
 
-},
+    },
 
 
     obtenerResumenCategoriaBASC(
@@ -1661,301 +1610,233 @@ formatearTamanoContenedor(
         const puntos =
             grupos[categoria] || [];
 
-        if (
-    puntos.length === 0 &&
-    categoria !== "Sello de llegada"
-) {
+        if (puntos.length === 0) {
 
-    contenedor.innerHTML = `
-        <div class="zona-basc-vacia">
-            <i class="fa-solid fa-list-check"></i>
-            <strong>No hay puntos disponibles.</strong>
-        </div>
-    `;
+            contenedor.innerHTML = `
+                <div class="zona-basc-vacia">
+                    <i class="fa-solid fa-list-check"></i>
+                    <strong>No hay puntos disponibles.</strong>
+                </div>
+            `;
 
-    return;
+            return;
 
-}
+        }
 
         const resumen =
             this.obtenerResumenCategoriaBASC(
                 categoria,
                 puntos
             );
-			
-	if (categoria === "Sello de llegada") {
 
-    contenedor.innerHTML = `
-        <div class="encabezado-detalle-zona">
-            <div>
-                <span>Zona seleccionada</span>
-                <h3>Sello de llegada</h3>
-                <p>Verifique el estado físico del sello antes de abrir el contenedor.</p>
-            </div>
+        const campoSelloLlegada =
+            categoria === "Sello de llegada"
+                ? `
+                    <article class="tarjeta-numero-sello-llegada">
+                        <div class="campo-numero-sello-llegada">
+                            <label for="numeroSelloLlegadaBASC">
+                                Número del sello
+                            </label>
 
-            <div class="estado-detalle-zona pendiente">
-                <i class="fa-solid fa-clock"></i>
-                Pendiente
-            </div>
-        </div>
+                            <div class="input-icono-sello-llegada">
+                                <i class="fa-solid fa-lock"></i>
 
-        <div class="panel-sello-llegada-basc">
+                                <input
+									type="text"
+									id="numeroSelloLlegadaBASC"
+									placeholder="Número del sello de llegada"
+									value="${String(
+                                        this.selloLlegada || ""
+                                    ).replace(/"/g, "&quot;")}"
+								>
+							</div>
+                        </div>
+                    </article>
+                `
+                : "";
 
-            <article class="punto-basc punto-sello-llegada">
-                <div class="punto-basc-identificacion">
-                    <span class="numero-punto-basc">1</span>
-
-                    <div>
-                        <span class="codigo-punto-basc">Z10-01</span>
-                        <p>¿El sello fue recibido sin marcas, deformaciones o señales de manipulación?</p>
-                    </div>
-                </div>
-
-                <div class="opciones-resultado-basc">
-                    <label class="opcion-resultado-basc cumple">
-                        <input
-                            type="radio"
-                            name="resultadoBASC_Z10_01"
-                            value="Cumple"
-                        >
-                        <span>
-                            <i class="fa-solid fa-check"></i>
-                            Cumple
-                        </span>
-                    </label>
-
-                    <label class="opcion-resultado-basc no-cumple">
-                        <input
-                            type="radio"
-                            name="resultadoBASC_Z10_01"
-                            value="No cumple"
-                        >
-                        <span>
-                            <i class="fa-solid fa-xmark"></i>
-                            No cumple
-                        </span>
-                    </label>
-                </div>
-            </article>
-
-            <article class="punto-basc punto-sello-llegada">
-                <div class="punto-basc-identificacion">
-                    <span class="numero-punto-basc">2</span>
-
-                    <div>
-                        <span class="codigo-punto-basc">Z10-02</span>
-                        <p>¿El sello se encuentra intacto y correctamente colocado?</p>
-                    </div>
-                </div>
-
-                <div class="opciones-resultado-basc">
-                    <label class="opcion-resultado-basc cumple">
-                        <input
-                            type="radio"
-                            name="resultadoBASC_Z10_02"
-                            value="Cumple"
-                        >
-                        <span>
-                            <i class="fa-solid fa-check"></i>
-                            Cumple
-                        </span>
-                    </label>
-
-                    <label class="opcion-resultado-basc no-cumple">
-                        <input
-                            type="radio"
-                            name="resultadoBASC_Z10_02"
-                            value="No cumple"
-                        >
-                        <span>
-                            <i class="fa-solid fa-xmark"></i>
-                            No cumple
-                        </span>
-                    </label>
-                </div>
-            </article>
-
-            <article class="tarjeta-numero-sello-llegada">
-                <div class="campo-numero-sello-llegada">
-                    <label for="numeroSelloLlegadaBASC">
-                        Número del sello
-                    </label>
-
-                    <div class="input-icono-sello-llegada">
-                        <i class="fa-solid fa-lock"></i>
-
-                        <input
-                            type="text"
-                            id="numeroSelloLlegadaBASC"
-                            placeholder="Digite el número del sello"
-                            autocomplete="off"
-                        >
-                    </div>
-                </div>
-            </article>
-
-        </div>
-    `;
-	contenedor
-    .querySelectorAll(
-        '.opcion-resultado-basc input[type="radio"]'
-    )
-    .forEach(input => {
-
-        input.addEventListener("change", () => {
-
-            const grupo =
-                input.closest(
-                    ".opciones-resultado-basc"
-                );
-
-            if (!grupo) {
-                return;
-            }
-
-            grupo
-                .querySelectorAll(
-                    ".opcion-resultado-basc"
-                )
-                .forEach(opcion => {
-
-                    opcion.classList.remove(
-                        "seleccionada"
-                    );
-
-                });
-
-            const opcionSeleccionada =
-                input.closest(
-                    ".opcion-resultado-basc"
-                );
-
-            if (opcionSeleccionada) {
-
-                opcionSeleccionada.classList.add(
-                    "seleccionada"
-                );
-
-            }
-
-            if (
-                input.name ===
-                "resultadoBASC_Z10_01"
-            ) {
-
-                this.datosSelloLlegadaBASC.estadoFisico =
-                    input.value;
-
-            }
-
-            if (
-                input.name ===
-                "resultadoBASC_Z10_02"
-            ) {
-
-                this.datosSelloLlegadaBASC.colocacion =
-                    input.value;
-
-            }
-
-        });
-
-    });
-	
-	const inputNumeroSello =
-    document.getElementById(
-        "numeroSelloLlegadaBASC"
-    );
-
-if (inputNumeroSello) {
-
-    inputNumeroSello.addEventListener(
-        "input",
-        () => {
-
-            this.datosSelloLlegadaBASC.numeroSello =
-                inputNumeroSello.value.trim();
-
-        }
-    );
-
-}
-	
-
-    return;
-	
-	if (!this.datosSelloLlegadaBASC) {
-
-    this.datosSelloLlegadaBASC = {
-        estadoFisico: "",
-        colocacion: "",
-        numeroSello: ""
-    };
-
-}
-	
-}
-			
         contenedor.innerHTML = `
             <div class="encabezado-detalle-zona">
                 <div>
                     <span>Zona seleccionada</span>
                     <h3>${categoria}</h3>
-                    <p id="textoResumenCategoriaActivaBASC">${resumen.respondidos} de ${resumen.total} puntos revisados.</p>
+                    <p id="textoResumenCategoriaActivaBASC">
+                        ${resumen.respondidos} de ${resumen.total} puntos revisados.
+                    </p>
                 </div>
+
                 <div
                     id="estadoCategoriaActivaBASC"
                     class="estado-detalle-zona ${this.obtenerClaseEstadoCategoria(resumen)}"
                 >
-                    ${resumen.completada ? '<i class="fa-solid fa-circle-check"></i> Completada' : '<i class="fa-solid fa-clock"></i> En revisión'}
+                    ${
+                        resumen.completada
+                            ? '<i class="fa-solid fa-circle-check"></i> Completada'
+                            : '<i class="fa-solid fa-clock"></i> En revisión'
+                    }
                 </div>
             </div>
 
             <div class="lista-puntos-basc">
                 ${puntos.map((punto, indice) => {
-                    const codigo = String(punto.codigo || `PUNTO_${indice}`).trim();
-                    const respuesta = this.obtenerRespuestaBASC(codigo);
+
+                    const codigo =
+                        String(
+                            punto.codigo ||
+                            `PUNTO_${indice}`
+                        ).trim();
+
+                    const respuesta =
+                        this.obtenerRespuestaBASC(
+                            codigo
+                        );
+
                     return `
-                        <article class="punto-basc" data-codigo="${codigo}">
+                        <article
+                            class="punto-basc"
+                            data-codigo="${codigo}"
+                        >
                             <div class="punto-basc-identificacion">
-                                <span class="numero-punto-basc">${indice + 1}</span>
+                                <span class="numero-punto-basc">
+                                    ${indice + 1}
+                                </span>
+
                                 <div>
-                                    <span class="codigo-punto-basc">${codigo}</span>
-                                    <p>${punto.descripcion || "Punto de inspección"}</p>
+                                    <span class="codigo-punto-basc">
+                                        ${codigo}
+                                    </span>
+
+                                    <p>
+                                        ${punto.descripcion || "Punto de inspección"}
+                                    </p>
                                 </div>
                             </div>
 
                             <div class="opciones-resultado-basc">
                                 <label class="opcion-resultado-basc cumple ${respuesta.estado === "Cumple" ? "seleccionada" : ""}">
-                                    <input type="radio" name="resultadoBASC_${codigo}" value="Cumple" ${respuesta.estado === "Cumple" ? "checked" : ""}>
-                                    <span><i class="fa-solid fa-check"></i>Cumple</span>
+                                    <input
+                                        type="radio"
+                                        name="resultadoBASC_${codigo}"
+                                        value="Cumple"
+                                        ${respuesta.estado === "Cumple" ? "checked" : ""}
+                                    >
+                                    <span>
+                                        <i class="fa-solid fa-check"></i>
+                                        Cumple
+                                    </span>
                                 </label>
+
                                 <label class="opcion-resultado-basc no-cumple ${respuesta.estado === "No cumple" ? "seleccionada" : ""}">
-                                    <input type="radio" name="resultadoBASC_${codigo}" value="No cumple" ${respuesta.estado === "No cumple" ? "checked" : ""}>
-                                    <span><i class="fa-solid fa-xmark"></i>No cumple</span>
+                                    <input
+                                        type="radio"
+                                        name="resultadoBASC_${codigo}"
+                                        value="No cumple"
+                                        ${respuesta.estado === "No cumple" ? "checked" : ""}
+                                    >
+                                    <span>
+                                        <i class="fa-solid fa-xmark"></i>
+                                        No cumple
+                                    </span>
                                 </label>
+
                                 <label class="opcion-resultado-basc no-aplica ${respuesta.estado === "No aplica" ? "seleccionada" : ""}">
-                                    <input type="radio" name="resultadoBASC_${codigo}" value="No aplica" ${respuesta.estado === "No aplica" ? "checked" : ""}>
-                                    <span><i class="fa-solid fa-minus"></i>No aplica</span>
+                                    <input
+                                        type="radio"
+                                        name="resultadoBASC_${codigo}"
+                                        value="No aplica"
+                                        ${respuesta.estado === "No aplica" ? "checked" : ""}
+                                    >
+                                    <span>
+                                        <i class="fa-solid fa-minus"></i>
+                                        No aplica
+                                    </span>
                                 </label>
                             </div>
 
-                            <div class="campo-observacion-basc ${respuesta.estado === "No cumple" ? "visible" : ""}" id="contenedorObservacionBASC_${codigo}">
-                                <label for="observacionBASC_${codigo}">Observación del hallazgo <strong>*</strong></label>
-                                <textarea id="observacionBASC_${codigo}" rows="3" placeholder="Describa la condición encontrada...">${respuesta.observacion || ""}</textarea>
-                                <small>Esta observación es obligatoria.</small>
+                            <div
+                                class="campo-observacion-basc ${respuesta.estado === "No cumple" ? "visible" : ""}"
+                                id="contenedorObservacionBASC_${codigo}"
+                            >
+                                <label for="observacionBASC_${codigo}">
+                                    Observación del hallazgo
+                                    <strong>*</strong>
+                                </label>
+
+                                <textarea
+                                    id="observacionBASC_${codigo}"
+                                    rows="3"
+                                    placeholder="Describa la condición encontrada..."
+                                >${respuesta.observacion || ""}</textarea>
+
+                                <small>
+                                    Esta observación es obligatoria.
+                                </small>
                             </div>
                         </article>
                     `;
+
                 }).join("")}
             </div>
+
+            ${campoSelloLlegada}
         `;
 
         this.configurarEventosPuntosBASC();
 
+        const inputNumeroSello =
+            document.getElementById(
+                "numeroSelloLlegadaBASC"
+            );
+
+        if (inputNumeroSello) {
+
+            /*
+             * El campo se reconstruye cada vez que se
+             * dibuja la categoría. Conservamos el valor
+             * existente y lo sincronizamos con la propiedad
+             * general utilizada por los pasos siguientes.
+             */
+            if (
+                !this.selloLlegada &&
+                String(
+                    inputNumeroSello.value || ""
+                ).trim()
+            ) {
+
+                this.selloLlegada =
+                    String(
+                        inputNumeroSello.value || ""
+                    ).trim();
+
+            }
+
+            inputNumeroSello.addEventListener(
+                "input",
+                () => {
+
+                    this.selloLlegada =
+                        String(
+                            inputNumeroSello.value || ""
+                        ).trim();
+
+                }
+            );
+
+            inputNumeroSello.addEventListener(
+                "change",
+                () => {
+
+                    this.selloLlegada =
+                        String(
+                            inputNumeroSello.value || ""
+                        ).trim();
+
+                }
+            );
+
+        }
+
     },
-
-
 
 
     obtenerDetalleCategoriaBASC(
@@ -2563,8 +2444,46 @@ if (inputNumeroSello) {
                 "click",
                 async () => {
 
+                    const inputNumeroSello =
+                        document.getElementById(
+                            "numeroSelloLlegadaBASC"
+                        );
+
+                    if (inputNumeroSello) {
+
+                        this.selloLlegada =
+                            String(
+                                inputNumeroSello.value || ""
+                            ).trim();
+
+                    }
+
                     if (!this.validarPasoBASC()) {
                         return;
+                    }
+
+                    if (!String(this.selloLlegada || "").trim()) {
+
+                        if (
+                            window.Despachos &&
+                            typeof Despachos.notificar ===
+                                "function"
+                        ) {
+
+                            Despachos.notificar(
+                                "Debe registrar el número del sello de llegada.",
+                                "error"
+                            );
+
+                        }
+
+                        this.categoriaActivaBASC =
+                            "Sello de llegada";
+
+                        this.mostrarPasoBASC();
+
+                        return;
+
                     }
 
                     try {
@@ -3152,6 +3071,7 @@ if (inputNumeroSello) {
                             "function"
                     ) {
 
+
                         Despachos.notificar(
                             "Fotografía guardada localmente. Podrá subirla en el Paso 3.",
                             "exito"
@@ -3506,14 +3426,6 @@ if (inputNumeroSello) {
             this.idInspeccion || ""
         ).trim();
 
-    /*
-     * Recupera automáticamente las fotografías locales
-     * cuando el Paso 3 se abre por primera vez para esta
-     * inspección.
-     *
-     * Esto también cubre inspecciones reanudadas que entran
-     * directamente al Paso 3.
-     */
     if (
         idInspeccionActual &&
         this.evidenciasLocalesCargadasPara !==
@@ -3549,365 +3461,239 @@ if (inputNumeroSello) {
                 this.cargandoEvidenciasLocales =
                     false;
 
-                /*
-                 * Volvemos a dibujar el Paso 3 ahora que
-                 * IndexedDB ya respondió.
-                 */
                 this.mostrarPasoEvidencias();
 
             });
 
     }
 
-        const grupos =
-            this.agruparCatalogoBASC();
+    const grupos =
+        this.agruparCatalogoBASC();
 
-        const categorias =
-            this.obtenerCategoriasOrdenadasBASC(
-                grupos
-            );
+    const categorias =
+        this.obtenerCategoriasOrdenadasBASC(
+            grupos
+        );
 
-        const categoriaSello =
-            "Sello de llegada";
+    contenidoModal.innerHTML = `
+        <section class="asistente-inspeccion">
 
-        const configuracionSello =
-            this.obtenerConfiguracionCategoriaBASC(
-                categoriaSello
-            );
+            <div class="inspeccion-pasos">
 
-        const evidenciasSello =
-            this.evidenciasPorCategoria[
-                categoriaSello
-            ] || [];
+                <div class="paso-inspeccion completado">
+                    1. Información
+                </div>
 
-        const selloActual =
-            String(
-                this.selloLlegada || ""
-            ).trim();
+                <div class="paso-inspeccion completado">
+                    2. Inspección BASC
+                </div>
 
-        contenidoModal.innerHTML = `
-            <section class="asistente-inspeccion">
+                <div class="paso-inspeccion activo">
+                    3. Evidencias
+                </div>
 
-               
+                <div class="paso-inspeccion">
+                    4. Finalizar
+                </div>
 
-                <div class="inspeccion-pasos">
+            </div>
 
-                    <div class="paso-inspeccion completado">
-                        1. Información
-                    </div>
+            <div class="inspeccion-encabezado">
 
-                    <div class="paso-inspeccion completado">
-                        2. Inspección BASC
-                    </div>
+                <div>
 
-                    <div class="paso-inspeccion activo">
-                        3. Evidencias
-                    </div>
+                    <h2>
+                        Evidencias de inspección
+                    </h2>
 
-                    <div class="paso-inspeccion">
-                        4. Finalizar
-                    </div>
+                    <p>
+                        Registre una fotografía por cada zona
+                        inspeccionada.
+                    </p>
 
                 </div>
 
-                <div class="inspeccion-encabezado">
+                <span class="estado-inspeccion">
+                    ${categorias.length} evidencias
+                </span>
 
-                    <div>
+            </div>
 
-                        <h2>
-                            Evidencias de inspección
-                        </h2>
+            ${
+                this.crearFichaDocumentalInspeccion(
+                    "Evidencias"
+                )
+            }
 
-                        <p>
-                            Registre una fotografía por cada zona
-                            y la evidencia del sello de llegada.
-                        </p>
+            <div class="aviso-evidencias-basc">
 
-                    </div>
+                <i class="fa-solid fa-shield-halved"></i>
 
-                    <span class="estado-inspeccion">
-                        10 evidencias
-                    </span>
+                <div>
+
+                    <strong>
+                        Evidencia obligatoria
+                    </strong>
+
+                    <p>
+                        Debe registrar al menos una fotografía
+                        de cada zona inspeccionada.
+                    </p>
 
                 </div>
+
+            </div>
+
+            <div class="grid-evidencias-categorias">
 
                 ${
-                    this.crearFichaDocumentalInspeccion(
-                        "Evidencias"
-                    )
-                }
+                    categorias.map(categoria => {
 
-                <div class="aviso-evidencias-basc">
+                        const puntos =
+                            grupos[categoria] || [];
 
-                    <i class="fa-solid fa-shield-halved"></i>
+                        const configuracionCategoria =
+                            this.obtenerConfiguracionCategoriaBASC(
+                                categoria
+                            );
 
-                    <div>
+                        const codigoZona =
+                            configuracionCategoria.codigo ||
+                            this.obtenerCodigoZonaCategoria(
+                                puntos
+                            );
 
-                        <strong>
-                            Evidencia obligatoria
-                        </strong>
+                        const archivos =
+                            this.evidenciasPorCategoria[
+                                categoria
+                            ] || [];
 
-                        <p>
-                            Debe registrar las nueve fotografías
-                            de inspección, el número del sello de
-                            llegada y su evidencia fotográfica.
-                        </p>
+                        const descripcionEvidencia =
+                            categoria ===
+                                "Sello de llegada"
+                                ? "Fotografía donde se aprecie claramente el sello de llegada inspeccionado."
+                                : "Fotografía general que demuestre la revisión de esta zona.";
 
-                    </div>
+                        return `
+                            <article
+                                class="
+                                    tarjeta-evidencia-categoria
+                                    ${
+                                        archivos.length > 0
+                                            ? "completa"
+                                            : "pendiente"
+                                    }
+                                "
+                                data-categoria="${categoria}"
+                            >
 
-                </div>
+                                <div class="tarjeta-evidencia-categoria__encabezado">
 
-                <div class="grid-evidencias-categorias">
-
-                    ${
-                        categorias.map(categoria => {
-
-                            const puntos =
-                                grupos[categoria];
-
-                            const configuracionCategoria =
-                                this.obtenerConfiguracionCategoriaBASC(
-                                    categoria
-                                );
-
-                            const codigoZona =
-                                configuracionCategoria.codigo ||
-                                this.obtenerCodigoZonaCategoria(
-                                    puntos
-                                );
-
-                            const archivos =
-                                this.evidenciasPorCategoria[
-                                    categoria
-                                ] || [];
-
-                            return `
-                                <article
-                                    class="
-                                        tarjeta-evidencia-categoria
-                                        ${
-                                            archivos.length > 0
-                                                ? "completa"
-                                                : "pendiente"
-                                        }
-                                    "
-                                    data-categoria="${categoria}"
-                                >
-
-                                    <div class="tarjeta-evidencia-categoria__encabezado">
-
-                                        <div>
-
-                                            <span>
-                                                <i class="fa-solid ${configuracionCategoria.icono}"></i>
-                                                ${codigoZona || "Zona"}
-                                            </span>
-
-                                            <h3>
-                                                ${categoria}
-                                            </h3>
-
-                                        </div>
-
-                                        <div class="estado-evidencia-categoria">
-
-                                            ${
-                                                archivos.length > 0
-                                                    ? '<i class="fa-solid fa-circle-check"></i>'
-                                                    : '<i class="fa-solid fa-camera"></i>'
-                                            }
-
-                                        </div>
-
-                                    </div>
-
-                                    <p>
-                                        Fotografía general que demuestre
-                                        la revisión de esta zona.
-                                    </p>
-
-                                    <label class="boton-cargar-evidencia">
-
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            capture="environment"
-                                            data-categoria="${categoria}"
-                                            multiple
-                                            ${
-                                                this.evidenciasCargando[
-                                                    categoria
-                                                ]
-                                                    ? "disabled"
-                                                    : ""
-                                            }
-                                        >
-
-                                        <i class="fa-solid fa-camera"></i>
+                                    <div>
 
                                         <span>
-                                            ${
-                                                archivos.length > 0
-                                                    ? "Agregar más fotos"
-                                                    : "Tomar o seleccionar foto"
-                                            }
+                                            <i class="fa-solid ${configuracionCategoria.icono}"></i>
+                                            ${codigoZona || "Zona"}
                                         </span>
 
-                                    </label>
+                                        <h3>
+                                            ${categoria}
+                                        </h3>
 
-                                    <div
-                                        class="lista-evidencias-categoria"
-                                        id="listaEvidencias_${this.convertirCategoriaId(categoria)}"
-                                    >
-                                        ${
-                                            this.crearVistaArchivosEvidencia(
-                                                categoria
-                                            )
-                                        }
                                     </div>
 
-                                </article>
-                            `;
+                                    <div class="estado-evidencia-categoria">
 
-                        }).join("")
-                    }
+                                        ${
+                                            archivos.length > 0
+                                                ? '<i class="fa-solid fa-circle-check"></i>'
+                                                : '<i class="fa-solid fa-camera"></i>'
+                                        }
 
-                    <article
-                        class="
-                            tarjeta-evidencia-categoria
-                            tarjeta-evidencia-sello-llegada
-                            ${
-                                evidenciasSello.length > 0 &&
-                                selloActual
-                                    ? "completa"
-                                    : "pendiente"
-                            }
-                        "
-                        data-categoria="${categoriaSello}"
-                    >
+                                    </div>
 
-                        <div class="tarjeta-evidencia-categoria__encabezado">
+                                </div>
 
-                            <div>
+                                <p>
+                                    ${descripcionEvidencia}
+                                </p>
 
-                                <span>
-                                    <i class="fa-solid ${configuracionSello.icono}"></i>
-                                    Z10
-                                </span>
+                                <label class="boton-cargar-evidencia">
 
-                                <h3>
-                                    Sello de llegada
-                                </h3>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        data-categoria="${categoria}"
+                                        multiple
+                                        ${
+                                            this.evidenciasCargando[
+                                                categoria
+                                            ]
+                                                ? "disabled"
+                                                : ""
+                                        }
+                                    >
 
-                            </div>
+                                    <i class="fa-solid fa-camera"></i>
 
-                            <div class="estado-evidencia-categoria">
+                                    <span>
+                                        ${
+                                            archivos.length > 0
+                                                ? "Agregar más fotos"
+                                                : "Tomar o seleccionar foto"
+                                        }
+                                    </span>
 
-                                ${
-                                    evidenciasSello.length > 0 &&
-                                    selloActual
-                                        ? '<i class="fa-solid fa-circle-check"></i>'
-                                        : '<i class="fa-solid fa-lock"></i>'
-                                }
+                                </label>
 
-                            </div>
+                                <div
+                                    class="lista-evidencias-categoria"
+                                    id="listaEvidencias_${this.convertirCategoriaId(categoria)}"
+                                >
+                                    ${
+                                        this.crearVistaArchivosEvidencia(
+                                            categoria
+                                        )
+                                    }
+                                </div>
 
-                        </div>
+                            </article>
+                        `;
 
-                        <p>
-                            Registre el número encontrado al momento
-                            de recibir el contenedor y tome una
-                            fotografía donde pueda identificarse.
-                        </p>
+                    }).join("")
+                }
 
-                        <div class="campo-sello-llegada-evidencia">
+            </div>
 
-                            <label for="selloLlegadaPasoEvidencias">
-                                Número del sello de llegada
-                            </label>
+            <div class="acciones-inspeccion">
 
-                            <input
-                                type="text"
-                                id="selloLlegadaPasoEvidencias"
-                                value="${selloActual}"
-                                placeholder="Ej.: SL-456781"
-                                autocomplete="off"
-                            >
+                <button
+                    type="button"
+                    id="btnVolverPasoBASC"
+                    class="btn-secundario-inspeccion"
+                >
+                    <i class="fa-solid fa-arrow-left"></i>
+                    Volver
+                </button>
 
-                        </div>
+                <button
+                    type="button"
+                    id="btnContinuarFinalizarInspeccion"
+                    class="btn-iniciar-inspeccion"
+                >
+                    Continuar
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
 
-                        <label class="boton-cargar-evidencia">
+            </div>
 
-                            <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                data-categoria="${categoriaSello}"
-                                ${
-                                    this.evidenciasCargando[
-                                        categoriaSello
-                                    ]
-                                        ? "disabled"
-                                        : ""
-                                }
-                            >
+        </section>
+    `;
 
-                            <i class="fa-solid fa-camera"></i>
+    this.configurarEventosPasoEvidencias();
 
-                            <span>
-                                ${
-                                    evidenciasSello.length > 0
-                                        ? "Cambiar o agregar fotografía"
-                                        : "Tomar o seleccionar foto"
-                                }
-                            </span>
-
-                        </label>
-
-                        <div
-                            class="lista-evidencias-categoria"
-                            id="listaEvidencias_${this.convertirCategoriaId(categoriaSello)}"
-                        >
-                            ${
-                                this.crearVistaArchivosEvidencia(
-                                    categoriaSello
-                                )
-                            }
-                        </div>
-
-                    </article>
-
-                </div>
-
-                <div class="acciones-inspeccion">
-
-                    <button
-                        type="button"
-                        id="btnVolverPasoBASC"
-                        class="btn-secundario-inspeccion"
-                    >
-                        <i class="fa-solid fa-arrow-left"></i>
-                        Volver
-                    </button>
-
-                    <button
-                        type="button"
-                        id="btnContinuarFinalizarInspeccion"
-                        class="btn-iniciar-inspeccion"
-                    >
-                        Continuar
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-
-                </div>
-
-            </section>
-        `;
-
-        this.configurarEventosPasoEvidencias();
-
-    },
-
+},
     convertirCategoriaId(categoria) {
         return String(categoria || "")
             .normalize("NFD")
@@ -4302,28 +4088,7 @@ if (inputNumeroSello) {
 
 
       configurarEventosPasoEvidencias() {
-
-        const inputSelloLlegada =
-            document.getElementById(
-                "selloLlegadaPasoEvidencias"
-            );
-
-        if (inputSelloLlegada) {
-
-            inputSelloLlegada.addEventListener(
-                "input",
-                evento => {
-
-                    this.selloLlegada =
-                        String(
-                            evento.target.value || ""
-                        ).trim();
-
-                }
-            );
-
-        }
-
+        
         document
             .querySelectorAll(
                 '.boton-cargar-evidencia input[type="file"]'
@@ -4656,7 +4421,7 @@ if (inputNumeroSello) {
 
         }
 
-        const btnContinuar =
+                const btnContinuar =
             document.getElementById(
                 "btnContinuarFinalizarInspeccion"
             );
@@ -4667,14 +4432,38 @@ if (inputNumeroSello) {
                 "click",
                 async () => {
 
-                    this.selloLlegada =
-                        String(
-                            document
-                                .getElementById(
-                                    "selloLlegadaPasoEvidencias"
-                                )
-                                ?.value || ""
-                        ).trim();
+                    /*
+                     * El número del sello ya fue registrado
+                     * en el Paso 2 y permanece almacenado en:
+                     *
+                     * this.selloLlegada
+                     *
+                     * No debe volver a leerse desde el Paso 3,
+                     * porque en Evidencias ya no existe un
+                     * campo para ingresar el número.
+                     */
+                    if (
+                        !String(
+                            this.selloLlegada || ""
+                        ).trim()
+                    ) {
+
+                        if (
+                            window.Despachos &&
+                            typeof Despachos.notificar ===
+                                "function"
+                        ) {
+
+                            Despachos.notificar(
+                                "Debe registrar el número del sello de llegada en el Paso 2.",
+                                "error"
+                            );
+
+                        }
+
+                        return;
+
+                    }
 
                     btnContinuar.disabled = true;
 
@@ -4707,7 +4496,7 @@ if (inputNumeroSello) {
 
                 }
             );
-
+        
         }
 
     },
@@ -5446,32 +5235,24 @@ if (inputNumeroSello) {
             ).trim();
 
         const selloLlegada =
-            String(
-                document
-                    .getElementById(
-                        "selloLlegadaInspeccion"
-                    )
-                    ?.value || ""
-            ).trim();
+				String(
+					this.selloLlegada || ""
+				).trim();
 
-        if (!selloLlegada) {
+			if (!selloLlegada) {
 
-            if (window.Despachos?.notificar) {
-                Despachos.notificar(
-                    "Debe registrar el sello de llegada antes de finalizar.",
-                    "error"
-                );
-            }
+				if (window.Despachos?.notificar) {
 
-            document
-                .getElementById(
-                    "selloLlegadaInspeccion"
-                )
-                ?.focus();
+					Despachos.notificar(
+						"Debe registrar el sello de llegada en el Paso 2 antes de finalizar.",
+						"error"
+					);
 
-            return;
+				}
 
-        }
+				return;
+
+			}
 
         const inspector =
             this.obtenerInspectorActual();

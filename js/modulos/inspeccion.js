@@ -502,14 +502,16 @@ formatearTamanoContenedor(
                 "btnIniciarRevision"
             );
 
-        if (selectConduce) {
+                if (selectConduce) {
 
             selectConduce.addEventListener(
                 "change",
                 async evento => {
 
                     const idConduce =
-                        evento.target.value;
+                        String(
+                            evento.target.value || ""
+                        ).trim();
 
                     if (!idConduce) {
 
@@ -521,9 +523,71 @@ formatearTamanoContenedor(
 
                     }
 
-                    await this.cargarDatosConduce(
-                        idConduce
-                    );
+                    /*
+                     * Bloqueamos temporalmente la interfaz mientras:
+                     *
+                     * 1. Se cargan los datos del conduce.
+                     * 2. Se consulta si existe una inspección activa.
+                     * 3. Se identifica el último paso completado.
+                     * 4. Se muestra el paso correcto del asistente.
+                     */
+                    if (
+                        window.CargadorSistema &&
+                        typeof CargadorSistema.mostrar ===
+                            "function"
+                    ) {
+
+                        CargadorSistema.mostrar(
+                            "Cargando inspección",
+                            "Estamos recuperando la información y verificando el último paso completado."
+                        );
+
+                    }
+
+                    try {
+
+                        await this.cargarDatosConduce(
+                            idConduce
+                        );
+
+                    } catch (error) {
+
+                        console.error(
+                            "Error cargando el conduce para inspección:",
+                            error
+                        );
+
+                        this.datosConduce = null;
+
+                        this.mostrarDatosConduceVacios();
+
+                        if (
+                            window.Despachos &&
+                            typeof Despachos.notificar ===
+                                "function"
+                        ) {
+
+                            Despachos.notificar(
+                                error.message ||
+                                "No fue posible cargar la inspección seleccionada.",
+                                "error"
+                            );
+
+                        }
+
+                    } finally {
+
+                        if (
+                            window.CargadorSistema &&
+                            typeof CargadorSistema.ocultar ===
+                                "function"
+                        ) {
+
+                            CargadorSistema.ocultar();
+
+                        }
+
+                    }
 
                 }
             );
@@ -4422,81 +4486,103 @@ formatearTamanoContenedor(
         }
 
                 const btnContinuar =
-            document.getElementById(
+				document.getElementById(
                 "btnContinuarFinalizarInspeccion"
             );
 
         if (btnContinuar) {
 
-            btnContinuar.addEventListener(
-                "click",
-                async () => {
+           btnContinuar.addEventListener(
+    "click",
+    async () => {
 
-                    /*
-                     * El número del sello ya fue registrado
-                     * en el Paso 2 y permanece almacenado en:
-                     *
-                     * this.selloLlegada
-                     *
-                     * No debe volver a leerse desde el Paso 3,
-                     * porque en Evidencias ya no existe un
-                     * campo para ingresar el número.
-                     */
-                    if (
-                        !String(
-                            this.selloLlegada || ""
-                        ).trim()
-                    ) {
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.mostrar ===
+                "function"
+        ) {
 
-                        if (
-                            window.Despachos &&
-                            typeof Despachos.notificar ===
-                                "function"
-                        ) {
+            CargadorSistema.mostrar(
+                "Preparando finalización",
+                "Estamos verificando las evidencias y cargando el resumen de la inspección."
+            );
 
-                            Despachos.notificar(
-                                "Debe registrar el número del sello de llegada en el Paso 2.",
-                                "error"
-                            );
+        }
 
-                        }
+        try {
 
-                        return;
+            /*
+             * El número del sello ya fue registrado
+             * en el Paso 2 y permanece almacenado en:
+             *
+             * this.selloLlegada
+             *
+             * No debe volver a leerse desde el Paso 3,
+             * porque en Evidencias ya no existe un
+             * campo para ingresar el número.
+             */
+            if (
+                !String(
+                    this.selloLlegada || ""
+                ).trim()
+            ) {
 
-                    }
+                if (
+                    window.Despachos &&
+                    typeof Despachos.notificar ===
+                        "function"
+                ) {
 
-                    btnContinuar.disabled = true;
-
-                    try {
-
-                        await this.cargarEvidenciasGuardadas();
-
-                        if (
-                            !this.validarEvidenciasPorCategoria()
-                        ) {
-                            return;
-                        }
-
-                        this.pasoActual = 4;
-                        this.mostrarPasoFinalizar();
-
-                    } finally {
-
-                        if (
-                            document.body.contains(
-                                btnContinuar
-                            )
-                        ) {
-
-                            btnContinuar.disabled = false;
-
-                        }
-
-                    }
+                    Despachos.notificar(
+                        "Debe registrar el número del sello de llegada en el Paso 2.",
+                        "error"
+                    );
 
                 }
-            );
-        
+
+                return;
+
+            }
+
+            btnContinuar.disabled = true;
+
+            await this.cargarEvidenciasGuardadas();
+
+            if (
+                !this.validarEvidenciasPorCategoria()
+            ) {
+                return;
+            }
+
+            this.pasoActual = 4;
+            this.mostrarPasoFinalizar();
+
+        } finally {
+
+            if (
+                document.body.contains(
+                    btnContinuar
+                )
+            ) {
+
+                btnContinuar.disabled = false;
+
+            }
+
+            if (
+                window.CargadorSistema &&
+                typeof CargadorSistema.ocultar ===
+                    "function"
+            ) {
+
+                CargadorSistema.ocultar();
+
+            }
+
+        }
+
+    }
+);
         }
 
     },
@@ -5222,129 +5308,182 @@ formatearTamanoContenedor(
 
 
     async finalizarInspeccion(
-        boton
-    ) {
+    boton
+) {
 
-        const observaciones =
-            String(
-                document
-                    .getElementById(
-                        "observacionesFinalesInspeccion"
-                    )
-                    ?.value || ""
-            ).trim();
+    const observaciones =
+        String(
+            document
+                .getElementById(
+                    "observacionesFinalesInspeccion"
+                )
+                ?.value || ""
+        ).trim();
 
-        const selloLlegada =
-				String(
-					this.selloLlegada || ""
-				).trim();
+    const selloLlegada =
+        String(
+            this.selloLlegada || ""
+        ).trim();
 
-			if (!selloLlegada) {
+    if (!selloLlegada) {
 
-				if (window.Despachos?.notificar) {
+        if (window.Despachos?.notificar) {
 
-					Despachos.notificar(
-						"Debe registrar el sello de llegada en el Paso 2 antes de finalizar.",
-						"error"
-					);
-
-				}
-
-				return;
-
-			}
-
-        const inspector =
-            this.obtenerInspectorActual();
-
-        const contenidoOriginal =
-            boton ? boton.innerHTML : "";
-
-        try {
-
-            if (boton) {
-                boton.disabled = true;
-                boton.innerHTML = `
-                    <i class="fa-solid fa-spinner fa-spin"></i>
-                    Generando documento...
-                `;
-            }
-
-            await this.cargarEvidenciasGuardadas();
-
-            if (!this.validarEvidenciasPorCategoria()) {
-                throw new Error(
-                    "Todas las zonas deben conservar al menos una evidencia activa."
-                );
-            }
-
-            const logoEmpresaBase64 =
-                await this
-                    .obtenerLogoDashboardBase64();
-
-            const respuesta =
-                await API.post({
-                    action:
-                        "finalizarInspeccionContenedor",
-                    idInspeccion:
-                        this.idInspeccion,
-                    observacionesGenerales:
-                        observaciones,
-                    selloLlegada:
-                        selloLlegada,
-                    usuario:
-                        inspector.nombre,
-                    logoEmpresaBase64:
-                        logoEmpresaBase64
-                });
-
-            if (!respuesta || !respuesta.ok) {
-                throw new Error(
-                    respuesta?.mensaje ||
-                    "No fue posible finalizar la inspección."
-                );
-            }
-
-            this.mostrarInspeccionFinalizada(
-                respuesta.data || {}
+            Despachos.notificar(
+                "Debe registrar el sello de llegada en el Paso 2 antes de finalizar.",
+                "error"
             );
-
-            if (window.Despachos?.notificar) {
-                Despachos.notificar(
-                    "Inspección finalizada y PDF generado correctamente.",
-                    "exito"
-                );
-            }
-
-        } catch (error) {
-
-            console.error(
-                "Error finalizando inspección:",
-                error
-            );
-
-            if (window.Despachos?.notificar) {
-                Despachos.notificar(
-                    error.message ||
-                    "No fue posible finalizar la inspección.",
-                    "error"
-                );
-            }
-
-        } finally {
-
-            if (
-                boton &&
-                document.body.contains(boton)
-            ) {
-                boton.disabled = false;
-                boton.innerHTML = contenidoOriginal;
-            }
 
         }
 
-    },
+        return;
 
+    }
+
+    const inspector =
+        this.obtenerInspectorActual();
+
+    const contenidoOriginal =
+        boton ? boton.innerHTML : "";
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+            "Finalizando inspección",
+            "Estamos guardando la información y generando el documento PDF."
+        );
+
+    }
+
+    try {
+
+        if (boton) {
+
+            boton.disabled = true;
+
+            boton.innerHTML = `
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                Generando documento...
+            `;
+
+        }
+
+        await this.cargarEvidenciasGuardadas();
+
+        if (!this.validarEvidenciasPorCategoria()) {
+
+            throw new Error(
+                "Todas las zonas deben conservar al menos una evidencia activa."
+            );
+
+        }
+
+        const logoEmpresaBase64 =
+            await this
+                .obtenerLogoDashboardBase64();
+
+        const respuesta =
+            await API.post({
+
+                action:
+                    "finalizarInspeccionContenedor",
+
+                idInspeccion:
+                    this.idInspeccion,
+
+                observacionesGenerales:
+                    observaciones,
+
+                selloLlegada:
+                    selloLlegada,
+
+                usuario:
+                    inspector.nombre,
+
+                logoEmpresaBase64:
+                    logoEmpresaBase64
+
+            });
+
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
+
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible finalizar la inspección."
+            );
+
+        }
+
+        this.mostrarInspeccionFinalizada(
+            respuesta.data || {}
+        );
+
+        if (
+            window.Despachos?.notificar
+        ) {
+
+            Despachos.notificar(
+                "Inspección finalizada y PDF generado correctamente.",
+                "exito"
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Error finalizando inspección:",
+            error
+        );
+
+        if (
+            window.Despachos?.notificar
+        ) {
+
+            Despachos.notificar(
+                error.message ||
+                "No fue posible finalizar la inspección.",
+                "error"
+            );
+
+        }
+
+    } finally {
+
+        if (
+            boton &&
+            document.body.contains(
+                boton
+            )
+        ) {
+
+            boton.disabled = false;
+
+            boton.innerHTML =
+                contenidoOriginal;
+
+        }
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
+
+    }
+
+},
 
     mostrarInspeccionFinalizada(
         datos

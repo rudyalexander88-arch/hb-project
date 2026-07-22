@@ -23,6 +23,18 @@ const InspeccionContenedores = {
 
     evidenciasCargando: {},
 
+    evidenciasLocalesPorCategoria: {},
+
+	evidenciasLocalesCargadasPara: "",
+
+	cargandoEvidenciasLocales: false,
+
+	modalEvidenciaLocalAbierto: false,
+
+    nombreBaseDatosEvidencias: "SistemaLogisticoPT_EvidenciasBASC",
+
+    versionBaseDatosEvidencias: 1,
+
     categoriaActivaBASC: "",
 
     configuracion: {},
@@ -32,8 +44,9 @@ const InspeccionContenedores = {
     temporizadoresGuardadoBASC: {},
 
     guardadoCategoriaEnCurso: {},
-
-    categoriasBASC: [
+    selloLlegada: "",
+    
+        categoriasBASC: [
         { nombre: "Afuera y debajo", codigo: "Z01", icono: "fa-truck-ramp-box", orden: 1 },
         { nombre: "Puertas interiores y exteriores", codigo: "Z02", icono: "fa-door-closed", orden: 2 },
         { nombre: "Laterales exteriores", codigo: "Z03", icono: "fa-arrows-left-right", orden: 3 },
@@ -42,7 +55,8 @@ const InspeccionContenedores = {
         { nombre: "Techo interior y exterior", codigo: "Z06", icono: "fa-up-long", orden: 6 },
         { nombre: "Suelo interior", codigo: "Z07", icono: "fa-layer-group", orden: 7 },
         { nombre: "Equipos auxiliares y refrigeración", codigo: "Z08", icono: "fa-snowflake", orden: 8 },
-        { nombre: "Cabina del chofer", codigo: "Z09", icono: "fa-truck-front", orden: 9 }
+        { nombre: "Cabina del chofer", codigo: "Z09", icono: "fa-truck-front", orden: 9 },
+        { nombre: "Sello de llegada", codigo: "Z10", icono: "fa-lock", orden: 10 }
     ],
 
 
@@ -57,6 +71,18 @@ const InspeccionContenedores = {
             document.getElementById(
                 "contenidoModal"
             );
+			
+					const tituloModal =
+			document.getElementById(
+				"tituloModal"
+			);
+
+		if (tituloModal) {
+
+			tituloModal.textContent =
+				"Asistente de Inspección de Contenedores";
+
+		}
 
         if (!modal || !contenidoModal) {
 
@@ -71,14 +97,19 @@ const InspeccionContenedores = {
         this.pasoActual = 1;
         this.datosConduce = null;
         this.idInspeccion = "";
-        this.respuestasBASC = {};
+		this.respuestasBASC = {};
         this.evidenciasPorCategoria = {};
         this.evidenciasCargando = {};
+        this.evidenciasLocalesPorCategoria = {};
+		this.evidenciasLocalesCargadasPara = "";
+		this.cargandoEvidenciasLocales = false;
+		this.modalEvidenciaLocalAbierto = false;
         this.categoriaActivaBASC = "";
         this.configuracion = {};
-        this.guardadosCategoriaBASC = {};
+		this.guardadosCategoriaBASC = {};
         this.temporizadoresGuardadoBASC = {};
         this.guardadoCategoriaEnCurso = {};
+        this.selloLlegada = "";
 
         modal.classList.remove("oculto");
 
@@ -301,6 +332,7 @@ formatearTamanoContenedor(
 
 },
 
+  
     mostrarPasoInformacion() {
 
         const contenidoModal =
@@ -346,6 +378,7 @@ formatearTamanoContenedor(
         contenidoModal.innerHTML = `
             <section class="asistente-inspeccion">
 
+                
                 <div class="inspeccion-pasos">
 
                     <div class="paso-inspeccion activo">
@@ -469,14 +502,16 @@ formatearTamanoContenedor(
                 "btnIniciarRevision"
             );
 
-        if (selectConduce) {
+                if (selectConduce) {
 
             selectConduce.addEventListener(
                 "change",
                 async evento => {
 
                     const idConduce =
-                        evento.target.value;
+                        String(
+                            evento.target.value || ""
+                        ).trim();
 
                     if (!idConduce) {
 
@@ -488,9 +523,71 @@ formatearTamanoContenedor(
 
                     }
 
-                    await this.cargarDatosConduce(
-                        idConduce
-                    );
+                    /*
+                     * Bloqueamos temporalmente la interfaz mientras:
+                     *
+                     * 1. Se cargan los datos del conduce.
+                     * 2. Se consulta si existe una inspección activa.
+                     * 3. Se identifica el último paso completado.
+                     * 4. Se muestra el paso correcto del asistente.
+                     */
+                    if (
+                        window.CargadorSistema &&
+                        typeof CargadorSistema.mostrar ===
+                            "function"
+                    ) {
+
+                        CargadorSistema.mostrar(
+                            "Cargando inspección",
+                            "Estamos recuperando la información y verificando el último paso completado."
+                        );
+
+                    }
+
+                    try {
+
+                        await this.cargarDatosConduce(
+                            idConduce
+                        );
+
+                    } catch (error) {
+
+                        console.error(
+                            "Error cargando el conduce para inspección:",
+                            error
+                        );
+
+                        this.datosConduce = null;
+
+                        this.mostrarDatosConduceVacios();
+
+                        if (
+                            window.Despachos &&
+                            typeof Despachos.notificar ===
+                                "function"
+                        ) {
+
+                            Despachos.notificar(
+                                error.message ||
+                                "No fue posible cargar la inspección seleccionada.",
+                                "error"
+                            );
+
+                        }
+
+                    } finally {
+
+                        if (
+                            window.CargadorSistema &&
+                            typeof CargadorSistema.ocultar ===
+                                "function"
+                        ) {
+
+                            CargadorSistema.ocultar();
+
+                        }
+
+                    }
 
                 }
             );
@@ -1262,11 +1359,25 @@ formatearTamanoContenedor(
         grupos
     ) {
 
-        return Object.keys(grupos).sort((categoriaA, categoriaB) => {
-            const configA = this.obtenerConfiguracionCategoriaBASC(categoriaA);
-            const configB = this.obtenerConfiguracionCategoriaBASC(categoriaB);
-            return configA.orden - configB.orden;
-        });
+        return Object.keys(grupos)
+            .sort((categoriaA, categoriaB) => {
+
+                const configA =
+                    this.obtenerConfiguracionCategoriaBASC(
+                        categoriaA
+                    );
+
+                const configB =
+                    this.obtenerConfiguracionCategoriaBASC(
+                        categoriaB
+                    );
+
+                return (
+                    configA.orden -
+                    configB.orden
+                );
+
+            });
 
     },
 
@@ -1564,8 +1675,16 @@ formatearTamanoContenedor(
             grupos[categoria] || [];
 
         if (puntos.length === 0) {
-            contenedor.innerHTML = `<div class="zona-basc-vacia"><i class="fa-solid fa-list-check"></i><strong>No hay puntos disponibles.</strong></div>`;
+
+            contenedor.innerHTML = `
+                <div class="zona-basc-vacia">
+                    <i class="fa-solid fa-list-check"></i>
+                    <strong>No hay puntos disponibles.</strong>
+                </div>
+            `;
+
             return;
+
         }
 
         const resumen =
@@ -1574,66 +1693,214 @@ formatearTamanoContenedor(
                 puntos
             );
 
+        const campoSelloLlegada =
+            categoria === "Sello de llegada"
+                ? `
+                    <article class="tarjeta-numero-sello-llegada">
+                        <div class="campo-numero-sello-llegada">
+                            <label for="numeroSelloLlegadaBASC">
+                                Número del sello
+                            </label>
+
+                            <div class="input-icono-sello-llegada">
+                                <i class="fa-solid fa-lock"></i>
+
+                                <input
+									type="text"
+									id="numeroSelloLlegadaBASC"
+									placeholder="Número del sello de llegada"
+									value="${String(
+                                        this.selloLlegada || ""
+                                    ).replace(/"/g, "&quot;")}"
+								>
+							</div>
+                        </div>
+                    </article>
+                `
+                : "";
+
         contenedor.innerHTML = `
             <div class="encabezado-detalle-zona">
                 <div>
                     <span>Zona seleccionada</span>
                     <h3>${categoria}</h3>
-                    <p id="textoResumenCategoriaActivaBASC">${resumen.respondidos} de ${resumen.total} puntos revisados.</p>
+                    <p id="textoResumenCategoriaActivaBASC">
+                        ${resumen.respondidos} de ${resumen.total} puntos revisados.
+                    </p>
                 </div>
+
                 <div
                     id="estadoCategoriaActivaBASC"
                     class="estado-detalle-zona ${this.obtenerClaseEstadoCategoria(resumen)}"
                 >
-                    ${resumen.completada ? '<i class="fa-solid fa-circle-check"></i> Completada' : '<i class="fa-solid fa-clock"></i> En revisión'}
+                    ${
+                        resumen.completada
+                            ? '<i class="fa-solid fa-circle-check"></i> Completada'
+                            : '<i class="fa-solid fa-clock"></i> En revisión'
+                    }
                 </div>
             </div>
 
             <div class="lista-puntos-basc">
                 ${puntos.map((punto, indice) => {
-                    const codigo = String(punto.codigo || `PUNTO_${indice}`).trim();
-                    const respuesta = this.obtenerRespuestaBASC(codigo);
+
+                    const codigo =
+                        String(
+                            punto.codigo ||
+                            `PUNTO_${indice}`
+                        ).trim();
+
+                    const respuesta =
+                        this.obtenerRespuestaBASC(
+                            codigo
+                        );
+
                     return `
-                        <article class="punto-basc" data-codigo="${codigo}">
+                        <article
+                            class="punto-basc"
+                            data-codigo="${codigo}"
+                        >
                             <div class="punto-basc-identificacion">
-                                <span class="numero-punto-basc">${indice + 1}</span>
+                                <span class="numero-punto-basc">
+                                    ${indice + 1}
+                                </span>
+
                                 <div>
-                                    <span class="codigo-punto-basc">${codigo}</span>
-                                    <p>${punto.descripcion || "Punto de inspección"}</p>
+                                    <span class="codigo-punto-basc">
+                                        ${codigo}
+                                    </span>
+
+                                    <p>
+                                        ${punto.descripcion || "Punto de inspección"}
+                                    </p>
                                 </div>
                             </div>
 
                             <div class="opciones-resultado-basc">
                                 <label class="opcion-resultado-basc cumple ${respuesta.estado === "Cumple" ? "seleccionada" : ""}">
-                                    <input type="radio" name="resultadoBASC_${codigo}" value="Cumple" ${respuesta.estado === "Cumple" ? "checked" : ""}>
-                                    <span><i class="fa-solid fa-check"></i>Cumple</span>
+                                    <input
+                                        type="radio"
+                                        name="resultadoBASC_${codigo}"
+                                        value="Cumple"
+                                        ${respuesta.estado === "Cumple" ? "checked" : ""}
+                                    >
+                                    <span>
+                                        <i class="fa-solid fa-check"></i>
+                                        Cumple
+                                    </span>
                                 </label>
+
                                 <label class="opcion-resultado-basc no-cumple ${respuesta.estado === "No cumple" ? "seleccionada" : ""}">
-                                    <input type="radio" name="resultadoBASC_${codigo}" value="No cumple" ${respuesta.estado === "No cumple" ? "checked" : ""}>
-                                    <span><i class="fa-solid fa-xmark"></i>No cumple</span>
+                                    <input
+                                        type="radio"
+                                        name="resultadoBASC_${codigo}"
+                                        value="No cumple"
+                                        ${respuesta.estado === "No cumple" ? "checked" : ""}
+                                    >
+                                    <span>
+                                        <i class="fa-solid fa-xmark"></i>
+                                        No cumple
+                                    </span>
                                 </label>
+
                                 <label class="opcion-resultado-basc no-aplica ${respuesta.estado === "No aplica" ? "seleccionada" : ""}">
-                                    <input type="radio" name="resultadoBASC_${codigo}" value="No aplica" ${respuesta.estado === "No aplica" ? "checked" : ""}>
-                                    <span><i class="fa-solid fa-minus"></i>No aplica</span>
+                                    <input
+                                        type="radio"
+                                        name="resultadoBASC_${codigo}"
+                                        value="No aplica"
+                                        ${respuesta.estado === "No aplica" ? "checked" : ""}
+                                    >
+                                    <span>
+                                        <i class="fa-solid fa-minus"></i>
+                                        No aplica
+                                    </span>
                                 </label>
                             </div>
 
-                            <div class="campo-observacion-basc ${respuesta.estado === "No cumple" ? "visible" : ""}" id="contenedorObservacionBASC_${codigo}">
-                                <label for="observacionBASC_${codigo}">Observación del hallazgo <strong>*</strong></label>
-                                <textarea id="observacionBASC_${codigo}" rows="3" placeholder="Describa la condición encontrada...">${respuesta.observacion || ""}</textarea>
-                                <small>Esta observación es obligatoria.</small>
+                            <div
+                                class="campo-observacion-basc ${respuesta.estado === "No cumple" ? "visible" : ""}"
+                                id="contenedorObservacionBASC_${codigo}"
+                            >
+                                <label for="observacionBASC_${codigo}">
+                                    Observación del hallazgo
+                                    <strong>*</strong>
+                                </label>
+
+                                <textarea
+                                    id="observacionBASC_${codigo}"
+                                    rows="3"
+                                    placeholder="Describa la condición encontrada..."
+                                >${respuesta.observacion || ""}</textarea>
+
+                                <small>
+                                    Esta observación es obligatoria.
+                                </small>
                             </div>
                         </article>
                     `;
+
                 }).join("")}
             </div>
+
+            ${campoSelloLlegada}
         `;
 
         this.configurarEventosPuntosBASC();
 
+        const inputNumeroSello =
+            document.getElementById(
+                "numeroSelloLlegadaBASC"
+            );
+
+        if (inputNumeroSello) {
+
+            /*
+             * El campo se reconstruye cada vez que se
+             * dibuja la categoría. Conservamos el valor
+             * existente y lo sincronizamos con la propiedad
+             * general utilizada por los pasos siguientes.
+             */
+            if (
+                !this.selloLlegada &&
+                String(
+                    inputNumeroSello.value || ""
+                ).trim()
+            ) {
+
+                this.selloLlegada =
+                    String(
+                        inputNumeroSello.value || ""
+                    ).trim();
+
+            }
+
+            inputNumeroSello.addEventListener(
+                "input",
+                () => {
+
+                    this.selloLlegada =
+                        String(
+                            inputNumeroSello.value || ""
+                        ).trim();
+
+                }
+            );
+
+            inputNumeroSello.addEventListener(
+                "change",
+                () => {
+
+                    this.selloLlegada =
+                        String(
+                            inputNumeroSello.value || ""
+                        ).trim();
+
+                }
+            );
+
+        }
+
     },
-
-
 
 
     obtenerDetalleCategoriaBASC(
@@ -1809,9 +2076,7 @@ formatearTamanoContenedor(
     },
 
 
-    async guardarCategoriaBASC(
-        categoria
-    ) {
+    async guardarCategoriaBASC(categoria) {
 
         if (
             !this.categoriaBASCListaParaGuardar(
@@ -1883,13 +2148,24 @@ formatearTamanoContenedor(
 
                 }
 
-                this.guardadosCategoriaBASC[
+              this.guardadosCategoriaBASC[
                     categoria
                 ] = firmaActual;
 
                 console.log(
                     "Categoría guardada automáticamente:",
                     categoria
+                );
+
+                setTimeout(
+                    () => {
+
+                        this.solicitarEvidenciaLocalCategoria(
+                            categoria
+                        );
+
+                    },
+                    150
                 );
 
                 return true;
@@ -2232,8 +2508,46 @@ formatearTamanoContenedor(
                 "click",
                 async () => {
 
+                    const inputNumeroSello =
+                        document.getElementById(
+                            "numeroSelloLlegadaBASC"
+                        );
+
+                    if (inputNumeroSello) {
+
+                        this.selloLlegada =
+                            String(
+                                inputNumeroSello.value || ""
+                            ).trim();
+
+                    }
+
                     if (!this.validarPasoBASC()) {
                         return;
+                    }
+
+                    if (!String(this.selloLlegada || "").trim()) {
+
+                        if (
+                            window.Despachos &&
+                            typeof Despachos.notificar ===
+                                "function"
+                        ) {
+
+                            Despachos.notificar(
+                                "Debe registrar el número del sello de llegada.",
+                                "error"
+                            );
+
+                        }
+
+                        this.categoriaActivaBASC =
+                            "Sello de llegada";
+
+                        this.mostrarPasoBASC();
+
+                        return;
+
                     }
 
                     try {
@@ -2243,7 +2557,21 @@ formatearTamanoContenedor(
                         );
 
                         this.pasoActual = 3;
-                        this.mostrarPasoEvidencias();
+
+						try {
+
+							await this.cargarEvidenciasLocalesInspeccion();
+
+						} catch (error) {
+
+							console.error(
+								"Error recuperando evidencias locales:",
+								error
+							);
+
+						}
+
+						this.mostrarPasoEvidencias();
 
                         if (
                             window.Despachos &&
@@ -2489,6 +2817,576 @@ formatearTamanoContenedor(
         return false;
 
     },
+	
+	    abrirBaseDatosEvidenciasLocales() {
+
+        return new Promise(
+            (resolve, reject) => {
+
+                if (!window.indexedDB) {
+
+                    reject(
+                        new Error(
+                            "Este navegador no permite guardar fotografías localmente."
+                        )
+                    );
+
+                    return;
+
+                }
+
+                const solicitud =
+                    indexedDB.open(
+                        this.nombreBaseDatosEvidencias,
+                        this.versionBaseDatosEvidencias
+                    );
+
+                solicitud.onupgradeneeded =
+                    evento => {
+
+                        const baseDatos =
+                            evento.target.result;
+
+                        if (
+                            !baseDatos.objectStoreNames.contains(
+                                "evidencias"
+                            )
+                        ) {
+
+                            const almacen =
+                                baseDatos.createObjectStore(
+                                    "evidencias",
+                                    {
+                                        keyPath: "id"
+                                    }
+                                );
+
+                            almacen.createIndex(
+                                "idInspeccion",
+                                "idInspeccion",
+                                {
+                                    unique: false
+                                }
+                            );
+
+                            almacen.createIndex(
+                                "categoria",
+                                "categoria",
+                                {
+                                    unique: false
+                                }
+                            );
+
+                        }
+
+                    };
+
+                solicitud.onsuccess =
+                    evento => {
+
+                        resolve(
+                            evento.target.result
+                        );
+
+                    };
+
+                solicitud.onerror =
+                    () => {
+
+                        reject(
+                            new Error(
+                                "No fue posible abrir el almacenamiento local de evidencias."
+                            )
+                        );
+
+                    };
+
+            }
+        );
+
+    },
+
+
+    crearIdEvidenciaLocal(
+        idInspeccion,
+        categoria
+    ) {
+
+        const inspeccion =
+            String(
+                idInspeccion || ""
+            ).trim();
+
+        const categoriaNormalizada =
+            this.normalizarCategoriaBASC(
+                categoria
+            );
+
+        return `${inspeccion}::${categoriaNormalizada}`;
+
+    },
+
+
+    async guardarEvidenciaLocal(
+        categoria,
+        archivo
+    ) {
+
+        const idInspeccion =
+            String(
+                this.idInspeccion || ""
+            ).trim();
+
+        const categoriaNormalizada =
+            this.normalizarCategoriaBASC(
+                categoria
+            );
+
+        if (!idInspeccion) {
+
+            throw new Error(
+                "No existe una inspección activa."
+            );
+
+        }
+
+        if (!categoriaNormalizada) {
+
+            throw new Error(
+                "No se pudo identificar la categoría de la evidencia."
+            );
+
+        }
+
+        if (!archivo) {
+
+            throw new Error(
+                "No se seleccionó ninguna fotografía."
+            );
+
+        }
+
+        if (
+            archivo.type &&
+            !String(
+                archivo.type
+            ).startsWith("image/")
+        ) {
+
+            throw new Error(
+                "El archivo seleccionado debe ser una imagen."
+            );
+
+        }
+
+        const baseDatos =
+            await this.abrirBaseDatosEvidenciasLocales();
+
+        const registro = {
+
+            id:
+                this.crearIdEvidenciaLocal(
+                    idInspeccion,
+                    categoriaNormalizada
+                ),
+
+            idInspeccion,
+
+            categoria:
+                categoriaNormalizada,
+
+            codigoZona:
+                this.obtenerCodigoZonaBASC(
+                    categoriaNormalizada
+                ),
+
+            nombreArchivo:
+                archivo.name ||
+                `Evidencia_${Date.now()}.jpg`,
+
+            tipoArchivo:
+                archivo.type ||
+                "image/jpeg",
+
+            tamanoBytes:
+                Number(
+                    archivo.size || 0
+                ),
+
+            archivo,
+
+            fechaCaptura:
+                new Date().toISOString(),
+
+            estado:
+                "Pendiente"
+
+        };
+
+        await new Promise(
+            (resolve, reject) => {
+
+                const transaccion =
+                    baseDatos.transaction(
+                        ["evidencias"],
+                        "readwrite"
+                    );
+
+                const almacen =
+                    transaccion.objectStore(
+                        "evidencias"
+                    );
+
+                almacen.put(
+                    registro
+                );
+
+                transaccion.oncomplete =
+                    () => {
+
+                        resolve();
+
+                    };
+
+                transaccion.onerror =
+                    () => {
+
+                        reject(
+                            new Error(
+                                "No fue posible guardar la fotografía localmente."
+                            )
+                        );
+
+                    };
+
+                transaccion.onabort =
+                    () => {
+
+                        reject(
+                            new Error(
+                                "El almacenamiento local de la fotografía fue cancelado."
+                            )
+                        );
+
+                    };
+
+            }
+        );
+
+        baseDatos.close();
+
+        this.evidenciasLocalesPorCategoria[
+            categoriaNormalizada
+        ] = registro;
+
+        return registro;
+
+    },
+
+
+    crearSelectorEvidenciaLocal(
+        categoria
+    ) {
+
+        const input =
+            document.createElement(
+                "input"
+            );
+
+        input.type = "file";
+
+        input.accept =
+            "image/jpeg,image/png,image/webp,image/*";
+
+        input.capture =
+            "environment";
+
+        input.style.display =
+            "none";
+
+        document.body.appendChild(
+            input
+        );
+
+        input.addEventListener(
+            "change",
+            async evento => {
+
+                const archivo =
+                    evento.target.files &&
+                    evento.target.files[0]
+                        ? evento.target.files[0]
+                        : null;
+
+                try {
+
+                    if (!archivo) {
+                        return;
+                    }
+
+                    await this.guardarEvidenciaLocal(
+                        categoria,
+                        archivo
+                    );
+
+                    if (
+                        window.Despachos &&
+                        typeof Despachos.notificar ===
+                            "function"
+                    ) {
+
+
+                        Despachos.notificar(
+                            "Fotografía guardada localmente. Podrá subirla en el Paso 3.",
+                            "exito"
+                        );
+
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "Error guardando evidencia local:",
+                        error
+                    );
+
+                    if (
+                        window.Despachos &&
+                        typeof Despachos.notificar ===
+                            "function"
+                    ) {
+
+                        Despachos.notificar(
+                            error.message ||
+                            "No fue posible guardar la fotografía localmente.",
+                            "error"
+                        );
+
+                    }
+
+                } finally {
+
+                    input.remove();
+
+                }
+
+            },
+            {
+                once: true
+            }
+        );
+
+        input.click();
+
+    },
+
+
+    cerrarModalEvidenciaLocal() {
+
+        const modal =
+            document.getElementById(
+                "modalEvidenciaLocalBASC"
+            );
+
+        if (modal) {
+
+            modal.remove();
+
+        }
+
+        this.modalEvidenciaLocalAbierto =
+            false;
+
+				},
+
+
+				solicitarEvidenciaLocalCategoria(
+				categoria
+			) {
+
+				console.log(
+					"Entró solicitarEvidenciaLocalCategoria:",
+					categoria
+				);
+
+				const categoriaNormalizada =
+					this.normalizarCategoriaBASC(
+						categoria
+					);
+
+					const modalExistente =
+				document.getElementById(
+					"modalEvidenciaLocalBASC"
+				);
+
+			/*
+			 * Si la variable quedó bloqueada en true,
+			 * pero el modal realmente no existe,
+			 * restauramos el estado para permitir abrirlo.
+			 */
+			if (
+				this.modalEvidenciaLocalAbierto &&
+				!modalExistente
+			) {
+
+				console.warn(
+					"Se restauró el estado del modal de evidencia local."
+				);
+
+				this.modalEvidenciaLocalAbierto =
+					false;
+
+			}
+
+			console.log(
+				"Estado antes de mostrar modal:",
+				{
+					categoriaOriginal:
+						categoria,
+
+					categoriaNormalizada:
+						categoriaNormalizada,
+
+					modalAbierto:
+						this.modalEvidenciaLocalAbierto,
+
+					modalExistente:
+						Boolean(
+							modalExistente
+							)
+					}
+				);
+
+				if (!categoriaNormalizada) {
+
+					console.warn(
+						"No se abrió el modal porque la categoría no pudo normalizarse.",
+						categoria
+					);
+
+					return;
+
+				}
+
+				if (
+					this.modalEvidenciaLocalAbierto ||
+					modalExistente
+				) {
+
+					console.warn(
+						"No se abrió el modal porque ya existe otro modal de evidencia local."
+					);
+
+					return;
+
+				}
+
+				this.modalEvidenciaLocalAbierto =
+					true;
+
+        const modal =
+            document.createElement(
+                "div"
+            );
+
+        modal.id =
+            "modalEvidenciaLocalBASC";
+
+        modal.className =
+            "modal-evidencia-local-basc";
+
+        modal.innerHTML = `
+            <div class="modal-evidencia-local-contenido">
+
+                <div class="modal-evidencia-local-icono">
+                    <i class="fa-solid fa-camera"></i>
+                </div>
+
+                <div class="modal-evidencia-local-texto">
+
+                    <h3>
+                        La categoría se guardó correctamente.
+                    </h3>
+
+                    <p>
+                        ¿Desea registrar la evidencia fotográfica ahora?
+                    </p>
+
+                    <span>
+                        La fotografía quedará pendiente de subir en el Paso 3.
+                    </span>
+
+                </div>
+
+                <div class="modal-evidencia-local-acciones">
+
+                    <button
+                        type="button"
+                        id="btnContinuarSinEvidenciaLocal"
+                        class="btn-evidencia-local-secundario"
+                    >
+                        Continuar
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnRegistrarEvidenciaLocal"
+                        class="btn-evidencia-local-principal"
+                    >
+                        <i class="fa-solid fa-camera"></i>
+                        Registrar evidencia
+                    </button>
+
+                </div>
+
+            </div>
+        `;
+
+        document.body.appendChild(
+            modal
+        );
+
+        const botonContinuar =
+            document.getElementById(
+                "btnContinuarSinEvidenciaLocal"
+            );
+
+        const botonRegistrar =
+            document.getElementById(
+                "btnRegistrarEvidenciaLocal"
+            );
+
+        if (botonContinuar) {
+
+            botonContinuar.addEventListener(
+                "click",
+                () => {
+
+                    this.cerrarModalEvidenciaLocal();
+
+                }
+            );
+
+        }
+
+        if (botonRegistrar) {
+
+            botonRegistrar.addEventListener(
+                "click",
+                () => {
+
+                    this.cerrarModalEvidenciaLocal();
+
+                    this.crearSelectorEvidenciaLocal(
+                        categoriaNormalizada
+                    );
+
+                }
+            );
+
+        }
+
+    },
 
 
     async cargarEvidenciasGuardadas() {
@@ -2562,6 +3460,7 @@ formatearTamanoContenedor(
         }
     },
 
+	
     async eliminarEvidenciaInspeccion(categoria, indice) {
         const lista = this.evidenciasPorCategoria[categoria] || [];
         const evidencia = lista[indice];
@@ -2575,82 +3474,290 @@ formatearTamanoContenedor(
         lista.splice(indice, 1);
     },
 
-    mostrarPasoEvidencias() {
+     mostrarPasoEvidencias() {
 
-        const contenidoModal = document.getElementById("contenidoModal");
-        if (!contenidoModal) return;
-        const grupos = this.agruparCatalogoBASC();
-        const categorias = this.obtenerCategoriasOrdenadasBASC(grupos);
+    const contenidoModal =
+        document.getElementById(
+            "contenidoModal"
+        );
 
-        contenidoModal.innerHTML = `
-            <section class="asistente-inspeccion">
-                <div class="inspeccion-pasos">
-                    <div class="paso-inspeccion completado">1. Información</div>
-                    <div class="paso-inspeccion completado">2. Inspección BASC</div>
-                    <div class="paso-inspeccion activo">3. Evidencias</div>
-                    <div class="paso-inspeccion">4. Finalizar</div>
+    if (!contenidoModal) {
+        return;
+    }
+
+    const idInspeccionActual =
+        String(
+            this.idInspeccion || ""
+        ).trim();
+
+    if (
+        idInspeccionActual &&
+        this.evidenciasLocalesCargadasPara !==
+            idInspeccionActual &&
+        !this.cargandoEvidenciasLocales
+    ) {
+
+        this.cargandoEvidenciasLocales =
+            true;
+
+        this.cargarEvidenciasLocalesInspeccion()
+            .then(() => {
+
+                this.evidenciasLocalesCargadasPara =
+                    idInspeccionActual;
+
+                console.log(
+                    "Evidencias locales recuperadas:",
+                    this.evidenciasLocalesPorCategoria
+                );
+
+            })
+            .catch(error => {
+
+                console.error(
+                    "No fue posible recuperar las evidencias locales:",
+                    error
+                );
+
+            })
+            .finally(() => {
+
+                this.cargandoEvidenciasLocales =
+                    false;
+
+                this.mostrarPasoEvidencias();
+
+            });
+
+    }
+
+    const grupos =
+        this.agruparCatalogoBASC();
+
+    const categorias =
+        this.obtenerCategoriasOrdenadasBASC(
+            grupos
+        );
+
+    contenidoModal.innerHTML = `
+        <section class="asistente-inspeccion">
+
+            <div class="inspeccion-pasos">
+
+                <div class="paso-inspeccion completado">
+                    1. Información
                 </div>
 
-                <div class="inspeccion-encabezado">
-                    <div>
-                        <h2>Evidencias de inspección</h2>
-                        <p>Registre al menos una fotografía por cada categoría inspeccionada.</p>
-                    </div>
-                    <span class="estado-inspeccion">Evidencias</span>
+                <div class="paso-inspeccion completado">
+                    2. Inspección BASC
                 </div>
+
+                <div class="paso-inspeccion activo">
+                    3. Evidencias
+                </div>
+
+                <div class="paso-inspeccion">
+                    4. Finalizar
+                </div>
+
+            </div>
+
+            <div class="inspeccion-encabezado">
+
+                <div>
+
+                    <h2>
+                        Evidencias de inspección
+                    </h2>
+
+                    <p>
+                        Registre una fotografía por cada zona
+                        inspeccionada.
+                    </p>
+
+                </div>
+
+                <span class="estado-inspeccion">
+                    ${categorias.length} evidencias
+                </span>
+
+            </div>
+
+            ${
+                this.crearFichaDocumentalInspeccion(
+                    "Evidencias"
+                )
+            }
+
+            <div class="aviso-evidencias-basc">
+
+                <i class="fa-solid fa-shield-halved"></i>
+
+                <div>
+
+                    <strong>
+                        Evidencia obligatoria
+                    </strong>
+
+                    <p>
+                        Debe registrar al menos una fotografía
+                        de cada zona inspeccionada.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="grid-evidencias-categorias">
 
                 ${
-                    this.crearFichaDocumentalInspeccion(
-                        "Evidencias"
-                    )
-                }
+                    categorias.map(categoria => {
 
-                <div class="aviso-evidencias-basc">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <div>
-                        <strong>Evidencia obligatoria</strong>
-                        <p>Las fotografías comprueban que la inspección fue realizada, incluso cuando todos los puntos cumplen.</p>
-                    </div>
-                </div>
+                        const puntos =
+                            grupos[categoria] || [];
 
-                <div class="grid-evidencias-categorias">
-                    ${categorias.map(categoria => {
-                        const puntos = grupos[categoria];
-                        const configuracionCategoria = this.obtenerConfiguracionCategoriaBASC(categoria);
-                        const codigoZona = configuracionCategoria.codigo || this.obtenerCodigoZonaCategoria(puntos);
-                        const archivos = this.evidenciasPorCategoria[categoria] || [];
+                        const configuracionCategoria =
+                            this.obtenerConfiguracionCategoriaBASC(
+                                categoria
+                            );
+
+                        const codigoZona =
+                            configuracionCategoria.codigo ||
+                            this.obtenerCodigoZonaCategoria(
+                                puntos
+                            );
+
+                        const archivos =
+                            this.evidenciasPorCategoria[
+                                categoria
+                            ] || [];
+
+                        const descripcionEvidencia =
+                            categoria ===
+                                "Sello de llegada"
+                                ? "Fotografía donde se aprecie claramente el sello de llegada inspeccionado."
+                                : "Fotografía general que demuestre la revisión de esta zona.";
+
                         return `
-                            <article class="tarjeta-evidencia-categoria ${archivos.length > 0 ? "completa" : "pendiente"}" data-categoria="${categoria}">
+                            <article
+                                class="
+                                    tarjeta-evidencia-categoria
+                                    ${
+                                        archivos.length > 0
+                                            ? "completa"
+                                            : "pendiente"
+                                    }
+                                "
+                                data-categoria="${categoria}"
+                            >
+
                                 <div class="tarjeta-evidencia-categoria__encabezado">
-                                    <div><span><i class="fa-solid ${configuracionCategoria.icono}"></i> ${codigoZona || "Zona"}</span><h3>${categoria}</h3></div>
-                                    <div class="estado-evidencia-categoria">${archivos.length > 0 ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-solid fa-camera"></i>'}</div>
+
+                                    <div>
+
+                                        <span>
+                                            <i class="fa-solid ${configuracionCategoria.icono}"></i>
+                                            ${codigoZona || "Zona"}
+                                        </span>
+
+                                        <h3>
+                                            ${categoria}
+                                        </h3>
+
+                                    </div>
+
+                                    <div class="estado-evidencia-categoria">
+
+                                        ${
+                                            archivos.length > 0
+                                                ? '<i class="fa-solid fa-circle-check"></i>'
+                                                : '<i class="fa-solid fa-camera"></i>'
+                                        }
+
+                                    </div>
+
                                 </div>
-                                <p>Fotografía general que demuestre la revisión de esta zona.</p>
+
+                                <p>
+                                    ${descripcionEvidencia}
+                                </p>
+
                                 <label class="boton-cargar-evidencia">
-                                    <input type="file" accept="image/*" capture="environment" data-categoria="${categoria}" multiple ${this.evidenciasCargando[categoria] ? "disabled" : ""}>
+
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        data-categoria="${categoria}"
+                                        multiple
+                                        ${
+                                            this.evidenciasCargando[
+                                                categoria
+                                            ]
+                                                ? "disabled"
+                                                : ""
+                                        }
+                                    >
+
                                     <i class="fa-solid fa-camera"></i>
-                                    <span>${archivos.length > 0 ? "Agregar más fotos" : "Tomar o seleccionar foto"}</span>
+
+                                    <span>
+                                        ${
+                                            archivos.length > 0
+                                                ? "Agregar más fotos"
+                                                : "Tomar o seleccionar foto"
+                                        }
+                                    </span>
+
                                 </label>
-                                <div class="lista-evidencias-categoria" id="listaEvidencias_${this.convertirCategoriaId(categoria)}">
-                                    ${this.crearVistaArchivosEvidencia(categoria)}
+
+                                <div
+                                    class="lista-evidencias-categoria"
+                                    id="listaEvidencias_${this.convertirCategoriaId(categoria)}"
+                                >
+                                    ${
+                                        this.crearVistaArchivosEvidencia(
+                                            categoria
+                                        )
+                                    }
                                 </div>
+
                             </article>
                         `;
-                    }).join("")}
-                </div>
 
-                <div class="acciones-inspeccion">
-                    <button type="button" id="btnVolverPasoBASC" class="btn-secundario-inspeccion"><i class="fa-solid fa-arrow-left"></i> Volver</button>
-                    <button type="button" id="btnContinuarFinalizarInspeccion" class="btn-iniciar-inspeccion">Continuar <i class="fa-solid fa-arrow-right"></i></button>
-                </div>
-            </section>
-        `;
+                    }).join("")
+                }
 
-        this.configurarEventosPasoEvidencias();
+            </div>
 
-    },
+            <div class="acciones-inspeccion">
 
+                <button
+                    type="button"
+                    id="btnVolverPasoBASC"
+                    class="btn-secundario-inspeccion"
+                >
+                    <i class="fa-solid fa-arrow-left"></i>
+                    Volver
+                </button>
 
+                <button
+                    type="button"
+                    id="btnContinuarFinalizarInspeccion"
+                    class="btn-iniciar-inspeccion"
+                >
+                    Continuar
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+
+            </div>
+
+        </section>
+    `;
+
+    this.configurarEventosPasoEvidencias();
+
+},
     convertirCategoriaId(categoria) {
         return String(categoria || "")
             .normalize("NFD")
@@ -2659,93 +3766,1862 @@ formatearTamanoContenedor(
     },
 
 
-    crearVistaArchivosEvidencia(categoria) {
-        const archivos = this.evidenciasPorCategoria[categoria] || [];
-        if (this.evidenciasCargando[categoria]) return `<span class="sin-evidencia-categoria"><i class="fa-solid fa-spinner fa-spin"></i> Guardando fotografía...</span>`;
-        if (archivos.length === 0) return `<span class="sin-evidencia-categoria">Sin fotografía registrada</span>`;
-        return archivos.map((archivo, indice) => {
-            const nombre = archivo.nombreArchivo || archivo.Nombre_Archivo || archivo.name || `Evidencia ${indice + 1}`;
-            const url = archivo.archivoUrl || archivo.Archivo_URL || "";
-            return `<div class="archivo-evidencia-categoria"><i class="fa-solid fa-image"></i>${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${nombre}</a>` : `<span>${nombre}</span>`}<button type="button" data-categoria="${categoria}" data-indice="${indice}" class="btn-eliminar-evidencia" title="Eliminar fotografía"><i class="fa-solid fa-xmark"></i></button></div>`;
-        }).join("");
+    async cargarEvidenciasLocalesInspeccion() {
+
+        const idInspeccion =
+            String(
+                this.idInspeccion || ""
+            ).trim();
+
+        if (!idInspeccion) {
+            return;
+        }
+
+        const baseDatos =
+            await this.abrirBaseDatosEvidenciasLocales();
+
+        const registros =
+            await new Promise(
+                (resolve, reject) => {
+
+                    const transaccion =
+                        baseDatos.transaction(
+                            ["evidencias"],
+                            "readonly"
+                        );
+
+                    const almacen =
+                        transaccion.objectStore(
+                            "evidencias"
+                        );
+
+                    const indice =
+                        almacen.index(
+                            "idInspeccion"
+                        );
+
+                    const solicitud =
+                        indice.getAll(
+                            idInspeccion
+                        );
+
+                    solicitud.onsuccess =
+                        () => {
+
+                            resolve(
+                                solicitud.result || []
+                            );
+
+                        };
+
+                    solicitud.onerror =
+                        () => {
+
+                            reject(
+                                new Error(
+                                    "No fue posible recuperar las evidencias locales."
+                                )
+                            );
+
+                        };
+
+                }
+            );
+
+        baseDatos.close();
+
+        this.evidenciasLocalesPorCategoria = {};
+
+        registros.forEach(
+            registro => {
+
+                const categoria =
+                    this.normalizarCategoriaBASC(
+                        registro.categoria
+                    );
+
+                if (categoria) {
+
+                    this.evidenciasLocalesPorCategoria[
+                        categoria
+                    ] = registro;
+
+                }
+
+            }
+        );
+
     },
 
 
-    configurarEventosPasoEvidencias() {
-        document.querySelectorAll('.boton-cargar-evidencia input[type="file"]').forEach(input => {
-            input.addEventListener("change", async evento => {
-                const categoria = evento.target.dataset.categoria;
-                const archivos = Array.from(evento.target.files || []);
-                if (!archivos.length) return;
-                try {
-                    await this.subirArchivosEvidenciaCategoria(categoria, archivos);
-                } catch (error) {
-                    delete this.evidenciasCargando[categoria];
-                    this.mostrarPasoEvidencias();
-                    if (window.Despachos?.notificar) Despachos.notificar(error.message || "No fue posible guardar la evidencia.", "error");
+    obtenerEvidenciaLocalCategoria(
+        categoria
+    ) {
+
+        const categoriaNormalizada =
+            this.normalizarCategoriaBASC(
+                categoria
+            );
+
+        return (
+            this.evidenciasLocalesPorCategoria[
+                categoriaNormalizada
+            ] || null
+        );
+
+    },
+
+
+    async eliminarEvidenciaLocalCategoria(
+        categoria
+    ) {
+
+        const categoriaNormalizada =
+            this.normalizarCategoriaBASC(
+                categoria
+            );
+
+        const evidenciaLocal =
+            this.obtenerEvidenciaLocalCategoria(
+                categoriaNormalizada
+            );
+
+        if (!evidenciaLocal) {
+            return;
+        }
+
+        const baseDatos =
+            await this.abrirBaseDatosEvidenciasLocales();
+
+        await new Promise(
+            (resolve, reject) => {
+
+                const transaccion =
+                    baseDatos.transaction(
+                        ["evidencias"],
+                        "readwrite"
+                    );
+
+                const almacen =
+                    transaccion.objectStore(
+                        "evidencias"
+                    );
+
+                almacen.delete(
+                    evidenciaLocal.id
+                );
+
+                transaccion.oncomplete =
+                    () => {
+
+                        resolve();
+
+                    };
+
+                transaccion.onerror =
+                    () => {
+
+                        reject(
+                            new Error(
+                                "No fue posible eliminar la evidencia local."
+                            )
+                        );
+
+                    };
+
+            }
+        );
+
+        baseDatos.close();
+
+        delete this.evidenciasLocalesPorCategoria[
+            categoriaNormalizada
+        ];
+
+    },
+
+
+    async subirEvidenciaLocalCategoria(
+        categoria
+    ) {
+
+        const categoriaNormalizada =
+            this.normalizarCategoriaBASC(
+                categoria
+            );
+
+        const evidenciaLocal =
+            this.obtenerEvidenciaLocalCategoria(
+                categoriaNormalizada
+            );
+
+        if (
+            !evidenciaLocal ||
+            !evidenciaLocal.archivo
+        ) {
+
+            throw new Error(
+                "No se encontró la fotografía local pendiente."
+            );
+
+        }
+
+        await this.subirArchivosEvidenciaCategoria(
+            categoriaNormalizada,
+            [evidenciaLocal.archivo]
+        );
+
+        await this.eliminarEvidenciaLocalCategoria(
+            categoriaNormalizada
+        );
+
+    },
+
+
+        crearVistaArchivosEvidencia(
+        categoria
+    ) {
+
+        const categoriaNormalizada =
+            this.normalizarCategoriaBASC(
+                categoria
+            );
+
+        const archivos =
+            this.evidenciasPorCategoria[
+                categoriaNormalizada
+            ] || [];
+
+        const evidenciaLocal =
+            this.obtenerEvidenciaLocalCategoria(
+                categoriaNormalizada
+            );
+		if (
+			this.cargandoEvidenciasLocales &&
+			!evidenciaLocal &&
+			archivos.length === 0
+		) {
+
+			return `
+				<span class="sin-evidencia-categoria">
+					<i class="fa-solid fa-spinner fa-spin"></i>
+					Buscando fotografía local...
+				</span>
+			`;
+
+		}
+
+        if (
+            this.evidenciasCargando[
+                categoriaNormalizada
+            ]
+        ) {
+
+            return `
+                <span class="sin-evidencia-categoria">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    Guardando fotografía...
+                </span>
+            `;
+
+        }
+
+        const vistaLocal =
+            evidenciaLocal
+                ? `
+                    <div class="evidencia-local-pendiente">
+
+                        <div class="evidencia-local-pendiente__info">
+
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+
+                            <div>
+                                <strong>
+                                    Pendiente de subir
+                                </strong>
+
+                                <span>
+                                    ${
+                                        evidenciaLocal.nombreArchivo ||
+                                        "Fotografía local"
+                                    }
+                                </span>
+                            </div>
+
+                        </div>
+
+                        <div class="evidencia-local-pendiente__acciones">
+
+                            <button
+                                type="button"
+                                class="btn-eliminar-evidencia-local"
+                                data-categoria="${categoriaNormalizada}"
+                                title="Eliminar fotografía local"
+                            >
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn-subir-evidencia-local"
+                                data-categoria="${categoriaNormalizada}"
+                            >
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                Subir
+                            </button>
+
+                        </div>
+
+                    </div>
+                `
+                : "";
+
+        const vistaServidor =
+            archivos.map(
+                (archivo, indice) => {
+
+                    const nombre =
+                        archivo.nombreArchivo ||
+                        archivo.Nombre_Archivo ||
+                        archivo.name ||
+                        `Evidencia ${indice + 1}`;
+
+                    const url =
+                        archivo.archivoUrl ||
+                        archivo.Archivo_URL ||
+                        "";
+
+                    return `
+                        <div class="archivo-evidencia-categoria">
+
+                            <i class="fa-solid fa-image"></i>
+
+                            ${
+                                url
+                                    ? `
+                                        <a
+                                            href="${url}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            ${nombre}
+                                        </a>
+                                    `
+                                    : `
+                                        <span>
+                                            ${nombre}
+                                        </span>
+                                    `
+                            }
+
+                            <button
+                                type="button"
+                                data-categoria="${categoriaNormalizada}"
+                                data-indice="${indice}"
+                                class="btn-eliminar-evidencia"
+                                title="Eliminar fotografía"
+                            >
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+
+                        </div>
+                    `;
+
                 }
-            });
-        });
+            ).join("");
 
-        document.querySelectorAll(".btn-eliminar-evidencia").forEach(boton => {
-            boton.addEventListener("click", async () => {
-                boton.disabled = true;
-                try {
-                    await this.eliminarEvidenciaInspeccion(boton.dataset.categoria, Number(boton.dataset.indice));
-                    this.mostrarPasoEvidencias();
-                    if (window.Despachos?.notificar) Despachos.notificar("Evidencia eliminada correctamente.", "exito");
-                } catch (error) {
-                    boton.disabled = false;
-                    if (window.Despachos?.notificar) Despachos.notificar(error.message || "No fue posible eliminar la evidencia.", "error");
+        if (
+            !evidenciaLocal &&
+            archivos.length === 0
+        ) {
+
+            return `
+                <span class="sin-evidencia-categoria">
+                    Sin fotografía registrada
+                </span>
+            `;
+
+        }
+
+        return `
+            ${vistaLocal}
+            ${vistaServidor}
+        `;
+
+    },
+
+
+      configurarEventosPasoEvidencias() {
+        
+        document
+            .querySelectorAll(
+                '.boton-cargar-evidencia input[type="file"]'
+            )
+            .forEach(input => {
+
+                input.addEventListener(
+                    "change",
+                    async evento => {
+
+                        const categoria =
+                            evento.target.dataset.categoria;
+
+                        const archivos =
+                            Array.from(
+                                evento.target.files || []
+                            );
+
+                        if (!archivos.length) {
+                            return;
+                        }
+
+                        const campoSello =
+                            document.getElementById(
+                                "selloLlegadaPasoEvidencias"
+                            );
+
+                        if (campoSello) {
+
+                            this.selloLlegada =
+                                String(
+                                    campoSello.value || ""
+                                ).trim();
+
+                        }
+
+                        try {
+
+                            await this.subirArchivosEvidenciaCategoria(
+                                categoria,
+                                archivos
+                            );
+
+                        } catch (error) {
+
+                            delete this.evidenciasCargando[
+                                categoria
+                            ];
+
+                            this.mostrarPasoEvidencias();
+
+                            if (
+                                window.Despachos &&
+                                typeof Despachos.notificar ===
+                                    "function"
+                            ) {
+
+                                Despachos.notificar(
+                                    error.message ||
+                                    "No fue posible guardar la evidencia.",
+                                    "error"
+                                );
+
+                            }
+
+                        }
+
+                    }
+                );
+
+            });
+			
+			        document
+            .querySelectorAll(
+                ".btn-subir-evidencia-local"
+            )
+            .forEach(
+                boton => {
+
+                    boton.addEventListener(
+                        "click",
+                        async () => {
+
+                            const categoria =
+                                boton.dataset.categoria;
+
+                            const contenidoOriginal =
+                                boton.innerHTML;
+
+                            try {
+
+                                boton.disabled =
+                                    true;
+
+                                boton.innerHTML = `
+                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                    Subiendo...
+                                `;
+
+                                await this.subirEvidenciaLocalCategoria(
+                                    categoria
+                                );
+
+                                this.mostrarPasoEvidencias();
+
+                                if (
+                                    window.Despachos &&
+                                    typeof Despachos.notificar ===
+                                        "function"
+                                ) {
+
+                                    Despachos.notificar(
+                                        "La evidencia local fue subida correctamente.",
+                                        "exito"
+                                    );
+
+                                }
+
+                            } catch (error) {
+
+                                console.error(
+                                    "Error subiendo evidencia local:",
+                                    error
+                                );
+
+                                boton.disabled =
+                                    false;
+
+                                boton.innerHTML =
+                                    contenidoOriginal;
+
+                                if (
+                                    window.Despachos &&
+                                    typeof Despachos.notificar ===
+                                        "function"
+                                ) {
+
+                                    Despachos.notificar(
+                                        error.message ||
+                                        "No fue posible subir la evidencia local.",
+                                        "error"
+                                    );
+
+                                }
+
+                            }
+
+                        }
+                    );
+
                 }
+            );
+
+
+        document
+            .querySelectorAll(
+                ".btn-eliminar-evidencia-local"
+            )
+            .forEach(
+                boton => {
+
+                    boton.addEventListener(
+                        "click",
+                        async () => {
+
+                            const categoria =
+                                boton.dataset.categoria;
+
+                            try {
+
+                                boton.disabled =
+                                    true;
+
+                                await this.eliminarEvidenciaLocalCategoria(
+                                    categoria
+                                );
+
+                                this.mostrarPasoEvidencias();
+
+                                if (
+                                    window.Despachos &&
+                                    typeof Despachos.notificar ===
+                                        "function"
+                                ) {
+
+                                    Despachos.notificar(
+                                        "La fotografía local fue eliminada.",
+                                        "advertencia"
+                                    );
+
+                                }
+
+                            } catch (error) {
+
+                                console.error(
+                                    "Error eliminando evidencia local:",
+                                    error
+                                );
+
+                                boton.disabled =
+                                    false;
+
+                                if (
+                                    window.Despachos &&
+                                    typeof Despachos.notificar ===
+                                        "function"
+                                ) {
+
+                                    Despachos.notificar(
+                                        error.message ||
+                                        "No fue posible eliminar la fotografía local.",
+                                        "error"
+                                    );
+
+                                }
+
+                            }
+
+                        }
+                    );
+
+                }
+            );
+
+        document
+            .querySelectorAll(
+                ".btn-eliminar-evidencia"
+            )
+            .forEach(boton => {
+
+                boton.addEventListener(
+                    "click",
+                    async () => {
+
+                        boton.disabled = true;
+
+                        const campoSello =
+                            document.getElementById(
+                                "selloLlegadaPasoEvidencias"
+                            );
+
+                        if (campoSello) {
+
+                            this.selloLlegada =
+                                String(
+                                    campoSello.value || ""
+                                ).trim();
+
+                        }
+
+                        try {
+
+                            await this.eliminarEvidenciaInspeccion(
+                                boton.dataset.categoria,
+                                Number(
+                                    boton.dataset.indice
+                                )
+                            );
+
+                            this.mostrarPasoEvidencias();
+
+                            if (
+                                window.Despachos &&
+                                typeof Despachos.notificar ===
+                                    "function"
+                            ) {
+
+                                Despachos.notificar(
+                                    "Evidencia eliminada correctamente.",
+                                    "exito"
+                                );
+
+                            }
+
+                        } catch (error) {
+
+                            boton.disabled = false;
+
+                            if (
+                                window.Despachos &&
+                                typeof Despachos.notificar ===
+                                    "function"
+                            ) {
+
+                                Despachos.notificar(
+                                    error.message ||
+                                    "No fue posible eliminar la evidencia.",
+                                    "error"
+                                );
+
+                            }
+
+                        }
+
+                    }
+                );
+
             });
-        });
 
-        const btnVolver = document.getElementById("btnVolverPasoBASC");
-        if (btnVolver) btnVolver.addEventListener("click", () => { this.pasoActual = 2; this.mostrarPasoBASC(); });
+        const btnVolver =
+            document.getElementById(
+                "btnVolverPasoBASC"
+            );
 
-        const btnContinuar = document.getElementById("btnContinuarFinalizarInspeccion");
+        if (btnVolver) {
+
+            btnVolver.addEventListener(
+                "click",
+                () => {
+
+                    const campoSello =
+                        document.getElementById(
+                            "selloLlegadaPasoEvidencias"
+                        );
+
+                    if (campoSello) {
+
+                        this.selloLlegada =
+                            String(
+                                campoSello.value || ""
+                            ).trim();
+
+                    }
+
+                    this.pasoActual = 2;
+                    this.mostrarPasoBASC();
+
+                }
+            );
+
+        }
+
+                const btnContinuar =
+				document.getElementById(
+                "btnContinuarFinalizarInspeccion"
+            );
+
         if (btnContinuar) {
-            btnContinuar.addEventListener("click", async () => {
-                btnContinuar.disabled = true;
-                try {
-                    await this.cargarEvidenciasGuardadas();
-                    this.mostrarPasoEvidencias();
-                    if (!this.validarEvidenciasPorCategoria()) return;
-                    this.pasoActual = 4;
-                    if (window.Despachos?.notificar) Despachos.notificar("Todas las evidencias fueron almacenadas correctamente.", "exito");
-                } finally {
-                    if (document.body.contains(btnContinuar)) btnContinuar.disabled = false;
-                }
-            });
+
+           btnContinuar.addEventListener(
+    "click",
+    async () => {
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.mostrar ===
+                "function"
+        ) {
+
+            CargadorSistema.mostrar(
+                "Preparando finalización",
+                "Estamos verificando las evidencias y cargando el resumen de la inspección."
+            );
+
         }
+
+        try {
+
+            /*
+             * El número del sello ya fue registrado
+             * en el Paso 2 y permanece almacenado en:
+             *
+             * this.selloLlegada
+             *
+             * No debe volver a leerse desde el Paso 3,
+             * porque en Evidencias ya no existe un
+             * campo para ingresar el número.
+             */
+            if (
+                !String(
+                    this.selloLlegada || ""
+                ).trim()
+            ) {
+
+                if (
+                    window.Despachos &&
+                    typeof Despachos.notificar ===
+                        "function"
+                ) {
+
+                    Despachos.notificar(
+                        "Debe registrar el número del sello de llegada en el Paso 2.",
+                        "error"
+                    );
+
+                }
+
+                return;
+
+            }
+
+            btnContinuar.disabled = true;
+
+            await this.cargarEvidenciasGuardadas();
+
+            if (
+                !this.validarEvidenciasPorCategoria()
+            ) {
+                return;
+            }
+
+            this.pasoActual = 4;
+            this.mostrarPasoFinalizar();
+
+        } finally {
+
+            if (
+                document.body.contains(
+                    btnContinuar
+                )
+            ) {
+
+                btnContinuar.disabled = false;
+
+            }
+
+            if (
+                window.CargadorSistema &&
+                typeof CargadorSistema.ocultar ===
+                    "function"
+            ) {
+
+                CargadorSistema.ocultar();
+
+            }
+
+        }
+
+    }
+);
+        }
+
+    },
+
+       validarEvidenciasPorCategoria() {
+
+        const grupos =
+            this.agruparCatalogoBASC();
+
+        const categorias =
+            this.obtenerCategoriasOrdenadasBASC(
+                grupos
+            );
+
+        const pendientes =
+            categorias.filter(categoria => {
+
+                const archivos =
+                    this.evidenciasPorCategoria[
+                        categoria
+                    ];
+
+                return (
+                    !Array.isArray(archivos) ||
+                    archivos.length === 0
+                );
+
+            });
+
+        if (pendientes.length > 0) {
+
+            const primeraPendiente =
+                document.querySelector(
+                    `.tarjeta-evidencia-categoria[data-categoria="${pendientes[0]}"]`
+                );
+
+            if (primeraPendiente) {
+
+                primeraPendiente.classList.add(
+                    "evidencia-error"
+                );
+
+                primeraPendiente.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+            }
+
+            if (
+                window.Despachos &&
+                typeof Despachos.notificar ===
+                    "function"
+            ) {
+
+                Despachos.notificar(
+                    `Falta evidencia en ${pendientes.length} zona(s) de inspección.`,
+                    "error"
+                );
+
+            }
+
+            return false;
+
+        }
+
+        const categoriaSello =
+            "Sello de llegada";
+
+        const tarjetaSello =
+            document.querySelector(
+                `.tarjeta-evidencia-categoria[data-categoria="${categoriaSello}"]`
+            );
+
+        const campoSello =
+            document.getElementById(
+                "selloLlegadaPasoEvidencias"
+            );
+
+        this.selloLlegada =
+            String(
+                campoSello?.value ||
+                this.selloLlegada ||
+                ""
+            ).trim();
+
+        if (!this.selloLlegada) {
+
+            if (tarjetaSello) {
+
+                tarjetaSello.classList.add(
+                    "evidencia-error"
+                );
+
+                tarjetaSello.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+            }
+
+            if (campoSello) {
+                campoSello.focus();
+            }
+
+            if (
+                window.Despachos &&
+                typeof Despachos.notificar ===
+                    "function"
+            ) {
+
+                Despachos.notificar(
+                    "Debe registrar el número del sello de llegada.",
+                    "error"
+                );
+
+            }
+
+            return false;
+
+        }
+
+        const evidenciasSello =
+            this.evidenciasPorCategoria[
+                categoriaSello
+            ];
+
+        if (
+            !Array.isArray(evidenciasSello) ||
+            evidenciasSello.length === 0
+        ) {
+
+            if (tarjetaSello) {
+
+                tarjetaSello.classList.add(
+                    "evidencia-error"
+                );
+
+                tarjetaSello.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+            }
+
+            if (
+                window.Despachos &&
+                typeof Despachos.notificar ===
+                    "function"
+            ) {
+
+                Despachos.notificar(
+                    "Debe registrar la evidencia fotográfica del sello de llegada.",
+                    "error"
+                );
+
+            }
+
+            return false;
+
+        }
+
+        return true;
+
     },
 
 
-    validarEvidenciasPorCategoria() {
 
-        const grupos = this.agruparCatalogoBASC();
-        const categorias = this.obtenerCategoriasOrdenadasBASC(grupos);
-        const pendientes = categorias.filter(categoria => {
-            const archivos = this.evidenciasPorCategoria[categoria];
-            return !Array.isArray(archivos) || archivos.length === 0;
+
+    obtenerResumenFinalInspeccion() {
+
+        let cumple = 0;
+        let noCumple = 0;
+        let noAplica = 0;
+
+        this.catalogo.forEach(punto => {
+
+            const respuesta =
+                this.respuestasBASC[
+                    String(
+                        punto.codigo || ""
+                    ).trim()
+                ] || {};
+
+            if (respuesta.estado === "Cumple") cumple++;
+            if (respuesta.estado === "No cumple") noCumple++;
+            if (respuesta.estado === "No aplica") noAplica++;
+
         });
 
-        if (pendientes.length === 0) return true;
+        const totalEvidencias =
+            Object.values(
+                this.evidenciasPorCategoria
+            ).reduce(
+                (total, evidencias) =>
+                    total +
+                    (
+                        Array.isArray(evidencias)
+                            ? evidencias.length
+                            : 0
+                    ),
+                0
+            );
 
-        const primeraPendiente = document.querySelector(`.tarjeta-evidencia-categoria[data-categoria="${pendientes[0]}"]`);
-        if (primeraPendiente) {
-            primeraPendiente.classList.add("evidencia-error");
-            primeraPendiente.scrollIntoView({behavior:"smooth", block:"center"});
-        }
-
-        if (window.Despachos && typeof Despachos.notificar === "function") {
-            Despachos.notificar(`Falta evidencia en ${pendientes.length} categoría(s).`, "error");
-        }
-        return false;
+        return {
+            total: this.catalogo.length,
+            cumple: cumple,
+            noCumple: noCumple,
+            noAplica: noAplica,
+            totalEvidencias: totalEvidencias,
+            resultado:
+                noCumple > 0
+                    ? "Con hallazgos"
+                    : "Conforme"
+        };
 
     },
 
+
+    obtenerSelloLlegadaSugerido() {
+
+        const despacho =
+            this.datosConduce?.despacho || {};
+
+        const sellos =
+            Array.isArray(
+                this.datosConduce?.sellos
+            )
+                ? this.datosConduce.sellos
+                : [];
+
+        const cantidadDestinos =
+            Number(
+                despacho.cantidadDestinos || 1
+            );
+
+        const ordenLlegada =
+            cantidadDestinos === 2
+                ? 2
+                : 1;
+
+        const selloLlegada =
+            sellos.find(item =>
+                Number(item.orden || 0) ===
+                    ordenLlegada
+            ) || {};
+
+        return String(
+            selloLlegada.numero ||
+            (
+                ordenLlegada === 2
+                    ? despacho.precinto2
+                    : despacho.precinto1
+            ) ||
+            ""
+        ).trim();
+
+    },
+
+
+    mostrarPasoFinalizar() {
+
+        const contenidoModal =
+            document.getElementById(
+                "contenidoModal"
+            );
+
+        if (!contenidoModal) return;
+
+        const resumen =
+            this.obtenerResumenFinalInspeccion();
+
+        const despacho =
+            this.datosConduce?.despacho || {};
+
+        const contenedor =
+            this.datosConduce?.contenedor || {};
+
+        const chofer =
+            this.datosConduce?.chofer || {};
+
+        const sellos =
+            Array.isArray(
+                this.datosConduce?.sellos
+            )
+                ? this.datosConduce.sellos
+                : [];
+
+        const selloDestino1 =
+            sellos.find(item =>
+                Number(item.orden || 0) === 1
+            ) || {};
+
+        const selloDestino2 =
+            sellos.find(item =>
+                Number(item.orden || 0) === 2
+            ) || {};
+
+        const inspector =
+            this.obtenerInspectorActual();
+
+                const selloLlegadaSugerido =
+            String(
+                this.selloLlegada ||
+                this.obtenerSelloLlegadaSugerido() ||
+                ""
+            ).trim();
+
+        contenidoModal.innerHTML = `
+            <section class="asistente-inspeccion">
+			
+                <div class="inspeccion-pasos">
+                    <div class="paso-inspeccion completado">1. Información</div>
+                    <div class="paso-inspeccion completado">2. Inspección BASC</div>
+                    <div class="paso-inspeccion completado">3. Evidencias</div>
+                    <div class="paso-inspeccion activo">4. Finalizar</div>
+                </div>
+
+                <div class="inspeccion-encabezado">
+                    <div>
+                        <h2>Finalizar inspección</h2>
+                        <p>Revise el resumen antes de cerrar y generar el documento oficial.</p>
+                    </div>
+                    <span class="estado-inspeccion">Revisión final</span>
+                </div>
+
+                ${this.crearFichaDocumentalInspeccion("Revisión final")}
+
+                <div class="resumen-final-inspeccion">
+                    <article class="tarjeta-resumen-final">
+                        <span>Total de puntos</span>
+                        <strong>${resumen.total}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final resumen-cumple">
+                        <span>Cumple</span>
+                        <strong>${resumen.cumple}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final resumen-no-cumple">
+                        <span>No cumple</span>
+                        <strong>${resumen.noCumple}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final">
+                        <span>No aplica</span>
+                        <strong>${resumen.noAplica}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final">
+                        <span>Evidencias activas</span>
+                        <strong>${resumen.totalEvidencias}</strong>
+                    </article>
+                    <article class="tarjeta-resumen-final">
+                        <span>Resultado preliminar</span>
+                        <strong>${resumen.resultado}</strong>
+                    </article>
+                </div>
+
+                <div class="grid-final-inspeccion">
+
+                    <div class="tarjeta-inspeccion">
+
+                        <h3>Datos del despacho</h3>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Puerto de salida</span>
+                            <strong>${this.datosConduce?.empresaOrigen || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Conduce</span>
+                            <strong>${despacho.noConduce || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Destino 1</span>
+                            <strong>${despacho.destino1 || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Destino 2</span>
+                            <strong>${despacho.destino2 || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Supervisor</span>
+                            <strong>${despacho.supervisor || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Chofer</span>
+                            <strong>${chofer.nombre || despacho.chofer || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Inspector</span>
+                            <strong>${inspector.nombre || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Cantidad de destinos</span>
+                            <strong>${Number(despacho.cantidadDestinos || 1)}</strong>
+                        </div>
+
+                    </div>
+
+                    <div class="tarjeta-inspeccion">
+
+                        <h3>Contenedor</h3>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Identificación</span>
+                            <strong>${contenedor.identificacion || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Tipo</span>
+                            <strong>${contenedor.tipo || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Tamaño</span>
+                            <strong>${this.formatearTamanoContenedor(contenedor.tamano)}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Chasis sugerido</span>
+                            <strong>${chofer.chasisPorDefecto || "-"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Transporte</span>
+                            <strong>${this.datosConduce?.tipoTransporte || "Terrestre"}</strong>
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>Sello destino 1</span>
+                            <strong>${selloDestino1.numero || despacho.precinto1 || "-"}</strong>
+                        </div>
+
+                        ${
+                            Number(
+                                despacho.cantidadDestinos || 1
+                            ) === 2
+                                ? `
+                                    <div class="fila-dato-inspeccion">
+                                        <span>Sello destino 2</span>
+                                        <strong>${selloDestino2.numero || despacho.precinto2 || "-"}</strong>
+                                    </div>
+                                `
+                                : ""
+                        }
+
+                        <div class="campo-inspeccion campo-completo">
+                            <label for="selloLlegadaInspeccion">
+                                Sello de llegada
+                            </label>
+
+                            <input
+                                type="text"
+                                id="selloLlegadaInspeccion"
+                                value="${selloLlegadaSugerido}"
+                                placeholder="Registre el sello verificado a la llegada"
+                                autocomplete="off"
+                            >
+                        </div>
+
+                        <div class="fila-dato-inspeccion">
+                            <span>ID de inspección</span>
+                            <strong>${this.idInspeccion || "-"}</strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="tarjeta-inspeccion observaciones-finales-inspeccion">
+
+                    <h3>Observaciones generales</h3>
+
+                    <div class="campo-inspeccion campo-completo">
+                        <label for="observacionesFinalesInspeccion">
+                            Comentario de cierre
+                        </label>
+
+                        <textarea
+                            id="observacionesFinalesInspeccion"
+                            rows="5"
+                            placeholder="Agregue una observación general si corresponde..."
+                        ></textarea>
+                    </div>
+
+                </div>
+
+                <div class="aviso-final-inspeccion">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <div>
+                        <strong>Al finalizar se generará el PDF oficial.</strong>
+                        <p>
+                            La inspección quedará marcada como completada y el documento se guardará junto a sus evidencias.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="acciones-inspeccion">
+                    <button
+                        type="button"
+                        id="btnVolverEvidenciasInspeccion"
+                        class="btn-secundario-inspeccion"
+                    >
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Volver a evidencias
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnFinalizarInspeccion"
+                        class="btn-iniciar-inspeccion"
+                    >
+                        <i class="fa-solid fa-circle-check"></i>
+                        Finalizar y generar PDF
+                    </button>
+                </div>
+
+            </section>
+        `;
+
+        this.configurarEventosPasoFinalizar();
+
+    },
+
+
+    configurarEventosPasoFinalizar() {
+
+        const btnVolver =
+            document.getElementById(
+                "btnVolverEvidenciasInspeccion"
+            );
+
+        const btnFinalizar =
+            document.getElementById(
+                "btnFinalizarInspeccion"
+            );
+
+        if (btnVolver) {
+
+            btnVolver.addEventListener(
+                "click",
+                () => {
+
+                    this.pasoActual = 3;
+                    this.mostrarPasoEvidencias();
+
+                }
+            );
+
+        }
+
+        if (btnFinalizar) {
+
+            btnFinalizar.addEventListener(
+                "click",
+                async () => {
+
+                    await this.finalizarInspeccion(
+                        btnFinalizar
+                    );
+
+                }
+            );
+
+        }
+
+    },
+
+
+    async obtenerLogoDashboardBase64() {
+
+        const selectores = [
+            'img[src*="logo_dashboard"]',
+            '#logoDashboard',
+            '.logo-dashboard img',
+            '.sidebar-logo img',
+            '.dashboard-logo img',
+            'header img[src*="logo"]'
+        ];
+
+        let imagen = null;
+
+        for (const selector of selectores) {
+
+            imagen =
+                document.querySelector(
+                    selector
+                );
+
+            if (imagen) {
+                break;
+            }
+
+        }
+
+        if (!imagen) {
+            return "";
+        }
+
+        try {
+
+            if (!imagen.complete) {
+
+                await new Promise(resolve => {
+
+                    imagen.addEventListener(
+                        "load",
+                        resolve,
+                        {
+                            once: true
+                        }
+                    );
+
+                    setTimeout(
+                        resolve,
+                        1500
+                    );
+
+                });
+
+            }
+
+            const ancho =
+                imagen.naturalWidth ||
+                imagen.width;
+
+            const alto =
+                imagen.naturalHeight ||
+                imagen.height;
+
+            if (!ancho || !alto) {
+                return "";
+            }
+
+            const canvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            canvas.width = ancho;
+            canvas.height = alto;
+
+            const contexto =
+                canvas.getContext(
+                    "2d"
+                );
+
+            contexto.drawImage(
+                imagen,
+                0,
+                0,
+                ancho,
+                alto
+            );
+
+            return canvas.toDataURL(
+                "image/png"
+            );
+
+        } catch (errorCanvas) {
+
+            console.warn(
+                "No fue posible convertir el logo del dashboard mediante canvas:",
+                errorCanvas
+            );
+
+        }
+
+        try {
+
+            const respuesta =
+                await fetch(
+                    imagen.currentSrc ||
+                    imagen.src
+                );
+
+            if (!respuesta.ok) {
+                return "";
+            }
+
+            const blob =
+                await respuesta.blob();
+
+            return await new Promise(
+                (resolve, reject) => {
+
+                    const lector =
+                        new FileReader();
+
+                    lector.onload = () =>
+                        resolve(
+                            String(
+                                lector.result || ""
+                            )
+                        );
+
+                    lector.onerror =
+                        reject;
+
+                    lector.readAsDataURL(
+                        blob
+                    );
+
+                }
+            );
+
+        } catch (errorFetch) {
+
+            console.warn(
+                "No fue posible leer el logo del dashboard:",
+                errorFetch
+            );
+
+            return "";
+
+        }
+
+    },
+
+
+    async finalizarInspeccion(
+    boton
+) {
+
+    const observaciones =
+        String(
+            document
+                .getElementById(
+                    "observacionesFinalesInspeccion"
+                )
+                ?.value || ""
+        ).trim();
+
+    const selloLlegada =
+        String(
+            this.selloLlegada || ""
+        ).trim();
+
+    if (!selloLlegada) {
+
+        if (window.Despachos?.notificar) {
+
+            Despachos.notificar(
+                "Debe registrar el sello de llegada en el Paso 2 antes de finalizar.",
+                "error"
+            );
+
+        }
+
+        return;
+
+    }
+
+    const inspector =
+        this.obtenerInspectorActual();
+
+    const contenidoOriginal =
+        boton ? boton.innerHTML : "";
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+            "Finalizando inspección",
+            "Estamos guardando la información y generando el documento PDF."
+        );
+
+    }
+
+    try {
+
+        if (boton) {
+
+            boton.disabled = true;
+
+            boton.innerHTML = `
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                Generando documento...
+            `;
+
+        }
+
+        await this.cargarEvidenciasGuardadas();
+
+        if (!this.validarEvidenciasPorCategoria()) {
+
+            throw new Error(
+                "Todas las zonas deben conservar al menos una evidencia activa."
+            );
+
+        }
+
+        const logoEmpresaBase64 =
+            await this
+                .obtenerLogoDashboardBase64();
+
+        const respuesta =
+            await API.post({
+
+                action:
+                    "finalizarInspeccionContenedor",
+
+                idInspeccion:
+                    this.idInspeccion,
+
+                observacionesGenerales:
+                    observaciones,
+
+                selloLlegada:
+                    selloLlegada,
+
+                usuario:
+                    inspector.nombre,
+
+                logoEmpresaBase64:
+                    logoEmpresaBase64
+
+            });
+
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
+
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible finalizar la inspección."
+            );
+
+        }
+
+        this.mostrarInspeccionFinalizada(
+            respuesta.data || {}
+        );
+
+        if (
+            window.Despachos?.notificar
+        ) {
+
+            Despachos.notificar(
+                "Inspección finalizada y PDF generado correctamente.",
+                "exito"
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Error finalizando inspección:",
+            error
+        );
+
+        if (
+            window.Despachos?.notificar
+        ) {
+
+            Despachos.notificar(
+                error.message ||
+                "No fue posible finalizar la inspección.",
+                "error"
+            );
+
+        }
+
+    } finally {
+
+        if (
+            boton &&
+            document.body.contains(
+                boton
+            )
+        ) {
+
+            boton.disabled = false;
+
+            boton.innerHTML =
+                contenidoOriginal;
+
+        }
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
+
+    }
+
+},
+
+    mostrarInspeccionFinalizada(
+        datos
+    ) {
+
+        const contenidoModal =
+            document.getElementById(
+                "contenidoModal"
+            );
+
+        if (!contenidoModal) return;
+
+        const pdfUrl =
+            String(
+                datos.pdfUrl ||
+                datos.PDF_URL ||
+                ""
+            ).trim();
+
+        contenidoModal.innerHTML = `
+            <section class="asistente-inspeccion">
+
+                <div class="resultado-final-inspeccion">
+
+                    <div class="resultado-final-inspeccion__icono">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+
+                    <span>Inspección completada</span>
+
+                    <h2>El registro fue cerrado correctamente</h2>
+
+                    <p>
+                        El PDF oficial quedó guardado junto a las evidencias de la inspección.
+                    </p>
+
+                    <div class="resultado-final-inspeccion__datos">
+                        <div>
+                            <span>ID de inspección</span>
+                            <strong>${this.idInspeccion || "-"}</strong>
+                        </div>
+
+                        <div>
+                            <span>Resultado</span>
+                            <strong>${datos.resultado || "-"}</strong>
+                        </div>
+
+                        <div>
+                            <span>Total de evidencias</span>
+                            <strong>${datos.totalEvidencias || 0}</strong>
+                        </div>
+                    </div>
+
+                    <div class="acciones-inspeccion acciones-finalizadas">
+
+                        ${
+                            pdfUrl
+                                ? `
+                                    <a
+                                        href="${pdfUrl}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="btn-secundario-inspeccion enlace-boton-inspeccion"
+                                    >
+                                        <i class="fa-solid fa-file-pdf"></i>
+                                        Abrir PDF
+                                    </a>
+
+                                    <button
+                                        type="button"
+                                        id="btnImprimirPDFInspeccion"
+                                        class="btn-secundario-inspeccion"
+                                        data-url="${pdfUrl}"
+                                    >
+                                        <i class="fa-solid fa-print"></i>
+                                        Imprimir
+                                    </button>
+                                `
+                                : ""
+                        }
+
+                        <button
+                            type="button"
+                            id="btnCerrarInspeccionFinalizada"
+                            class="btn-iniciar-inspeccion"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+
+                </div>
+
+            </section>
+        `;
+
+        document
+            .getElementById(
+                "btnImprimirPDFInspeccion"
+            )
+            ?.addEventListener(
+                "click",
+                evento => {
+
+                    const url =
+                        evento.currentTarget
+                            .dataset.url;
+
+                    if (url) {
+                        window.open(
+                            url,
+                            "_blank",
+                            "noopener"
+                        );
+                    }
+
+                }
+            );
+
+        document
+            .getElementById(
+                "btnCerrarInspeccionFinalizada"
+            )
+            ?.addEventListener(
+                "click",
+                () => {
+
+                    document
+                        .getElementById(
+                            "modalSistema"
+                        )
+                        ?.classList.add(
+                            "oculto"
+                        );
+
+                }
+            );
+
+    },
 
 
     mostrarDatosConduceVacios() {

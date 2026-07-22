@@ -4,8 +4,61 @@
 // ==========================================
 
 window.Despachos = {
+	
+centroDespachosEstado: {
 
-    async cargar() {
+        vista:
+            "lista",
+
+        limite:
+            30,
+
+        desplazamiento:
+            0,
+
+        total:
+            0,
+
+        hayMas:
+            false,
+
+        cargando:
+            false,
+
+        registros:
+            [],
+			
+		volverDesdeVisor:
+			false,
+
+        filtros: {
+			
+			busqueda:
+				"",
+
+            estado:
+                "",
+
+            anio:
+                "",
+
+            mes:
+                "",
+
+            conduce:
+                "",
+
+            chofer:
+                "",
+
+            destino:
+                ""
+
+        }
+
+    },
+
+async cargar() {
 
     const contenido =
         document.getElementById("contenidoPrincipal");
@@ -27,6 +80,18 @@ window.Despachos = {
                 </div>
 
                <div class="acciones-header-despachos">
+			   
+			   <button
+					type="button"
+					id="btnVerInspecciones"
+					class="btn-principal-despachos btn-ver-inspecciones"
+				>
+					<i class="fa-solid fa-clipboard-list"></i>
+
+					<span>
+						Ver inspecciones
+					</span>
+				</button>
 
 				<button
 					id="btnVerTodosDespachos"
@@ -35,7 +100,7 @@ window.Despachos = {
 					<i class="fa-solid fa-table-list"></i>
 					Ver todos los despachos
 				</button>
-				
+								
 				<button
 					type="button"
 					id="btnInspeccionarContenedor"
@@ -245,6 +310,30 @@ if (
                         "oculto"
                     )
                 ) {
+					
+					Despachos.centroDespachosEstado
+					.volverDesdeVisor = false;
+					
+					document.body.classList.remove(
+					"centro-despachos-abierto"
+				);
+
+				const contenidoModal =
+					document.getElementById(
+						"contenidoModal"
+					);
+
+				if (contenidoModal) {
+
+					contenidoModal.classList.remove(
+						"modo-centro-despachos"
+					);
+
+				}
+					
+					document.body.classList.remove(
+					"centro-despachos-abierto"
+				);
 
                     Conduce.limpiar();
 
@@ -259,18 +348,45 @@ if (
 
 }
 
-	document
-		.getElementById("btnVerTodosDespachos")
-		.addEventListener("click", () => {
+			const btnVerTodosDespachos =
+			document.getElementById(
+				"btnVerTodosDespachos"
+					);
 
-			Despachos.notificar(
-				"La consulta general de despachos será construida en el próximo módulo.",
-				"advertencia"
+				if (btnVerTodosDespachos) {
+
+					btnVerTodosDespachos.addEventListener(
+						"click",
+						async () => {
+
+							await Despachos
+								.abrirCentroDespachos();
+
+						}
+					);
+
+				}
+				
+		
+		const btnVerInspecciones =
+			document.getElementById(
+				"btnVerInspecciones"
 			);
 
-		});
-		
-		
+		if (btnVerInspecciones) {
+
+			btnVerInspecciones.addEventListener(
+				"click",
+				() => {
+
+					Despachos.abrirInspeccionesRealizadas();
+
+				}
+			);
+
+		}
+
+
 		const btnInspeccionarContenedor =
 			document.getElementById(
 				"btnInspeccionarContenedor"
@@ -304,6 +420,1715 @@ if (
 
 },
 
+async abrirCentroDespachos(
+    opciones = {}
+) {
+
+    const preservarEstado =
+        opciones.preservarEstado === true;
+
+    const modal =
+        document.getElementById(
+            "modalSistema"
+        );
+
+    const tituloModal =
+        document.getElementById(
+            "tituloModal"
+        );
+
+    const contenidoModal =
+        document.getElementById(
+            "contenidoModal"
+        );
+
+    if (
+        !modal ||
+        !tituloModal ||
+        !contenidoModal
+    ) {
+
+        Despachos.notificar(
+            "No fue posible abrir el Centro de Despachos.",
+            "error"
+        );
+
+        return;
+
+    }
+
+    /*
+ * Si la ventana se abre normalmente, iniciamos
+ * desde el primer bloque.
+ *
+ * Si regresamos desde el visor, conservamos los
+ * registros, filtros, vista y desplazamiento.
+ */
+if (!preservarEstado) {
+
+    Despachos.centroDespachosEstado
+        .desplazamiento = 0;
+
+    Despachos.centroDespachosEstado
+        .total = 0;
+
+    Despachos.centroDespachosEstado
+        .hayMas = false;
+
+    Despachos.centroDespachosEstado
+        .cargando = false;
+
+    Despachos.centroDespachosEstado
+        .registros = [];
+
+}
+
+    tituloModal.textContent =
+        "Centro de Despachos";
+
+    contenidoModal.classList.remove(
+        "modo-visor-conduce"
+    );
+	
+	contenidoModal.classList.add(
+    "modo-centro-despachos"
+	);
+
+    contenidoModal.innerHTML = `
+
+        <section class="centro-despachos">
+
+            <div class="centro-despachos__encabezado">
+
+                <div>
+
+                    <span class="centro-despachos__etiqueta">
+                        Gestión y consulta
+                    </span>                
+
+                    <p>
+                        Consulte, continúe y administre los conduces registrados en el sistema.
+                    </p>
+
+                </div>
+
+                <div class="centro-despachos__controles-vista">
+
+                    <button
+                        type="button"
+                        id="btnVistaListaDespachos"
+                        class="btn-vista-despachos activo"
+                        title="Vista en lista"
+                    >
+                        <i class="fa-solid fa-list"></i>
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnVistaTarjetasDespachos"
+                        class="btn-vista-despachos"
+                        title="Vista en tarjetas"
+                    >
+                        <i class="fa-solid fa-table-cells-large"></i>
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="centro-despachos__filtros">
+
+                <div class="campo-filtro-despachos">
+
+                    <label for="filtroConduceCentroDespachos">
+                        Buscar
+                    </label>
+
+                    <input
+                        type="search"
+                        id="filtroConduceCentroDespachos"
+                        placeholder="Conduce, chofer o destino"
+                    >
+
+                </div>
+
+                <div class="campo-filtro-despachos">
+
+                    <label for="filtroMesCentroDespachos">
+                        Mes
+                    </label>
+
+                    <select id="filtroMesCentroDespachos">
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="01">Enero</option>
+                        <option value="02">Febrero</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Mayo</option>
+                        <option value="06">Junio</option>
+                        <option value="07">Julio</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+
+                    </select>
+
+                </div>
+
+                <div class="campo-filtro-despachos">
+
+                    <label for="filtroAnioCentroDespachos">
+                        Año
+                    </label>
+
+                    <select id="filtroAnioCentroDespachos">
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="campo-filtro-despachos">
+
+                    <label for="filtroEstadoCentroDespachos">
+                        Estado
+                    </label>
+
+                    <select id="filtroEstadoCentroDespachos">
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="Borrador">
+                            Borrador
+                        </option>
+
+                        <option value="Despachado">
+                            Despachado
+                        </option>
+
+                        <option value="Completado">
+                            Completado
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="campo-filtro-despachos campo-filtro-limite">
+
+                    <label for="limiteCentroDespachos">
+                        Cargar
+                    </label>
+
+                    <select id="limiteCentroDespachos">
+
+                        <option value="30" selected>
+                            30
+                        </option>
+
+                        <option value="50">
+                            50
+                        </option>
+
+                        <option value="100">
+                            100
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <button
+                    type="button"
+                    id="btnLimpiarFiltrosCentroDespachos"
+                    class="btn-limpiar-filtros-despachos"
+                >
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                    Limpiar
+                </button>
+
+            </div>
+            <div class="centro-despachos__resumen">
+
+				<div class="centro-despachos__resumen-acciones">
+
+					<span id="contadorCentroDespachos">
+						Mostrando 0 de 0 despachos
+					</span>
+
+					<button
+						type="button"
+						id="btnCargarMasCentroDespachos"
+						class="btn-cargar-mas-despachos"
+						hidden
+					>
+						<i class="fa-solid fa-plus"></i>
+
+						<span>
+							Cargar más
+						</span>
+					</button>
+
+				</div>
+
+			</div>
+            <div
+                id="listaCentroDespachos"
+                class="lista-centro-despachos"
+            >
+
+                <div class="estado-carga-centro-despachos">
+
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+
+                    <span>
+                        Cargando despachos...
+                    </span>
+
+                </div>
+
+            </div>            
+
+        </section>
+    `;
+
+    modal.classList.remove(
+        "oculto"
+    );
+	
+	document.body.classList.add(
+    "centro-despachos-abierto"
+	);
+	
+	document.body.classList.add(
+    "centro-despachos-abierto"
+	);
+
+    Despachos
+    .configurarEventosCentroDespachos();
+
+	if (
+		preservarEstado &&
+		Despachos.centroDespachosEstado
+			.registros.length > 0
+	) {
+
+		Despachos
+			.renderizarCentroDespachos();
+
+	} else {
+
+		await Despachos
+			.cargarCentroDespachos({
+				reiniciar: true
+			});
+
+	}
+
+},
+
+async cargarCentroDespachos(
+    opciones = {}
+) {
+
+    const estado =
+        Despachos.centroDespachosEstado;
+
+    if (estado.cargando) {
+        return;
+    }
+
+    const reiniciar =
+        opciones.reiniciar === true;
+
+    if (reiniciar) {
+
+        estado.desplazamiento = 0;
+        estado.registros = [];
+
+    }
+
+    const lista =
+        document.getElementById(
+            "listaCentroDespachos"
+        );
+
+    const contador =
+        document.getElementById(
+            "contadorCentroDespachos"
+        );
+
+    const btnCargarMas =
+        document.getElementById(
+            "btnCargarMasCentroDespachos"
+        );
+
+    if (
+        !lista ||
+        !contador ||
+        !btnCargarMas
+    ) {
+        return;
+    }
+
+    estado.cargando = true;
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+            reiniciar
+                ? "Cargando despachos"
+                : "Cargando más despachos",
+            "Estamos consultando los registros del sistema."
+        );
+
+    }
+
+    try {
+
+        const respuesta =
+            await API.post({
+
+                action:
+                    "listarTodosDespachos",
+
+                limite:
+                    estado.limite,
+
+                desplazamiento:
+                    estado.desplazamiento,
+
+                estado:
+                    estado.filtros.estado,
+
+                anio:
+                    estado.filtros.anio,
+
+                mes:
+                    estado.filtros.mes,
+
+                conduce:
+                    estado.filtros.conduce,
+
+                chofer:
+                    estado.filtros.chofer,
+
+                destino:
+                    estado.filtros.destino,
+					
+				busqueda:
+					estado.filtros.busqueda || ""
+
+            });
+
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
+
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible cargar los despachos."
+            );
+
+        }
+
+        const datos =
+            respuesta.data || {};
+
+        const nuevosRegistros =
+            Array.isArray(
+                datos.registros
+            )
+                ? datos.registros
+                : [];
+
+        if (reiniciar) {
+
+            estado.registros =
+                nuevosRegistros;
+
+        } else {
+
+            estado.registros.push(
+                ...nuevosRegistros
+            );
+
+        }
+
+        estado.total =
+            Number(
+                datos.total || 0
+            );
+
+        estado.hayMas =
+            datos.hayMas === true;
+
+        estado.desplazamiento =
+            estado.registros.length;
+
+        Despachos
+            .renderizarCentroDespachos();
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando el Centro de Despachos:",
+            error
+        );
+
+        if (reiniciar) {
+
+            lista.innerHTML = `
+                <div class="estado-vacio-centro-despachos">
+
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+
+                    <strong>
+                        No fue posible cargar los despachos
+                    </strong>
+
+                    <span>
+                        ${error.message || "Error desconocido."}
+                    </span>
+
+                </div>
+            `;
+
+        }
+
+        Despachos.notificar(
+            error.message ||
+            "No fue posible cargar los despachos.",
+            "error"
+        );
+
+    } finally {
+
+        estado.cargando = false;
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
+
+    }
+
+},
+
+renderizarCentroDespachos() {
+
+    const estado =
+        Despachos.centroDespachosEstado;
+
+    const lista =
+        document.getElementById(
+            "listaCentroDespachos"
+        );
+
+    const contador =
+        document.getElementById(
+            "contadorCentroDespachos"
+        );
+
+    const btnCargarMas =
+        document.getElementById(
+            "btnCargarMasCentroDespachos"
+        );
+
+    if (
+        !lista ||
+        !contador ||
+        !btnCargarMas
+    ) {
+        return;
+    }
+
+    contador.textContent =
+        `Mostrando ${estado.registros.length} de ${estado.total} despachos`;
+
+    if (
+        estado.registros.length === 0
+    ) {
+
+        lista.innerHTML = `
+            <div class="estado-vacio-centro-despachos">
+
+                <i class="fa-regular fa-folder-open"></i>
+
+                <strong>
+                    No se encontraron despachos
+                </strong>
+
+                <span>
+                    Modifique los filtros para ampliar la búsqueda.
+                </span>
+
+            </div>
+        `;
+
+    } else if (
+        estado.vista === "tarjetas"
+    ) {
+
+        /*
+         * La vista por tarjetas se construirá
+         * en el próximo paso.
+         */
+        Despachos
+            .renderizarCentroDespachosTarjetas();
+
+    } else {
+
+        Despachos
+            .renderizarCentroDespachosLista();
+
+    }
+
+    btnCargarMas.hidden =
+        !estado.hayMas;
+
+    const textoBoton =
+        btnCargarMas.querySelector(
+            "span"
+        );
+
+    if (textoBoton) {
+
+        textoBoton.textContent =
+            `Cargar ${estado.limite} más`;
+
+    }
+
+},
+
+renderizarCentroDespachosLista() {
+
+    const estado =
+        Despachos.centroDespachosEstado;
+
+    const lista =
+        document.getElementById(
+            "listaCentroDespachos"
+        );
+
+    if (!lista) {
+        return;
+    }
+
+    const grupos =
+        Despachos
+            .agruparDespachosPorMes(
+                estado.registros
+            );
+
+    lista.classList.remove(
+        "vista-tarjetas-centro-despachos"
+    );
+
+    lista.classList.add(
+        "vista-lista-centro-despachos"
+    );
+
+    lista.innerHTML =
+        grupos
+            .map(grupo => {
+
+                return `
+                    <section class="grupo-mensual-despachos">
+
+                        <div class="encabezado-mes-despachos">
+
+                            <div>
+
+                                <span>
+                                    Periodo
+                                </span>
+
+                                <strong>
+                                    ${Despachos.escaparHTMLInspecciones(
+                                        grupo.nombre
+                                    )}
+                                </strong>
+
+                            </div>
+
+                            <small>
+                                ${grupo.registros.length}
+                                ${
+                                    grupo.registros.length === 1
+                                        ? "despacho"
+                                        : "despachos"
+                                }
+                            </small>
+
+                        </div>
+
+                        <div class="tabla-lista-despachos">
+
+                            <div class="cabecera-lista-despachos">
+
+                                <span>Conduce</span>
+                                <span>Fecha</span>
+                                <span>Estado</span>
+                                <span>Chofer</span>
+                                <span>Destino</span>
+                                <span>Líneas</span>
+                                <span>Unidades</span>
+                                <span>Acción</span>
+
+                            </div>
+
+                            ${grupo.registros
+                                .map(item =>
+                                    Despachos
+                                        .crearFilaCentroDespachos(
+                                            item
+                                        )
+                                )
+                                .join("")}
+
+                        </div>
+
+                    </section>
+                `;
+
+            })
+            .join("");
+
+},
+
+crearFilaCentroDespachos(
+    item
+) {
+
+    const estado =
+        String(
+            item.estado || "Pendiente"
+        ).trim();
+
+    const estadoNormalizado =
+        estado
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(
+                /[\u0300-\u036f]/g,
+                ""
+            );
+
+    const fecha =
+        Despachos
+            .obtenerFechaVisibleDespacho(
+                item
+            );
+
+    const destinoPrincipal =
+        String(
+            item.destino1 || "-"
+        ).trim();
+
+    const tieneSegundoDestino =
+        String(
+            item.destino2 || ""
+        ).trim() !== "";
+
+    const destinoVisible =
+        tieneSegundoDestino
+            ? `${destinoPrincipal} + 1`
+            : destinoPrincipal;
+
+    let botonAccion = "";
+
+    if (
+        estadoNormalizado ===
+        "borrador"
+    ) {
+
+        botonAccion = `
+            <button
+                type="button"
+                class="btn-accion-centro-despachos continuar"
+                data-accion="continuar"
+                data-id-conduce="${Despachos.escaparHTMLInspecciones(
+                    item.idConduce || ""
+                )}"
+                title="Continuar despacho"
+            >
+                <i class="fa-solid fa-play"></i>
+            </button>
+        `;
+
+    } else if (
+        estadoNormalizado ===
+        "despachado"
+    ) {
+
+        botonAccion = `
+            <button
+                type="button"
+                class="btn-accion-centro-despachos finalizar"
+                data-accion="continuar"
+                data-id-conduce="${Despachos.escaparHTMLInspecciones(
+                    item.idConduce || ""
+                )}"
+                title="Continuar en Finalizar carga"
+            >
+                <i class="fa-solid fa-pen"></i>
+            </button>
+        `;
+
+    } else {
+
+        botonAccion = `
+            <button
+                type="button"
+                class="btn-accion-centro-despachos ver"
+                data-accion="ver"
+                data-id-conduce="${Despachos.escaparHTMLInspecciones(
+                    item.idConduce || ""
+                )}"
+                title="Ver despacho"
+            >
+                <i class="fa-solid fa-eye"></i>
+            </button>
+        `;
+
+    }
+
+    return `
+        <article class="fila-centro-despachos">
+
+            <div class="dato-conduce-lista">
+
+                <strong>
+                    ${Despachos.escaparHTMLInspecciones(
+                        item.noConduce || "-"
+                    )}
+                </strong>
+
+                <small>
+                    ${Despachos.escaparHTMLInspecciones(
+                        item.unidad || "-"
+                    )}
+                </small>
+
+            </div>
+
+            <div class="dato-fecha-lista">
+
+                <span>
+                    ${Despachos.escaparHTMLInspecciones(
+                        fecha.fecha || "-"
+                    )}
+                </span>
+
+                <small>
+                    ${Despachos.escaparHTMLInspecciones(
+                        fecha.hora || ""
+                    )}
+                </small>
+
+            </div>
+
+            <div>
+
+                <span
+                    class="
+                        etiqueta-estado-despacho
+                        ${estadoNormalizado}
+                    "
+                >
+                    ${Despachos.escaparHTMLInspecciones(
+                        estado
+                    )}
+                </span>
+
+            </div>
+
+            <div
+                class="texto-truncado-despacho"
+                title="${Despachos.escaparHTMLInspecciones(
+                    item.chofer || "-"
+                )}"
+            >
+                ${Despachos.escaparHTMLInspecciones(
+                    item.chofer || "-"
+                )}
+            </div>
+
+            <div
+                class="texto-truncado-despacho"
+                title="${Despachos.escaparHTMLInspecciones(
+                    [
+                        item.destino1,
+                        item.destino2
+                    ]
+                        .filter(Boolean)
+                        .join(" / ") ||
+                    "-"
+                )}"
+            >
+                ${Despachos.escaparHTMLInspecciones(
+                    destinoVisible
+                )}
+            </div>
+
+            <div class="dato-numerico-despacho">
+
+                ${Number(
+                    item.totalLineas || 0
+                ).toLocaleString(
+                    "es-DO"
+                )}
+
+            </div>
+
+            <div class="dato-numerico-despacho">
+
+                ${Number(
+                    item.totalUnidades || 0
+                ).toLocaleString(
+                    "es-DO"
+                )}
+
+            </div>
+
+            <div class="acciones-lista-centro-despachos">
+
+                ${botonAccion}
+
+            </div>
+
+        </article>
+    `;
+
+},
+
+agruparDespachosPorMes(
+    registros
+) {
+
+    const grupos = new Map();
+
+    registros.forEach(item => {
+
+        const fecha =
+            Despachos
+                .convertirFechaCentroDespachos(
+                    Despachos
+                        .obtenerFechaBaseDespacho(
+                            item
+                        )
+                );
+
+        let clave =
+            "sin-fecha";
+
+        let nombre =
+            "Sin fecha";
+
+        let orden =
+            0;
+
+        if (fecha) {
+
+            const anio =
+                fecha.getFullYear();
+
+            const mes =
+                fecha.getMonth();
+
+            clave =
+                `${anio}-${String(
+                    mes + 1
+                ).padStart(2, "0")}`;
+
+            nombre =
+                fecha
+                    .toLocaleDateString(
+                        "es-DO",
+                        {
+                            month: "long",
+                            year: "numeric"
+                        }
+                    );
+
+            nombre =
+                nombre.charAt(0)
+                    .toUpperCase() +
+                nombre.slice(1);
+
+            orden =
+                new Date(
+                    anio,
+                    mes,
+                    1
+                ).getTime();
+
+        }
+
+        if (!grupos.has(clave)) {
+
+            grupos.set(
+                clave,
+                {
+                    clave:
+                        clave,
+
+                    nombre:
+                        nombre,
+
+                    orden:
+                        orden,
+
+                    registros:
+                        []
+                }
+            );
+
+        }
+
+        grupos
+            .get(clave)
+            .registros
+            .push(item);
+
+    });
+
+    return Array
+        .from(
+            grupos.values()
+        )
+        .sort(
+            (a, b) =>
+                b.orden -
+                a.orden
+        );
+
+},
+
+obtenerFechaBaseDespacho(
+    item
+) {
+
+    const estado =
+        String(
+            item.estado || ""
+        )
+            .trim()
+            .toLowerCase();
+
+    if (
+        estado === "completado"
+    ) {
+
+        return (
+            item.fechaCompletado ||
+            item.fechaDespacho ||
+            item.fechaCreacion ||
+            ""
+        );
+
+    }
+
+    if (
+        estado === "despachado"
+    ) {
+
+        return (
+            item.fechaDespacho ||
+            item.fechaCreacion ||
+            ""
+        );
+
+    }
+
+    return (
+        item.fechaCreacion ||
+        item.fechaDespacho ||
+        item.fechaCompletado ||
+        ""
+    );
+
+},
+
+
+obtenerFechaVisibleDespacho(
+    item
+) {
+
+    const valor =
+        Despachos
+            .obtenerFechaBaseDespacho(
+                item
+            );
+
+    const fecha =
+        Despachos
+            .convertirFechaCentroDespachos(
+                valor
+            );
+
+    if (!fecha) {
+
+        return {
+            fecha:
+                String(
+                    valor || "-"
+                ),
+
+            hora:
+                ""
+        };
+
+    }
+
+    return {
+
+        fecha:
+            fecha.toLocaleDateString(
+                "es-DO",
+                {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric"
+                }
+            ),
+
+        hora:
+            fecha.toLocaleTimeString(
+                "es-DO",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                }
+            )
+
+    };
+
+},
+
+
+convertirFechaCentroDespachos(
+    valor
+) {
+
+    if (!valor) {
+        return null;
+    }
+
+    if (
+        valor instanceof Date &&
+        !Number.isNaN(
+            valor.getTime()
+        )
+    ) {
+
+        return valor;
+
+    }
+
+    const texto =
+        String(
+            valor || ""
+        ).trim();
+
+    const coincidencia =
+        texto.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
+        );
+
+    if (coincidencia) {
+
+        const dia =
+            Number(
+                coincidencia[1]
+            );
+
+        const mes =
+            Number(
+                coincidencia[2]
+            ) - 1;
+
+        const anio =
+            Number(
+                coincidencia[3]
+            );
+
+        let hora =
+            Number(
+                coincidencia[4] || 0
+            );
+
+        const minutos =
+            Number(
+                coincidencia[5] || 0
+            );
+
+        const segundos =
+            Number(
+                coincidencia[6] || 0
+            );
+
+        const periodo =
+            String(
+                coincidencia[7] || ""
+            )
+                .toLowerCase()
+                .replace(
+                    /\s|\./g,
+                    ""
+                );
+
+        if (
+            periodo === "pm" &&
+            hora < 12
+        ) {
+
+            hora += 12;
+
+        }
+
+        if (
+            periodo === "am" &&
+            hora === 12
+        ) {
+
+            hora = 0;
+
+        }
+
+        const fecha =
+            new Date(
+                anio,
+                mes,
+                dia,
+                hora,
+                minutos,
+                segundos
+            );
+
+        return Number.isNaN(
+            fecha.getTime()
+        )
+            ? null
+            : fecha;
+
+    }
+
+    const alternativa =
+        new Date(texto);
+
+    return Number.isNaN(
+        alternativa.getTime()
+    )
+        ? null
+        : alternativa;
+
+},
+
+
+renderizarCentroDespachosTarjetas() {
+
+    const lista =
+        document.getElementById(
+            "listaCentroDespachos"
+        );
+
+    if (!lista) {
+        return;
+    }
+
+    lista.innerHTML = `
+        <div class="estado-vacio-centro-despachos">
+
+            <i class="fa-solid fa-table-cells-large"></i>
+
+            <strong>
+                Vista por tarjetas
+            </strong>
+
+            <span>
+                Esta vista será construida en el siguiente paso.
+            </span>
+
+        </div>
+    `;
+
+},
+
+async aplicarFiltrosCentroDespachos() {
+
+    const estado =
+        Despachos.centroDespachosEstado;
+
+    const inputBusqueda =
+        document.getElementById(
+            "filtroConduceCentroDespachos"
+        );
+
+    const selectMes =
+        document.getElementById(
+            "filtroMesCentroDespachos"
+        );
+
+    const selectAnio =
+        document.getElementById(
+            "filtroAnioCentroDespachos"
+        );
+
+    const selectEstado =
+        document.getElementById(
+            "filtroEstadoCentroDespachos"
+        );
+
+    const selectLimite =
+        document.getElementById(
+            "limiteCentroDespachos"
+        );
+
+    estado.filtros.busqueda =
+        String(
+            inputBusqueda?.value || ""
+        ).trim();
+
+    estado.filtros.mes =
+        String(
+            selectMes?.value || ""
+        ).trim();
+
+    estado.filtros.anio =
+        String(
+            selectAnio?.value || ""
+        ).trim();
+
+    estado.filtros.estado =
+        String(
+            selectEstado?.value || ""
+        ).trim();
+
+    estado.limite =
+        Number(
+            selectLimite?.value ||
+            30
+        );
+
+    await Despachos
+        .cargarCentroDespachos({
+            reiniciar: true
+        });
+
+},
+
+configurarEventosCentroDespachos() {
+
+    const estado =
+        Despachos.centroDespachosEstado;
+
+    const btnCargarMas =
+        document.getElementById(
+            "btnCargarMasCentroDespachos"
+        );
+
+    const inputBusqueda =
+        document.getElementById(
+            "filtroConduceCentroDespachos"
+        );
+
+    const selectMes =
+        document.getElementById(
+            "filtroMesCentroDespachos"
+        );
+
+    const selectAnio =
+        document.getElementById(
+            "filtroAnioCentroDespachos"
+        );
+
+    const selectEstado =
+        document.getElementById(
+            "filtroEstadoCentroDespachos"
+        );
+
+    const selectLimite =
+        document.getElementById(
+            "limiteCentroDespachos"
+        );
+
+    const btnLimpiar =
+        document.getElementById(
+            "btnLimpiarFiltrosCentroDespachos"
+        );
+
+    const lista =
+        document.getElementById(
+            "listaCentroDespachos"
+        );
+
+    /*
+     * Generamos los años sin depender de los primeros
+     * 30 registros cargados.
+     */
+    if (selectAnio) {
+
+        const anioActual =
+            new Date().getFullYear();
+
+        const opcionesAnios = [];
+
+        for (
+            let anio = anioActual;
+            anio >= anioActual - 10;
+            anio--
+        ) {
+
+            opcionesAnios.push(`
+                <option value="${anio}">
+                    ${anio}
+                </option>
+            `);
+
+        }
+
+        selectAnio.innerHTML = `
+            <option value="">
+                Todos
+            </option>
+
+            ${opcionesAnios.join("")}
+        `;
+
+    }
+
+    /*
+     * Restauramos los valores guardados cuando se vuelve
+     * desde el visor del conduce.
+     */
+    if (inputBusqueda) {
+
+        inputBusqueda.value =
+            estado.filtros.busqueda || "";
+
+    }
+
+    if (selectMes) {
+
+        selectMes.value =
+            estado.filtros.mes || "";
+
+    }
+
+    if (selectAnio) {
+
+        selectAnio.value =
+            estado.filtros.anio || "";
+
+    }
+
+    if (selectEstado) {
+
+        selectEstado.value =
+            estado.filtros.estado || "";
+
+    }
+
+    if (selectLimite) {
+
+        selectLimite.value =
+            String(
+                estado.limite || 30
+            );
+
+    }
+
+    /*
+     * Buscar espera brevemente para no consultar el
+     * backend por cada tecla presionada.
+     */
+    let temporizadorBusqueda = null;
+
+    if (inputBusqueda) {
+
+        inputBusqueda.oninput =
+            () => {
+
+                clearTimeout(
+                    temporizadorBusqueda
+                );
+
+                temporizadorBusqueda =
+                    setTimeout(
+                        async () => {
+
+                            await Despachos
+                                .aplicarFiltrosCentroDespachos();
+
+                        },
+                        700
+                    );
+
+            };
+
+    }
+
+    if (selectMes) {
+
+        selectMes.onchange =
+            async () => {
+
+                await Despachos
+                    .aplicarFiltrosCentroDespachos();
+
+            };
+
+    }
+
+    if (selectAnio) {
+
+        selectAnio.onchange =
+            async () => {
+
+                await Despachos
+                    .aplicarFiltrosCentroDespachos();
+
+            };
+
+    }
+
+    if (selectEstado) {
+
+        selectEstado.onchange =
+            async () => {
+
+                await Despachos
+                    .aplicarFiltrosCentroDespachos();
+
+            };
+
+    }
+
+    if (selectLimite) {
+
+        selectLimite.onchange =
+            async () => {
+
+                await Despachos
+                    .aplicarFiltrosCentroDespachos();
+
+            };
+
+    }
+
+    if (btnLimpiar) {
+
+        btnLimpiar.onclick =
+            async () => {
+
+                estado.filtros.busqueda = "";
+                estado.filtros.estado = "";
+                estado.filtros.anio = "";
+                estado.filtros.mes = "";
+                estado.filtros.conduce = "";
+                estado.filtros.chofer = "";
+                estado.filtros.destino = "";
+
+                estado.limite = 30;
+
+                if (inputBusqueda) {
+                    inputBusqueda.value = "";
+                }
+
+                if (selectMes) {
+                    selectMes.value = "";
+                }
+
+                if (selectAnio) {
+                    selectAnio.value = "";
+                }
+
+                if (selectEstado) {
+                    selectEstado.value = "";
+                }
+
+                if (selectLimite) {
+                    selectLimite.value = "30";
+                }
+
+                await Despachos
+                    .cargarCentroDespachos({
+                        reiniciar: true
+                    });
+
+            };
+
+    }
+
+    if (btnCargarMas) {
+
+        btnCargarMas.onclick =
+            async () => {
+
+                await Despachos
+                    .cargarCentroDespachos();
+
+            };
+
+    }
+
+    /*
+     * Delegación de eventos para los botones de acción.
+     * Se conserva aunque la lista vuelva a renderizarse.
+     */
+    if (lista) {
+
+        lista.onclick =
+            async evento => {
+
+                const boton =
+                    evento.target.closest(
+                        ".btn-accion-centro-despachos"
+                    );
+
+                if (!boton) {
+                    return;
+                }
+
+                const accion =
+                    String(
+                        boton.dataset.accion || ""
+                    ).trim();
+
+                const idConduce =
+                    String(
+                        boton.dataset.idConduce || ""
+                    ).trim();
+
+                if (!idConduce) {
+
+                    Despachos.notificar(
+                        "No fue posible identificar el conduce.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+                if (
+                    window.CargadorSistema &&
+                    typeof CargadorSistema.mostrar ===
+                        "function"
+                ) {
+
+                    CargadorSistema.mostrar(
+                        accion === "ver"
+                            ? "Cargando despacho"
+                            : "Recuperando despacho",
+                        accion === "ver"
+                            ? "Estamos preparando la información del conduce."
+                            : "Estamos recuperando el proceso pendiente."
+                    );
+
+                }
+
+                try {
+
+                    document.body.classList.remove(
+                        "centro-despachos-abierto"
+                    );
+
+                    const contenidoModal =
+                        document.getElementById(
+                            "contenidoModal"
+                        );
+
+                    if (contenidoModal) {
+
+                        contenidoModal.classList.remove(
+                            "modo-centro-despachos"
+                        );
+
+                    }
+
+                    if (
+                        accion === "continuar"
+                    ) {
+
+                        await Despachos
+                            .continuarBorrador(
+                                idConduce
+                            );
+
+                        return;
+
+                    }
+
+                    if (
+                        accion === "ver"
+                    ) {
+
+                        estado.volverDesdeVisor =
+                            true;
+
+                        await Despachos
+                            .abrirVistaConduce(
+                                idConduce
+                            );
+
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "Error ejecutando acción del Centro de Despachos:",
+                        error
+                    );
+
+                    Despachos.notificar(
+                        error.message ||
+                        "No fue posible abrir el despacho.",
+                        "error"
+                    );
+
+                } finally {
+
+                    if (
+                        window.CargadorSistema &&
+                        typeof CargadorSistema.ocultar ===
+                            "function"
+                    ) {
+
+                        CargadorSistema.ocultar();
+
+                    }
+
+                }
+
+            };
+
+    }
+
+},
 
 async cargarConducesAbiertos() {
 
@@ -5174,16 +6999,27 @@ return true;
 
 };
 
-   document.getElementById(
+ document.getElementById(
     "btnCompletarConduce"
 ).onclick = async () => {
+
+    /*
+     * =====================================================
+     * VALIDACIONES RÁPIDAS
+     * =====================================================
+     *
+     * Estas validaciones se realizan antes de mostrar
+     * el cargador para evitar tener que abrirlo y cerrarlo
+     * cuando falta información obligatoria.
+     */
 
     if (!capturarDatos()) {
         return;
     }
-	if (!validarDocumentosSAP(true)) {
-		return;
-	}
+
+    if (!validarDocumentosSAP(true)) {
+        return;
+    }
 
     const documentosSAP = [
         Conduce.encabezado.documentoSAP1,
@@ -5203,71 +7039,419 @@ return true;
 
     }
 
-    const guardado =
-        await Despachos.guardarCambios({
-            silencioso: true
-        });
 
-    if (!guardado) {
-        return;
+    /*
+     * =====================================================
+     * MOSTRAR CARGADOR
+     * =====================================================
+     */
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+            "Completando conduce",
+            "Estamos finalizando el despacho y generando la documentación."
+        );
+
     }
 
-    const respuesta = await API.post({
 
-        action: "completarConduce",
+    /*
+     * Permitimos que el navegador pinte el cargador
+     * antes de iniciar las operaciones del proceso.
+     */
+    await new Promise(resolve =>
+        setTimeout(resolve, 50)
+    );
 
-        conduce: {
-            encabezado: Conduce.encabezado,
-            detalle: Conduce.detalle
+
+    try {
+
+        /*
+         * =================================================
+         * GUARDAR LOS CAMBIOS PENDIENTES
+         * =================================================
+         */
+
+        const guardado =
+            await Despachos.guardarCambios({
+                silencioso: true
+            });
+
+        if (!guardado) {
+
+            Despachos.notificar(
+                "No fue posible guardar los cambios antes de completar el conduce.",
+                "error"
+            );
+
+            return;
+
         }
 
-    });
 
-    if (!respuesta.ok) {
+        /*
+         * =================================================
+         * COMPLETAR CONDUCE EN BACKEND
+         * =================================================
+         */
+
+        const respuesta =
+            await API.post({
+
+                action:
+                    "completarConduce",
+
+                conduce: {
+
+                    encabezado:
+                        Conduce.encabezado,
+
+                    detalle:
+                        Conduce.detalle
+
+                }
+
+            });
+
+
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
+
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible completar el conduce."
+            );
+
+        }
+
+
+        /*
+         * =================================================
+         * ACTUALIZAR ESTADO LOCAL
+         * =================================================
+         */
+
+        Conduce.encabezado.estado =
+            respuesta.data.estado;
+
+        Conduce.encabezado.fechaDespacho =
+            respuesta.data.fechaDespacho;
+
+        Conduce.encabezado.fechaCompletado =
+            respuesta.data.fechaCompletado;
+
+
+        /*
+         * =================================================
+         * GUARDAR PDF OFICIAL EN DRIVE
+         * =================================================
+         *
+         * Si este proceso falla, NO anulamos el conduce,
+         * porque ya fue completado correctamente.
+         */
+
+        try {
+
+            const htmlConduce =
+                await Despachos
+                    .construirHTMLConduceFinal();
+
+
+            if (htmlConduce) {
+
+                const respuestaPDF =
+                    await API.post({
+
+                        action:
+                            "guardarPDFConduce",
+
+                        idConduce:
+                            Conduce.encabezado.idConduce,
+
+                        noConduce:
+                            Conduce.encabezado.noConduce,
+
+                        html:
+                            htmlConduce
+
+                    });
+
+
+                if (
+                    !respuestaPDF ||
+                    !respuestaPDF.ok
+                ) {
+
+                    console.warn(
+                        "El conduce fue completado, pero no fue posible guardar su PDF:",
+                        respuestaPDF?.mensaje ||
+                        "Error desconocido."
+                    );
+
+                    Despachos.notificar(
+                        "El conduce fue completado, pero no se pudo guardar el PDF en Drive.",
+                        "advertencia"
+                    );
+
+                } else {
+
+                    /*
+                     * =========================================
+                     * ENVIAR DOCUMENTACIÓN POR CORREO
+                     * =========================================
+                     *
+                     * Solo se intenta después de que el PDF
+                     * del conduce fue guardado correctamente.
+                     *
+                     * El backend localizará:
+                     * - PDF del conduce en Despacho.PDF_URL
+                     * - PDF BASC en Inspeccion_Contenedores.PDF_URL
+                     */
+
+                    try {
+
+                        const sesion =
+                            JSON.parse(
+                                localStorage.getItem(
+                                    "sesion"
+                                ) ||
+                                sessionStorage.getItem(
+                                    "sesion"
+                                ) ||
+                                "{}"
+                            );
+
+
+                        const usuarioEnvio =
+                            sesion.usuario ||
+                            sesion.nombre ||
+                            "";
+
+
+                        const respuestaCorreo =
+                            await API.post({
+
+                                action:
+                                    "enviarDocumentacionDespacho",
+
+                                idConduce:
+                                    Conduce.encabezado.idConduce,
+
+                                noConduce:
+                                    Conduce.encabezado.noConduce,
+
+                                usuario:
+                                    usuarioEnvio
+
+                            });
+
+
+                        /*
+                         * =====================================
+                         * ENVÍO EXITOSO
+                         * =====================================
+                         */
+
+                        if (
+                            respuestaCorreo &&
+                            respuestaCorreo.ok &&
+                            respuestaCorreo.estado ===
+                                "Enviado"
+                        ) {
+
+                            console.log(
+                                "Documentación enviada correctamente por correo:",
+                                respuestaCorreo
+                            );
+
+                        }
+
+
+                        /*
+                         * =====================================
+                         * ENVÍO PENDIENTE
+                         * =====================================
+                         *
+                         * Esto puede ocurrir, por ejemplo,
+                         * si la inspección todavía no tiene
+                         * su PDF disponible.
+                         */
+
+                        else if (
+                            respuestaCorreo &&
+                            respuestaCorreo.estado ===
+                                "Pendiente"
+                        ) {
+
+                            console.warn(
+                                "El envío de correo quedó pendiente:",
+                                respuestaCorreo.mensaje
+                            );
+
+                            Despachos.notificar(
+                                respuestaCorreo.mensaje ||
+                                "El conduce fue completado, pero el envío de correo quedó pendiente.",
+                                "advertencia"
+                            );
+
+                        }
+
+
+                        /*
+                         * =====================================
+                         * ERROR DEVUELTO POR EL BACKEND
+                         * =====================================
+                         */
+
+                        else {
+
+                            console.warn(
+                                "No fue posible enviar la documentación por correo:",
+                                respuestaCorreo?.mensaje ||
+                                "Error desconocido."
+                            );
+
+                            Despachos.notificar(
+                                "El conduce fue completado y su PDF fue guardado, pero no fue posible enviar el correo.",
+                                "advertencia"
+                            );
+
+                        }
+
+
+                    } catch (errorCorreo) {
+
+                        /*
+                         * El correo es un servicio adicional.
+                         * Su fallo nunca debe revertir
+                         * un conduce que ya fue completado.
+                         */
+
+                        console.error(
+                            "Error enviando documentación del despacho:",
+                            errorCorreo
+                        );
+
+                        Despachos.notificar(
+                            "El conduce fue completado y su PDF fue guardado, pero ocurrió un error al enviar el correo.",
+                            "advertencia"
+                        );
+
+                    }
+
+                }
+
+            }
+
+        } catch (errorPDF) {
+
+            console.error(
+                "Error guardando PDF del conduce:",
+                errorPDF
+            );
+
+            Despachos.notificar(
+                "El conduce fue completado, pero ocurrió un error al guardar el PDF.",
+                "advertencia"
+            );
+
+        }
+
+
+        /*
+         * =================================================
+         * IMPRIMIR COPIA DEL CONDUCE
+         * =================================================
+         */
+
+        await Despachos
+            .imprimirConduceFinal();
+
+
+        /*
+         * =================================================
+         * NOTIFICACIÓN DE ÉXITO
+         * =================================================
+         */
 
         Despachos.notificar(
             respuesta.mensaje ||
+            "Conduce completado correctamente.",
+            "exito"
+        );
+
+
+        /*
+         * =================================================
+         * CERRAR ASISTENTE Y RECARGAR DESPACHOS
+         * =================================================
+         */
+
+        setTimeout(async () => {
+
+            document
+                .getElementById(
+                    "modalSistema"
+                )
+                .classList.add(
+                    "oculto"
+                );
+
+            Conduce.limpiar();
+
+            await Despachos.cargar();
+
+        }, 700);
+
+
+    } catch (error) {
+
+        /*
+         * =================================================
+         * ERROR GENERAL DEL PROCESO
+         * =================================================
+         */
+
+        console.error(
+            "Error completando conduce:",
+            error
+        );
+
+        Despachos.notificar(
+            error.message ||
             "No fue posible completar el conduce.",
             "error"
         );
 
-        return;
+
+    } finally {
+
+        /*
+         * =================================================
+         * OCULTAR SIEMPRE EL CARGADOR
+         * =================================================
+         */
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
 
     }
 
-    Conduce.encabezado.estado =
-        respuesta.data.estado;
-
-    Conduce.encabezado.fechaCompletado =
-        respuesta.data.fechaCompletado;
-
-    /*
-     * Imprime la copia de archivo con los
-     * documentos SAP ya incorporados.
-     */
-    await Despachos.imprimirConduceFinal();
-
-    Despachos.notificar(
-        respuesta.mensaje,
-        "exito"
-    );
-
-    setTimeout(async () => {
-
-        document
-            .getElementById("modalSistema")
-            .classList.add("oculto");
-
-        Conduce.limpiar();
-
-        await Despachos.cargar();
-
-    }, 700);
-
 };
-	
-	
-
 },
 
 
@@ -5738,6 +7922,7 @@ const filasTotalesMaterial =
                     gap:10px;
 
                     background:#fff;
+                    border:1px solid #d5d5d5;
                     border-radius:11px;
                     padding:7px 10px;
                     margin-bottom:7px;
@@ -5830,6 +8015,7 @@ const filasTotalesMaterial =
 
                 .bloque-informacion{
                     background:#fff;
+                    border:1px solid #d5d5d5;
                     border-radius:10px;
                     padding:10px 12px;
 
@@ -6571,13 +8757,27 @@ async construirHTMLConduceFinal() {
         configuracion.Telefono ||
         "";
 
-    const logoUrl =
+   const logoUrl =
     configuracion.LogoURL ||
     "";
 
-const logoDocumento =
-    document.querySelector(".sidebar .logo img")?.src ||
-    logoUrl;
+	/*
+	 * Para que el logo funcione tanto en la impresión
+	 * del navegador como en el PDF generado por Apps Script,
+	 * intentamos incrustarlo como Base64.
+	 */
+	let logoDocumento =
+		await Despachos.obtenerLogoDashboard();
+
+	if (!logoDocumento) {
+
+		logoDocumento =
+			document.querySelector(
+				".sidebar .logo img"
+			)?.src ||
+			logoUrl;
+
+	}
 
     const noConduce =
         Conduce.encabezado.noConduce ||
@@ -7250,7 +9450,14 @@ const documentosSAP = [
                     .encabezado-documento,
                     .bloque-informacion,
                     .tarjeta-pie{
-                        box-shadow:none;
+                        background:#fff !important;
+                        border:1px solid #d5d5d5 !important;
+                        border-radius:10px !important;
+                        box-shadow:none !important;
+                    }
+
+                    .encabezado-documento{
+                        border-radius:11px !important;
                     }
 
                 }
@@ -7630,55 +9837,18 @@ async imprimirConduceFinal() {
 
 },
 
-async abrirVistaConduce(idConduce) {
+async abrirVistaConduce(
+    idConduce
+) {
 
-    const respuesta = await API.post({
-        action: "obtenerBorrador",
-        idConduce: idConduce
-    });
-
-    if (!respuesta.ok) {
-
-        Despachos.notificar(
-            respuesta.mensaje ||
-            "No fue posible cargar el conduce.",
-            "error"
-        );
-
-        return;
-    }
-
-    Conduce.limpiar();
-
-    Conduce.encabezado = {
-        ...Conduce.encabezado,
-        ...respuesta.data.encabezado
-    };
-
-    Conduce.detalle =
-        Array.isArray(respuesta.data.detalle)
-            ? respuesta.data.detalle
-            : [];
-
-    const html =
-        await Despachos.construirHTMLConduceFinal();
-
-    const ventana =
-        window.open("", "_blank");
-
-    if (!ventana) {
-
-        Despachos.notificar(
-            "El navegador bloqueó la ventana.",
-            "error"
-        );
-
-        return;
-    }
-
-    ventana.document.open();
-    ventana.document.write(html);
-    ventana.document.close();
+    /*
+     * Reutilizamos el visor modal existente.
+     * De esta manera, ningún conduce se abre
+     * directamente en una pestaña completa.
+     */
+    await Despachos.verConduce(
+        idConduce
+    );
 
 },
 
@@ -7751,6 +9921,19 @@ async verConduce(idConduce) {
         "tituloModal"
     ).textContent =
         "Visualización del despacho";
+		
+	const contenidoModal =
+    document.getElementById(
+        "contenidoModal"
+    );
+
+	contenidoModal.classList.remove(
+		"modo-centro-despachos"
+	);
+
+	contenidoModal.classList.add(
+		"modo-visor-conduce"
+	);
 
     document.getElementById(
         "contenidoModal"
@@ -7764,11 +9947,19 @@ async verConduce(idConduce) {
                 ${estado}
             </span>
 
-            <iframe
-                id="iframeConduceFinal"
-                class="iframe-conduce-final"
-                title="Vista del conduce final"
-            ></iframe>
+            <div class="area-documento-papel">
+
+				<div class="hoja-documento-papel">
+
+					<iframe
+						id="iframeConduceFinal"
+						class="iframe-conduce-final"
+						title="Vista del conduce final"
+					></iframe>
+
+				</div>
+
+			</div>
 
             <div class="barra-visor-conduce">
 
@@ -7806,14 +9997,55 @@ async verConduce(idConduce) {
     iframe.srcdoc = htmlConduce;
 
     document.getElementById(
-        "btnCerrarVisorConduce"
-    ).onclick = () => {
+    "btnCerrarVisorConduce"
+).onclick = async () => {
 
-        document
-            .getElementById("modalSistema")
-            .classList.add("oculto");
+    const volverAlCentro =
+        Despachos
+            .centroDespachosEstado
+            .volverDesdeVisor === true;
 
-    };
+    const contenidoModal =
+        document.getElementById(
+            "contenidoModal"
+        );
+
+    if (contenidoModal) {
+
+        contenidoModal.classList.remove(
+            "modo-visor-conduce"
+        );
+
+    }
+
+    if (volverAlCentro) {
+
+        Despachos
+            .centroDespachosEstado
+            .volverDesdeVisor = false;
+
+        document.body.classList.add(
+            "centro-despachos-abierto"
+        );
+
+        await Despachos
+            .abrirCentroDespachos({
+                preservarEstado: true
+            });
+
+        return;
+
+    }
+
+    document
+        .getElementById(
+            "modalSistema"
+        )
+        .classList.add(
+            "oculto"
+        );
+
+};
 
     document.getElementById(
         "btnImprimirVisorConduce"
@@ -8437,6 +10669,854 @@ async cargarUnidades() {
     }
 
 },
+
+// =====================================================
+// VISOR DE INSPECCIONES REALIZADAS
+// =====================================================
+
+async abrirInspeccionesRealizadas() {
+
+    const modal =
+        document.getElementById("modalSistema");
+
+    const titulo =
+        document.getElementById("tituloModal");
+
+    const contenido =
+        document.getElementById("contenidoModal");
+
+    if (!modal || !titulo || !contenido) {
+
+        Despachos.notificar(
+            "No se encontró la ventana del sistema.",
+            "error"
+        );
+
+        return;
+    }
+
+    titulo.textContent =
+        "Inspecciones de contenedores";
+
+    contenido.classList.remove(
+        "modo-visor-conduce"
+    );
+
+    contenido.innerHTML = `
+        <div class="visor-inspecciones">
+
+            <div class="estado-carga-inspecciones">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>Cargando inspecciones realizadas...</span>
+            </div>
+
+        </div>
+    `;
+
+    modal.classList.remove("oculto");
+
+    try {
+
+        const respuesta = await API.post({
+            action: "listarInspeccionesRealizadas"
+        });
+
+        if (!respuesta.ok) {
+
+            throw new Error(
+                respuesta.mensaje ||
+                "No fue posible cargar las inspecciones."
+            );
+        }
+
+        const inspecciones =
+            Array.isArray(respuesta.data)
+                ? respuesta.data
+                : [];
+
+        Despachos.renderizarVisorInspecciones(
+            inspecciones
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando inspecciones realizadas:",
+            error
+        );
+
+        contenido.innerHTML = `
+            <div class="visor-inspecciones">
+                <div class="estado-vacio-inspecciones estado-error-inspecciones">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <strong>No fue posible cargar las inspecciones.</strong>
+                    <span>${Despachos.escaparHTMLInspecciones(error.message || "Error desconocido")}</span>
+                </div>
+            </div>
+        `;
+
+        Despachos.notificar(
+            error.message ||
+            "No fue posible cargar las inspecciones.",
+            "error"
+        );
+    }
+
+},
+
+
+renderizarVisorInspecciones(inspecciones) {
+
+    const contenido =
+        document.getElementById("contenidoModal");
+
+    if (!contenido) {
+        return;
+    }
+
+    const lista =
+        Array.isArray(inspecciones)
+            ? inspecciones
+            : [];
+
+    const anos = Array.from(
+        new Set(
+            lista
+                .map(item =>
+                    String(item.ano || "").trim()
+                )
+                .filter(Boolean)
+        )
+    ).sort((a, b) => Number(b) - Number(a));
+
+    const inspectores = Array.from(
+        new Set(
+            lista
+                .map(item =>
+                    String(item.inspector || "").trim()
+                )
+                .filter(Boolean)
+        )
+    ).sort((a, b) =>
+        a.localeCompare(b, "es")
+    );
+
+    contenido.innerHTML = `
+        <div class="visor-inspecciones">
+
+            <section class="resumen-inspecciones" id="resumenInspecciones"></section>
+
+            <section class="filtros-inspecciones">
+
+                <div class="filtro-inspecciones filtro-busqueda-inspecciones">
+                    <label for="buscarInspeccion">Buscar</label>
+                    <div class="entrada-busqueda-inspecciones">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input
+                            type="search"
+                            id="buscarInspeccion"
+                            placeholder="Inspección, conduce, contenedor, chofer o inspector"
+                            autocomplete="off"
+                        >
+                    </div>
+                </div>
+
+                <div class="filtro-inspecciones">
+                    <label for="filtroMesInspeccion">Mes</label>
+                    <select id="filtroMesInspeccion">
+                        <option value="">Todos</option>
+                        <option value="01">Enero</option>
+                        <option value="02">Febrero</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Mayo</option>
+                        <option value="06">Junio</option>
+                        <option value="07">Julio</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+
+                <div class="filtro-inspecciones">
+                    <label for="filtroAnoInspeccion">Año</label>
+                    <select id="filtroAnoInspeccion">
+                        <option value="">Todos</option>
+                        ${anos.map(ano => `
+                            <option value="${Despachos.escaparHTMLInspecciones(ano)}">
+                                ${Despachos.escaparHTMLInspecciones(ano)}
+                            </option>
+                        `).join("")}
+                    </select>
+                </div>
+
+                <div class="filtro-inspecciones">
+                    <label for="filtroEstadoInspeccion">Estado</label>
+                    <select id="filtroEstadoInspeccion">
+                        <option value="">Todos</option>
+                        <option value="completada">Completada</option>
+                        <option value="en proceso">En proceso</option>
+                        <option value="borrador">Borrador</option>
+                        <option value="anulada">Anulada</option>
+                    </select>
+                </div>
+
+                <div class="filtro-inspecciones">
+                    <label for="filtroResultadoInspeccion">Resultado</label>
+                    <select id="filtroResultadoInspeccion">
+                        <option value="">Todos</option>
+                        <option value="conforme">Conforme</option>
+                        <option value="con hallazgos">Con hallazgos</option>
+                        <option value="pendiente">Pendiente</option>
+                    </select>
+                </div>
+
+                <div class="filtro-inspecciones">
+                    <label for="filtroInspectorInspeccion">Inspector</label>
+                    <select id="filtroInspectorInspeccion">
+                        <option value="">Todos</option>
+                        ${inspectores.map(inspector => `
+                            <option value="${Despachos.escaparHTMLInspecciones(inspector)}">
+                                ${Despachos.escaparHTMLInspecciones(inspector)}
+                            </option>
+                        `).join("")}
+                    </select>
+                </div>
+
+                <button
+                    type="button"
+                    id="btnLimpiarFiltrosInspecciones"
+                    class="btn-limpiar-filtros-inspecciones"
+                    title="Limpiar filtros"
+                >
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                    Limpiar
+                </button>
+
+            </section>
+
+            <div class="contador-resultados-inspecciones" id="contadorResultadosInspecciones"></div>
+
+            <section class="lista-inspecciones" id="listaInspecciones"></section>
+
+            <div class="acciones-visor-inspecciones">
+                <button
+                    type="button"
+                    id="btnCerrarVisorInspecciones"
+                    class="btn-secundario"
+                >
+                    Cerrar
+                </button>
+            </div>
+
+        </div>
+    `;
+
+    const controles = [
+        "buscarInspeccion",
+        "filtroMesInspeccion",
+        "filtroAnoInspeccion",
+        "filtroEstadoInspeccion",
+        "filtroResultadoInspeccion",
+        "filtroInspectorInspeccion"
+    ];
+
+    const aplicar = () =>
+        Despachos.aplicarFiltrosInspecciones(
+            lista
+        );
+
+    controles.forEach(id => {
+
+        const control =
+            document.getElementById(id);
+
+        if (!control) {
+            return;
+        }
+
+        control.addEventListener(
+            id === "buscarInspeccion"
+                ? "input"
+                : "change",
+            aplicar
+        );
+    });
+
+    const botonLimpiar =
+        document.getElementById(
+            "btnLimpiarFiltrosInspecciones"
+        );
+
+    if (botonLimpiar) {
+
+        botonLimpiar.onclick = () => {
+
+            controles.forEach(id => {
+
+                const control =
+                    document.getElementById(id);
+
+                if (control) {
+                    control.value = "";
+                }
+            });
+
+            aplicar();
+        };
+    }
+
+    const botonCerrar =
+        document.getElementById(
+            "btnCerrarVisorInspecciones"
+        );
+
+    if (botonCerrar) {
+
+        botonCerrar.onclick = () => {
+
+            document
+                .getElementById("modalSistema")
+                ?.classList.add("oculto");
+        };
+    }
+
+    aplicar();
+
+},
+
+
+aplicarFiltrosInspecciones(inspecciones) {
+
+    const normalizar = valor =>
+        String(valor || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim()
+            .toLowerCase();
+
+    const busqueda = normalizar(
+        document.getElementById(
+            "buscarInspeccion"
+        )?.value
+    );
+
+    const mes = String(
+        document.getElementById(
+            "filtroMesInspeccion"
+        )?.value || ""
+    );
+
+    const ano = String(
+        document.getElementById(
+            "filtroAnoInspeccion"
+        )?.value || ""
+    );
+
+    const estado = normalizar(
+        document.getElementById(
+            "filtroEstadoInspeccion"
+        )?.value
+    );
+
+    const resultado = normalizar(
+        document.getElementById(
+            "filtroResultadoInspeccion"
+        )?.value
+    );
+
+    const inspector = normalizar(
+        document.getElementById(
+            "filtroInspectorInspeccion"
+        )?.value
+    );
+
+    const filtradas = inspecciones.filter(item => {
+
+        const textoBusqueda = normalizar([
+            item.idInspeccion,
+            item.noConduce,
+            item.unidadCarga,
+            item.noChasis,
+            item.chofer,
+            item.inspector,
+            item.destino,
+            item.estado,
+            item.resultado
+        ].join(" "));
+
+        const coincideBusqueda =
+            !busqueda ||
+            textoBusqueda.includes(busqueda);
+
+        const coincideMes =
+            !mes ||
+            String(item.mes || "") === mes;
+
+        const coincideAno =
+            !ano ||
+            String(item.ano || "") === ano;
+
+        const coincideEstado =
+            !estado ||
+            normalizar(item.estado) === estado;
+
+        const resultadoItem =
+            normalizar(item.resultado || "pendiente");
+
+        const coincideResultado =
+            !resultado ||
+            resultadoItem === resultado;
+
+        const coincideInspector =
+            !inspector ||
+            normalizar(item.inspector) === inspector;
+
+        return (
+            coincideBusqueda &&
+            coincideMes &&
+            coincideAno &&
+            coincideEstado &&
+            coincideResultado &&
+            coincideInspector
+        );
+    });
+
+    Despachos.renderizarResumenInspecciones(
+        filtradas
+    );
+
+    Despachos.renderizarListaInspecciones(
+        filtradas,
+        inspecciones.length
+    );
+
+},
+
+
+renderizarResumenInspecciones(inspecciones) {
+
+    const contenedor =
+        document.getElementById(
+            "resumenInspecciones"
+        );
+
+    if (!contenedor) {
+        return;
+    }
+
+    const total = inspecciones.length;
+
+    const completadas = inspecciones.filter(item =>
+        String(item.estado || "")
+            .trim()
+            .toLowerCase()
+            .startsWith("complet")
+    ).length;
+
+    const conformes = inspecciones.filter(item =>
+        String(item.resultado || "")
+            .trim()
+            .toLowerCase() === "conforme"
+    ).length;
+
+    const hallazgos = inspecciones.filter(item =>
+        String(item.resultado || "")
+            .trim()
+            .toLowerCase() === "con hallazgos"
+    ).length;
+
+    const pendientes = Math.max(
+        total - completadas,
+        0
+    );
+
+    contenedor.innerHTML = `
+        <article class="tarjeta-resumen-inspeccion total">
+            <span>Total</span>
+            <strong>${total}</strong>
+        </article>
+
+        <article class="tarjeta-resumen-inspeccion completadas">
+            <span>Completadas</span>
+            <strong>${completadas}</strong>
+        </article>
+
+        <article class="tarjeta-resumen-inspeccion conformes">
+            <span>Conformes</span>
+            <strong>${conformes}</strong>
+        </article>
+
+        <article class="tarjeta-resumen-inspeccion hallazgos">
+            <span>Con hallazgos</span>
+            <strong>${hallazgos}</strong>
+        </article>
+
+        <article class="tarjeta-resumen-inspeccion pendientes">
+            <span>Pendientes</span>
+            <strong>${pendientes}</strong>
+        </article>
+    `;
+
+},
+
+
+renderizarListaInspecciones(inspecciones, totalOriginal) {
+
+    const lista =
+        document.getElementById(
+            "listaInspecciones"
+        );
+
+    const contador =
+        document.getElementById(
+            "contadorResultadosInspecciones"
+        );
+
+    if (!lista || !contador) {
+        return;
+    }
+
+    contador.textContent =
+        `${inspecciones.length} de ${totalOriginal} inspección(es)`;
+
+    if (inspecciones.length === 0) {
+
+        lista.innerHTML = `
+            <div class="estado-vacio-inspecciones">
+                <i class="fa-regular fa-folder-open"></i>
+                <strong>No se encontraron inspecciones</strong>
+                <span>Modifica o limpia los filtros para ampliar la búsqueda.</span>
+            </div>
+        `;
+
+        return;
+    }
+
+    lista.innerHTML = inspecciones.map(item => {
+
+        const estado =
+            String(item.estado || "Pendiente").trim();
+
+        const resultado =
+            String(item.resultado || "Pendiente").trim();
+
+        const claseEstado =
+            Despachos.claseInspeccion(estado);
+
+        const claseResultado =
+            Despachos.claseInspeccion(resultado);
+
+        const pdfUrl =
+            String(item.pdfUrl || "").trim();
+			
+					
+		const estadoNormalizado =
+			estado
+				.trim()
+				.toLowerCase();
+
+		const mostrarContinuar =
+			!estadoNormalizado.startsWith(
+				"complet"
+			);
+
+        return `
+            <article class="tarjeta-inspeccion-realizada">
+
+                <div class="cabecera-tarjeta-inspeccion">
+                    <div>
+                        <span>Inspección</span>
+                        <strong>${Despachos.escaparHTMLInspecciones(item.idInspeccion || "-")}</strong>
+                    </div>
+
+                    <div class="etiquetas-inspeccion">
+                        <span class="etiqueta-inspeccion ${claseEstado}">
+                            ${Despachos.escaparHTMLInspecciones(estado)}
+                        </span>
+                        <span class="etiqueta-inspeccion ${claseResultado}">
+                            ${Despachos.escaparHTMLInspecciones(resultado)}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="datos-tarjeta-inspeccion">
+                    <div>
+                        <span>Conduce</span>
+                        <strong>${Despachos.escaparHTMLInspecciones(item.noConduce || "-")}</strong>
+                    </div>
+                    <div>
+                        <span>Fecha</span>
+                        <strong>${Despachos.escaparHTMLInspecciones(item.fechaHora || item.fechaInspeccion || "-")}</strong>
+                    </div>
+                    <div>
+                        <span>Inspector</span>
+                        <strong>${Despachos.escaparHTMLInspecciones(item.inspector || "-")}</strong>
+                    </div>
+                    <div>
+                        <span>Contenedor</span>
+                        <strong>${Despachos.escaparHTMLInspecciones(item.unidadCarga || "-")}</strong>
+                    </div>
+                    <div>
+                        <span>Chofer</span>
+                        <strong>${Despachos.escaparHTMLInspecciones(item.chofer || "-")}</strong>
+                    </div>
+                    <div>
+                        <span>No conformidades</span>
+                        <strong>${Number(item.noConformidades || 0)}</strong>
+                    </div>
+                </div>
+
+                <div class="pie-tarjeta-inspeccion">
+
+					<span>
+						<i class="fa-solid fa-camera"></i>
+						${Number(item.totalEvidencias || 0)} evidencia(s)
+					</span>
+
+					<div class="acciones-tarjeta-inspeccion">
+
+						${
+							mostrarContinuar
+								? `
+									<button
+										type="button"
+										class="btn-continuar-inspeccion-realizada"
+										data-id-conduce="${Despachos.escaparHTMLInspecciones(
+											item.idConduce || ""
+										)}"
+										data-id-inspeccion="${Despachos.escaparHTMLInspecciones(
+											item.idInspeccion || ""
+										)}"
+										title="Continuar inspección"
+									>
+										<i class="fa-solid fa-play"></i>
+										Continuar
+									</button>
+								`
+								: ""
+						}
+
+						<button
+							type="button"
+							class="btn-abrir-pdf-inspeccion"
+							data-pdf-url="${Despachos.escaparHTMLInspecciones(pdfUrl)}"
+							${pdfUrl ? "" : "disabled"}
+							title="${pdfUrl ? "Abrir PDF" : "PDF no disponible"}"
+						>
+							<i class="fa-solid fa-file-pdf"></i>
+							${pdfUrl ? "Abrir PDF" : "PDF no disponible"}
+						</button>
+
+					</div>
+
+				</div>
+
+            </article>
+        `;
+
+    }).join("");
+
+    lista
+        .querySelectorAll(
+            ".btn-abrir-pdf-inspeccion:not([disabled])"
+        )
+        .forEach(boton => {
+
+            boton.onclick = () => {
+
+                const url =
+                    String(
+                        boton.dataset.pdfUrl || ""
+                    ).trim();
+
+                if (!url) {
+                    return;
+                }
+
+                window.open(
+                    url,
+                    "_blank",
+                    "noopener,noreferrer"
+                );
+            };
+        });
+    lista
+        .querySelectorAll(
+            ".btn-continuar-inspeccion-realizada"
+        )
+        .forEach(boton => {
+
+            boton.onclick = async () => {
+
+                const idConduce =
+                    String(
+                        boton.dataset.idConduce || ""
+                    ).trim();
+
+                const idInspeccion =
+                    String(
+                        boton.dataset.idInspeccion || ""
+                    ).trim();
+
+                if (!idConduce) {
+
+                    Despachos.notificar(
+                        "No fue posible identificar el conduce asociado a la inspección.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+                if (
+                    window.CargadorSistema &&
+                    typeof CargadorSistema.mostrar ===
+                        "function"
+                ) {
+
+                    CargadorSistema.mostrar(
+                        "Cargando inspección",
+                        "Estamos recuperando el último paso completado."
+                    );
+
+                }
+
+                try {
+
+                    /*
+                     * Cerramos el listado actual antes de abrir
+                     * el asistente de inspección.
+                     */
+                    const modal =
+                        document.getElementById(
+                            "modalSistema"
+                        );
+
+                    if (modal) {
+
+                        modal.classList.add(
+                            "oculto"
+                        );
+
+                    }
+
+                    /*
+                     * Abrir carga catálogos y prepara el
+                     * asistente desde un estado limpio.
+                     */
+                    await InspeccionContenedores.abrir();
+
+                    /*
+                     * Reutilizamos el flujo existente.
+                     * cargarDatosConduce termina llamando a
+                     * revisarInspeccionActiva, que determina
+                     * automáticamente el paso pendiente.
+                     */
+                    await InspeccionContenedores
+                        .cargarDatosConduce(
+                            idConduce
+                        );
+
+                    console.log(
+                        "Inspección recuperada desde el listado:",
+                        {
+                            idInspeccion:
+                                idInspeccion,
+
+                            idConduce:
+                                idConduce
+                        }
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        "Error continuando inspección desde el listado:",
+                        error
+                    );
+
+                    Despachos.notificar(
+                        error.message ||
+                        "No fue posible recuperar la inspección.",
+                        "error"
+                    );
+
+                } finally {
+
+                    if (
+                        window.CargadorSistema &&
+                        typeof CargadorSistema.ocultar ===
+                            "function"
+                    ) {
+
+                        CargadorSistema.ocultar();
+
+                    }
+
+                }
+
+            };
+
+        });	
+},
+
+
+claseInspeccion(valor) {
+
+    const texto = String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+
+    if (
+        texto === "conforme" ||
+        texto.startsWith("complet")
+    ) {
+        return "exito";
+    }
+
+    if (
+        texto.includes("hallazgo") ||
+        texto.includes("no cumple") ||
+        texto === "anulada"
+    ) {
+        return "error";
+    }
+
+    if (
+        texto.includes("proceso") ||
+        texto === "pendiente" ||
+        texto === "borrador"
+    ) {
+        return "advertencia";
+    }
+
+    return "neutral";
+
+},
+
+
+escaparHTMLInspecciones(valor) {
+
+    return String(
+        valor === null ||
+        valor === undefined
+            ? ""
+            : valor
+    )
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+},
+
 	
 
 };

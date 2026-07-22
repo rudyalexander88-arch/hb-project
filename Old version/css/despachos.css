@@ -1793,47 +1793,117 @@
 /* =====================================
    VISOR DEL CONDUCE FINAL
 ===================================== */
+#contenidoModal.modo-visor-conduce {
+    flex: 1;
+    min-height: 0;
 
-#contenidoModal.modo-visor-conduce{
-    flex:1;
-    min-height:0;
+    display: flex;
+    flex-direction: column;
 
-    display:flex;
-    flex-direction:column;
+    padding: 0 !important;
 
-    padding:0 !important;
-    overflow:hidden !important;
+    overflow: hidden !important;
+    background: #dfe3e6;
 }
 
-.visor-conduce-final{
-    position:relative;
+.visor-conduce-final {
+    position: relative;
 
-    flex:1;
-    min-height:0;
-    width:100%;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
 
-    display:flex;
-    flex-direction:column;
+    display: flex;
+    flex-direction: column;
 
-    padding:0;
-    margin:0;
+    padding: 0;
+    margin: 0;
 
-    background:#f2f2f2;
-    overflow:hidden;
+    background: #dfe3e6;
+    overflow: hidden;
 }
-/* Solo la hoja del conduce se desplaza */
 
-.iframe-conduce-final{
-    flex:1;
-    min-height:0;
+/*
+ * Área gris desplazable que rodea la hoja.
+ */
+.area-documento-papel {
+    flex: 1;
+    min-height: 0;
 
-    width:100%;
-    height:auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
 
-    display:block;
+    padding: 26px;
 
-    border:none;
-    background:#fff;
+    overflow-y: auto;
+    overflow-x: auto;
+
+    background:
+        linear-gradient(
+            135deg,
+            #dfe3e6,
+            #cfd4d8
+        );
+
+    overscroll-behavior: contain;
+
+    scrollbar-width: thin;
+    scrollbar-color: #9da3a8 transparent;
+}
+
+/*
+ * Simulación de papel Carta vertical:
+ * 8.5 × 11 pulgadas.
+ */
+.hoja-documento-papel {
+    flex: 0 0 auto;
+
+    width: min(
+        816px,
+        calc(100vw - 120px)
+    );
+
+    aspect-ratio: 8.5 / 11;
+    min-height: 1056px;
+
+    overflow: hidden;
+
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 3px;
+
+    box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.24);
+}
+
+/*
+ * El iframe ocupa solamente la hoja,
+ * no el ancho completo del modal.
+ */
+.iframe-conduce-final {
+    width: 100%;
+    height: 100%;
+    min-height: 1056px;
+
+    display: block;
+
+    border: none;
+    background: #ffffff;
+}
+
+.area-documento-papel::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+
+.area-documento-papel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.area-documento-papel::-webkit-scrollbar-thumb {
+    background: #9da3a8;
+    border-radius: 10px;
 }
 
 /* Estado en la parte inferior izquierda */
@@ -2016,6 +2086,44 @@
 .btn-abrir-despacho,
 .btn-ver-despacho{
     background:#28A745;
+}
+
+
+@media (max-width: 900px) {
+
+    .area-documento-papel {
+        padding: 18px;
+    }
+
+    .hoja-documento-papel {
+        width: min(
+            760px,
+            calc(100vw - 70px)
+        );
+
+        min-height: auto;
+    }
+
+    .iframe-conduce-final {
+        min-height: 980px;
+    }
+
+}
+
+@media (max-width: 600px) {
+
+    .area-documento-papel {
+        padding: 12px;
+    }
+
+    .hoja-documento-papel {
+        width: calc(100vw - 46px);
+    }
+
+    .iframe-conduce-final {
+        min-height: 760px;
+    }
+
 }
 
 /* =====================================
@@ -2378,344 +2486,1253 @@
     }
 
 }
-// ======================================================
-// ARCHIVO: Despachos.gs
-// FUNCIÓN: obtenerResumenDiarioDespachos()
-//
-// UBICACIÓN:
-// Reemplaza únicamente la función completa que ya tiene
-// este mismo nombre. No reemplaces el archivo completo.
-// ======================================================
 
-function obtenerResumenDiarioDespachos() {
 
-  const hojaDespacho =
-    getSheet(SHEETS.DESPACHO);
+/* =====================================================
+   VISOR DE INSPECCIONES REALIZADAS
+   ===================================================== */
 
-  const hojaConfiguracion =
-    getSheet(SHEETS.CONFIGURACION);
+.btn-ver-inspecciones{
+    background:#1677C8;
+}
 
-  if (
-    !hojaDespacho ||
-    !hojaConfiguracion
-  ) {
+.btn-ver-inspecciones:hover{
+    background:#1167AD;
+}
 
-    return respuesta({
-      ok: false,
-      mensaje:
-        "No se encontraron las hojas Despacho o Configuracion."
-    });
+.visor-inspecciones{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    padding-top:16px;
+}
 
-  }
+.estado-carga-inspecciones,
+.estado-vacio-inspecciones{
+    min-height:260px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:30px;
+    color:#777;
+    text-align:center;
+}
 
-  const zonaHoraria =
-    Session.getScriptTimeZone();
+.estado-carga-inspecciones i,
+.estado-vacio-inspecciones i{
+    color:#1677C8;
+    font-size:34px;
+}
 
-  const hoy =
-    Utilities.formatDate(
-      new Date(),
-      zonaHoraria,
-      "yyyy-MM-dd"
-    );
+.estado-error-inspecciones i{
+    color:#D71920;
+}
 
-  const datos =
-    hojaDespacho
-      .getDataRange()
-      .getValues();
+.estado-vacio-inspecciones strong{
+    color:#333;
+    font-size:17px;
+}
 
-  if (datos.length <= 1) {
+.resumen-inspecciones{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(120px,1fr));
+    gap:12px;
+}
 
-    return respuesta({
-      ok: true,
-      data: {
-        completadosHoy: 0,
-        paquetesEnviadosHoy: 0,
-        metaDespachos: 0,
-        porcentajeCumplimiento: 0,
-        semaforo: "rojo"
-      }
-    });
+.tarjeta-resumen-inspeccion{
+    position:relative;
+    overflow:hidden;
+    min-height:92px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    padding:14px;
+    background:#fff;
+    border:1px solid #e3e3e3;
+    border-radius:12px;
+    box-shadow:0 5px 14px rgba(0,0,0,.06);
+}
 
-  }
+.tarjeta-resumen-inspeccion::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:5px;
+    background:#777;
+}
 
-  const encabezados =
-    datos[0].map(function(valor) {
-      return String(valor || "").trim();
-    });
+.tarjeta-resumen-inspeccion span{
+    color:#777;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+}
 
-  const indiceEstado =
-    encabezados.indexOf("Estado");
+.tarjeta-resumen-inspeccion strong{
+    color:#222;
+    font-size:25px;
+}
 
-  const indiceFechaDespacho =
-    encabezados.indexOf(
-      "Fecha_Despacho"
-    );
+.tarjeta-resumen-inspeccion.total::before{background:#1677C8;}
+.tarjeta-resumen-inspeccion.completadas::before{background:#28A745;}
+.tarjeta-resumen-inspeccion.conformes::before{background:#138A3D;}
+.tarjeta-resumen-inspeccion.hallazgos::before{background:#D71920;}
+.tarjeta-resumen-inspeccion.pendientes::before{background:#F59E0B;}
 
-  const indiceFechaCompletado =
-    encabezados.indexOf(
-      "Fecha_Completado"
-    );
+.filtros-inspecciones{
+    display:grid;
+    grid-template-columns:minmax(260px,2fr) repeat(5,minmax(125px,1fr)) auto;
+    gap:10px;
+    align-items:end;
+    padding:14px;
+    background:#f8f8f8;
+    border:1px solid #e5e5e5;
+    border-radius:12px;
+}
 
-  const indiceTotalUnidades =
-    encabezados.indexOf(
-      "Total_Unidades"
-    );
+.filtro-inspecciones{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
 
-  if (
-    indiceEstado === -1 ||
-    indiceFechaDespacho === -1 ||
-    indiceFechaCompletado === -1 ||
-    indiceTotalUnidades === -1
-  ) {
+.filtro-inspecciones label{
+    color:#555;
+    font-size:11px;
+    font-weight:700;
+}
 
-    return respuesta({
-      ok: false,
-      mensaje:
-        "Faltan columnas requeridas en la hoja Despacho."
-    });
+.filtro-inspecciones input,
+.filtro-inspecciones select{
+    width:100%;
+    height:40px;
+    padding:0 11px;
+    border:1px solid #d8d8d8;
+    border-radius:8px;
+    background:#fff;
+    font-family:inherit;
+    font-size:12px;
+}
 
-  }
+.filtro-inspecciones input:focus,
+.filtro-inspecciones select:focus{
+    outline:none;
+    border-color:#1677C8;
+    box-shadow:0 0 0 3px rgba(22,119,200,.12);
+}
 
-  const convertirFecha = function(valor) {
+.entrada-busqueda-inspecciones{
+    position:relative;
+}
 
-    if (!valor) {
-      return null;
+.entrada-busqueda-inspecciones i{
+    position:absolute;
+    left:12px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#888;
+}
+
+.entrada-busqueda-inspecciones input{
+    padding-left:34px;
+}
+
+.btn-limpiar-filtros-inspecciones{
+    height:40px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:0 14px;
+    border:none;
+    border-radius:8px;
+    background:#e7e7e7;
+    color:#333;
+    font-family:inherit;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.btn-limpiar-filtros-inspecciones:hover{
+    background:#d8d8d8;
+}
+
+.contador-resultados-inspecciones{
+    color:#666;
+    font-size:12px;
+    font-weight:600;
+    text-align:right;
+}
+
+.lista-inspecciones{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+
+.tarjeta-inspeccion-realizada{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:13px;
+    padding:15px;
+    background:#fff;
+    border:1px solid #e1e1e1;
+    border-radius:12px;
+    box-shadow:0 5px 14px rgba(0,0,0,.06);
+    transition:transform .16s ease,box-shadow .16s ease;
+}
+
+.tarjeta-inspeccion-realizada:hover{
+    transform:translateY(-2px);
+    box-shadow:0 9px 20px rgba(0,0,0,.09);
+}
+
+.cabecera-tarjeta-inspeccion{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    padding-bottom:10px;
+    border-bottom:1px solid #eee;
+}
+
+.cabecera-tarjeta-inspeccion > div:first-child{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+
+.cabecera-tarjeta-inspeccion > div:first-child span{
+    color:#888;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+}
+
+.cabecera-tarjeta-inspeccion > div:first-child strong{
+    color:#222;
+    font-size:18px;
+}
+
+.etiquetas-inspeccion{
+    display:flex;
+    justify-content:flex-end;
+    gap:6px;
+    flex-wrap:wrap;
+}
+
+.etiqueta-inspeccion{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:25px;
+    padding:4px 9px;
+    border-radius:15px;
+    font-size:10px;
+    font-weight:700;
+}
+
+.etiqueta-inspeccion.exito{
+    color:#176B35;
+    background:#EAF6EE;
+    border:1px solid #85BE96;
+}
+
+.etiqueta-inspeccion.error{
+    color:#A31218;
+    background:#FCE8E8;
+    border:1px solid #E19A9E;
+}
+
+.etiqueta-inspeccion.advertencia{
+    color:#8A6200;
+    background:#FFF5D6;
+    border:1px solid #E0C56D;
+}
+
+.etiqueta-inspeccion.neutral{
+    color:#555;
+    background:#eee;
+    border:1px solid #d4d4d4;
+}
+
+.datos-tarjeta-inspeccion{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px 14px;
+}
+
+.datos-tarjeta-inspeccion div{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+
+.datos-tarjeta-inspeccion span{
+    color:#888;
+    font-size:10px;
+    text-transform:uppercase;
+}
+
+.datos-tarjeta-inspeccion strong{
+    overflow:hidden;
+    color:#333;
+    font-size:12px;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.pie-tarjeta-inspeccion{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding-top:10px;
+    border-top:1px solid #eee;
+}
+
+.pie-tarjeta-inspeccion > span{
+    color:#666;
+    font-size:11px;
+}
+
+.pie-tarjeta-inspeccion > span i{
+    margin-right:5px;
+    color:#1677C8;
+}
+
+.btn-abrir-pdf-inspeccion{
+    min-height:36px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:7px 13px;
+    border:none;
+    border-radius:8px;
+    background:#D71920;
+    color:#fff;
+    font-family:inherit;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.acciones-tarjeta-inspeccion {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-continuar-inspeccion-realizada {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    min-height: 36px;
+    padding: 8px 13px;
+
+    border: 1px solid #2e7d32;
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #2e7d32;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.btn-continuar-inspeccion-realizada:hover {
+    background: #2e7d32;
+    color: #ffffff;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 7px 16px rgba(46, 125, 50, 0.2);
+}
+
+.btn-continuar-inspeccion-realizada:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 600px) {
+
+    .acciones-tarjeta-inspeccion {
+        width: 100%;
     }
 
-    if (
-      valor instanceof Date &&
-      !isNaN(valor.getTime())
-    ) {
-      return valor;
+    .acciones-tarjeta-inspeccion button {
+        flex: 1;
     }
 
-    const texto =
-      String(valor || "").trim();
+}
 
-    /*
-     * Admite fechas guardadas o mostradas como:
-     * 14/07/2026
-     * 14/07/2026 08:35:20
-     * 14/07/2026, 8:35:20 p. m.
-     */
-    const coincidencia =
-      texto.match(
-        /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
-      );
+.btn-abrir-pdf-inspeccion:hover:not(:disabled){
+    background:#B91419;
+    transform:translateY(-1px);
+}
 
-    if (coincidencia) {
+.btn-abrir-pdf-inspeccion:disabled{
+    background:#cfcfcf;
+    color:#777;
+    cursor:not-allowed;
+}
 
-      const dia =
-        Number(coincidencia[1]);
+.acciones-visor-inspecciones{
+    display:flex;
+    justify-content:flex-end;
+    padding:4px 0 10px;
+}
 
-      const mes =
-        Number(coincidencia[2]) - 1;
+@media(max-width:1200px){
+    .filtros-inspecciones{
+        grid-template-columns:repeat(3,minmax(150px,1fr));
+    }
 
-      const ano =
-        Number(coincidencia[3]);
+    .filtro-busqueda-inspecciones{
+        grid-column:1 / -1;
+    }
 
-      let hora =
-        Number(
-          coincidencia[4] || 0
+    .resumen-inspecciones{
+        grid-template-columns:repeat(5,minmax(100px,1fr));
+    }
+}
+
+@media(max-width:850px){
+    .resumen-inspecciones{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .tarjeta-resumen-inspeccion.total{
+        grid-column:1 / -1;
+    }
+
+    .filtros-inspecciones{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .lista-inspecciones{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:600px){
+    .filtros-inspecciones{
+        grid-template-columns:1fr;
+    }
+
+    .filtro-busqueda-inspecciones{
+        grid-column:auto;
+    }
+
+    .datos-tarjeta-inspeccion{
+        grid-template-columns:1fr;
+    }
+
+    .cabecera-tarjeta-inspeccion,
+    .pie-tarjeta-inspeccion{
+        align-items:stretch;
+        flex-direction:column;
+    }
+
+    .etiquetas-inspeccion{
+        justify-content:flex-start;
+    }
+
+    .btn-abrir-pdf-inspeccion{
+        width:100%;
+    }
+}
+
+/* ==========================================================
+   CENTRO DE DESPACHOS
+========================================================== */
+
+/*
+ * Bloquea el desplazamiento de la página principal
+ * mientras el Centro de Despachos está abierto.
+ */
+body.centro-despachos-abierto {
+    overflow: hidden;
+}
+
+body.centro-despachos-abierto
+#modalSistema
+.modal-contenido {
+    height: 88vh;
+    min-height: 620px;
+}
+
+/*
+ * Evita que la rueda o el gesto de desplazamiento
+ * se propaguen hacia la página que está detrás.
+ */
+#modalSistema:not(.oculto) {
+    overscroll-behavior: contain;
+}
+
+#contenidoModal.modo-centro-despachos {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+
+    display: flex;
+    flex-direction: column;
+
+    padding-bottom: 12px;
+
+    overflow: hidden !important;
+    overscroll-behavior: contain;
+}
+}
+
+.centro-despachos {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    padding: 10px 4px 0;
+
+    overflow: hidden;
+}
+
+.centro-despachos__encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+
+    flex: 0 0 auto;
+}
+
+.centro-despachos__encabezado h2 {
+    margin: 4px 0;
+
+    color: #1f2937;
+
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.centro-despachos__encabezado p {
+    margin: 0;
+
+    color: #6b7280;
+
+    font-size: 14px;
+}
+
+.centro-despachos__etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 5px 12px;
+
+    border-radius: 999px;
+
+    background: #fff4e5;
+    color: #ef6c00;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.centro-despachos__controles-vista {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 5px;
+
+    background: #f1f3f5;
+    border: 1px solid #e2e5e8;
+    border-radius: 10px;
+}
+
+.btn-vista-despachos {
+    width: 38px;
+    height: 38px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 8px;
+
+    background: transparent;
+    color: #6b7280;
+
+    font-size: 15px;
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.btn-vista-despachos:hover {
+    background: #ffffff;
+    color: #d71920;
+
+    transform: translateY(-1px);
+}
+
+.btn-vista-despachos.activo {
+    background: #ffffff;
+    color: #d71920;
+
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.09);
+}
+
+.centro-despachos__filtros {
+    flex: 0 0 auto;
+
+    display: grid;
+    grid-template-columns:
+        minmax(240px, 2fr)
+        minmax(120px, 1fr)
+        minmax(110px, 1fr)
+        minmax(130px, 1fr)
+        minmax(90px, 0.7fr)
+        auto;
+
+    gap: 12px;
+    align-items: end;
+
+    padding: 16px;
+
+    background: #f8f9fa;
+    border: 1px solid #e3e6e8;
+    border-radius: 12px;
+}
+
+.campo-filtro-despachos {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.campo-filtro-despachos label {
+    color: #555555;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.campo-filtro-despachos input,
+.campo-filtro-despachos select {
+    width: 100%;
+    height: 40px;
+
+    padding: 0 11px;
+
+    border: 1px solid #d5d9dd;
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #333333;
+
+    font-family: inherit;
+    font-size: 12px;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.campo-filtro-despachos input:focus,
+.campo-filtro-despachos select:focus {
+    outline: none;
+
+    border-color: #f59e0b;
+
+    box-shadow:
+        0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+.campo-filtro-limite {
+    max-width: 110px;
+}
+
+.btn-limpiar-filtros-despachos {
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    padding: 0 14px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #e7e7e7;
+    color: #333333;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.btn-limpiar-filtros-despachos:hover {
+    background: #d9d9d9;
+
+    transform: translateY(-1px);
+}
+
+.centro-despachos__resumen {
+    flex: 0 0 auto;
+
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+
+    min-height: 36px;
+}
+
+.centro-despachos__resumen-acciones {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+#contadorCentroDespachos {
+    color: #666666;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/*
+ * Esta es la única zona desplazable del Centro de Despachos.
+ */
+.lista-centro-despachos {
+    flex: 1 1 auto;
+
+    width: 100%;
+    height: calc(88vh - 315px);
+    min-height: 180px;
+    max-height: calc(88vh - 315px);
+
+    overflow-y: scroll;
+    overflow-x: hidden;
+
+    overscroll-behavior: contain;
+
+    padding-right: 6px;
+    padding-bottom: 12px;
+
+    scrollbar-width: thin;
+    scrollbar-color: #9f9f9f #f1f1f1;
+}
+
+.lista-centro-despachos::-webkit-scrollbar {
+    width: 9px;
+}
+
+.lista-centro-despachos::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.lista-centro-despachos::-webkit-scrollbar-thumb {
+    background: #a7a7a7;
+    border: 2px solid #f1f1f1;
+    border-radius: 10px;
+}
+
+.lista-centro-despachos::-webkit-scrollbar-thumb:hover {
+    background: #858585;
+}
+
+.estado-carga-centro-despachos,
+.estado-vacio-centro-despachos {
+    min-height: 250px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    padding: 30px;
+
+    color: #777777;
+    text-align: center;
+}
+
+.estado-carga-centro-despachos i,
+.estado-vacio-centro-despachos i {
+    color: #f59e0b;
+    font-size: 34px;
+}
+
+.estado-vacio-centro-despachos strong {
+    color: #333333;
+    font-size: 17px;
+}
+
+.btn-cargar-mas-despachos {
+    min-height: 34px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    padding: 0 12px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #f59e0b;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 4px 11px rgba(245, 158, 11, 0.22);
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.btn-cargar-mas-despachos:hover {
+    background: #dc8600;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 9px 19px rgba(245, 158, 11, 0.3);
+}
+
+.registro-temporal-despacho {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 11px 13px;
+
+    border-bottom: 1px solid #eeeeee;
+
+    background: #ffffff;
+}
+
+.registro-temporal-despacho strong {
+    color: #222222;
+    font-size: 13px;
+}
+
+.registro-temporal-despacho span {
+    color: #777777;
+    font-size: 12px;
+}
+
+.registro-temporal-despacho small {
+    margin-left: auto;
+
+    color: #888888;
+    font-size: 11px;
+}
+
+.vista-lista-centro-despachos {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    overflow-y: auto !important;
+    overflow-x: hidden;
+
+    align-items: stretch;
+}
+
+.grupo-mensual-despachos {
+    flex: 0 0 auto;
+    min-height: max-content;
+
+    overflow: hidden;
+
+    background: #ffffff;
+    border: 1px solid #e2e5e8;
+    border-radius: 12px;
+
+    box-shadow:
+        0 4px 13px rgba(0, 0, 0, 0.05);
+}
+
+.encabezado-mes-despachos {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+
+    padding: 12px 15px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #fff4e5,
+            #ffffff
         );
 
-      const minutos =
-        Number(
-          coincidencia[5] || 0
-        );
+    border-bottom: 1px solid #ececec;
+    border-left: 5px solid #f59e0b;
+}
 
-      const segundos =
-        Number(
-          coincidencia[6] || 0
-        );
+.encabezado-mes-despachos > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
 
-      const periodo =
-        String(
-          coincidencia[7] || ""
-        )
-          .toLowerCase()
-          .replace(/\s|\./g, "");
+.encabezado-mes-despachos span {
+    color: #9a6a18;
 
-      if (
-        periodo === "pm" &&
-        hora < 12
-      ) {
-        hora += 12;
-      }
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
 
-      if (
-        periodo === "am" &&
-        hora === 12
-      ) {
-        hora = 0;
-      }
+.encabezado-mes-despachos strong {
+    color: #2b2f33;
 
-      const fecha =
-        new Date(
-          ano,
-          mes,
-          dia,
-          hora,
-          minutos,
-          segundos
-        );
+    font-size: 15px;
+    text-transform: capitalize;
+}
 
-      return isNaN(fecha.getTime())
-        ? null
-        : fecha;
+.encabezado-mes-despachos small {
+    color: #777777;
 
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tabla-lista-despachos {
+    min-width: 920px;
+}
+
+.cabecera-lista-despachos,
+.fila-centro-despachos {
+    display: grid;
+
+    grid-template-columns:
+        minmax(145px, 1.2fr)
+        minmax(120px, 0.9fr)
+        minmax(105px, 0.8fr)
+        minmax(150px, 1.2fr)
+        minmax(160px, 1.3fr)
+        70px
+        95px
+        75px;
+
+    align-items: center;
+    gap: 12px;
+}
+
+.cabecera-lista-despachos {
+    padding: 9px 14px;
+
+    background: #f6f7f8;
+    border-bottom: 1px solid #e7e7e7;
+
+    color: #777777;
+
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.fila-centro-despachos {
+    min-height: 58px;
+
+    padding: 9px 14px;
+
+    border-bottom: 1px solid #eeeeee;
+
+    color: #444444;
+    font-size: 11px;
+
+    transition:
+        background 0.16s ease,
+        transform 0.16s ease;
+}
+
+.fila-centro-despachos:last-child {
+    border-bottom: none;
+}
+
+.fila-centro-despachos:hover {
+    background: #fafafa;
+}
+
+.dato-conduce-lista,
+.dato-fecha-lista {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.dato-conduce-lista strong {
+    color: #222222;
+    font-size: 12px;
+}
+
+.dato-conduce-lista small,
+.dato-fecha-lista small {
+    overflow: hidden;
+
+    color: #888888;
+    font-size: 9px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.texto-truncado-despacho {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dato-numerico-despacho {
+    text-align: right;
+    font-weight: 700;
+}
+
+.etiqueta-estado-despacho {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 25px;
+    padding: 4px 9px;
+
+    border-radius: 15px;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.etiqueta-estado-despacho.borrador {
+    color: #8a6200;
+
+    background: #fff5d6;
+    border: 1px solid #e0c56d;
+}
+
+.etiqueta-estado-despacho.despachado {
+    color: #0d5f9f;
+
+    background: #e6f2fc;
+    border: 1px solid #8ebddd;
+}
+
+.etiqueta-estado-despacho.completado {
+    color: #176b35;
+
+    background: #eaf6ee;
+    border: 1px solid #85be96;
+}
+
+.acciones-lista-centro-despachos {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.btn-accion-centro-despachos {
+    width: 32px;
+    height: 32px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    color: #ffffff;
+    cursor: pointer;
+
+    transition:
+        transform 0.16s ease,
+        filter 0.16s ease;
+}
+
+.btn-accion-centro-despachos:hover {
+    transform: translateY(-1px) scale(1.04);
+    filter: brightness(0.94);
+}
+
+.btn-accion-centro-despachos.continuar {
+    background: #f59e0b;
+}
+
+.btn-accion-centro-despachos.finalizar {
+    background: #1677c8;
+}
+
+.btn-accion-centro-despachos.ver {
+    background: #28a745;
+}
+
+@media (max-width: 1000px) {
+
+    .vista-lista-centro-despachos {
+        overflow-x: auto;
     }
 
-    const fechaAlternativa =
-      new Date(texto);
+}
 
-    return isNaN(
-      fechaAlternativa.getTime()
-    )
-      ? null
-      : fechaAlternativa;
+@media (max-width: 1050px) {
 
-  };
-
-  const fechaEsHoy = function(valor) {
-
-    const fecha =
-      convertirFecha(valor);
-
-    if (!fecha) {
-      return false;
+    .centro-despachos__filtros {
+        grid-template-columns:
+            repeat(3, minmax(150px, 1fr));
     }
 
-    return Utilities.formatDate(
-      fecha,
-      zonaHoraria,
-      "yyyy-MM-dd"
-    ) === hoy;
-
-  };
-
-  let completadosHoy = 0;
-  let paquetesEnviadosHoy = 0;
-
-  datos
-    .slice(1)
-    .forEach(function(fila) {
-
-      const estado =
-        String(
-          fila[indiceEstado] || ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const fechaDespacho =
-        fila[indiceFechaDespacho];
-
-      const fechaCompletado =
-        fila[indiceFechaCompletado];
-
-      if (
-        estado === "completado" &&
-        fechaEsHoy(fechaCompletado)
-      ) {
-
-        completadosHoy++;
-
-      }
-
-      if (
-        (
-          estado === "despachado" ||
-          estado === "completado"
-        ) &&
-        fechaEsHoy(fechaDespacho)
-      ) {
-
-        paquetesEnviadosHoy +=
-          Number(
-            fila[
-              indiceTotalUnidades
-            ] || 0
-          );
-
-      }
-
-    });
-
-  const configuracion =
-    hojaConfiguracion
-      .getDataRange()
-      .getValues();
-
-  let metaDespachos = 0;
-
-  for (
-    let i = 1;
-    i < configuracion.length;
-    i++
-  ) {
-
-    if (
-      String(
-        configuracion[i][0] || ""
-      ).trim() ===
-      "Meta_Despachos_Diaria"
-    ) {
-
-      metaDespachos =
-        Number(
-          configuracion[i][1] || 0
-        );
-
-      break;
-
+    .campo-filtro-despachos:first-child {
+        grid-column: 1 / -1;
     }
 
-  }
-
-  const porcentajeCumplimiento =
-    metaDespachos > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (
-              completadosHoy /
-              metaDespachos
-            ) * 100
-          )
-        )
-      : 0;
-
-  let semaforo = "rojo";
-
-  if (
-    porcentajeCumplimiento >= 95
-  ) {
-
-    semaforo = "verde";
-
-  } else if (
-    porcentajeCumplimiento >= 70
-  ) {
-
-    semaforo = "naranja";
-
-  }
-
-  return respuesta({
-    ok: true,
-    data: {
-      completadosHoy:
-        completadosHoy,
-      paquetesEnviadosHoy:
-        paquetesEnviadosHoy,
-      metaDespachos:
-        metaDespachos,
-      porcentajeCumplimiento:
-        porcentajeCumplimiento,
-      semaforo:
-        semaforo
+    .campo-filtro-limite {
+        max-width: none;
     }
-  });
+
+}
+
+@media (max-width: 700px) {
+
+    .centro-despachos__encabezado {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .centro-despachos__controles-vista {
+        align-self: flex-end;
+    }
+
+    .centro-despachos__filtros {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .campo-filtro-despachos:first-child {
+        grid-column: 1 / -1;
+    }
+
+}
+
+@media (max-width: 520px) {
+
+    .centro-despachos__filtros {
+        grid-template-columns: 1fr;
+    }
+
+    .campo-filtro-despachos:first-child {
+        grid-column: auto;
+    }
+
+    .btn-limpiar-filtros-despachos {
+        width: 100%;
+    }
+
+    .centro-despachos__resumen-acciones {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .btn-cargar-mas-despachos {
+        width: 100%;
+    }
+
+    .registro-temporal-despacho {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .registro-temporal-despacho small {
+        margin-left: 0;
+    }
+
+}
+
+@media (max-height: 720px) {
+
+    body.centro-despachos-abierto
+    #modalSistema
+    .modal-contenido {
+        height: 94vh;
+        min-height: 0;
+    }
+
+    .centro-despachos {
+        gap: 10px;
+    }
+
+    .centro-despachos__filtros {
+        padding: 12px;
+    }
+
+}
+
+@media (max-height: 720px) {
+
+    .lista-centro-despachos {
+        height: calc(94vh - 300px);
+        max-height: calc(94vh - 300px);
+        min-height: 140px;
+    }
 
 }

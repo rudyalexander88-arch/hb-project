@@ -412,3 +412,718 @@
     }
 
 }
+
+/* ======================================================
+   ARCHIVO: css/inspeccion.css
+   UBICACIÓN: agregar al final del archivo
+   PASO 4 - FINALIZAR INSPECCIÓN
+====================================================== */
+
+.resumen-final-inspeccion {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 18px 0;
+}
+
+.tarjeta-resumen-final {
+    padding: 18px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tarjeta-resumen-final span {
+    color: #6b7280;
+    font-size: 0.86rem;
+}
+
+.tarjeta-resumen-final strong {
+    color: #1f2937;
+    font-size: 1.45rem;
+}
+
+.tarjeta-resumen-final.resumen-cumple {
+    border-left: 4px solid #178447;
+}
+
+.tarjeta-resumen-final.resumen-no-cumple {
+    border-left: 4px solid #c62828;
+}
+
+.grid-final-inspeccion {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.grid-final-inspeccion textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.aviso-final-inspeccion {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    margin-top: 18px;
+    border: 1px solid #f1c9c9;
+    background: #fff8f8;
+    border-radius: 12px;
+}
+
+.aviso-final-inspeccion > i {
+    color: #c62828;
+    font-size: 1.45rem;
+}
+
+.resultado-final-inspeccion {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.resultado-final-inspeccion__icono {
+    width: 78px;
+    height: 78px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #eaf7ef;
+    color: #178447;
+    font-size: 2.6rem;
+}
+
+.resultado-final-inspeccion__datos {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 26px 0;
+    text-align: left;
+}
+
+.resultado-final-inspeccion__datos > div {
+    padding: 15px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.resultado-final-inspeccion__datos span {
+    display: block;
+    color: #6b7280;
+    font-size: 0.82rem;
+    margin-bottom: 4px;
+}
+
+.acciones-finalizadas {
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.enlace-boton-inspeccion {
+    text-decoration: none;
+}
+
+@media (max-width: 850px) {
+    .resumen-final-inspeccion {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-final-inspeccion {
+        grid-template-columns: 1fr;
+    }
+
+    .resultado-final-inspeccion__datos {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .resumen-final-inspeccion {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Ajuste visual: datos completos arriba y observaciones debajo */
+.observaciones-finales-inspeccion {
+    margin-top: 18px;
+}
+
+.observaciones-finales-inspeccion textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.grid-final-inspeccion .tarjeta-inspeccion {
+    align-self: stretch;
+}
+
+/* =====================================================
+   ASISTENTE DE INSPECCIÓN — TÍTULO GENERAL Y SELLO Z10
+   ARCHIVO: inspeccion.css
+   UBICACIÓN: agregar este bloque completo al final.
+   No reemplaza estilos existentes.
+   ===================================================== */
+
+
+/* =====================================================
+   TÍTULO GENERAL DEL ASISTENTE
+   ===================================================== */
+
+/* =====================================================
+   TÍTULO INTERNO DEL ASISTENTE
+   Se mantiene dentro del modal sin duplicar la barra superior.
+   ===================================================== */
+
+.titulo-general-asistente-inspeccion h1 {
+    margin: 0;
+
+    color: #252525;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.titulo-general-asistente-inspeccion p {
+    margin: 2px 0 0;
+
+    color: #888888;
+    font-size: 9px;
+    font-weight: 500;
+}
+
+.titulo-general-asistente-inspeccion p {
+    margin: 2px 0 0;
+
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 10px;
+    font-weight: 500;
+}
+
+
+/* =====================================================
+   TARJETA Z10 — SELLO DE LLEGADA
+   ===================================================== */
+
+.tarjeta-evidencia-sello-llegada {
+    position: relative;
+
+    border-left-color: #ef6c00;
+    background:
+        linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #fffaf5 100%
+        );
+}
+
+.tarjeta-evidencia-sello-llegada.completa {
+    border-left-color: #24a84b;
+
+    background:
+        linear-gradient(
+            180deg,
+            #ffffff 0%,
+            #f5fcf7 100%
+        );
+}
+
+.tarjeta-evidencia-sello-llegada
+.tarjeta-evidencia-categoria__encabezado {
+    align-items: flex-start;
+}
+
+.tarjeta-evidencia-sello-llegada
+.estado-evidencia-categoria {
+    width: 30px;
+    height: 30px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 30px;
+
+    border-radius: 50%;
+    background: #f1f1f1;
+    color: #999999;
+
+    font-size: 14px;
+}
+
+.tarjeta-evidencia-sello-llegada.completa
+.estado-evidencia-categoria {
+    background: #e5f6e9;
+    color: #24a84b;
+}
+
+
+/* =====================================================
+   CAMPO NÚMERO DEL SELLO
+   ===================================================== */
+
+.campo-sello-llegada-evidencia {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+
+    margin: 4px 0 13px;
+    padding: 12px;
+
+    box-sizing: border-box;
+
+    background: #f8f8f8;
+    border: 1px solid #e3e3e3;
+    border-radius: 10px;
+}
+
+.campo-sello-llegada-evidencia label {
+    display: block;
+
+    margin: 0;
+
+    color: #333333;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.campo-sello-llegada-evidencia input {
+    width: 100%;
+    height: 44px;
+
+    padding: 0 13px;
+
+    box-sizing: border-box;
+
+    background: #ffffff;
+    color: #222222;
+
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    outline: none;
+
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.campo-sello-llegada-evidencia input::placeholder {
+    color: #a0a0a0;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+.campo-sello-llegada-evidencia input:hover {
+    border-color: #aaaaaa;
+}
+
+.campo-sello-llegada-evidencia input:focus {
+    background: #ffffff;
+    border-color: #ef6c00;
+
+    box-shadow:
+        0 0 0 3px rgba(239, 108, 0, 0.13);
+}
+
+.tarjeta-evidencia-sello-llegada.evidencia-error
+.campo-sello-llegada-evidencia {
+    background: #fff5f5;
+    border-color: #df1f2d;
+}
+
+.tarjeta-evidencia-sello-llegada.evidencia-error
+.campo-sello-llegada-evidencia input {
+    border-color: #df1f2d;
+}
+
+
+/* =====================================================
+   BOTÓN DE FOTO DENTRO DE Z10
+   ===================================================== */
+
+.tarjeta-evidencia-sello-llegada
+.boton-cargar-evidencia {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+
+/* =====================================================
+   ADAPTACIÓN RESPONSIVA
+   ===================================================== */
+
+@media (max-width: 760px) {
+
+    .titulo-general-asistente-inspeccion {
+        gap: 8px;
+        margin-bottom: 10px;
+        padding: 0 0 9px;
+    }
+
+    .titulo-general-asistente-inspeccion h1 {
+        font-size: 13px;
+    }
+
+    .titulo-general-asistente-inspeccion__icono {
+        width: 28px;
+        height: 28px;
+        flex-basis: 28px;
+
+        font-size: 12px;
+    }
+
+}
+
+
+/* ======================================================
+   EVIDENCIA LOCAL BASC
+   Mensaje posterior al guardado de categoría
+   ====================================================== */
+
+.modal-evidencia-local-basc {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.56);
+    backdrop-filter: blur(3px);
+}
+
+.modal-evidencia-local-contenido {
+    width: min(100%, 470px);
+    padding: 26px;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.26);
+    animation: aparecerModalEvidenciaLocal 0.2s ease-out;
+}
+
+.modal-evidencia-local-icono {
+    width: 58px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+    border-radius: 16px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    font-size: 24px;
+}
+
+.modal-evidencia-local-texto h3 {
+    margin: 0 0 10px;
+    color: #172033;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.modal-evidencia-local-texto p {
+    margin: 0 0 8px;
+    color: #334155;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.modal-evidencia-local-texto span {
+    display: block;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.modal-evidencia-local-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.btn-evidencia-local-secundario,
+.btn-evidencia-local-principal {
+    min-height: 42px;
+    padding: 10px 17px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.btn-evidencia-local-secundario {
+    background: #eef2f7;
+    color: #334155;
+}
+
+.btn-evidencia-local-principal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #dc2626;
+    color: #ffffff;
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.22);
+}
+
+.btn-evidencia-local-secundario:hover,
+.btn-evidencia-local-principal:hover {
+    transform: translateY(-1px);
+}
+
+.btn-evidencia-local-secundario:hover {
+    background: #e2e8f0;
+}
+
+.btn-evidencia-local-principal:hover {
+    background: #b91c1c;
+    box-shadow: 0 10px 24px rgba(220, 38, 38, 0.3);
+}
+
+@keyframes aparecerModalEvidenciaLocal {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 560px) {
+    .modal-evidencia-local-contenido {
+        padding: 22px 18px;
+        border-radius: 15px;
+    }
+
+    .modal-evidencia-local-acciones {
+        flex-direction: column-reverse;
+    }
+
+    .btn-evidencia-local-secundario,
+    .btn-evidencia-local-principal {
+        width: 100%;
+    }
+}
+
+/* ======================================================
+   EVIDENCIA LOCAL PENDIENTE EN EL PASO 3
+   ====================================================== */
+
+.evidencia-local-pendiente {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin-bottom: 9px;
+    padding: 10px;
+
+    background: #fff8ed;
+    border: 1px solid #f3c98b;
+    border-radius: 9px;
+}
+
+.evidencia-local-pendiente__info {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.evidencia-local-pendiente__info > i {
+    flex: 0 0 auto;
+
+    color: #ef6c00;
+    font-size: 17px;
+}
+
+.evidencia-local-pendiente__info div {
+    min-width: 0;
+}
+
+.evidencia-local-pendiente__info strong,
+.evidencia-local-pendiente__info span {
+    display: block;
+}
+
+.evidencia-local-pendiente__info strong {
+    margin-bottom: 2px;
+
+    color: #b45309;
+    font-size: 11px;
+}
+
+.evidencia-local-pendiente__info span {
+    overflow: hidden;
+
+    color: #6b7280;
+    font-size: 10px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.evidencia-local-pendiente__acciones {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    flex: 0 0 auto;
+}
+
+.btn-subir-evidencia-local,
+.btn-eliminar-evidencia-local {
+    min-height: 32px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    border: none;
+    border-radius: 7px;
+
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.btn-subir-evidencia-local {
+    padding: 7px 10px;
+
+    background: #28a745;
+    color: #ffffff;
+}
+
+.btn-eliminar-evidencia-local {
+    width: 32px;
+
+    background: #ffffff;
+    color: #d71920;
+    border: 1px solid #efc3c6;
+}
+
+.btn-subir-evidencia-local:disabled,
+.btn-eliminar-evidencia-local:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+
+    .evidencia-local-pendiente {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .evidencia-local-pendiente__acciones {
+        justify-content: flex-end;
+    }
+
+}
+
+
+/* ======================================================
+   PANEL Z10 — SELLO DE LLEGADA
+   ====================================================== */
+
+.panel-sello-llegada-basc {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.punto-sello-llegada {
+    border-left: 5px solid #ef6c00;
+}
+
+.tarjeta-numero-sello-llegada {
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.campo-numero-sello-llegada {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.campo-numero-sello-llegada label {
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.input-icono-sello-llegada {
+    position: relative;
+}
+
+.input-icono-sello-llegada i {
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    transform: translateY(-50%);
+    color: #ef6c00;
+}
+
+.input-icono-sello-llegada input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 16px 12px 46px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    font: inherit;
+    color: #111827;
+    background: #ffffff;
+    box-sizing: border-box;
+    outline: none;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.input-icono-sello-llegada input:focus {
+    border-color: #ef6c00;
+    box-shadow: 0 0 0 3px rgba(239, 108, 0, 0.14);
+}
+
+@media (max-width: 768px) {
+
+    .tarjeta-numero-sello-llegada {
+        padding: 16px;
+    }
+
+}

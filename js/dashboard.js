@@ -111,6 +111,187 @@ function cerrarSesion(){
 
 }
 
+// ======================================================
+// CARGADOR GLOBAL DEL SISTEMA
+// ======================================================
+
+const CargadorSistema = {
+
+    cargasActivas: 0,
+
+    mostrar(
+        titulo = "Procesando...",
+        mensaje = "Espere un momento."
+    ) {
+
+        const overlay =
+            document.getElementById(
+                "overlayCargaSistema"
+            );
+
+        const tituloElemento =
+            document.getElementById(
+                "tituloCargaSistema"
+            );
+
+        const mensajeElemento =
+            document.getElementById(
+                "mensajeCargaSistema"
+            );
+
+        if (!overlay) {
+
+            console.warn(
+                "No se encontró el cargador global del sistema."
+            );
+
+            return;
+
+        }
+
+        this.cargasActivas++;
+
+        if (tituloElemento) {
+
+            tituloElemento.textContent =
+                String(
+                    titulo ||
+                    "Procesando..."
+                );
+
+        }
+
+        if (mensajeElemento) {
+
+            mensajeElemento.textContent =
+                String(
+                    mensaje ||
+                    "Espere un momento."
+                );
+
+        }
+
+        overlay.classList.remove(
+            "oculto"
+        );
+
+        overlay.setAttribute(
+            "aria-hidden",
+            "false"
+        );
+
+        document.body.classList.add(
+            "carga-sistema-activa"
+        );
+
+    },
+
+
+    ocultar(
+        forzar = false
+    ) {
+
+        const overlay =
+            document.getElementById(
+                "overlayCargaSistema"
+            );
+
+        if (!overlay) {
+            return;
+        }
+
+        if (forzar) {
+
+            this.cargasActivas = 0;
+
+        } else {
+
+            this.cargasActivas =
+                Math.max(
+                    0,
+                    this.cargasActivas - 1
+                );
+
+        }
+
+        /*
+         * Si todavía existe otra operación activa,
+         * el cargador permanece visible.
+         */
+        if (this.cargasActivas > 0) {
+            return;
+        }
+
+        overlay.classList.add(
+            "oculto"
+        );
+
+        overlay.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+
+        document.body.classList.remove(
+            "carga-sistema-activa"
+        );
+
+    },
+
+
+    actualizar(
+        titulo,
+        mensaje
+    ) {
+
+        const tituloElemento =
+            document.getElementById(
+                "tituloCargaSistema"
+            );
+
+        const mensajeElemento =
+            document.getElementById(
+                "mensajeCargaSistema"
+            );
+
+        if (
+            titulo !== undefined &&
+            tituloElemento
+        ) {
+
+            tituloElemento.textContent =
+                String(titulo || "");
+
+        }
+
+        if (
+            mensaje !== undefined &&
+            mensajeElemento
+        ) {
+
+            mensajeElemento.textContent =
+                String(mensaje || "");
+
+        }
+
+    },
+
+
+    estaActivo() {
+
+        return this.cargasActivas > 0;
+
+    }
+
+};
+
+
+/*
+ * Se expone globalmente para que pueda utilizarse desde
+ * Despachos, Inspecciones, Inventario y otros módulos.
+ */
+window.CargadorSistema =
+    CargadorSistema;
+
 document.addEventListener(
     "DOMContentLoaded",
     () => {

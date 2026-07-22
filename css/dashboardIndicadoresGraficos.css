@@ -1,0 +1,299 @@
+/* ============================================================
+   HISTÓRICO DE METAS - RANGO Y GRÁFICO
+   Archivo: dashboardIndicadoresGraficos.css
+   ============================================================ */
+
+.accesos-rapidos-periodo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-bottom: 14px;
+    padding: 10px 12px;
+
+    border: 1px solid #eeeeee;
+    border-radius: 11px;
+
+    background: #ffffff;
+}
+
+.accesos-rapidos-periodo > span {
+    margin-right: 3px;
+
+    color: #666666;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.accesos-rapidos-periodo button {
+    min-height: 32px;
+    padding: 7px 11px;
+
+    border: 1px solid #dedede;
+    border-radius: 8px;
+
+    background: #f8f8f8;
+    color: #444444;
+
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.accesos-rapidos-periodo button:hover {
+    border-color: #d71920;
+    background: rgba(215, 25, 32, 0.07);
+    color: #d71920;
+    transform: translateY(-1px);
+}
+
+.filtros-rango-metas {
+    grid-template-columns:
+        minmax(135px, 0.8fr)
+        minmax(135px, 0.8fr)
+        minmax(165px, 1fr)
+        minmax(165px, 1fr)
+        minmax(155px, 0.95fr)
+        auto;
+}
+
+.filtros-rango-metas .acciones-filtros-metas {
+    gap: 8px;
+}
+
+.btn-consultar-rango-meta {
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding: 9px 14px;
+
+    border: none;
+    border-radius: 9px;
+
+    background: #d71920;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.btn-consultar-rango-meta:hover {
+    background: #b9141a;
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 7px 16px rgba(215, 25, 32, 0.2);
+}
+
+.panel-grafico-metas {
+    margin-bottom: 22px;
+    padding: 18px 18px 14px;
+
+    border: 1px solid #ececec;
+    border-radius: 14px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+.panel-grafico-metas-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+
+    margin-bottom: 13px;
+}
+
+.panel-grafico-metas-header span {
+    display: block;
+    margin-bottom: 2px;
+
+    color: #d71920;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.panel-grafico-metas-header h3 {
+    margin: 0;
+
+    color: #2b2b2b;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.panel-grafico-metas-header p {
+    margin: 0;
+
+    color: #777777;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.contenedor-canvas-metas {
+    position: relative;
+    width: 100%;
+    height: 290px;
+}
+
+.sin-datos-grafico-metas {
+    min-height: 180px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #888888;
+    font-size: 12px;
+    text-align: center;
+}
+
+@media (max-width: 1280px) {
+
+    .filtros-rango-metas {
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+    }
+
+    .filtros-rango-metas .acciones-filtros-metas {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 760px) {
+
+    .filtros-rango-metas {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .panel-grafico-metas-header {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .contenedor-canvas-metas {
+        height: 250px;
+    }
+}
+
+@media (max-width: 540px) {
+
+    .filtros-rango-metas {
+        grid-template-columns: 1fr;
+    }
+
+    .filtros-rango-metas .acciones-filtros-metas {
+        grid-column: auto;
+        flex-direction: column;
+    }
+
+    .btn-consultar-rango-meta,
+    .filtros-rango-metas .btn-secundario-meta {
+        width: 100%;
+    }
+
+    .accesos-rapidos-periodo {
+        align-items: stretch;
+    }
+
+    .accesos-rapidos-periodo > span {
+        width: 100%;
+    }
+
+    .accesos-rapidos-periodo button {
+        flex: 1 1 calc(50% - 8px);
+    }
+
+    .contenedor-canvas-metas {
+        height: 225px;
+    }
+}
+
+/* ============================================================
+   PDF TEMPORAL DEL HISTÓRICO DE METAS
+   Agregar al final de dashboardIndicadoresGraficos.css
+   ============================================================ */
+
+.btn-pdf-historico-metas {
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding: 9px 14px;
+
+    border: none;
+    border-radius: 9px;
+
+    background: #2e7d32;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.btn-pdf-historico-metas:hover:not(:disabled) {
+    background: #246528;
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 7px 16px rgba(46, 125, 50, 0.22);
+}
+
+.btn-pdf-historico-metas:disabled {
+    opacity: 0.72;
+    cursor: wait;
+}
+
+.btn-pdf-historico-metas i {
+    margin: 0;
+    color: #ffffff;
+    font-size: 12px;
+    line-height: 1;
+}
+
+@media (max-width: 540px) {
+
+    .btn-pdf-historico-metas {
+        width: 100%;
+    }
+
+}
+

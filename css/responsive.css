@@ -598,3 +598,217 @@
 
 }
 
+/* ============================================================
+   TARJETAS PRINCIPALES COMPACTAS EN MÓVIL
+   Sistema Logístico PT
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    /*
+     * Conserva las cuatro tarjetas en una cuadrícula 2 x 2,
+     * pero reduce considerablemente su altura.
+     */
+    .cards {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr)) !important;
+
+        gap: 10px !important;
+
+        margin-bottom: 12px !important;
+    }
+
+
+    /*
+     * Tarjetas generales del dashboard.
+     */
+    .cards > .card {
+        min-height: 138px !important;
+
+        padding:
+            14px
+            10px !important;
+
+        border-radius: 14px !important;
+
+        justify-content: center;
+    }
+
+
+    .cards > .card > i {
+        margin-bottom: 7px !important;
+
+        font-size: 22px !important;
+    }
+
+
+    .cards > .card > h3 {
+        margin:
+            0
+            0
+            5px !important;
+
+        font-size: 13px !important;
+        line-height: 1.25 !important;
+    }
+
+
+    .cards > .card > h1 {
+        margin: 0 !important;
+
+        font-size: 25px !important;
+        line-height: 1 !important;
+    }
+
+
+    /*
+     * Tarjetas enriquecidas de Meta mensual
+     * y Prioridades de despacho.
+     */
+    .cards > .card-indicador {
+        min-height: 138px !important;
+
+        padding:
+            12px
+            9px
+            10px !important;
+
+        border-radius: 14px !important;
+    }
+
+
+    .card-indicador-icono {
+        width: 40px !important;
+        height: 40px !important;
+
+        margin-bottom: 7px !important;
+
+        border-radius: 11px !important;
+    }
+
+
+    .card-indicador
+    .card-indicador-icono i {
+        font-size: 19px !important;
+    }
+
+
+    .card-indicador h3 {
+        margin:
+            0
+            0
+            4px !important;
+
+        font-size: 12px !important;
+        line-height: 1.25 !important;
+    }
+
+
+    .card-indicador h1 {
+        margin:
+            0
+            0
+            3px !important;
+
+        font-size: 25px !important;
+        line-height: 1 !important;
+    }
+
+
+    .card-indicador-detalle {
+        min-height: 0 !important;
+
+        margin:
+            0
+            0
+            2px !important;
+
+        font-size: 10px !important;
+        line-height: 1.25 !important;
+    }
+
+
+    .card-indicador-secundario {
+        min-height: 0 !important;
+
+        margin:
+            0
+            0
+            7px !important;
+
+        font-size: 9px !important;
+        line-height: 1.2 !important;
+    }
+
+
+    .btn-card-indicador {
+        min-height: 31px !important;
+
+        margin-top: auto !important;
+        padding:
+            6px
+            9px !important;
+
+        border-radius: 8px !important;
+
+        font-size: 10px !important;
+    }
+
+
+    /*
+     * Aumenta el espacio disponible para el módulo activo.
+     */
+    #contenidoPrincipal {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+
+        padding: 12px !important;
+
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+}
+
+@media (max-width: 420px) {
+
+    .cards {
+        gap: 8px !important;
+    }
+
+
+    .cards > .card,
+    .cards > .card-indicador {
+        min-height: 126px !important;
+    }
+
+
+    .cards > .card {
+        padding:
+            12px
+            7px !important;
+    }
+
+
+    .cards > .card > h3,
+    .card-indicador h3 {
+        font-size: 11px !important;
+    }
+
+
+    .cards > .card > h1,
+    .card-indicador h1 {
+        font-size: 22px !important;
+    }
+
+
+    .card-indicador-detalle {
+        font-size: 9px !important;
+    }
+
+
+    .card-indicador-secundario {
+        display: none !important;
+    }
+
+}

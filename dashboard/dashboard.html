@@ -31,17 +31,9 @@
 
 </head>
 
+<body>
 
 <header class="barra-movil">
-
-    <button
-        type="button"
-        id="btnMenuMovil"
-        class="btn-menu-movil"
-        aria-label="Abrir menú"
-    >
-        <i class="fa-solid fa-bars"></i>
-    </button>
 
     <div class="marca-movil">
 
@@ -62,101 +54,118 @@
 
     </div>
 
-    <div class="usuario-movil">
-
-        <strong id="nombreUsuarioMovil">
-            Usuario
-        </strong>
-
-        <span id="rolUsuarioMovil">
-            Rol
-        </span>
-
-    </div>
+    <button
+        type="button"
+        id="btnMenuMovil"
+        class="btn-menu-movil"
+        aria-label="Abrir menú"
+        aria-controls="sidebarPrincipal"
+        aria-expanded="false"
+    >
+        <i class="fa-solid fa-bars"></i>
+    </button>
 
 </header>
 
 <div
     id="fondoMenuMovil"
     class="fondo-menu-movil"
+    aria-hidden="true"
 ></div>
 
-<div class="sidebar">
-
-	<aside
-		class="sidebar"
-		id="sidebarPrincipal"
-	>
+<aside
+    class="sidebar"
+    id="sidebarPrincipal"
+    aria-label="Menú principal"
+>
 
     <div class="logo">
 
-        <img src="../img/logo_dashboard.png">
+        <img
+            src="../img/logo_dashboard.png"
+            alt="Helados BON"
+        >
+
+    </div>
+
+    <div class="usuario-sidebar">
+
+        <div class="usuario-sidebar-icono">
+            <i class="fa-solid fa-user"></i>
+        </div>
+
+        <div class="usuario-sidebar-datos">
+
+            <strong id="nombreUsuarioMenu">
+                Usuario
+            </strong>
+
+            <span id="rolUsuarioMenu">
+                Rol
+            </span>
+
+        </div>
 
     </div>
 
     <ul>
 
-       <li id="menuInicio" class="active">
+        <li id="menuInicio" class="active">
 
-    <i class="fa-solid fa-house"></i>
+            <i class="fa-solid fa-house"></i>
 
-    Inicio
+            Inicio
 
-</li>
+        </li>
 
+        <li id="menuInventario">
 
-<li id="menuInventario">
+            <i class="fa-solid fa-box"></i>
 
-    <i class="fa-solid fa-box"></i>
+            Inventario
 
-    Inventario
+        </li>
 
-</li>
+        <li id="menuDespachos">
 
+            <i class="fa-solid fa-truck"></i>
 
-<li id="menuDespachos">
+            Despachos
 
-    <i class="fa-solid fa-truck"></i>
+        </li>
 
-    Despachos
+        <li id="menuRecepciones">
 
-</li>
+            <i class="fa-solid fa-arrow-down"></i>
 
+            Recepciones
 
-<li id="menuRecepciones">
+        </li>
 
-    <i class="fa-solid fa-arrow-down"></i>
+        <li id="menuReportes">
 
-    Recepciones
+            <i class="fa-solid fa-chart-column"></i>
 
-</li>
+            Reportes
 
+        </li>
 
-<li id="menuReportes">
+        <li id="menuUsuarios">
 
-    <i class="fa-solid fa-chart-column"></i>
+            <i class="fa-solid fa-users"></i>
 
-    Reportes
+            Usuarios
 
-</li>
+        </li>
 
+        <li id="menuConfiguracion">
 
-<li id="menuUsuarios">
+            <i class="fa-solid fa-gear"></i>
 
-    <i class="fa-solid fa-users"></i>
+            Configuración
 
-    Usuarios
+        </li>
 
-</li>
-
-
-<li id="menuConfiguracion">
-
-    <i class="fa-solid fa-gear"></i>
-
-    Configuración
-
-</li>
         <li id="salir">
 
             <i class="fa-solid fa-right-from-bracket"></i>
@@ -167,18 +176,16 @@
 
     </ul>
 
-</div>
+</aside>
 
-<div class="contenido">
+<main class="contenido">
 
-    <header>
+    <header class="encabezado-dashboard">
 
         <div>
 
             <h2>
-
                 Sistema Logístico Productos Terminados
-
             </h2>
 
         </div>
@@ -240,20 +247,16 @@
     <section id="contenidoPrincipal">
 
         <h2>
-
             Bienvenido al Sistema Logístico
-
         </h2>
 
         <p>
-
             Seleccione una opción del menú lateral.
-
         </p>
 
     </section>
 
-</div>
+</main>
 <!-- ===================================== -->
 <!-- MODAL DEL SISTEMA -->
 <!-- ===================================== -->

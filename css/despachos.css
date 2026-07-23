@@ -3736,3 +3736,116 @@ body.centro-despachos-abierto
     }
 
 }
+
+/* ============================================================
+   LISTAS DEL DASHBOARD DE DESPACHOS
+   Máximo inicial de 10 filas y scroll interno.
+   ============================================================ */
+
+.panel-listado-conduces {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.panel-listado-encabezado {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+
+    margin-bottom: 14px;
+}
+
+.panel-listado-encabezado h3 {
+    min-width: 0;
+    margin: 0;
+}
+
+.btn-mas-conduces {
+    flex: 0 0 auto;
+
+    min-height: 32px;
+    padding: 6px 10px;
+
+    border: 1px solid rgba(215, 25, 32, 0.28);
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #d71920;
+
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.btn-mas-conduces:hover {
+    border-color: #d71920;
+    background: #d71920;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.tabla-conduces-scroll {
+    max-height: 490px;
+
+    overflow-x: auto;
+    overflow-y: auto;
+
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.tabla-conduces-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+@media (max-width: 768px) {
+
+    .panel-listado-encabezado {
+        align-items: flex-start;
+    }
+
+    .btn-mas-conduces {
+        white-space: nowrap;
+    }
+
+    .tabla-conduces-scroll {
+        max-height: 430px;
+    }
+
+}
+
+@media (max-width: 480px) {
+
+    .panel-listado-encabezado h3 {
+        font-size: 14px;
+    }
+
+    .btn-mas-conduces {
+        min-height: 30px;
+        padding: 5px 8px;
+        font-size: 9px;
+    }
+
+    .tabla-conduces-scroll {
+        max-height: 380px;
+    }
+
+}
+

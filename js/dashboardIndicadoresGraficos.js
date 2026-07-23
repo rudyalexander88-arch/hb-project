@@ -6,7 +6,8 @@
 // Responsabilidad:
 // - Añadir consulta por rango de fechas.
 // - Añadir accesos rápidos de período.
-// - Mostrar un gráfico diario Meta vs. Realizados.
+// - Mostrar Meta vs. Realizados agrupado por:
+//      Día, Semana, Mes o Supervisor.
 // - Mantener filtros, justificaciones y actualización parcial.
 //
 // Requiere cargarse DESPUÉS de:
@@ -36,6 +37,17 @@
 
     DashboardIndicadores.filtrosMetas.fechaDesde = "";
     DashboardIndicadores.filtrosMetas.fechaHasta = "";
+
+    /*
+     * Agrupaciones disponibles:
+     * - DIA
+     * - SEMANA
+     * - MES
+     * - SUPERVISOR
+     */
+    DashboardIndicadores.filtrosMetas.agrupacion =
+        DashboardIndicadores.filtrosMetas.agrupacion ||
+        "DIA";
 
 
     // ========================================================
@@ -255,6 +267,35 @@
                     </div>
 
 
+                    <div class="campo-filtro-meta campo-agrupacion-metas">
+
+                        <label for="filtroAgrupacionMetas">
+                            Agrupar por
+                        </label>
+
+                        <select id="filtroAgrupacionMetas">
+
+                            <option value="DIA">
+                                Día
+                            </option>
+
+                            <option value="SEMANA">
+                                Semana
+                            </option>
+
+                            <option value="MES">
+                                Mes
+                            </option>
+
+                            <option value="SUPERVISOR">
+                                Supervisor
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
                     <div class="acciones-filtros-metas">
 
                         <button
@@ -283,7 +324,7 @@
                             title="Generar PDF temporal con la vista filtrada"
                         >
                             <i class="fa-solid fa-file-pdf"></i>
-                            Generar PDF
+                            PDF
                         </button>
 
                     </div>
@@ -296,8 +337,13 @@
                     <div class="panel-grafico-metas-header">
 
                         <div>
-                            <span>Evolución diaria</span>
-                            <h3>Meta vs. despachos realizados</h3>
+                            <span id="etiquetaAgrupacionGrafico">
+                                Evolución diaria
+                            </span>
+
+                            <h3 id="tituloGraficoMetas">
+                                Meta vs. despachos realizados
+                            </h3>
                         </div>
 
                         <p id="textoPeriodoGraficoMetas"></p>
@@ -355,6 +401,9 @@
 
         const filtroJustificacion =
             document.getElementById("filtroJustificacionMetas");
+
+        const filtroAgrupacion =
+            document.getElementById("filtroAgrupacionMetas");
 
         const botonConsultar =
             document.getElementById("btnConsultarRangoMetas");
@@ -419,6 +468,30 @@
                 event => {
                     this.filtrosMetas.estadoJustificacion =
                         event.target.value;
+                    this.aplicarFiltrosHistorico();
+                }
+            );
+        }
+
+        if (filtroAgrupacion) {
+
+            filtroAgrupacion.value =
+                this.filtrosMetas.agrupacion ||
+                "DIA";
+
+            filtroAgrupacion.addEventListener(
+                "change",
+                event => {
+
+                    this.filtrosMetas.agrupacion =
+                        event.target.value ||
+                        "DIA";
+
+                    /*
+                     * La agrupación se realiza completamente
+                     * en memoria. No consulta nuevamente
+                     * el backend.
+                     */
                     this.aplicarFiltrosHistorico();
                 }
             );
@@ -579,15 +652,16 @@
             return;
         }
 
-        const lista = Array.isArray(metas)
+        const registros = Array.isArray(metas)
             ? [...metas]
             : [];
 
-        lista.sort((a, b) =>
-            String(a.fechaISO).localeCompare(
-                String(b.fechaISO)
-            )
-        );
+        const lista =
+            this.agruparMetasParaGrafico(
+                registros,
+                this.filtrosMetas.agrupacion ||
+                "DIA"
+            );
 
         if (this.graficoMetasDiarias) {
             this.graficoMetasDiarias.destroy();
@@ -618,16 +692,20 @@
             return;
         }
 
-        const etiquetas = lista.map(meta =>
-            this.formatearFechaCortaGrafico(meta.fechaISO)
+        const etiquetas = lista.map(grupo =>
+            grupo.etiqueta
         );
 
-        const metasProgramadas = lista.map(meta =>
-            Sistema.convertirNumero(meta.metaDespachos)
+        const metasProgramadas = lista.map(grupo =>
+            Sistema.convertirNumero(
+                grupo.metaAcumulada
+            )
         );
 
-        const realizados = lista.map(meta =>
-            Sistema.convertirNumero(meta.despachosRealizados)
+        const realizados = lista.map(grupo =>
+            Sistema.convertirNumero(
+                grupo.despachosRealizados
+            )
         );
 
         this.graficoMetasDiarias = new Chart(
@@ -688,15 +766,20 @@
                                     const indice =
                                         elementos[0].dataIndex;
 
-                                    const meta = lista[indice];
+                                    const grupo = lista[indice];
 
-                                    return (
+                                    return [
                                         "Cumplimiento: " +
                                         Sistema.formatearPorcentaje(
-                                            meta.cumplimientoPorcentaje,
+                                            grupo.cumplimientoPorcentaje,
                                             2
+                                        ),
+                                        "Días operativos: " +
+                                        Sistema.formatearNumero(
+                                            grupo.diasOperativos,
+                                            0
                                         )
-                                    );
+                                    ];
                                 }
                             }
                         }
@@ -752,6 +835,531 @@
             this.formatearFechaVisual(
                 this.filtrosMetas.fechaHasta
             );
+
+        const etiqueta =
+            document.getElementById(
+                "etiquetaAgrupacionGrafico"
+            );
+
+        const titulo =
+            document.getElementById(
+                "tituloGraficoMetas"
+            );
+
+        const textos =
+            this.obtenerTextosAgrupacionGrafico(
+                this.filtrosMetas.agrupacion ||
+                "DIA"
+            );
+
+        if (etiqueta) {
+            etiqueta.textContent =
+                textos.etiqueta;
+        }
+
+        if (titulo) {
+            titulo.textContent =
+                textos.titulo;
+        }
+    };
+
+
+    // ========================================================
+    // AGRUPACIÓN DEL GRÁFICO
+    // ========================================================
+
+    DashboardIndicadores.agruparMetasParaGrafico = function (
+        metas,
+        agrupacion
+    ) {
+
+        const lista =
+            Array.isArray(metas)
+                ? [...metas]
+                : [];
+
+        const tipo =
+            String(agrupacion || "DIA")
+                .trim()
+                .toUpperCase();
+
+        if (tipo === "SUPERVISOR") {
+            return this.agruparMetasPorSupervisor(
+                lista
+            );
+        }
+
+        if (tipo === "MES") {
+            return this.agruparMetasPorMes(
+                lista
+            );
+        }
+
+        if (tipo === "SEMANA") {
+            return this.agruparMetasPorSemana(
+                lista
+            );
+        }
+
+        return this.agruparMetasPorDia(
+            lista
+        );
+    };
+
+
+    DashboardIndicadores.agruparMetasPorDia = function (
+        metas
+    ) {
+
+        return metas
+            .sort((a, b) =>
+                String(a.fechaISO).localeCompare(
+                    String(b.fechaISO)
+                )
+            )
+            .map(meta => {
+
+                const metaAcumulada =
+                    Sistema.convertirNumero(
+                        meta.metaDespachos
+                    );
+
+                const realizados =
+                    Sistema.convertirNumero(
+                        meta.despachosRealizados
+                    );
+
+                return {
+                    clave:
+                        String(meta.fechaISO || ""),
+
+                    etiqueta:
+                        this.formatearFechaCortaGrafico(
+                            meta.fechaISO
+                        ),
+
+                    metaAcumulada:
+                        metaAcumulada,
+
+                    despachosRealizados:
+                        realizados,
+
+                    cumplimientoPorcentaje:
+                        metaAcumulada > 0
+                            ? (
+                                realizados /
+                                metaAcumulada
+                              ) * 100
+                            : 0,
+
+                    diasOperativos:
+                        1
+                };
+            });
+    };
+
+
+    DashboardIndicadores.agruparMetasPorSemana = function (
+        metas
+    ) {
+
+        const grupos = new Map();
+
+        metas.forEach(meta => {
+
+            const fecha =
+                this.crearFechaDesdeISO(
+                    meta.fechaISO
+                );
+
+            if (!fecha) {
+                return;
+            }
+
+            const inicioSemana =
+                this.obtenerInicioSemana(
+                    fecha
+                );
+
+            const finSemana =
+                new Date(inicioSemana);
+
+            finSemana.setDate(
+                inicioSemana.getDate() + 6
+            );
+
+            const clave =
+                this.formatearFechaInput(
+                    inicioSemana
+                );
+
+            if (!grupos.has(clave)) {
+
+                grupos.set(
+                    clave,
+                    {
+                        clave:
+                            clave,
+
+                        fechaOrden:
+                            new Date(inicioSemana),
+
+                        etiqueta:
+                            this.formatearFechaCortaGrafico(
+                                this.formatearFechaInput(
+                                    inicioSemana
+                                )
+                            ) +
+                            " al " +
+                            this.formatearFechaCortaGrafico(
+                                this.formatearFechaInput(
+                                    finSemana
+                                )
+                            ),
+
+                        metaAcumulada:
+                            0,
+
+                        despachosRealizados:
+                            0,
+
+                        diasOperativos:
+                            0
+                    }
+                );
+            }
+
+            const grupo =
+                grupos.get(clave);
+
+            grupo.metaAcumulada +=
+                Sistema.convertirNumero(
+                    meta.metaDespachos
+                );
+
+            grupo.despachosRealizados +=
+                Sistema.convertirNumero(
+                    meta.despachosRealizados
+                );
+
+            grupo.diasOperativos++;
+        });
+
+        return [...grupos.values()]
+            .sort(
+                (a, b) =>
+                    a.fechaOrden - b.fechaOrden
+            )
+            .map(grupo => {
+
+                grupo.cumplimientoPorcentaje =
+                    grupo.metaAcumulada > 0
+                        ? (
+                            grupo.despachosRealizados /
+                            grupo.metaAcumulada
+                          ) * 100
+                        : 0;
+
+                return grupo;
+            });
+    };
+
+
+    DashboardIndicadores.agruparMetasPorMes = function (
+        metas
+    ) {
+
+        const grupos = new Map();
+
+        metas.forEach(meta => {
+
+            const fecha =
+                this.crearFechaDesdeISO(
+                    meta.fechaISO
+                );
+
+            if (!fecha) {
+                return;
+            }
+
+            const clave =
+                fecha.getFullYear() +
+                "-" +
+                String(
+                    fecha.getMonth() + 1
+                ).padStart(2, "0");
+
+            if (!grupos.has(clave)) {
+
+                grupos.set(
+                    clave,
+                    {
+                        clave:
+                            clave,
+
+                        fechaOrden:
+                            new Date(
+                                fecha.getFullYear(),
+                                fecha.getMonth(),
+                                1
+                            ),
+
+                        etiqueta:
+                            this.obtenerNombreMes(
+                                fecha.getMonth()
+                            ) +
+                            " " +
+                            fecha.getFullYear(),
+
+                        metaAcumulada:
+                            0,
+
+                        despachosRealizados:
+                            0,
+
+                        diasOperativos:
+                            0
+                    }
+                );
+            }
+
+            const grupo =
+                grupos.get(clave);
+
+            grupo.metaAcumulada +=
+                Sistema.convertirNumero(
+                    meta.metaDespachos
+                );
+
+            grupo.despachosRealizados +=
+                Sistema.convertirNumero(
+                    meta.despachosRealizados
+                );
+
+            grupo.diasOperativos++;
+        });
+
+        return [...grupos.values()]
+            .sort(
+                (a, b) =>
+                    a.fechaOrden - b.fechaOrden
+            )
+            .map(grupo => {
+
+                grupo.cumplimientoPorcentaje =
+                    grupo.metaAcumulada > 0
+                        ? (
+                            grupo.despachosRealizados /
+                            grupo.metaAcumulada
+                          ) * 100
+                        : 0;
+
+                return grupo;
+            });
+    };
+
+
+    DashboardIndicadores.agruparMetasPorSupervisor = function (
+        metas
+    ) {
+
+        const grupos = new Map();
+
+        metas.forEach(meta => {
+
+            const nombre =
+                String(
+                    meta.supervisorNombre ||
+                    "Sin supervisor"
+                ).trim();
+
+            const clave =
+                nombre.toUpperCase();
+
+            if (!grupos.has(clave)) {
+
+                grupos.set(
+                    clave,
+                    {
+                        clave:
+                            clave,
+
+                        etiqueta:
+                            nombre,
+
+                        metaAcumulada:
+                            0,
+
+                        despachosRealizados:
+                            0,
+
+                        diasOperativos:
+                            0
+                    }
+                );
+            }
+
+            const grupo =
+                grupos.get(clave);
+
+            grupo.metaAcumulada +=
+                Sistema.convertirNumero(
+                    meta.metaDespachos
+                );
+
+            grupo.despachosRealizados +=
+                Sistema.convertirNumero(
+                    meta.despachosRealizados
+                );
+
+            grupo.diasOperativos++;
+        });
+
+        return [...grupos.values()]
+            .map(grupo => {
+
+                grupo.cumplimientoPorcentaje =
+                    grupo.metaAcumulada > 0
+                        ? (
+                            grupo.despachosRealizados /
+                            grupo.metaAcumulada
+                          ) * 100
+                        : 0;
+
+                return grupo;
+            })
+            .sort((a, b) =>
+                b.cumplimientoPorcentaje -
+                a.cumplimientoPorcentaje
+            );
+    };
+
+
+    DashboardIndicadores.crearFechaDesdeISO = function (
+        valor
+    ) {
+
+        const partes =
+            String(valor || "")
+                .split("-")
+                .map(Number);
+
+        if (
+            partes.length !== 3 ||
+            !partes[0] ||
+            !partes[1] ||
+            !partes[2]
+        ) {
+            return null;
+        }
+
+        const fecha =
+            new Date(
+                partes[0],
+                partes[1] - 1,
+                partes[2]
+            );
+
+        return Number.isNaN(
+            fecha.getTime()
+        )
+            ? null
+            : fecha;
+    };
+
+
+    DashboardIndicadores.obtenerInicioSemana = function (
+        fecha
+    ) {
+
+        const inicio =
+            new Date(fecha);
+
+        const dia =
+            inicio.getDay();
+
+        const diferencia =
+            dia === 0
+                ? -6
+                : 1 - dia;
+
+        inicio.setDate(
+            inicio.getDate() + diferencia
+        );
+
+        inicio.setHours(0, 0, 0, 0);
+
+        return inicio;
+    };
+
+
+    DashboardIndicadores.obtenerNombreMes = function (
+        indiceMes
+    ) {
+
+        const meses = [
+            "Enero",
+            "Febrero",
+            "Marzo",
+            "Abril",
+            "Mayo",
+            "Junio",
+            "Julio",
+            "Agosto",
+            "Septiembre",
+            "Octubre",
+            "Noviembre",
+            "Diciembre"
+        ];
+
+        return meses[indiceMes] || "";
+    };
+
+
+    DashboardIndicadores.obtenerTextosAgrupacionGrafico = function (
+        agrupacion
+    ) {
+
+        const tipo =
+            String(agrupacion || "DIA")
+                .trim()
+                .toUpperCase();
+
+        const textos = {
+            DIA: {
+                etiqueta:
+                    "Evolución diaria",
+
+                titulo:
+                    "Meta vs. despachos realizados por día"
+            },
+
+            SEMANA: {
+                etiqueta:
+                    "Evolución semanal",
+
+                titulo:
+                    "Meta vs. despachos realizados por semana"
+            },
+
+            MES: {
+                etiqueta:
+                    "Evolución mensual",
+
+                titulo:
+                    "Meta vs. despachos realizados por mes"
+            },
+
+            SUPERVISOR: {
+                etiqueta:
+                    "Comparación de supervisores",
+
+                titulo:
+                    "Meta vs. despachos realizados por supervisor"
+            }
+        };
+
+        return textos[tipo] || textos.DIA;
     };
 
 
@@ -994,6 +1602,10 @@
                     this.filtrosMetas.estadoJustificacion ||
                     "TODOS",
 
+                agrupacion:
+                    this.filtrosMetas.agrupacion ||
+                    "DIA",
+
                 resumen: {
                     metaAcumulada:
                         resumen.metaAcumulada,
@@ -1068,7 +1680,7 @@
 
                 boton.innerHTML = `
                     <i class="fa-solid fa-file-pdf"></i>
-                    Generar PDF
+                    PDF
                 `;
             }
         }

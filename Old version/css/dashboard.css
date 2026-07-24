@@ -871,3 +871,42 @@ body {
 .cards-resumen {
     flex: 0 0 auto;
 }
+
+/* ============================================================
+   SCROLL INTERNO DISCRETO
+   ============================================================ */
+
+.sidebar,
+.tabla-responsive,
+#contenidoModal,
+.lista-centro-despachos {
+    scrollbar-width: thin;
+    scrollbar-color:
+        rgba(80, 80, 80, 0.35)
+        transparent;
+}
+
+.sidebar::-webkit-scrollbar,
+.tabla-responsive::-webkit-scrollbar,
+#contenidoModal::-webkit-scrollbar,
+.lista-centro-despachos::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.tabla-responsive::-webkit-scrollbar-track,
+#contenidoModal::-webkit-scrollbar-track,
+.lista-centro-despachos::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.tabla-responsive::-webkit-scrollbar-thumb,
+#contenidoModal::-webkit-scrollbar-thumb,
+.lista-centro-despachos::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+
+    background:
+        rgba(80, 80, 80, 0.30);
+}

@@ -4180,3 +4180,19 @@ body.centro-despachos-abierto
 .paneles table {
     width: 100%;
 }
+
+/* ============================================================
+   NEUTRALIZAR ALTURAS QUE EMPUJAN EL DASHBOARD
+   ============================================================ */
+
+.modulo:has(.cards-resumen),
+.modulo:has(.cards-resumen) .paneles,
+.modulo:has(.cards-resumen) .panel,
+.modulo:has(.cards-resumen) .tabla-responsive {
+    max-height: none;
+}
+
+.modulo:has(.cards-resumen) .paneles,
+.modulo:has(.cards-resumen) .panel {
+    height: auto;
+}

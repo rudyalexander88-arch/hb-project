@@ -1597,3 +1597,112 @@
     }
 
 }
+
+/* ============================================================
+   SCROLL DE MODALES EN MÓVILES Y TABLETS
+   ============================================================ */
+
+@media (max-width: 1024px) {
+
+    .modal {
+        padding:
+            12px
+            10px !important;
+
+        overflow: hidden !important;
+    }
+
+
+    .modal-contenido {
+        width: min(
+            980px,
+            calc(100vw - 20px)
+        ) !important;
+
+        height:
+            calc(100dvh - 24px) !important;
+
+        max-height:
+            calc(100dvh - 24px) !important;
+
+        min-height: 0 !important;
+
+        display: flex !important;
+        flex-direction: column !important;
+
+        overflow: hidden !important;
+    }
+
+
+    .modal-header {
+        flex: 0 0 auto !important;
+    }
+
+
+    #contenidoModal {
+        flex: 1 1 auto !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+
+        overscroll-behavior-y: contain;
+
+        -webkit-overflow-scrolling:
+            touch;
+    }
+
+}
+
+@media (max-width: 1024px) {
+
+    #contenidoModal
+    .historico-metas,
+    #contenidoModal
+    .contenido-historico-metas,
+    #contenidoModal
+    .modal-historico-metas {
+        height: auto !important;
+        min-height: min-content !important;
+        max-height: none !important;
+
+        overflow: visible !important;
+    }
+
+}
+
+@media
+    (max-width: 1180px)
+    and (pointer: coarse) {
+
+    .modal-contenido {
+        height:
+            calc(100dvh - 24px) !important;
+
+        max-height:
+            calc(100dvh - 24px) !important;
+
+        min-height: 0 !important;
+
+        display: flex !important;
+        flex-direction: column !important;
+
+        overflow: hidden !important;
+    }
+
+
+    #contenidoModal {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+
+        -webkit-overflow-scrolling:
+            touch;
+    }
+
+}

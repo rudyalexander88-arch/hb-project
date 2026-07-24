@@ -3736,3 +3736,447 @@ body.centro-despachos-abierto
     }
 
 }
+
+/* ============================================================
+   LISTAS DEL DASHBOARD DE DESPACHOS
+   Máximo inicial de 10 filas y scroll interno.
+   ============================================================ */
+
+.panel-listado-conduces {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.panel-listado-encabezado {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+
+    margin-bottom: 14px;
+}
+
+.panel-listado-encabezado h3 {
+    min-width: 0;
+    margin: 0;
+}
+
+.btn-mas-conduces {
+    flex: 0 0 auto;
+
+    min-height: 32px;
+    padding: 6px 10px;
+
+    border: 1px solid rgba(215, 25, 32, 0.28);
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #d71920;
+
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.btn-mas-conduces:hover {
+    border-color: #d71920;
+    background: #d71920;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.tabla-conduces-scroll {
+    max-height: 490px;
+
+    overflow-x: auto;
+    overflow-y: auto;
+
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.tabla-conduces-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+@media (max-width: 768px) {
+
+    .panel-listado-encabezado {
+        align-items: flex-start;
+    }
+
+    .btn-mas-conduces {
+        white-space: nowrap;
+    }
+
+    .tabla-conduces-scroll {
+        max-height: 430px;
+    }
+
+}
+
+@media (max-width: 480px) {
+
+    .panel-listado-encabezado h3 {
+        font-size: 14px;
+    }
+
+    .btn-mas-conduces {
+        min-height: 30px;
+        padding: 5px 8px;
+        font-size: 9px;
+    }
+
+    .tabla-conduces-scroll {
+        max-height: 380px;
+    }
+
+}
+
+/* ============================================================
+   TARJETAS DE RESUMEN COMPACTAS
+   MÓDULO DE DESPACHOS
+   ============================================================ */
+
+.cards-resumen {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+
+    gap: 16px;
+
+    margin-bottom: 22px;
+}
+
+
+/* ============================================================
+   TARJETA BASE
+   ============================================================ */
+
+.card-resumen {
+    min-width: 0;
+    min-height: 145px;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+
+    grid-template-rows:
+        auto
+        minmax(40px, 1fr)
+        auto;
+
+    grid-template-areas:
+        "encabezado encabezado"
+        "valor valor"
+        "pie pie";
+
+    align-items: center;
+
+    gap: 7px 12px;
+
+    padding:
+        14px
+        17px
+        13px;
+
+    border: 1px solid #eeeeee;
+    border-radius: 13px;
+
+    background: #ffffff;
+
+    text-align: initial;
+
+    box-shadow:
+        0 7px 18px rgba(0, 0, 0, 0.055);
+}
+
+
+/* ============================================================
+   FILA SUPERIOR
+   ============================================================ */
+
+.card-resumen-encabezado {
+    grid-area: encabezado;
+
+    min-width: 0;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+
+.card-resumen-encabezado h3 {
+    min-width: 0;
+
+    margin: 0;
+
+    color: #4f4f4f;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: left;
+}
+
+
+/* ============================================================
+   ICONO
+   ============================================================ */
+
+.card-resumen-icono {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 11px;
+
+    background: rgba(215, 25, 32, 0.09);
+    color: #d71920;
+
+    font-size: 17px;
+}
+
+
+/* ============================================================
+   VALOR PRINCIPAL
+   ============================================================ */
+
+.card-resumen-valor {
+    grid-area: valor;
+
+    align-self: center;
+    justify-self: center;
+
+    margin: 0;
+
+    color: #d71920;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+}
+
+
+/* ============================================================
+   PIE DE TARJETA
+   ============================================================ */
+
+.card-resumen-pie {
+    grid-area: pie;
+
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    align-self: end;
+}
+
+
+.card-resumen-descripcion {
+    color: #777777;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.25;
+}
+
+
+/* ============================================================
+   META DIARIA
+   ============================================================ */
+
+.card-meta-despachos {
+    position: relative;
+
+    overflow: hidden;
+}
+
+
+.card-meta-despachos::before {
+    content: "";
+
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+
+    width: 5px;
+
+    background: #e31b23;
+}
+
+
+.card-meta-despachos
+.card-resumen-encabezado {
+    padding-left: 2px;
+}
+
+
+.cumplimiento-meta {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    margin: 0;
+}
+
+
+.cumplimiento-meta span {
+    min-width: 48px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 5px 9px;
+
+    border-radius: 999px;
+
+    background: #e31b23;
+    color: #ffffff;
+
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+
+.cumplimiento-meta small {
+    padding: 0;
+
+    color: #666666;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+
+/* ============================================================
+   SEMÁFORO
+   ============================================================ */
+
+.card-meta-despachos.semaforo-rojo::before,
+.card-meta-despachos.semaforo-rojo
+.cumplimiento-meta span {
+    background: #e31b23;
+}
+
+
+.card-meta-despachos.semaforo-naranja::before,
+.card-meta-despachos.semaforo-naranja
+.cumplimiento-meta span {
+    background: #f59e0b;
+}
+
+
+.card-meta-despachos.semaforo-verde::before,
+.card-meta-despachos.semaforo-verde
+.cumplimiento-meta span {
+    background: #28a745;
+}
+
+
+.card-meta-despachos.semaforo-rojo {
+    border-color: rgba(227, 27, 35, 0.30);
+}
+
+
+.card-meta-despachos.semaforo-naranja {
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+
+.card-meta-despachos.semaforo-verde {
+    border-color: rgba(40, 167, 69, 0.32);
+}
+
+/* ============================================================
+   MÓDULO DE DESPACHOS A ALTURA COMPLETA
+   ============================================================ */
+
+.modulo:has(.cards-resumen) {
+    min-height: 0;
+}
+
+.modulo:has(.cards-resumen) .modulo-header {
+    flex: 0 0 auto;
+}
+
+.modulo:has(.cards-resumen) .cards-resumen {
+    flex: 0 0 auto;
+}
+
+.modulo:has(.cards-resumen) .paneles {
+    flex: 1 1 auto;
+    min-height: 0;
+
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 14px;
+
+    overflow: hidden;
+}
+
+.modulo:has(.cards-resumen) .paneles > .panel {
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+.modulo:has(.cards-resumen)
+.panel-listado-encabezado {
+    flex: 0 0 auto;
+}
+
+.modulo:has(.cards-resumen)
+.paneles .tabla-responsive {
+    flex: 1 1 auto;
+    min-height: 0;
+
+    overflow-y: auto;
+    overflow-x: auto;
+
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.modulo:has(.cards-resumen)
+.paneles table {
+    width: 100%;
+}

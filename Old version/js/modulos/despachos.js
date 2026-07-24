@@ -4,7 +4,46 @@
 // ==========================================
 
 window.Despachos = {
-	
+		
+	listasDashboardEstado: {
+
+    limite:
+        10,
+
+    abiertos: {
+
+        registros:
+            [],
+
+        desplazamiento:
+            0,
+
+        hayMas:
+            false,
+
+        cargando:
+            false
+
+    },
+
+    completados: {
+
+        registros:
+            [],
+
+        desplazamiento:
+            0,
+
+        hayMas:
+            false,
+
+        cargando:
+            false
+
+    }
+
+},	
+		
 centroDespachosEstado: {
 
         vista:
@@ -127,52 +166,147 @@ async cargar() {
 
             <div class="cards-resumen">
 
-                <div class="card-resumen">
-                    <h3>Abiertos</h3>
-                    <span id="totalAbiertos">0</span>
-                </div>
+    <!-- =========================================
+         CONDUCES ABIERTOS
+         ========================================= -->
 
-                <div
-					class="card-resumen card-meta-despachos"
-					id="cardMetaDespachos"
-				>
+    <div class="card-resumen">
 
-					<h3>Completados Hoy</h3>
+        <div class="card-resumen-encabezado">
 
-					<span id="totalCerrados">0</span>
+            <h3>
+                Abiertos
+            </h3>
 
-					<div class="cumplimiento-meta">
+            <div class="card-resumen-icono">
+                <i class="fa-solid fa-folder-open"></i>
+            </div>
 
-						<span id="porcentajeMetaDespachos">
-							0%
-						</span>
+        </div>
 
-						<small id="textoMetaDespachos">
-							Meta: 0
-						</small>
+        <strong
+            id="totalAbiertos"
+            class="card-resumen-valor"
+        >
+            0
+        </strong>
 
-					</div>
+        <div class="card-resumen-pie">
 
-				</div>
+            <span class="card-resumen-descripcion">
+                Conduces en proceso
+            </span>
 
-                <div class="card-resumen">
+        </div>
 
-					<h3>Paquetes enviados hoy</h3>
+    </div>
 
-					<span id="totalTarimas">0</span>
 
-				</div>
+    <!-- =========================================
+         META Y COMPLETADOS
+         ========================================= -->
+
+    <div
+        class="card-resumen card-meta-despachos"
+        id="cardMetaDespachos"
+    >
+
+        <div class="card-resumen-encabezado">
+
+            <h3>
+                Completados Hoy
+            </h3>
+
+            <div class="card-resumen-icono">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+
+        </div>
+
+        <strong
+            id="totalCerrados"
+            class="card-resumen-valor"
+        >
+            0
+        </strong>
+
+        <div class="card-resumen-pie">
+
+            <div class="cumplimiento-meta">
+
+                <span id="porcentajeMetaDespachos">
+                    0%
+                </span>
+
+                <small id="textoMetaDespachos">
+                    Meta: 0
+                </small>
 
             </div>
 
+        </div>
+
+    </div>
+
+
+    <!-- =========================================
+         PAQUETES ENVIADOS
+         ========================================= -->
+
+    <div class="card-resumen">
+
+        <div class="card-resumen-encabezado">
+
+            <h3>
+                Paquetes enviados hoy
+            </h3>
+
+            <div class="card-resumen-icono">
+                <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+
+        </div>
+
+        <strong
+            id="totalTarimas"
+            class="card-resumen-valor"
+        >
+            0
+        </strong>
+
+        <div class="card-resumen-pie">
+
+            <span class="card-resumen-descripcion">
+                Total movilizado
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
             <div class="paneles">
 
                 <div class="panel panel-abiertos">
 
-                    <h3>
-                        <i class="fa-solid fa-folder-open"></i>
-                        Conduces Abiertos
-                    </h3>
+				<div class="panel-listado-encabezado">
+
+					<h3>
+						<i class="fa-solid fa-folder-open"></i>
+						Conduces Abiertos
+					</h3>
+
+					<button
+							type="button"
+							id="btnMasConducesAbiertos"
+							class="btn-mas-conduces"
+							hidden
+						>
+							<i class="fa-solid fa-plus"></i>
+							Cargar 10 más
+						</button>
+
+				</div>
 
                     <div class="tabla-responsive">
 
@@ -205,10 +339,24 @@ async cargar() {
 
                 <div class="panel">
 
-                    <h3>
-                        <i class="fa-solid fa-box-archive"></i>
-                        Conduces Completados
-                    </h3>
+				<div class="panel-listado-encabezado">
+
+					<h3>
+						<i class="fa-solid fa-box-archive"></i>
+						Conduces Completados
+					</h3>
+
+					<button
+						type="button"
+						id="btnMasConducesCompletados"
+						class="btn-mas-conduces"
+						hidden
+					>
+						<i class="fa-solid fa-plus"></i>
+						Cargar 10 más
+					</button>
+
+				</div>
 
                     <div class="tabla-responsive">
 
@@ -2132,274 +2280,423 @@ configurarEventosCentroDespachos() {
 
 async cargarConducesAbiertos() {
 
-    const tablaAbiertos =
-        document.getElementById("tablaAbiertos");
+    const estado =
+        Despachos.listasDashboardEstado;
 
-    const tablaCompletados =
-        document.getElementById("tablaDespachados");
+    /*
+     * Cada vez que el módulo se abre,
+     * ambas listas comienzan desde cero.
+     */
+    estado.abiertos.registros = [];
+    estado.abiertos.desplazamiento = 0;
+    estado.abiertos.hayMas = false;
+    estado.abiertos.cargando = false;
 
-    const totalAbiertos =
-        document.getElementById("totalAbiertos");
+    estado.completados.registros = [];
+    estado.completados.desplazamiento = 0;
+    estado.completados.hayMas = false;
+    estado.completados.cargando = false;
 
-    const totalLineas =
-        document.getElementById("totalTarimas");
+
+    Despachos.configurarEventosListasDashboard();
+
+
+    await Promise.all([
+
+        Despachos.cargarPaginaListaDashboard(
+            "abiertos"
+        ),
+
+        Despachos.cargarPaginaListaDashboard(
+            "completados"
+        )
+
+    ]);
+
+},
+
+async cargarPaginaListaDashboard(
+    tipo
+) {
+
+    const estadoGeneral =
+        Despachos.listasDashboardEstado;
+
+    const estadoLista =
+        estadoGeneral[tipo];
 
     if (
-        !tablaAbiertos ||
-        !tablaCompletados ||
-        !totalAbiertos ||
-        !totalLineas
+        !estadoLista ||
+        estadoLista.cargando
     ) {
         return;
     }
 
+
+    const tabla =
+        document.getElementById(
+            tipo === "abiertos"
+                ? "tablaAbiertos"
+                : "tablaDespachados"
+        );
+
+    const boton =
+        document.getElementById(
+            tipo === "abiertos"
+                ? "btnMasConducesAbiertos"
+                : "btnMasConducesCompletados"
+        );
+
+
+    if (!tabla) {
+        return;
+    }
+
+
+    estadoLista.cargando =
+        true;
+
+
+    if (boton) {
+
+        boton.disabled =
+            true;
+
+        boton.innerHTML = `
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            Cargando...
+        `;
+
+    }
+
+
+    /*
+     * Solo mostramos el mensaje de carga cuando todavía
+     * no existe ningún registro en la tabla.
+     */
+    if (
+        estadoLista.registros.length === 0
+    ) {
+
+        tabla.innerHTML = `
+            <tr>
+                <td
+                    colspan="6"
+                    class="tabla-vacia"
+                >
+                    Cargando conduces...
+                </td>
+            </tr>
+        `;
+
+    }
+
+
     try {
 
-        const [
-            respuestaBorradores,
-            respuestaEstados
-        ] = await Promise.all([
+        const respuesta =
+            await API.post({
 
-            API.post({
-                action: "listarBorradores"
-            }),
+                action:
+                    "listarDespachosDashboard",
 
-            API.post({
-                action: "listarDespachadosYCompletados"
-            })
+                tipo:
+                    tipo,
 
-        ]);
+                limite:
+                    estadoGeneral.limite,
 
-        const borradores =
-            respuestaBorradores.ok &&
-            Array.isArray(respuestaBorradores.data)
-                ? respuestaBorradores.data
-                : [];
+                desplazamiento:
+                    estadoLista.desplazamiento
 
-        const estadosPosteriores =
-            respuestaEstados.ok &&
-            Array.isArray(respuestaEstados.data)
-                ? respuestaEstados.data
-                : [];
+            });
 
-        const despachados =
-            estadosPosteriores.filter(item =>
-                String(item.estado || "")
-                    .trim()
-                    .toLowerCase() === "despachado"
-            );
 
-        const completados =
-            estadosPosteriores.filter(item =>
-                String(item.estado || "")
-                    .trim()
-                    .toLowerCase() === "completado"
-            );
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
 
-        const conducesAbiertos = [
-            ...borradores.map(item => ({
-                ...item,
-                estado: "Borrador",
-                fechaTabla:
-                    item.fechaCreacion ||
-                    item.fecha ||
-                    ""
-            })),
-            ...despachados.map(item => ({
-                ...item,
-                fechaTabla:
-                    item.fecha ||
-                    item.fechaCreacion ||
-                    ""
-            }))
-        ];
-
-        totalAbiertos.textContent =
-            conducesAbiertos.length;
-
-        totalLineas.textContent =
-            conducesAbiertos.reduce(
-                (total, item) =>
-                    total +
-                    Number(item.totalLineas || 0),
-                0
-            );
-
-        if (!respuestaBorradores.ok || !respuestaEstados.ok) {
-
-            const mensaje =
-                !respuestaBorradores.ok
-                    ? respuestaBorradores.mensaje
-                    : respuestaEstados.mensaje;
-
-            Despachos.notificar(
-                mensaje ||
-                "No fue posible cargar todos los conduces.",
-                "error"
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible cargar los conduces."
             );
 
         }
 
-        if (conducesAbiertos.length === 0) {
 
-            tablaAbiertos.innerHTML = `
+        const datos =
+            respuesta.data || {};
+
+
+        const nuevosRegistros =
+            Array.isArray(
+                datos.registros
+            )
+                ? datos.registros
+                : [];
+
+
+        estadoLista.registros.push(
+            ...nuevosRegistros
+        );
+
+
+        estadoLista.desplazamiento =
+            Number(
+                datos.siguienteDesplazamiento ||
+                estadoLista.registros.length
+            );
+
+
+        estadoLista.hayMas =
+            datos.hayMas === true;
+
+
+        Despachos.renderizarListaDashboard(
+            tipo
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando lista paginada de despachos:",
+            error
+        );
+
+
+        if (
+            estadoLista.registros.length === 0
+        ) {
+
+            tabla.innerHTML = `
                 <tr>
-                    <td colspan="6" class="tabla-vacia">
-                        No hay conduces abiertos.
+                    <td
+                        colspan="6"
+                        class="tabla-vacia"
+                    >
+                        No fue posible cargar los conduces.
                     </td>
                 </tr>
             `;
 
-        } else {
-
-            tablaAbiertos.innerHTML =
-                conducesAbiertos.map(item => {
-
-                    const estado =
-                        String(
-                            item.estado || "Borrador"
-                        ).trim();
-
-                    const estadoNormalizado =
-                        estado.toLowerCase();
-
-                    const realizadoPor =
-                        item.realizadoPor ||
-                        item.supervisor ||
-                        "-";
-
-                    const fecha =
-                        item.fechaTabla
-                            ? String(
-                                item.fechaTabla
-                            ).split(" ")[0]
-                            : "-";
-
-                    const botonAccion =
-                        estadoNormalizado === "despachado"
-                            ? `
-                            <button
-                                type="button"
-                                class="btn-editar-despacho btn-continuar-despacho"
-                                data-id-conduce="${item.idConduce}"
-                                title="Continuar en Finalizar carga"
-                            >
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            `
-                            : `
-                            <button
-                                type="button"
-                                class="btn-continuar-borrador"
-                                data-id-conduce="${item.idConduce}"
-                                title="Continuar carga"
-                            >
-                                <i class="fa-solid fa-play"></i>
-                            </button>
-                            `;
-
-                    return `
-                        <tr class="${estadoNormalizado}">
-
-                            <td>
-                                <strong>
-                                    ${item.noConduce || "-"}
-                                </strong>
-
-                                <small class="estado-conduce ${estadoNormalizado}">
-                                    ${estado}
-                                </small>
-                            </td>
-
-                            <td>
-                                ${realizadoPor}
-                            </td>
-
-                            <td class="fecha-conduce">
-                                ${fecha}
-                            </td>
-
-                            <td class="centrado">
-                                ${Number(item.totalLineas || 0)}
-                            </td>
-
-                            <td class="numero">
-                                ${Number(
-                                    item.totalUnidades || 0
-                                ).toLocaleString("es-DO")}
-                            </td>
-
-                            <td class="acciones-despacho">
-                                ${botonAccion}
-                            </td>
-
-                        </tr>
-                    `;
-
-                }).join("");
-
         }
 
-        const sesion = JSON.parse(
-            localStorage.getItem("sesion") ||
-            sessionStorage.getItem("sesion") ||
+
+        Despachos.notificar(
+            error.message ||
+            "No fue posible cargar los conduces.",
+            "error"
+        );
+
+
+    } finally {
+
+        estadoLista.cargando =
+            false;
+
+
+        Despachos.actualizarBotonListaDashboard(
+            tipo
+        );
+
+    }
+
+},
+
+
+renderizarListaDashboard(
+    tipo
+) {
+
+    const estadoGeneral =
+        Despachos.listasDashboardEstado;
+
+    const estadoLista =
+        estadoGeneral[tipo];
+
+
+    const tabla =
+        document.getElementById(
+            tipo === "abiertos"
+                ? "tablaAbiertos"
+                : "tablaDespachados"
+        );
+
+
+    if (!tabla) {
+        return;
+    }
+
+
+    const registros =
+        estadoLista.registros;
+
+
+    if (registros.length === 0) {
+
+        tabla.innerHTML = `
+            <tr>
+                <td
+                    colspan="6"
+                    class="tabla-vacia"
+                >
+                    ${
+                        tipo === "abiertos"
+                            ? "No hay conduces abiertos."
+                            : "No hay conduces completados."
+                    }
+                </td>
+            </tr>
+        `;
+
+        Despachos.actualizarTotalesListasDashboard();
+
+        return;
+
+    }
+
+
+    const sesion =
+        JSON.parse(
+            localStorage.getItem(
+                "sesion"
+            ) ||
+            sessionStorage.getItem(
+                "sesion"
+            ) ||
             "{}"
         );
 
-        const rol =
-            String(sesion.rol || "")
-                .trim()
-                .toLowerCase();
 
-        const puedeReabrirCompletado =
-            rol === "administrador" ||
-            rol === "encargado";
+    const rol =
+        String(
+            sesion.rol || ""
+        )
+            .trim()
+            .toLowerCase();
 
-        if (completados.length === 0) {
 
-            tablaCompletados.innerHTML = `
-                <tr>
-                    <td colspan="6" class="tabla-vacia">
-                        No hay conduces completados.
-                    </td>
-                </tr>
-            `;
+    const puedeReabrirCompletado =
+        rol === "administrador" ||
+        rol === "encargado";
 
-        } else {
 
-            tablaCompletados.innerHTML =
-                completados.map(item => {
+    tabla.innerHTML =
+        registros
+            .map(function(item) {
 
-                    const fecha =
-                        item.fecha
-                            ? String(
-                                item.fecha
-                            ).split(" ")[0]
-                            : "-";
+                const estado =
+                    String(
+                        item.estado ||
+                        (
+                            tipo === "abiertos"
+                                ? "Borrador"
+                                : "Completado"
+                        )
+                    ).trim();
 
-                    const realizadoPor =
-                        item.realizadoPor ||
-                        item.supervisor ||
-                        "-";
 
-                    let botones = `
+                const estadoNormalizado =
+                    estado
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(
+                            /[\u0300-\u036f]/g,
+                            ""
+                        );
+
+
+                const realizadoPor =
+                    item.realizadoPor ||
+                    item.supervisor ||
+                    "-";
+
+
+                const fechaBase =
+                    item.fechaTabla ||
+                    item.fecha ||
+                    item.fechaCreacion ||
+                    "-";
+
+
+                const fecha =
+                    String(
+                        fechaBase || "-"
+                    ).split(" ")[0];
+
+
+                let botones = "";
+
+
+                if (
+                    tipo === "abiertos"
+                ) {
+
+                    botones =
+                        estadoNormalizado ===
+                        "despachado"
+
+                            ? `
+                                <button
+                                    type="button"
+                                    class="
+                                        btn-editar-despacho
+                                        btn-continuar-despacho
+                                    "
+                                    data-id-conduce="${
+                                        item.idConduce || ""
+                                    }"
+                                    title="Continuar en Finalizar carga"
+                                >
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            `
+
+                            : `
+                                <button
+                                    type="button"
+                                    class="btn-continuar-borrador"
+                                    data-id-conduce="${
+                                        item.idConduce || ""
+                                    }"
+                                    title="Continuar carga"
+                                >
+                                    <i class="fa-solid fa-play"></i>
+                                </button>
+                            `;
+
+                } else {
+
+                    botones = `
                         <button
                             type="button"
                             class="btn-ver-despacho"
-                            data-id-conduce="${item.idConduce}"
+                            data-id-conduce="${
+                                item.idConduce || ""
+                            }"
                             title="Ver conduce"
                         >
                             <i class="fa-solid fa-eye"></i>
                         </button>
                     `;
 
-                    if (puedeReabrirCompletado) {
+
+                    if (
+                        puedeReabrirCompletado
+                    ) {
 
                         botones += `
                             <button
                                 type="button"
-                                class="btn-editar-despacho btn-abrir-completado"
-                                data-id-conduce="${item.idConduce}"
+                                class="
+                                    btn-editar-despacho
+                                    btn-abrir-completado
+                                "
+                                data-id-conduce="${
+                                    item.idConduce || ""
+                                }"
                                 title="Abrir asistente en Finalizar carga"
                             >
                                 <i class="fa-solid fa-pen"></i>
@@ -2408,142 +2705,302 @@ async cargarConducesAbiertos() {
 
                     }
 
-                    return `
-                        <tr class="completado">
+                }
 
-                            <td>
-                                <strong>
-                                    ${item.noConduce || "-"}
-                                </strong>
 
-                                <small class="estado-conduce completado">
-                                    Completado
-                                </small>
-                            </td>
+                return `
+                    <tr class="${estadoNormalizado}">
 
-                            <td>
-                                ${realizadoPor}
-                            </td>
+                        <td>
 
-                            <td class="fecha-conduce">
-                                ${fecha}
-                            </td>
+                            <strong>
+                                ${item.noConduce || "-"}
+                            </strong>
 
-                            <td class="centrado">
-                                ${Number(item.totalLineas || 0)}
-                            </td>
+                            <small
+                                class="
+                                    estado-conduce
+                                    ${estadoNormalizado}
+                                "
+                            >
+                                ${estado}
+                            </small>
 
-                            <td class="numero">
-                                ${Number(
-                                    item.totalUnidades || 0
-                                ).toLocaleString("es-DO")}
-                            </td>
+                        </td>
 
-                            <td class="acciones-despacho">
-                                ${botones}
-                            </td>
+                        <td>
+                            ${realizadoPor}
+                        </td>
 
-                        </tr>
-                    `;
+                        <td class="fecha-conduce">
+                            ${fecha}
+                        </td>
 
-                }).join("");
+                        <td class="centrado">
 
-        }
+                            ${Number(
+                                item.totalLineas || 0
+                            ).toLocaleString(
+                                "es-DO"
+                            )}
 
-        document
-            .querySelectorAll(
-                ".btn-continuar-borrador"
-            )
-            .forEach(boton => {
+                        </td>
 
-                boton.onclick = async () => {
+                        <td class="numero">
 
-                    await Despachos.continuarBorrador(
-                        boton.dataset.idConduce
-                    );
+                            ${Number(
+                                item.totalUnidades || 0
+                            ).toLocaleString(
+                                "es-DO"
+                            )}
 
-                };
+                        </td>
 
-            });
+                        <td class="acciones-despacho">
+                            ${botones}
+                        </td>
 
-        document
-            .querySelectorAll(
-                ".btn-continuar-despacho"
-            )
-            .forEach(boton => {
+                    </tr>
+                `;
 
-                boton.onclick = async () => {
+            })
+            .join("");
 
-                    await Despachos.continuarBorrador(
-                        boton.dataset.idConduce
-                    );
 
-                };
+    Despachos.actualizarTotalesListasDashboard();
 
-            });
+},
 
-        document
-            .querySelectorAll(
-                ".btn-ver-despacho"
-            )
-            .forEach(boton => {
 
-                boton.onclick = async () => {
+actualizarTotalesListasDashboard() {
 
-                    await Despachos.abrirVistaConduce(
-                        boton.dataset.idConduce
-                    );
+    const estado =
+        Despachos.listasDashboardEstado;
 
-                };
 
-            });
-
-        document
-            .querySelectorAll(
-                ".btn-abrir-completado"
-            )
-            .forEach(boton => {
-
-                boton.onclick = async () => {
-
-                    await Despachos.continuarBorrador(
-                        boton.dataset.idConduce,
-                        {
-                            permitirCompletado: true
-                        }
-                    );
-
-                };
-
-            });
-
-    } catch (error) {
-
-        console.error(
-            "Error cargando el dashboard de despachos:",
-            error
+    const totalAbiertos =
+        document.getElementById(
+            "totalAbiertos"
         );
 
-        tablaAbiertos.innerHTML = `
-            <tr>
-                <td colspan="6" class="tabla-vacia">
-                    No fue posible cargar los conduces abiertos.
-                </td>
-            </tr>
-        `;
 
-        tablaCompletados.innerHTML = `
-            <tr>
-                <td colspan="6" class="tabla-vacia">
-                    No fue posible cargar los conduces completados.
-                </td>
-            </tr>
-        `;
+    /*
+     * El backend paginado no cuenta toda la hoja.
+     * Cuando existen más registros mostramos 10+,
+     * 20+, etc., evitando hacer una lectura completa.
+     */
+    if (totalAbiertos) {
+
+        const cantidad =
+            estado.abiertos.registros.length;
+
+
+        totalAbiertos.textContent =
+            estado.abiertos.hayMas
+
+                ? cantidad + "+"
+
+                : cantidad;
 
     }
 
 },
 
+
+actualizarBotonListaDashboard(
+    tipo
+) {
+
+    const estado =
+        Despachos.listasDashboardEstado[
+            tipo
+        ];
+
+
+    const boton =
+        document.getElementById(
+            tipo === "abiertos"
+                ? "btnMasConducesAbiertos"
+                : "btnMasConducesCompletados"
+        );
+
+
+    if (!boton || !estado) {
+        return;
+    }
+
+
+    boton.disabled =
+        estado.cargando;
+
+
+    boton.hidden =
+        !estado.hayMas;
+
+
+    boton.innerHTML = `
+        <i class="fa-solid fa-plus"></i>
+        Cargar 10 más
+    `;
+
+},
+
+
+configurarEventosListasDashboard() {
+
+    const btnAbiertos =
+        document.getElementById(
+            "btnMasConducesAbiertos"
+        );
+
+
+    const btnCompletados =
+        document.getElementById(
+            "btnMasConducesCompletados"
+        );
+
+
+    if (btnAbiertos) {
+
+        btnAbiertos.onclick =
+            async function() {
+
+                await Despachos
+                    .cargarPaginaListaDashboard(
+                        "abiertos"
+                    );
+
+            };
+
+    }
+
+
+    if (btnCompletados) {
+
+        btnCompletados.onclick =
+            async function() {
+
+                await Despachos
+                    .cargarPaginaListaDashboard(
+                        "completados"
+                    );
+
+            };
+
+    }
+
+
+    const tablaAbiertos =
+        document.getElementById(
+            "tablaAbiertos"
+        );
+
+
+    if (tablaAbiertos) {
+
+        tablaAbiertos.onclick =
+            async function(evento) {
+
+                const boton =
+                    evento.target.closest(
+                        "button[data-id-conduce]"
+                    );
+
+
+                if (!boton) {
+                    return;
+                }
+
+
+                const idConduce =
+                    boton.dataset.idConduce;
+
+
+                if (
+                    boton.classList.contains(
+                        "btn-continuar-borrador"
+                    ) ||
+                    boton.classList.contains(
+                        "btn-continuar-despacho"
+                    )
+                ) {
+
+                    await Despachos
+                        .continuarBorrador(
+                            idConduce
+                        );
+
+                }
+
+            };
+
+    }
+
+
+    const tablaCompletados =
+        document.getElementById(
+            "tablaDespachados"
+        );
+
+
+    if (tablaCompletados) {
+
+        tablaCompletados.onclick =
+            async function(evento) {
+
+                const boton =
+                    evento.target.closest(
+                        "button[data-id-conduce]"
+                    );
+
+
+                if (!boton) {
+                    return;
+                }
+
+
+                const idConduce =
+                    boton.dataset.idConduce;
+
+
+                if (
+                    boton.classList.contains(
+                        "btn-ver-despacho"
+                    )
+                ) {
+
+                    await Despachos
+                        .abrirVistaConduce(
+                            idConduce
+                        );
+
+                    return;
+
+                }
+
+
+                if (
+                    boton.classList.contains(
+                        "btn-abrir-completado"
+                    )
+                ) {
+
+                    await Despachos
+                        .continuarBorrador(
+                            idConduce,
+                            {
+                                permitirCompletado:
+                                    true
+                            }
+                        );
+
+                }
+
+            };
+
+    }
+
+},
 
 async cargarResumenDiario() {
 

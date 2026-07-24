@@ -21,10 +21,56 @@ if (!usuario) {
 
 // ===============================
 // MOSTRAR DATOS DEL USUARIO
+// ESCRITORIO Y MENÚ MÓVIL
 // ===============================
 
-document.getElementById("nombreUsuario").textContent = usuario.nombre;
-document.getElementById("rolUsuario").textContent = usuario.rol;
+const nombreSesion =
+    usuario.nombre ||
+    usuario.Nombre ||
+    "Usuario";
+
+const rolSesion =
+    usuario.rol ||
+    usuario.Rol ||
+    "";
+
+
+[
+    "nombreUsuario",
+    "nombreUsuarioMenu",
+    "nombreUsuarioMovil"
+].forEach(id => {
+
+    const elemento =
+        document.getElementById(id);
+
+    if (elemento) {
+
+        elemento.textContent =
+            nombreSesion;
+
+    }
+
+});
+
+
+[
+    "rolUsuario",
+    "rolUsuarioMenu",
+    "rolUsuarioMovil"
+].forEach(id => {
+
+    const elemento =
+        document.getElementById(id);
+
+    if (elemento) {
+
+        elemento.textContent =
+            rolSesion;
+
+    }
+
+});
 
 
 // ===============================

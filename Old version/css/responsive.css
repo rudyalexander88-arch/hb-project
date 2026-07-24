@@ -1525,3 +1525,75 @@
     }
 
 }
+
+/* ============================================================
+   SCROLL INTERNO GENERAL DE MODALES EN MÓVIL
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    .modal {
+        padding:
+            12px
+            8px !important;
+
+        overflow: hidden !important;
+    }
+
+
+    .modal-contenido {
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height:
+            calc(100dvh - 24px) !important;
+
+        max-height:
+            calc(100dvh - 24px) !important;
+
+        min-height: 0 !important;
+
+        display: flex !important;
+        flex-direction: column !important;
+
+        overflow: hidden !important;
+    }
+
+
+    .modal-header {
+        flex: 0 0 auto !important;
+    }
+
+
+    #contenidoModal {
+        flex: 1 1 auto !important;
+
+        width: 100%;
+        min-width: 0;
+        min-height: 0 !important;
+
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+}
+
+@media (max-width: 768px) {
+
+    #contenidoModal.modo-visor-conduce {
+        overflow: hidden !important;
+
+        padding:
+            0 !important;
+    }
+
+
+    #contenidoModal.modo-visor-conduce
+    .visor-conduce-layout {
+        height: 100%;
+    }
+
+}

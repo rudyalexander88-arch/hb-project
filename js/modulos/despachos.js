@@ -43,6 +43,79 @@ window.Despachos = {
     }
 
 },	
+
+ajustarHojaConduceAlVisor() {
+
+    const contenedor =
+        document.querySelector(
+            ".contenedor-ajuste-hoja-conduce"
+        );
+
+    const hoja =
+        document.getElementById(
+            "hojaConduceVisor"
+        );
+
+    if (
+        !contenedor ||
+        !hoja
+    ) {
+        return;
+    }
+
+
+    const anchoBase =
+        816;
+
+
+    /*
+     * Dejamos unos pocos píxeles para evitar que
+     * el borde o la sombra provoquen un desbordamiento.
+     */
+    const anchoDisponible =
+        Math.max(
+            contenedor.clientWidth - 4,
+            1
+        );
+
+
+    /*
+     * Nunca ampliamos por encima del tamaño original.
+     * En pantallas pequeñas únicamente reducimos.
+     */
+    const escala =
+        Math.min(
+            1,
+            anchoDisponible /
+                anchoBase
+        );
+
+
+    hoja.style.transform =
+        `scale(${escala})`;
+
+
+    /*
+     * Transform no modifica el espacio que ocupa el elemento.
+     * Por eso ajustamos manualmente la altura del contenedor.
+     */
+    const alturaReal =
+        Math.max(
+            hoja.scrollHeight,
+            1056
+        );
+
+
+    contenedor.style.height =
+        `${Math.ceil(
+            alturaReal * escala
+        )}px`;
+
+
+    contenedor.dataset.escala =
+        String(escala);
+
+},
 		
 centroDespachosEstado: {
 
@@ -3536,6 +3609,47 @@ async verConduce(idConduce) {
 
         </div>
     `;
+	
+	requestAnimationFrame(() => {
+
+    Despachos
+        .ajustarHojaConduceAlVisor();
+
+
+    const hoja =
+        document.getElementById(
+            "hojaConduceVisor"
+        );
+
+
+    if (hoja) {
+
+        hoja
+            .querySelectorAll("img")
+            .forEach(imagen => {
+
+                if (!imagen.complete) {
+
+                    imagen.addEventListener(
+                        "load",
+                        () => {
+
+                            Despachos
+                                .ajustarHojaConduceAlVisor();
+
+                        },
+                        {
+                            once: true
+                        }
+                    );
+
+                }
+
+            });
+
+    }
+
+});
 
     document
     .getElementById("contenidoModal")
@@ -10396,7 +10510,14 @@ async verConduce(idConduce) {
         "contenidoModal"
     ).innerHTML = `
 
-        <div class="visor-conduce-final">
+        <div class="visor-conduce-layout">
+
+    <div class="contenedor-ajuste-hoja-conduce">
+
+        <div
+            class="visor-conduce-final"
+            id="hojaConduceVisor"
+        >
 
             <span
                 class="estado-visor-conduce ${estadoClase}"
@@ -10406,40 +10527,45 @@ async verConduce(idConduce) {
 
             <div class="area-documento-papel">
 
-				<div class="hoja-documento-papel">
+                <div class="hoja-documento-papel">
 
-					<iframe
-						id="iframeConduceFinal"
-						class="iframe-conduce-final"
-						title="Vista del conduce final"
-					></iframe>
+                    <iframe
+                        id="iframeConduceFinal"
+                        class="iframe-conduce-final"
+                        title="Vista del conduce final"
+                    ></iframe>
 
-				</div>
-
-			</div>
-
-            <div class="barra-visor-conduce">
-
-                <button
-                    type="button"
-                    class="btn-secundario"
-                    id="btnCerrarVisorConduce"
-                >
-                    Cerrar
-                </button>
-
-                <button
-                    type="button"
-                    class="btn-imprimir-vista"
-                    id="btnImprimirVisorConduce"
-                >
-                    <i class="fa-solid fa-print"></i>
-                    Imprimir
-                </button>
+                </div>
 
             </div>
 
         </div>
+
+    </div>
+
+
+    <div class="barra-visor-conduce">
+
+        <button
+            type="button"
+            class="btn-secundario"
+            id="btnCerrarVisorConduce"
+        >
+            Cerrar
+        </button>
+
+        <button
+            type="button"
+            class="btn-imprimir-vista"
+            id="btnImprimirVisorConduce"
+        >
+            <i class="fa-solid fa-print"></i>
+            Imprimir
+        </button>
+
+    </div>
+
+</div>
     `;
 
     document
@@ -11978,3 +12104,20 @@ escaparHTMLInspecciones(valor) {
 
 };
 
+window.addEventListener(
+    "resize",
+    () => {
+
+        if (
+            document.getElementById(
+                "hojaConduceVisor"
+            )
+        ) {
+
+            Despachos
+                .ajustarHojaConduceAlVisor();
+
+        }
+
+    }
+);

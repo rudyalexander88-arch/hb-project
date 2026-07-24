@@ -2879,7 +2879,6 @@ actualizarTotalesListasDashboard() {
 
 },
 
-
 actualizarBotonListaDashboard(
     tipo
 ) {
@@ -2898,7 +2897,10 @@ actualizarBotonListaDashboard(
         );
 
 
-    if (!boton || !estado) {
+    if (
+        !boton ||
+        !estado
+    ) {
         return;
     }
 
@@ -2919,6 +2921,183 @@ actualizarBotonListaDashboard(
 },
 
 
+async ejecutarAccionListaDashboard(
+    boton,
+    accion,
+    idConduce
+) {
+
+    if (
+        !boton ||
+        !idConduce
+    ) {
+
+        Despachos.notificar(
+            "No fue posible identificar el conduce.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    const contenidoOriginal =
+        boton.innerHTML;
+
+
+    const tituloCarga =
+        accion === "ver"
+
+            ? "Cargando despacho"
+
+            : accion === "reabrir"
+
+                ? "Abriendo despacho"
+
+                : "Recuperando conduce";
+
+
+    const descripcionCarga =
+        accion === "ver"
+
+            ? "Estamos preparando la visualización del conduce."
+
+            : accion === "reabrir"
+
+                ? "Estamos recuperando el despacho completado."
+
+                : "Estamos recuperando la información pendiente.";
+
+
+    /*
+     * Bloqueamos el botón para evitar múltiples pulsaciones.
+     */
+    boton.disabled =
+        true;
+
+
+    boton.classList.add(
+        "boton-accion-cargando"
+    );
+
+
+    boton.innerHTML = `
+        <i class="fa-solid fa-spinner fa-spin"></i>
+    `;
+
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+            tituloCarga,
+            descripcionCarga
+        );
+
+    }
+
+
+    try {
+
+        if (
+            accion === "ver"
+        ) {
+
+            await Despachos
+                .abrirVistaConduce(
+                    idConduce
+                );
+
+            return;
+
+        }
+
+
+        if (
+            accion === "reabrir"
+        ) {
+
+            await Despachos
+                .continuarBorrador(
+                    idConduce,
+                    {
+                        permitirCompletado:
+                            true
+                    }
+                );
+
+            return;
+
+        }
+
+
+        await Despachos
+            .continuarBorrador(
+                idConduce
+            );
+
+
+    } catch (error) {
+
+        console.error(
+            "Error ejecutando acción del conduce:",
+            error
+        );
+
+
+        Despachos.notificar(
+            error &&
+            error.message
+
+                ? error.message
+
+                : "No fue posible abrir el conduce.",
+            "error"
+        );
+
+
+    } finally {
+
+        boton.disabled =
+            false;
+
+
+        boton.classList.remove(
+            "boton-accion-cargando"
+        );
+
+
+        /*
+         * El botón podría dejar de existir si el modal
+         * o el módulo se volvió a renderizar.
+         */
+        if (
+            boton.isConnected
+        ) {
+
+            boton.innerHTML =
+                contenidoOriginal;
+
+        }
+
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
+
+    }
+
+},
+
 configurarEventosListasDashboard() {
 
     const btnAbiertos =
@@ -2933,10 +3112,30 @@ configurarEventosListasDashboard() {
         );
 
 
+    const tablaAbiertos =
+        document.getElementById(
+            "tablaAbiertos"
+        );
+
+
+    const tablaCompletados =
+        document.getElementById(
+            "tablaDespachados"
+        );
+
+
+    // =====================================================
+    // CARGAR MÁS CONDUCES ABIERTOS
+    // =====================================================
+
     if (btnAbiertos) {
 
         btnAbiertos.onclick =
             async function() {
+
+                if (btnAbiertos.disabled) {
+                    return;
+                }
 
                 await Despachos
                     .cargarPaginaListaDashboard(
@@ -2948,10 +3147,18 @@ configurarEventosListasDashboard() {
     }
 
 
+    // =====================================================
+    // CARGAR MÁS CONDUCES COMPLETADOS
+    // =====================================================
+
     if (btnCompletados) {
 
         btnCompletados.onclick =
             async function() {
+
+                if (btnCompletados.disabled) {
+                    return;
+                }
 
                 await Despachos
                     .cargarPaginaListaDashboard(
@@ -2963,11 +3170,9 @@ configurarEventosListasDashboard() {
     }
 
 
-    const tablaAbiertos =
-        document.getElementById(
-            "tablaAbiertos"
-        );
-
+    // =====================================================
+    // ACCIONES DE CONDUCES ABIERTOS
+    // =====================================================
 
     if (tablaAbiertos) {
 
@@ -2980,13 +3185,30 @@ configurarEventosListasDashboard() {
                     );
 
 
-                if (!boton) {
+                if (
+                    !boton ||
+                    boton.disabled
+                ) {
                     return;
                 }
 
 
                 const idConduce =
-                    boton.dataset.idConduce;
+                    String(
+                        boton.dataset.idConduce ||
+                        ""
+                    ).trim();
+
+
+                if (!idConduce) {
+
+                    Despachos.notificar(
+                        "No fue posible identificar el conduce.",
+                        "error"
+                    );
+
+                    return;
+                }
 
 
                 if (
@@ -2999,7 +3221,9 @@ configurarEventosListasDashboard() {
                 ) {
 
                     await Despachos
-                        .continuarBorrador(
+                        .ejecutarAccionListaDashboard(
+                            boton,
+                            "continuar",
                             idConduce
                         );
 
@@ -3010,11 +3234,9 @@ configurarEventosListasDashboard() {
     }
 
 
-    const tablaCompletados =
-        document.getElementById(
-            "tablaDespachados"
-        );
-
+    // =====================================================
+    // ACCIONES DE CONDUCES COMPLETADOS
+    // =====================================================
 
     if (tablaCompletados) {
 
@@ -3027,15 +3249,36 @@ configurarEventosListasDashboard() {
                     );
 
 
-                if (!boton) {
+                if (
+                    !boton ||
+                    boton.disabled
+                ) {
                     return;
                 }
 
 
                 const idConduce =
-                    boton.dataset.idConduce;
+                    String(
+                        boton.dataset.idConduce ||
+                        ""
+                    ).trim();
 
 
+                if (!idConduce) {
+
+                    Despachos.notificar(
+                        "No fue posible identificar el conduce.",
+                        "error"
+                    );
+
+                    return;
+                }
+
+
+                /*
+                 * Botón verde:
+                 * visualizar el conduce.
+                 */
                 if (
                     boton.classList.contains(
                         "btn-ver-despacho"
@@ -3043,15 +3286,20 @@ configurarEventosListasDashboard() {
                 ) {
 
                     await Despachos
-                        .abrirVistaConduce(
+                        .ejecutarAccionListaDashboard(
+                            boton,
+                            "ver",
                             idConduce
                         );
 
                     return;
-
                 }
 
 
+                /*
+                 * Botón azul:
+                 * abrir nuevamente el despacho completado.
+                 */
                 if (
                     boton.classList.contains(
                         "btn-abrir-completado"
@@ -3059,12 +3307,10 @@ configurarEventosListasDashboard() {
                 ) {
 
                     await Despachos
-                        .continuarBorrador(
-                            idConduce,
-                            {
-                                permitirCompletado:
-                                    true
-                            }
+                        .ejecutarAccionListaDashboard(
+                            boton,
+                            "reabrir",
+                            idConduce
                         );
 
                 }
@@ -3074,6 +3320,7 @@ configurarEventosListasDashboard() {
     }
 
 },
+
 
 async cargarResumenDiario() {
 

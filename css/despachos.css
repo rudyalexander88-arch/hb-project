@@ -4419,3 +4419,18 @@ body.centro-despachos-abierto
     }
 
 }
+
+/* ============================================================
+   ESTADO DE CARGA EN BOTONES DE ACCIÓN
+   ============================================================ */
+
+.boton-accion-cargando {
+    cursor: wait !important;
+    pointer-events: none !important;
+
+    opacity: 0.75;
+}
+
+.boton-accion-cargando i {
+    margin: 0 !important;
+}

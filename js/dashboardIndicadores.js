@@ -188,16 +188,24 @@ const DashboardIndicadores = {
 				</div>
 
                 <button
-                    type="button"
-                    id="btnPrioridadesDespacho"
-                    class="btn-card-indicador"
-                    disabled
-                    title="Disponible en la próxima fase"
-                >
+						type="button"
+						id="btnPrioridadesDespacho"
+						class="btn-card-indicador"
+					>
                     <i class="fa-solid fa-list-check"></i>
                     Ver prioridades
                 </button>
             `;
+					if (
+					window.Prioridades &&
+					typeof Prioridades.inicializarTarjeta ===
+						"function"
+				) {
+
+					Prioridades
+						.inicializarTarjeta();
+
+				}
 
         }
 
@@ -2234,18 +2242,6 @@ const DashboardIndicadores = {
 
     },
 
-
-    // ========================================================
-    // PRIORIDADES DE DESPACHO
-    // ========================================================
-
-    abrirPrioridades() {
-
-        Sistema.info(
-            "El detalle de prioridades se conectará en la próxima fase."
-        );
-
-    },
 
 
     // ========================================================

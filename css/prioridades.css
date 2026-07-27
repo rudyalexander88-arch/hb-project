@@ -1,0 +1,881 @@
+/* ============================================================
+   CENTRO DE PRIORIDADES FB
+   ============================================================ */
+
+.modo-centro-prioridades {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.centro-prioridades {
+    width: 100%;
+    min-width: 0;
+    min-height: min-content;
+
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    overflow: visible;
+}
+
+
+/* ============================================================
+   CUMPLIMIENTO HISTÓRICO
+   ============================================================ */
+
+.cumplimiento-prioridades {
+    flex: 0 0 auto;
+
+    padding: 14px 16px;
+
+    border: 1px solid #ececec;
+    border-left: 5px solid #d71920;
+    border-radius: 12px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.045);
+}
+
+.cumplimiento-prioridades-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.cumplimiento-prioridades-cabecera span {
+    display: block;
+
+    color: #252525;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.cumplimiento-prioridades-cabecera small {
+    display: block;
+    margin-top: 2px;
+
+    color: #888888;
+    font-size: 9px;
+}
+
+.cumplimiento-prioridades-cabecera > strong {
+    padding: 7px 11px;
+
+    border-radius: 999px;
+
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.cumplimiento-prioridades-cabecera > strong.verde {
+    background: #28a745;
+}
+
+.cumplimiento-prioridades-cabecera > strong.amarillo {
+    background: #d5a000;
+}
+
+.cumplimiento-prioridades-cabecera > strong.naranja {
+    background: #ef8a17;
+}
+
+.cumplimiento-prioridades-cabecera > strong.rojo {
+    background: #d71920;
+}
+
+.cumplimiento-prioridades-metricas {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 8px;
+
+    margin-top: 10px;
+}
+
+.cumplimiento-prioridades-metricas > div {
+    min-width: 0;
+
+    padding: 7px 10px;
+
+    border-radius: 8px;
+
+    background: #f7f7f7;
+}
+
+.cumplimiento-prioridades-metricas span {
+    display: block;
+
+    color: #777777;
+    font-size: 8px;
+}
+
+.cumplimiento-prioridades-metricas strong {
+    display: block;
+    margin-top: 2px;
+
+    overflow: hidden;
+
+    color: #303030;
+    font-size: 11px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.acciones-periodo-prioridades {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 10px;
+}
+
+.selector-periodo-prioridades {
+    display: inline-flex;
+
+    padding: 3px;
+
+    border-radius: 8px;
+
+    background: #f1f1f1;
+}
+
+.selector-periodo-prioridades button {
+    min-height: 27px;
+
+    padding: 4px 9px;
+
+    border: 0;
+    border-radius: 6px;
+
+    background: transparent;
+    color: #666666;
+
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.selector-periodo-prioridades button.activo {
+    background: #ffffff;
+    color: #d71920;
+
+    box-shadow:
+        0 2px 7px rgba(0, 0, 0, 0.08);
+}
+
+.rango-prioridades {
+    display: none;
+    align-items: center;
+    gap: 5px;
+}
+
+.rango-prioridades.visible {
+    display: flex;
+}
+
+.rango-prioridades input {
+    min-height: 28px;
+    max-width: 130px;
+
+    border: 1px solid #dddddd;
+    border-radius: 6px;
+
+    font-family: inherit;
+    font-size: 8px;
+}
+
+.rango-prioridades button,
+.btn-historico-prioridades {
+    min-height: 28px;
+
+    padding: 5px 9px;
+
+    border: 0;
+    border-radius: 7px;
+
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.rango-prioridades button {
+    background: #d71920;
+    color: #ffffff;
+}
+
+.btn-historico-prioridades {
+    margin-left: auto;
+
+    background: #f59e0b;
+    color: #ffffff;
+}
+
+
+/* ============================================================
+   RESUMEN ACTUAL
+   ============================================================ */
+
+.resumen-actual-prioridades {
+    flex: 0 0 auto;
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 9px;
+}
+
+.resumen-actual-prioridades article {
+    min-height: 62px;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+
+    align-items: center;
+    gap: 8px;
+
+    padding: 10px 12px;
+
+    border: 1px solid #eeeeee;
+    border-radius: 10px;
+
+    background: #ffffff;
+}
+
+.resumen-actual-prioridades span {
+    color: #666666;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.resumen-actual-prioridades strong {
+    color: #252525;
+    font-size: 22px;
+}
+
+.resumen-actual-prioridades .reposicion {
+    border-left: 4px solid #28a745;
+}
+
+.resumen-actual-prioridades .qa {
+    border-left: 4px solid #e0b000;
+}
+
+.resumen-actual-prioridades .sin-reposicion {
+    border-left: 4px solid #777777;
+}
+
+
+/* ============================================================
+   FILTROS
+   ============================================================ */
+
+.filtros-prioridades {
+    flex: 0 0 auto;
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(180px, 1.5fr)
+        repeat(4, minmax(115px, 0.8fr))
+        auto;
+
+    align-items: end;
+    gap: 8px;
+}
+
+.filtro-prioridad {
+    min-width: 0;
+}
+
+.filtro-prioridad label {
+    display: block;
+    margin-bottom: 4px;
+
+    color: #666666;
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.filtro-prioridad input,
+.filtro-prioridad select {
+    width: 100%;
+    min-height: 34px;
+
+    padding: 6px 9px;
+
+    border: 1px solid #dddddd;
+    border-radius: 7px;
+
+    background: #ffffff;
+
+    font-family: inherit;
+    font-size: 9px;
+}
+
+.entrada-busqueda-prioridad {
+    position: relative;
+}
+
+.entrada-busqueda-prioridad i {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+
+    color: #999999;
+
+    transform: translateY(-50%);
+}
+
+.entrada-busqueda-prioridad input {
+    padding-left: 30px;
+}
+
+.btn-limpiar-prioridades {
+    min-height: 34px;
+
+    padding: 6px 11px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: #eeeeee;
+    color: #555555;
+
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+/* ============================================================
+   LISTADO
+   ============================================================ */
+
+.barra-listado-prioridades {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+
+    min-height: 28px;
+}
+
+.barra-listado-prioridades span {
+    color: #777777;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.btn-cargar-prioridades {
+    min-height: 29px;
+
+    padding: 5px 9px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: #f59e0b;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.btn-cargar-prioridades[hidden] {
+    display: none !important;
+}
+
+.lista-prioridades {
+    flex: 0 0 auto;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    overflow: visible;
+
+    padding-right: 3px;
+    padding-bottom: 6px;
+}
+
+
+/* ============================================================
+   TARJETA-FILA EXPANDIBLE
+   ============================================================ */
+
+.tarjeta-prioridad {
+    flex: 0 0 auto;
+
+    position: relative;
+
+    border: 1px solid #e7e7e7;
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    overflow: hidden;
+
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.tarjeta-prioridad:hover {
+    border-color: #cccccc;
+
+    box-shadow:
+        0 5px 13px rgba(0, 0, 0, 0.05);
+}
+
+.cabecera-tarjeta-prioridad {
+    width: 100%;
+    min-height: 57px;
+
+    display: grid;
+
+    grid-template-columns:
+        5px
+        minmax(210px, 1.6fr)
+        repeat(3, minmax(72px, 0.55fr))
+        minmax(130px, 0.9fr)
+        22px;
+
+    align-items: center;
+    gap: 9px;
+
+    padding: 7px 11px 7px 0;
+
+    border: 0;
+
+    background: transparent;
+
+    font-family: inherit;
+    text-align: left;
+
+    cursor: pointer;
+}
+
+.indicador-prioridad {
+    width: 5px;
+    height: 100%;
+
+    align-self: stretch;
+
+    background: #777777;
+}
+
+.tarjeta-prioridad.color-verde
+.indicador-prioridad {
+    background: #28a745;
+}
+
+.tarjeta-prioridad.color-naranja
+.indicador-prioridad {
+    background: #ef8a17;
+}
+
+.tarjeta-prioridad.color-amarillo
+.indicador-prioridad {
+    background: #d5a000;
+}
+
+.tarjeta-prioridad.color-rojo
+.indicador-prioridad {
+    background: #d71920;
+}
+
+.identidad-prioridad {
+    min-width: 0;
+}
+
+.identidad-prioridad strong,
+.identidad-prioridad small {
+    display: block;
+}
+
+.identidad-prioridad strong {
+    color: #242424;
+    font-size: 10px;
+}
+
+.identidad-prioridad small {
+    margin-top: 2px;
+
+    overflow: hidden;
+
+    color: #666666;
+    font-size: 9px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dato-prioridad small,
+.dato-prioridad strong {
+    display: block;
+}
+
+.dato-prioridad small {
+    color: #999999;
+    font-size: 7px;
+}
+
+.dato-prioridad strong {
+    margin-top: 2px;
+
+    color: #333333;
+    font-size: 9px;
+}
+
+.etiqueta-reposicion {
+    justify-self: start;
+
+    padding: 5px 8px;
+
+    border-radius: 999px;
+
+    background: #eeeeee;
+    color: #555555;
+
+    font-size: 8px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.etiqueta-reposicion.color-verde {
+    background: rgba(40, 167, 69, 0.12);
+    color: #218838;
+}
+
+.etiqueta-reposicion.color-naranja {
+    background: rgba(239, 138, 23, 0.13);
+    color: #c46b06;
+}
+
+.etiqueta-reposicion.color-amarillo {
+    background: rgba(224, 176, 0, 0.15);
+    color: #947500;
+}
+
+.cabecera-tarjeta-prioridad > i {
+    color: #888888;
+
+    transition:
+        transform 0.2s ease;
+}
+
+.tarjeta-prioridad.expandida
+.cabecera-tarjeta-prioridad > i {
+    transform: rotate(180deg);
+}
+
+.detalle-tarjeta-prioridad {
+    max-height: 0;
+
+    overflow: hidden;
+
+    opacity: 0;
+
+    transition:
+        max-height 0.24s ease,
+        opacity 0.18s ease,
+        padding 0.24s ease;
+
+    padding:
+        0
+        16px;
+}
+
+.tarjeta-prioridad.expandida
+.detalle-tarjeta-prioridad {
+    max-height: 290px;
+
+    padding:
+        12px
+        16px
+        14px;
+
+    border-top: 1px solid #eeeeee;
+
+    opacity: 1;
+}
+
+.detalle-grid-prioridad {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+
+    gap: 8px;
+}
+
+.detalle-grid-prioridad > div {
+    padding: 7px 9px;
+
+    border-radius: 7px;
+
+    background: #f8f8f8;
+}
+
+.detalle-grid-prioridad span,
+.detalle-grid-prioridad strong {
+    display: block;
+}
+
+.detalle-grid-prioridad span {
+    color: #888888;
+    font-size: 7px;
+}
+
+.detalle-grid-prioridad strong {
+    margin-top: 2px;
+
+    color: #333333;
+    font-size: 9px;
+}
+
+.accion-recomendada-prioridad {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    margin-top: 9px;
+    padding: 8px 10px;
+
+    border-left: 4px solid #28a745;
+    border-radius: 7px;
+
+    background: rgba(40, 167, 69, 0.08);
+}
+
+.accion-recomendada-prioridad span {
+    color: #666666;
+    font-size: 8px;
+}
+
+.accion-recomendada-prioridad strong {
+    color: #2f4e35;
+    font-size: 9px;
+}
+
+
+/* ============================================================
+   PIE Y ESTADOS
+   ============================================================ */
+
+.acciones-centro-prioridades {
+    flex: 0 0 auto;
+
+    display: flex;
+    justify-content: flex-end;
+
+    padding-top: 8px;
+
+    border-top: 1px solid #eeeeee;
+}
+
+.estado-carga-prioridades,
+.estado-vacio-prioridades {
+    min-height: 120px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    color: #777777;
+    text-align: center;
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 1024px) {
+
+    .cumplimiento-prioridades-metricas {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .filtros-prioridades {
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+    }
+
+    .filtro-prioridad.busqueda {
+        grid-column:
+            span 2;
+    }
+
+    .cabecera-tarjeta-prioridad {
+        grid-template-columns:
+            5px
+            minmax(175px, 1.5fr)
+            repeat(3, minmax(58px, 0.5fr))
+            minmax(120px, 0.85fr)
+            20px;
+    }
+
+}
+
+
+/* ============================================================
+   MÓVIL
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    .modo-centro-prioridades {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    .centro-prioridades {
+        min-height: min-content;
+        overflow: visible;
+    }
+
+    .cumplimiento-prioridades-metricas,
+    .resumen-actual-prioridades {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .acciones-periodo-prioridades {
+        flex-wrap: wrap;
+    }
+
+    .btn-historico-prioridades {
+        margin-left: 0;
+    }
+
+    .filtros-prioridades {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .filtro-prioridad.busqueda {
+        grid-column:
+            1 / -1;
+    }
+
+    .lista-prioridades {
+        max-height: none;
+        overflow: visible;
+    }
+
+    .cabecera-tarjeta-prioridad {
+        min-height: 70px;
+
+        grid-template-columns:
+            5px
+            minmax(0, 1fr)
+            auto;
+
+        grid-template-areas:
+            "indicador identidad flecha"
+            "indicador datos reposicion";
+
+        gap: 5px 8px;
+    }
+
+    .indicador-prioridad {
+        grid-area: indicador;
+    }
+
+    .identidad-prioridad {
+        grid-area: identidad;
+    }
+
+    .cabecera-tarjeta-prioridad > i {
+        grid-area: flecha;
+    }
+
+    .cabecera-tarjeta-prioridad
+    .dato-prioridad {
+        display: inline-flex;
+        gap: 4px;
+
+        margin-right: 8px;
+    }
+
+    .cabecera-tarjeta-prioridad
+    .dato-prioridad:nth-of-type(2),
+    .cabecera-tarjeta-prioridad
+    .dato-prioridad:nth-of-type(3) {
+        grid-area: datos;
+    }
+
+    .etiqueta-reposicion {
+        grid-area: reposicion;
+    }
+
+    .detalle-grid-prioridad {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+}
+
+
+@media (max-width: 520px) {
+
+    .cumplimiento-prioridades-cabecera {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cumplimiento-prioridades-cabecera > strong {
+        align-self: flex-start;
+    }
+
+    .filtros-prioridades {
+        grid-template-columns:
+            1fr;
+    }
+
+    .filtro-prioridad.busqueda {
+        grid-column:
+            auto;
+    }
+
+    .detalle-grid-prioridad {
+        grid-template-columns:
+            1fr;
+    }
+
+}

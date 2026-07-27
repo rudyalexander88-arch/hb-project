@@ -1706,3 +1706,107 @@
     }
 
 }
+
+/* ============================================================
+   CENTRO DE PRIORIDADES FB
+   SCROLL INTERNO DEL MODAL
+   ESCRITORIO, TABLET Y MÓVIL
+   ============================================================ */
+
+#contenidoModal.modo-centro-prioridades {
+    flex: 1 1 auto !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+
+#contenidoModal.modo-centro-prioridades
+.centro-prioridades {
+    width: 100% !important;
+    height: auto !important;
+    min-height: min-content !important;
+
+    overflow: visible !important;
+}
+
+
+#contenidoModal.modo-centro-prioridades
+.lista-prioridades {
+    flex: 0 0 auto !important;
+
+    min-height: 0 !important;
+    max-height: none !important;
+
+    overflow: visible !important;
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media
+    (max-width: 1024px),
+    (pointer: coarse) {
+
+    #contenidoModal.modo-centro-prioridades {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+    }
+
+
+    #contenidoModal.modo-centro-prioridades
+    .centro-prioridades {
+        height: auto !important;
+        min-height: min-content !important;
+    }
+
+
+    #contenidoModal.modo-centro-prioridades
+    .lista-prioridades {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+}
+
+
+/* ============================================================
+   TELÉFONO
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    #contenidoModal.modo-centro-prioridades {
+        padding-bottom: 18px !important;
+    }
+
+
+    #contenidoModal.modo-centro-prioridades
+    .centro-prioridades {
+        gap: 10px;
+    }
+
+
+    #contenidoModal.modo-centro-prioridades
+    .acciones-centro-prioridades {
+        padding-bottom:
+            calc(
+                8px +
+                env(safe-area-inset-bottom)
+            );
+    }
+
+}

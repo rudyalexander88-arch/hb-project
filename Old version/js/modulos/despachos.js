@@ -169,6 +169,74 @@ centroDespachosEstado: {
         }
 
     },
+	
+
+	listadoInspeccionesEstado: {
+
+    limite:
+        10,
+
+    desplazamiento:
+        0,
+
+    total:
+        0,
+
+    hayMas:
+        false,
+
+    cargando:
+        false,
+
+    registros:
+        [],
+
+    resumen: {
+
+        total:
+            0,
+
+        completadas:
+            0,
+
+        conformes:
+            0,
+
+        conHallazgos:
+            0,
+
+        pendientes:
+            0
+
+    },
+
+    inspectores:
+        [],
+
+    filtros: {
+
+        busqueda:
+            "",
+
+        mes:
+            "",
+
+        ano:
+            "",
+
+        estado:
+            "",
+
+        resultado:
+            "",
+
+        inspector:
+            ""
+
+    }
+
+},
+
 
 async cargar() {
 
@@ -640,6 +708,10 @@ if (
 	await Despachos.cargarResumenDiario();
 
 },
+
+
+
+
 
 async abrirCentroDespachos(
     opciones = {}
@@ -11507,15 +11579,26 @@ async cargarUnidades() {
 async abrirInspeccionesRealizadas() {
 
     const modal =
-        document.getElementById("modalSistema");
+        document.getElementById(
+            "modalSistema"
+        );
 
     const titulo =
-        document.getElementById("tituloModal");
+        document.getElementById(
+            "tituloModal"
+        );
 
     const contenido =
-        document.getElementById("contenidoModal");
+        document.getElementById(
+            "contenidoModal"
+        );
 
-    if (!modal || !titulo || !contenido) {
+
+    if (
+        !modal ||
+        !titulo ||
+        !contenido
+    ) {
 
         Despachos.notificar(
             "No se encontró la ventana del sistema.",
@@ -11523,138 +11606,173 @@ async abrirInspeccionesRealizadas() {
         );
 
         return;
+
     }
+
+
+    const estado =
+        Despachos.listadoInspeccionesEstado;
+
+
+    estado.desplazamiento =
+        0;
+
+    estado.total =
+        0;
+
+    estado.hayMas =
+        false;
+
+    estado.cargando =
+        false;
+
+    estado.registros =
+        [];
+
+    estado.inspectores =
+        [];
+
+    estado.filtros = {
+
+        busqueda:
+            "",
+
+        mes:
+            "",
+
+        ano:
+            "",
+
+        estado:
+            "",
+
+        resultado:
+            "",
+
+        inspector:
+            ""
+
+    };
+
 
     titulo.textContent =
         "Inspecciones de contenedores";
 
+
     contenido.classList.remove(
-        "modo-visor-conduce"
+        "modo-visor-conduce",
+        "modo-centro-despachos"
     );
 
-    contenido.innerHTML = `
-        <div class="visor-inspecciones">
 
-            <div class="estado-carga-inspecciones">
-                <i class="fa-solid fa-spinner fa-spin"></i>
-                <span>Cargando inspecciones realizadas...</span>
-            </div>
+    modal.classList.remove(
+        "oculto"
+    );
 
-        </div>
-    `;
 
-    modal.classList.remove("oculto");
+    Despachos
+        .renderizarVisorInspecciones();
 
-    try {
 
-        const respuesta = await API.post({
-            action: "listarInspeccionesRealizadas"
+    Despachos
+        .configurarEventosVisorInspecciones();
+
+
+    await Despachos
+        .cargarListadoInspecciones({
+            reiniciar: true
         });
-
-        if (!respuesta.ok) {
-
-            throw new Error(
-                respuesta.mensaje ||
-                "No fue posible cargar las inspecciones."
-            );
-        }
-
-        const inspecciones =
-            Array.isArray(respuesta.data)
-                ? respuesta.data
-                : [];
-
-        Despachos.renderizarVisorInspecciones(
-            inspecciones
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Error cargando inspecciones realizadas:",
-            error
-        );
-
-        contenido.innerHTML = `
-            <div class="visor-inspecciones">
-                <div class="estado-vacio-inspecciones estado-error-inspecciones">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <strong>No fue posible cargar las inspecciones.</strong>
-                    <span>${Despachos.escaparHTMLInspecciones(error.message || "Error desconocido")}</span>
-                </div>
-            </div>
-        `;
-
-        Despachos.notificar(
-            error.message ||
-            "No fue posible cargar las inspecciones.",
-            "error"
-        );
-    }
 
 },
 
-
-renderizarVisorInspecciones(inspecciones) {
+renderizarVisorInspecciones() {
 
     const contenido =
-        document.getElementById("contenidoModal");
+        document.getElementById(
+            "contenidoModal"
+        );
+
 
     if (!contenido) {
         return;
     }
 
-    const lista =
-        Array.isArray(inspecciones)
-            ? inspecciones
-            : [];
 
-    const anos = Array.from(
-        new Set(
-            lista
-                .map(item =>
-                    String(item.ano || "").trim()
-                )
-                .filter(Boolean)
-        )
-    ).sort((a, b) => Number(b) - Number(a));
+    const anioActual =
+        new Date()
+            .getFullYear();
 
-    const inspectores = Array.from(
-        new Set(
-            lista
-                .map(item =>
-                    String(item.inspector || "").trim()
-                )
-                .filter(Boolean)
-        )
-    ).sort((a, b) =>
-        a.localeCompare(b, "es")
-    );
+
+    const opcionesAnios =
+        [];
+
+
+    for (
+        let anio = anioActual;
+        anio >= anioActual - 10;
+        anio--
+    ) {
+
+        opcionesAnios.push(`
+            <option value="${anio}">
+                ${anio}
+            </option>
+        `);
+
+    }
+
 
     contenido.innerHTML = `
+
         <div class="visor-inspecciones">
 
-            <section class="resumen-inspecciones" id="resumenInspecciones"></section>
+            <section
+                class="resumen-inspecciones"
+                id="resumenInspecciones"
+            ></section>
+
 
             <section class="filtros-inspecciones">
 
-                <div class="filtro-inspecciones filtro-busqueda-inspecciones">
-                    <label for="buscarInspeccion">Buscar</label>
+                <div
+                    class="
+                        filtro-inspecciones
+                        filtro-busqueda-inspecciones
+                    "
+                >
+
+                    <label for="buscarInspeccion">
+                        Buscar
+                    </label>
+
                     <div class="entrada-busqueda-inspecciones">
+
                         <i class="fa-solid fa-magnifying-glass"></i>
+
                         <input
                             type="search"
                             id="buscarInspeccion"
                             placeholder="Inspección, conduce, contenedor, chofer o inspector"
                             autocomplete="off"
                         >
+
                     </div>
+
                 </div>
 
+
                 <div class="filtro-inspecciones">
-                    <label for="filtroMesInspeccion">Mes</label>
+
+                    <label for="filtroMesInspeccion">
+                        Mes
+                    </label>
+
                     <select id="filtroMesInspeccion">
-                        <option value="">Todos</option>
+
+                        <option value="">
+                            Todos
+                        </option>
+
                         <option value="01">Enero</option>
                         <option value="02">Febrero</option>
                         <option value="03">Marzo</option>
@@ -11667,53 +11785,113 @@ renderizarVisorInspecciones(inspecciones) {
                         <option value="10">Octubre</option>
                         <option value="11">Noviembre</option>
                         <option value="12">Diciembre</option>
+
                     </select>
+
                 </div>
 
+
                 <div class="filtro-inspecciones">
-                    <label for="filtroAnoInspeccion">Año</label>
+
+                    <label for="filtroAnoInspeccion">
+                        Año
+                    </label>
+
                     <select id="filtroAnoInspeccion">
-                        <option value="">Todos</option>
-                        ${anos.map(ano => `
-                            <option value="${Despachos.escaparHTMLInspecciones(ano)}">
-                                ${Despachos.escaparHTMLInspecciones(ano)}
-                            </option>
-                        `).join("")}
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        ${opcionesAnios.join("")}
+
                     </select>
+
                 </div>
 
+
                 <div class="filtro-inspecciones">
-                    <label for="filtroEstadoInspeccion">Estado</label>
+
+                    <label for="filtroEstadoInspeccion">
+                        Estado
+                    </label>
+
                     <select id="filtroEstadoInspeccion">
-                        <option value="">Todos</option>
-                        <option value="completada">Completada</option>
-                        <option value="en proceso">En proceso</option>
-                        <option value="borrador">Borrador</option>
-                        <option value="anulada">Anulada</option>
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="Pendiente">
+                            Pendiente
+                        </option>
+
+                        <option value="En proceso">
+                            En proceso
+                        </option>
+
+                        <option value="Completada">
+                            Completada
+                        </option>
+
+                        <option value="Completado">
+                            Completado
+                        </option>
+
                     </select>
+
                 </div>
 
+
                 <div class="filtro-inspecciones">
-                    <label for="filtroResultadoInspeccion">Resultado</label>
+
+                    <label for="filtroResultadoInspeccion">
+                        Resultado
+                    </label>
+
                     <select id="filtroResultadoInspeccion">
-                        <option value="">Todos</option>
-                        <option value="conforme">Conforme</option>
-                        <option value="con hallazgos">Con hallazgos</option>
-                        <option value="pendiente">Pendiente</option>
+
+                        <option value="">
+                            Todos
+                        </option>
+
+                        <option value="Conforme">
+                            Conforme
+                        </option>
+
+                        <option value="Con hallazgos">
+                            Con hallazgos
+                        </option>
+
+                        <option value="No conforme">
+                            No conforme
+                        </option>
+
+                        <option value="Pendiente">
+                            Pendiente
+                        </option>
+
                     </select>
+
                 </div>
 
+
                 <div class="filtro-inspecciones">
-                    <label for="filtroInspectorInspeccion">Inspector</label>
+
+                    <label for="filtroInspectorInspeccion">
+                        Inspector
+                    </label>
+
                     <select id="filtroInspectorInspeccion">
-                        <option value="">Todos</option>
-                        ${inspectores.map(inspector => `
-                            <option value="${Despachos.escaparHTMLInspecciones(inspector)}">
-                                ${Despachos.escaparHTMLInspecciones(inspector)}
-                            </option>
-                        `).join("")}
+
+                        <option value="">
+                            Todos
+                        </option>
+
                     </select>
+
                 </div>
+
 
                 <button
                     type="button"
@@ -11721,17 +11899,64 @@ renderizarVisorInspecciones(inspecciones) {
                     class="btn-limpiar-filtros-inspecciones"
                     title="Limpiar filtros"
                 >
+
                     <i class="fa-solid fa-filter-circle-xmark"></i>
+
                     Limpiar
+
                 </button>
 
             </section>
 
-            <div class="contador-resultados-inspecciones" id="contadorResultadosInspecciones"></div>
 
-            <section class="lista-inspecciones" id="listaInspecciones"></section>
+            <div class="barra-resultados-inspecciones">
+
+                <div
+                    class="contador-resultados-inspecciones"
+                    id="contadorResultadosInspecciones"
+                >
+                    Mostrando 0 de 0 inspecciones
+                </div>
+
+
+                <button
+                    type="button"
+                    id="btnCargarMasInspecciones"
+                    class="btn-cargar-mas-inspecciones"
+                    hidden
+                >
+
+                    <i class="fa-solid fa-plus"></i>
+
+                    <span>
+                        Cargar 10 más
+                    </span>
+
+                </button>
+
+            </div>
+
+
+            <section
+                class="lista-inspecciones"
+                id="listaInspecciones"
+            >
+
+                <div class="estado-carga-inspecciones">
+
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+
+                    <span>
+                        Cargando inspecciones realizadas.
+                    </span>
+
+                </div>
+
+            </section>
+
 
             <div class="acciones-visor-inspecciones">
+
                 <button
                     type="button"
                     id="btnCerrarVisorInspecciones"
@@ -11739,259 +11964,853 @@ renderizarVisorInspecciones(inspecciones) {
                 >
                     Cerrar
                 </button>
+
             </div>
 
         </div>
     `;
 
+
+    Despachos
+        .renderizarResumenInspecciones(
+            Despachos
+                .listadoInspeccionesEstado
+                .resumen
+        );
+
+},
+
+async cargarListadoInspecciones(
+    opciones = {}
+) {
+
+    const estado =
+        Despachos
+            .listadoInspeccionesEstado;
+
+
+    if (estado.cargando) {
+        return;
+    }
+
+
+    const reiniciar =
+        opciones.reiniciar === true;
+
+
+    const lista =
+        document.getElementById(
+            "listaInspecciones"
+        );
+
+
+    const botonCargarMas =
+        document.getElementById(
+            "btnCargarMasInspecciones"
+        );
+
+
+    if (!lista) {
+        return;
+    }
+
+
+    if (reiniciar) {
+
+        estado.desplazamiento =
+            0;
+
+        estado.total =
+            0;
+
+        estado.hayMas =
+            false;
+
+        estado.registros =
+            [];
+
+    }
+
+
+    estado.cargando =
+        true;
+
+
+    if (botonCargarMas) {
+
+        botonCargarMas.disabled =
+            true;
+
+        botonCargarMas.innerHTML = `
+            <i class="fa-solid fa-spinner fa-spin"></i>
+
+            <span>
+                Cargando...
+            </span>
+        `;
+
+    }
+
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+
+            reiniciar
+                ? "Consultando inspecciones"
+                : "Cargando más inspecciones",
+
+            reiniciar
+                ? "Estamos aplicando los filtros seleccionados."
+                : "Estamos consultando los siguientes registros."
+
+        );
+
+    }
+
+
+    if (
+        reiniciar &&
+        estado.registros.length === 0
+    ) {
+
+        lista.innerHTML = `
+
+            <div class="estado-carga-inspecciones">
+
+                <i class="fa-solid fa-spinner fa-spin"></i>
+
+                <span>
+                    Cargando inspecciones realizadas.
+                </span>
+
+            </div>
+        `;
+
+    }
+
+
+    try {
+
+        const respuesta =
+            await API.post({
+
+                action:
+                    "listarInspeccionesRealizadas",
+
+                limite:
+                    estado.limite,
+
+                desplazamiento:
+                    estado.desplazamiento,
+
+                busqueda:
+                    estado.filtros.busqueda,
+
+                mes:
+                    estado.filtros.mes,
+
+                ano:
+                    estado.filtros.ano,
+
+                estado:
+                    estado.filtros.estado,
+
+                resultado:
+                    estado.filtros.resultado,
+
+                inspector:
+                    estado.filtros.inspector
+
+            });
+
+
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
+
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible cargar las inspecciones."
+            );
+
+        }
+
+
+        const datos =
+            respuesta.data || {};
+
+
+        const nuevosRegistros =
+            Array.isArray(
+                datos.registros
+            )
+                ? datos.registros
+                : [];
+
+
+        if (reiniciar) {
+
+            estado.registros =
+                nuevosRegistros;
+
+        } else {
+
+            estado.registros.push(
+                ...nuevosRegistros
+            );
+
+        }
+
+
+        estado.total =
+            Number(
+                datos.total || 0
+            );
+
+
+        estado.hayMas =
+            datos.hayMas === true;
+
+
+        estado.desplazamiento =
+            Number(
+                datos.siguienteDesplazamiento ||
+                estado.registros.length
+            );
+
+
+        estado.resumen = {
+
+            total:
+                Number(
+                    datos.resumen?.total || 0
+                ),
+
+            completadas:
+                Number(
+                    datos.resumen?.completadas || 0
+                ),
+
+            conformes:
+                Number(
+                    datos.resumen?.conformes || 0
+                ),
+
+            conHallazgos:
+                Number(
+                    datos.resumen?.conHallazgos || 0
+                ),
+
+            pendientes:
+                Number(
+                    datos.resumen?.pendientes || 0
+                )
+
+        };
+
+
+        estado.inspectores =
+            Array.isArray(
+                datos.inspectores
+            )
+                ? datos.inspectores
+                : estado.inspectores;
+
+
+        Despachos
+            .actualizarOpcionesInspectores();
+
+
+        Despachos
+            .renderizarResumenInspecciones(
+                estado.resumen
+            );
+
+
+        Despachos
+            .renderizarListaInspecciones(
+                estado.registros,
+                estado.total
+            );
+
+
+        Despachos
+            .actualizarPaginacionInspecciones();
+
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando inspecciones paginadas:",
+            error
+        );
+
+
+        if (
+            estado.registros.length === 0
+        ) {
+
+            lista.innerHTML = `
+
+                <div
+                    class="
+                        estado-vacio-inspecciones
+                        estado-error-inspecciones
+                    "
+                >
+
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+
+                    <strong>
+                        No fue posible cargar las inspecciones
+                    </strong>
+
+                    <span>
+                        ${
+                            Despachos
+                                .escaparHTMLInspecciones(
+                                    error.message ||
+                                    "Error desconocido."
+                                )
+                        }
+                    </span>
+
+                </div>
+            `;
+
+        }
+
+
+        Despachos.notificar(
+            error.message ||
+            "No fue posible cargar las inspecciones.",
+            "error"
+        );
+
+
+    } finally {
+
+        estado.cargando =
+            false;
+
+
+        Despachos
+            .actualizarPaginacionInspecciones();
+
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
+
+    }
+
+},
+
+
+leerFiltrosInspecciones() {
+
+    const estado =
+        Despachos
+            .listadoInspeccionesEstado;
+
+
+    estado.filtros = {
+
+        busqueda:
+            String(
+                document.getElementById(
+                    "buscarInspeccion"
+                )?.value || ""
+            ).trim(),
+
+        mes:
+            String(
+                document.getElementById(
+                    "filtroMesInspeccion"
+                )?.value || ""
+            ).trim(),
+
+        ano:
+            String(
+                document.getElementById(
+                    "filtroAnoInspeccion"
+                )?.value || ""
+            ).trim(),
+
+        estado:
+            String(
+                document.getElementById(
+                    "filtroEstadoInspeccion"
+                )?.value || ""
+            ).trim(),
+
+        resultado:
+            String(
+                document.getElementById(
+                    "filtroResultadoInspeccion"
+                )?.value || ""
+            ).trim(),
+
+        inspector:
+            String(
+                document.getElementById(
+                    "filtroInspectorInspeccion"
+                )?.value || ""
+            ).trim()
+
+    };
+
+},
+
+
+actualizarOpcionesInspectores() {
+
+    const estado =
+        Despachos
+            .listadoInspeccionesEstado;
+
+
+    const select =
+        document.getElementById(
+            "filtroInspectorInspeccion"
+        );
+
+
+    if (!select) {
+        return;
+    }
+
+
+    const valorActual =
+        String(
+            select.value || ""
+        );
+
+
+    select.innerHTML = `
+
+        <option value="">
+            Todos
+        </option>
+
+        ${estado.inspectores
+            .map(function(inspector) {
+
+                const valor =
+                    Despachos
+                        .escaparHTMLInspecciones(
+                            inspector
+                        );
+
+                return `
+                    <option value="${valor}">
+                        ${valor}
+                    </option>
+                `;
+
+            })
+            .join("")}
+    `;
+
+
+    const existe =
+        estado.inspectores.some(
+            function(inspector) {
+
+                return (
+                    String(inspector) ===
+                    valorActual
+                );
+
+            }
+        );
+
+
+    select.value =
+        existe
+            ? valorActual
+            : estado.filtros.inspector;
+
+},
+
+
+actualizarPaginacionInspecciones() {
+
+    const estado =
+        Despachos
+            .listadoInspeccionesEstado;
+
+
+    const contador =
+        document.getElementById(
+            "contadorResultadosInspecciones"
+        );
+
+
+    const boton =
+        document.getElementById(
+            "btnCargarMasInspecciones"
+        );
+
+
+    if (contador) {
+
+        contador.textContent =
+            `Mostrando ${
+                estado.registros.length
+            } de ${
+                estado.total
+            } inspección(es)`;
+
+    }
+
+
+    if (!boton) {
+        return;
+    }
+
+
+    boton.hidden =
+        !estado.hayMas;
+
+
+    boton.disabled =
+        estado.cargando;
+
+
+    boton.innerHTML = `
+
+        <i class="fa-solid fa-plus"></i>
+
+        <span>
+            Cargar ${estado.limite} más
+        </span>
+    `;
+
+},
+
+
+configurarEventosVisorInspecciones() {
+
     const controles = [
-        "buscarInspeccion",
+
         "filtroMesInspeccion",
         "filtroAnoInspeccion",
         "filtroEstadoInspeccion",
         "filtroResultadoInspeccion",
         "filtroInspectorInspeccion"
+
     ];
 
-    const aplicar = () =>
-        Despachos.aplicarFiltrosInspecciones(
-            lista
-        );
 
-    controles.forEach(id => {
+    controles.forEach(
+        function(id) {
 
-        const control =
-            document.getElementById(id);
+            const control =
+                document.getElementById(
+                    id
+                );
 
-        if (!control) {
-            return;
+
+            if (!control) {
+                return;
+            }
+
+
+            control.onchange =
+                async function() {
+
+                    Despachos
+                        .leerFiltrosInspecciones();
+
+
+                    await Despachos
+                        .cargarListadoInspecciones({
+                            reiniciar: true
+                        });
+
+                };
+
         }
+    );
 
-        control.addEventListener(
-            id === "buscarInspeccion"
-                ? "input"
-                : "change",
-            aplicar
+
+    const inputBusqueda =
+        document.getElementById(
+            "buscarInspeccion"
         );
-    });
+
+
+    let temporizadorBusqueda =
+        null;
+
+
+    if (inputBusqueda) {
+
+        inputBusqueda.oninput =
+            function() {
+
+                clearTimeout(
+                    temporizadorBusqueda
+                );
+
+
+                temporizadorBusqueda =
+                    setTimeout(
+                        async function() {
+
+                            Despachos
+                                .leerFiltrosInspecciones();
+
+
+                            await Despachos
+                                .cargarListadoInspecciones({
+                                    reiniciar: true
+                                });
+
+                        },
+                        650
+                    );
+
+            };
+
+    }
+
+
+    const botonCargarMas =
+        document.getElementById(
+            "btnCargarMasInspecciones"
+        );
+
+
+    if (botonCargarMas) {
+
+        botonCargarMas.onclick =
+            async function() {
+
+                if (
+                    botonCargarMas.disabled
+                ) {
+                    return;
+                }
+
+
+                await Despachos
+                    .cargarListadoInspecciones();
+
+            };
+
+    }
+
 
     const botonLimpiar =
         document.getElementById(
             "btnLimpiarFiltrosInspecciones"
         );
 
+
     if (botonLimpiar) {
 
-        botonLimpiar.onclick = () => {
+        botonLimpiar.onclick =
+            async function() {
 
-            controles.forEach(id => {
+                const ids = [
 
-                const control =
-                    document.getElementById(id);
+                    "buscarInspeccion",
+                    "filtroMesInspeccion",
+                    "filtroAnoInspeccion",
+                    "filtroEstadoInspeccion",
+                    "filtroResultadoInspeccion",
+                    "filtroInspectorInspeccion"
 
-                if (control) {
-                    control.value = "";
-                }
-            });
+                ];
 
-            aplicar();
-        };
+
+                ids.forEach(
+                    function(id) {
+
+                        const control =
+                            document.getElementById(
+                                id
+                            );
+
+
+                        if (control) {
+                            control.value = "";
+                        }
+
+                    }
+                );
+
+
+                Despachos
+                    .leerFiltrosInspecciones();
+
+
+                await Despachos
+                    .cargarListadoInspecciones({
+                        reiniciar: true
+                    });
+
+            };
+
     }
+
 
     const botonCerrar =
         document.getElementById(
             "btnCerrarVisorInspecciones"
         );
 
+
     if (botonCerrar) {
 
-        botonCerrar.onclick = () => {
+        botonCerrar.onclick =
+            function() {
 
-            document
-                .getElementById("modalSistema")
-                ?.classList.add("oculto");
-        };
+                document
+                    .getElementById(
+                        "modalSistema"
+                    )
+                    ?.classList.add(
+                        "oculto"
+                    );
+
+            };
+
     }
 
-    aplicar();
-
 },
 
-
-aplicarFiltrosInspecciones(inspecciones) {
-
-    const normalizar = valor =>
-        String(valor || "")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .trim()
-            .toLowerCase();
-
-    const busqueda = normalizar(
-        document.getElementById(
-            "buscarInspeccion"
-        )?.value
-    );
-
-    const mes = String(
-        document.getElementById(
-            "filtroMesInspeccion"
-        )?.value || ""
-    );
-
-    const ano = String(
-        document.getElementById(
-            "filtroAnoInspeccion"
-        )?.value || ""
-    );
-
-    const estado = normalizar(
-        document.getElementById(
-            "filtroEstadoInspeccion"
-        )?.value
-    );
-
-    const resultado = normalizar(
-        document.getElementById(
-            "filtroResultadoInspeccion"
-        )?.value
-    );
-
-    const inspector = normalizar(
-        document.getElementById(
-            "filtroInspectorInspeccion"
-        )?.value
-    );
-
-    const filtradas = inspecciones.filter(item => {
-
-        const textoBusqueda = normalizar([
-            item.idInspeccion,
-            item.noConduce,
-            item.unidadCarga,
-            item.noChasis,
-            item.chofer,
-            item.inspector,
-            item.destino,
-            item.estado,
-            item.resultado
-        ].join(" "));
-
-        const coincideBusqueda =
-            !busqueda ||
-            textoBusqueda.includes(busqueda);
-
-        const coincideMes =
-            !mes ||
-            String(item.mes || "") === mes;
-
-        const coincideAno =
-            !ano ||
-            String(item.ano || "") === ano;
-
-        const coincideEstado =
-            !estado ||
-            normalizar(item.estado) === estado;
-
-        const resultadoItem =
-            normalizar(item.resultado || "pendiente");
-
-        const coincideResultado =
-            !resultado ||
-            resultadoItem === resultado;
-
-        const coincideInspector =
-            !inspector ||
-            normalizar(item.inspector) === inspector;
-
-        return (
-            coincideBusqueda &&
-            coincideMes &&
-            coincideAno &&
-            coincideEstado &&
-            coincideResultado &&
-            coincideInspector
-        );
-    });
-
-    Despachos.renderizarResumenInspecciones(
-        filtradas
-    );
-
-    Despachos.renderizarListaInspecciones(
-        filtradas,
-        inspecciones.length
-    );
-
-},
-
-
-renderizarResumenInspecciones(inspecciones) {
+renderizarResumenInspecciones(
+    resumen
+) {
 
     const contenedor =
         document.getElementById(
             "resumenInspecciones"
         );
 
+
     if (!contenedor) {
         return;
     }
 
-    const total = inspecciones.length;
 
-    const completadas = inspecciones.filter(item =>
-        String(item.estado || "")
-            .trim()
-            .toLowerCase()
-            .startsWith("complet")
-    ).length;
+    const datos =
+        resumen || {};
 
-    const conformes = inspecciones.filter(item =>
-        String(item.resultado || "")
-            .trim()
-            .toLowerCase() === "conforme"
-    ).length;
 
-    const hallazgos = inspecciones.filter(item =>
-        String(item.resultado || "")
-            .trim()
-            .toLowerCase() === "con hallazgos"
-    ).length;
+    const total =
+        Number(
+            datos.total || 0
+        );
 
-    const pendientes = Math.max(
-        total - completadas,
-        0
-    );
+
+    const completadas =
+        Number(
+            datos.completadas || 0
+        );
+
+
+    const conformes =
+        Number(
+            datos.conformes || 0
+        );
+
+
+    const hallazgos =
+        Number(
+            datos.conHallazgos || 0
+        );
+
+
+    const pendientes =
+        Number(
+            datos.pendientes || 0
+        );
+
 
     contenedor.innerHTML = `
+
         <article class="tarjeta-resumen-inspeccion total">
-            <span>Total</span>
-            <strong>${total}</strong>
+
+            <span>
+                Total
+            </span>
+
+            <strong>
+                ${total}
+            </strong>
+
         </article>
+
 
         <article class="tarjeta-resumen-inspeccion completadas">
-            <span>Completadas</span>
-            <strong>${completadas}</strong>
+
+            <span>
+                Completadas
+            </span>
+
+            <strong>
+                ${completadas}
+            </strong>
+
         </article>
+
 
         <article class="tarjeta-resumen-inspeccion conformes">
-            <span>Conformes</span>
-            <strong>${conformes}</strong>
+
+            <span>
+                Conformes
+            </span>
+
+            <strong>
+                ${conformes}
+            </strong>
+
         </article>
+
 
         <article class="tarjeta-resumen-inspeccion hallazgos">
-            <span>Con hallazgos</span>
-            <strong>${hallazgos}</strong>
+
+            <span>
+                Con hallazgos
+            </span>
+
+            <strong>
+                ${hallazgos}
+            </strong>
+
         </article>
 
+
         <article class="tarjeta-resumen-inspeccion pendientes">
-            <span>Pendientes</span>
-            <strong>${pendientes}</strong>
+
+            <span>
+                Pendientes
+            </span>
+
+            <strong>
+                ${pendientes}
+            </strong>
+
         </article>
     `;
 
 },
-
 
 renderizarListaInspecciones(inspecciones, totalOriginal) {
 
@@ -12010,7 +12829,11 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
     }
 
     contador.textContent =
-        `${inspecciones.length} de ${totalOriginal} inspección(es)`;
+    `Mostrando ${
+        inspecciones.length
+    } de ${
+        totalOriginal
+    } inspección(es)`;
 
     if (inspecciones.length === 0) {
 

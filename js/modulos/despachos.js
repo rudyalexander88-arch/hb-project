@@ -694,14 +694,27 @@ if (
 
 		}
 
-    document
-        .getElementById("btnNuevoConduce")
-        .addEventListener("click", () => {
+    const btnNuevoConduce =
+    document.getElementById(
+        "btnNuevoConduce"
+    );
 
-            Conduce.limpiar();
-            Despachos.nuevoConduce();
 
-        });
+if (btnNuevoConduce) {
+
+    btnNuevoConduce.addEventListener(
+        "click",
+        async () => {
+
+            await Despachos
+                .prepararNuevoConduce(
+                    btnNuevoConduce
+                );
+
+        }
+    );
+
+}
 
     await Despachos.cargarConducesAbiertos();
 	
@@ -4008,6 +4021,732 @@ async verConduce(idConduce) {
 },
 
 
+/**
+ * ============================================================
+ * PREPARAR NUEVO CONDUCE
+ * ============================================================
+ *
+ * Antes de abrir el asistente:
+ * - consulta las prioridades actuales;
+ * - muestra un aviso cuando existen materiales atendibles;
+ * - permite revisar las prioridades o continuar el despacho.
+ *
+ * @param {HTMLButtonElement} boton
+ */
+async prepararNuevoConduce(
+    boton
+) {
+
+    if (
+        !boton ||
+        boton.disabled
+    ) {
+        return;
+    }
+
+
+    const contenidoOriginal =
+        boton.innerHTML;
+
+
+    boton.disabled =
+        true;
+
+
+    boton.classList.add(
+        "boton-accion-cargando"
+    );
+
+
+    boton.innerHTML = `
+        <i class="fa-solid fa-spinner fa-spin"></i>
+        Consultando...
+    `;
+
+
+    if (
+        window.CargadorSistema &&
+        typeof CargadorSistema.mostrar ===
+            "function"
+    ) {
+
+        CargadorSistema.mostrar(
+            "Consultando prioridades",
+            "Estamos verificando los materiales que requieren abastecimiento en FrioBox."
+        );
+
+    }
+
+
+    try {
+
+        const respuesta =
+            await API.post({
+
+                action:
+                    "obtenerPrioridadesDespacho",
+
+                limite:
+                    1,
+
+                desplazamiento:
+                    0,
+
+                busqueda:
+                    "",
+
+                prioridad:
+                    "",
+
+                reposicion:
+                    "",
+
+                um:
+                    "",
+
+                orden:
+                    "prioridad"
+
+            });
+
+
+        if (
+            !respuesta ||
+            !respuesta.ok
+        ) {
+
+            throw new Error(
+                respuesta?.mensaje ||
+                "No fue posible consultar las prioridades."
+            );
+
+        }
+
+
+        const datos =
+            respuesta.data || {};
+
+
+        const alerta =
+            datos.alertaDespacho || {};
+
+
+        const resumen =
+            datos.resumen || {};
+
+
+        /*
+         * Usamos alertaDespacho como fuente principal.
+         * El resumen queda como respaldo por compatibilidad.
+         */
+        const reposicionInmediata =
+            Number(
+                alerta.reposicionInmediata ??
+                resumen.reposicionInmediata ??
+                0
+            );
+
+
+        const reposicionParcial =
+            Number(
+                alerta.reposicionParcial ??
+                resumen.reposicionParcial ??
+                0
+            );
+
+
+        const pendienteQA =
+            Number(
+                alerta.pendienteQA ??
+                resumen.pendienteQA ??
+                0
+            );
+
+
+        const oportunidadesAtendibles =
+            Number(
+                alerta.oportunidadesAtendibles ??
+                resumen.oportunidadesAtendibles ??
+                (
+                    reposicionInmediata +
+                    reposicionParcial
+                )
+            );
+
+
+        const debeMostrarAviso =
+            alerta.mostrar === true ||
+            oportunidadesAtendibles > 0 ||
+            pendienteQA > 0;
+
+
+        if (!debeMostrarAviso) {
+
+            Conduce.limpiar();
+
+
+            await Despachos
+                .nuevoConduce();
+
+
+            return;
+
+        }
+
+
+        Despachos
+            .mostrarAvisoPrioridadesNuevoConduce({
+
+                totalPrioridades:
+                    Number(
+                        alerta.totalPrioridades ??
+                        resumen.totalPrioridades ??
+                        datos.totalPrioridades ??
+                        0
+                    ),
+
+                reposicionInmediata:
+                    reposicionInmediata,
+
+                reposicionParcial:
+                    reposicionParcial,
+
+                pendienteQA:
+                    pendienteQA,
+
+                oportunidadesAtendibles:
+                    oportunidadesAtendibles
+
+            });
+
+
+    } catch (error) {
+
+        console.error(
+            "Error consultando prioridades antes de crear el conduce:",
+            error
+        );
+
+
+        /*
+         * La consulta de prioridades es informativa.
+         * Si falla, no bloqueamos la operación.
+         */
+        Despachos.notificar(
+            "No fue posible consultar las prioridades. Puede continuar creando el conduce.",
+            "advertencia"
+        );
+
+
+        Conduce.limpiar();
+
+
+        await Despachos
+            .nuevoConduce();
+
+
+    } finally {
+
+        if (
+            boton &&
+            boton.isConnected
+        ) {
+
+            boton.disabled =
+                false;
+
+
+            boton.classList.remove(
+                "boton-accion-cargando"
+            );
+
+
+            boton.innerHTML =
+                contenidoOriginal;
+
+        }
+
+
+        if (
+            window.CargadorSistema &&
+            typeof CargadorSistema.ocultar ===
+                "function"
+        ) {
+
+            CargadorSistema.ocultar();
+
+        }
+
+    }
+
+},
+
+
+/**
+ * ============================================================
+ * AVISO DE PRIORIDADES ANTES DEL NUEVO CONDUCE
+ * ============================================================
+ *
+ * @param {Object} datos
+ */
+mostrarAvisoPrioridadesNuevoConduce(
+    datos = {}
+) {
+
+    const modal =
+        document.getElementById(
+            "modalSistema"
+        );
+
+
+    const titulo =
+        document.getElementById(
+            "tituloModal"
+        );
+
+
+    const contenido =
+        document.getElementById(
+            "contenidoModal"
+        );
+
+
+    if (
+        !modal ||
+        !titulo ||
+        !contenido
+    ) {
+
+        Conduce.limpiar();
+
+
+        Despachos
+            .nuevoConduce();
+
+
+        return;
+
+    }
+
+
+    /*
+     * Eliminamos modos pertenecientes a otros visores.
+     */
+    contenido.classList.remove(
+        "modo-visor-conduce",
+        "modo-centro-despachos",
+        "modo-centro-prioridades"
+    );
+
+
+    contenido.classList.add(
+        "modo-aviso-prioridades-conduce"
+    );
+
+
+    document.body.classList.remove(
+        "centro-despachos-abierto"
+    );
+
+
+    titulo.textContent =
+        "Prioridades de abastecimiento";
+
+
+    const totalPrioridades =
+        Number(
+            datos.totalPrioridades || 0
+        );
+
+
+    const reposicionInmediata =
+        Number(
+            datos.reposicionInmediata || 0
+        );
+
+
+    const reposicionParcial =
+        Number(
+            datos.reposicionParcial || 0
+        );
+
+
+    const pendienteQA =
+        Number(
+            datos.pendienteQA || 0
+        );
+
+
+    const oportunidadesAtendibles =
+        Number(
+            datos.oportunidadesAtendibles || 0
+        );
+
+
+    contenido.innerHTML = `
+
+        <section class="aviso-prioridades-conduce">
+
+            <div class="aviso-prioridades-conduce__icono">
+
+                <i class="fa-solid fa-triangle-exclamation"></i>
+
+            </div>
+
+
+            <div class="aviso-prioridades-conduce__introduccion">
+
+                <span class="aviso-prioridades-conduce__etiqueta">
+                    Abastecimiento a FrioBox
+                </span>
+
+                <h3>
+                    Existen materiales que requieren atención
+                </h3>
+
+                <p>
+                    Antes de continuar, revise si alguno de estos
+                    materiales debe incluirse en el nuevo despacho.
+                </p>
+
+            </div>
+
+
+            <div class="aviso-prioridades-conduce__resumen">
+
+                <article class="total">
+
+                    <span>
+                        Prioridades activas
+                    </span>
+
+                    <strong>
+                        ${totalPrioridades.toLocaleString("es-DO")}
+                    </strong>
+
+                </article>
+
+
+                <article class="atendibles">
+
+                    <span>
+                        Pueden abastecerse
+                    </span>
+
+                    <strong>
+                        ${oportunidadesAtendibles.toLocaleString("es-DO")}
+                    </strong>
+
+                </article>
+
+
+                <article class="inmediatas">
+
+                    <span>
+                        Reposición inmediata
+                    </span>
+
+                    <strong>
+                        ${reposicionInmediata.toLocaleString("es-DO")}
+                    </strong>
+
+                </article>
+
+
+                <article class="parciales">
+
+                    <span>
+                        Reposición parcial
+                    </span>
+
+                    <strong>
+                        ${reposicionParcial.toLocaleString("es-DO")}
+                    </strong>
+
+                </article>
+
+
+                <article class="qa">
+
+                    <span>
+                        Pendientes de QA
+                    </span>
+
+                    <strong>
+                        ${pendienteQA.toLocaleString("es-DO")}
+                    </strong>
+
+                </article>
+
+            </div>
+
+
+            <div class="aviso-prioridades-conduce__mensaje">
+
+                <i class="fa-solid fa-circle-info"></i>
+
+                <p>
+                    Los materiales con reposición inmediata o parcial
+                    pueden despacharse desde HB. Los pendientes de QA
+                    requieren coordinación con Calidad.
+                </p>
+
+            </div>
+
+
+            <div class="aviso-prioridades-conduce__acciones">
+
+                <button
+                    type="button"
+                    id="btnVerPrioridadesAntesConduce"
+                    class="btn-ver-prioridades-aviso"
+                >
+                    <i class="fa-solid fa-list-check"></i>
+
+                    Ver prioridades
+                </button>
+
+
+                <button
+                    type="button"
+                    id="btnContinuarNuevoConduce"
+                    class="btn-continuar-conduce-aviso"
+                >
+                    <i class="fa-solid fa-arrow-right"></i>
+
+                    Continuar despacho
+                </button>
+
+            </div>
+
+        </section>
+    `;
+
+
+    modal.classList.remove(
+        "oculto"
+    );
+
+
+    const btnVerPrioridades =
+        document.getElementById(
+            "btnVerPrioridadesAntesConduce"
+        );
+
+
+    const btnContinuar =
+        document.getElementById(
+            "btnContinuarNuevoConduce"
+        );
+
+
+    if (btnVerPrioridades) {
+
+        btnVerPrioridades.onclick =
+            async function() {
+
+                if (
+                    btnVerPrioridades.disabled
+                ) {
+                    return;
+                }
+
+
+                btnVerPrioridades.disabled =
+                    true;
+
+
+                btnContinuar &&
+                (
+                    btnContinuar.disabled =
+                        true
+                );
+
+
+                if (
+                    window.CargadorSistema &&
+                    typeof CargadorSistema.mostrar ===
+                        "function"
+                ) {
+
+                    CargadorSistema.mostrar(
+                        "Abriendo prioridades",
+                        "Estamos preparando el Centro de Prioridades FB."
+                    );
+
+                }
+
+
+                try {
+
+                    contenido.classList.remove(
+                        "modo-aviso-prioridades-conduce"
+                    );
+
+
+                    if (
+                        window.Prioridades &&
+                        typeof Prioridades.abrirCentro ===
+                            "function"
+                    ) {
+
+                        await Prioridades
+                            .abrirCentro();
+
+                        return;
+
+                    }
+
+
+                    throw new Error(
+                        "El módulo de Prioridades no está disponible."
+                    );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Error abriendo el Centro de Prioridades:",
+                        error
+                    );
+
+
+                    Despachos.notificar(
+                        error.message ||
+                        "No fue posible abrir las prioridades.",
+                        "error"
+                    );
+
+
+                    btnVerPrioridades.disabled =
+                        false;
+
+
+                    if (btnContinuar) {
+
+                        btnContinuar.disabled =
+                            false;
+
+                    }
+
+
+                } finally {
+
+                    if (
+                        window.CargadorSistema &&
+                        typeof CargadorSistema.ocultar ===
+                            "function"
+                    ) {
+
+                        CargadorSistema.ocultar();
+
+                    }
+
+                }
+
+            };
+
+    }
+
+
+    if (btnContinuar) {
+
+        btnContinuar.onclick =
+            async function() {
+
+                if (
+                    btnContinuar.disabled
+                ) {
+                    return;
+                }
+
+
+                btnContinuar.disabled =
+                    true;
+
+
+                if (btnVerPrioridades) {
+
+                    btnVerPrioridades.disabled =
+                        true;
+
+                }
+
+
+                if (
+                    window.CargadorSistema &&
+                    typeof CargadorSistema.mostrar ===
+                        "function"
+                ) {
+
+                    CargadorSistema.mostrar(
+                        "Preparando conduce",
+                        "Estamos iniciando el asistente de despacho."
+                    );
+
+                }
+
+
+                try {
+
+                    contenido.classList.remove(
+                        "modo-aviso-prioridades-conduce"
+                    );
+
+
+                    Conduce.limpiar();
+
+
+                    await Despachos
+                        .nuevoConduce();
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Error abriendo el nuevo conduce:",
+                        error
+                    );
+
+
+                    Despachos.notificar(
+                        error.message ||
+                        "No fue posible iniciar el nuevo conduce.",
+                        "error"
+                    );
+
+
+                    btnContinuar.disabled =
+                        false;
+
+
+                    if (btnVerPrioridades) {
+
+                        btnVerPrioridades.disabled =
+                            false;
+
+                    }
+
+
+                } finally {
+
+                    if (
+                        window.CargadorSistema &&
+                        typeof CargadorSistema.ocultar ===
+                            "function"
+                    ) {
+
+                        CargadorSistema.ocultar();
+
+                    }
+
+                }
+
+            };
+
+    }
+
+},
 
 
    async nuevoConduce() {

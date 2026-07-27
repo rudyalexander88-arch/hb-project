@@ -5504,3 +5504,276 @@ body.centro-despachos-abierto
     }
 
 }
+
+/* ============================================================
+   AVISO DE PRIORIDADES ANTES DE CREAR UN CONDUCE
+   ============================================================ */
+
+.modo-aviso-prioridades-conduce {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+
+.aviso-prioridades-conduce {
+    width: min(760px, 100%);
+
+    margin: 0 auto;
+
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    padding: 6px 4px 4px;
+}
+
+
+.aviso-prioridades-conduce__icono {
+    width: 58px;
+    height: 58px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin: 0 auto;
+
+    border-radius: 18px;
+
+    background:
+        rgba(245, 130, 32, 0.14);
+
+    color: #f58220;
+
+    font-size: 25px;
+}
+
+
+.aviso-prioridades-conduce__introduccion {
+    text-align: center;
+}
+
+
+.aviso-prioridades-conduce__etiqueta {
+    display: inline-block;
+
+    margin-bottom: 5px;
+
+    color: #d71920;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+
+.aviso-prioridades-conduce__introduccion h3 {
+    margin: 0;
+
+    color: #242424;
+
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+
+.aviso-prioridades-conduce__introduccion p {
+    max-width: 610px;
+
+    margin:
+        7px
+        auto
+        0;
+
+    color: #666666;
+
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+
+.aviso-prioridades-conduce__resumen {
+    display: grid;
+
+    grid-template-columns:
+        repeat(5, minmax(0, 1fr));
+
+    gap: 9px;
+}
+
+
+.aviso-prioridades-conduce__resumen article {
+    min-width: 0;
+    min-height: 72px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 5px;
+
+    padding: 10px 8px;
+
+    border: 1px solid #eeeeee;
+    border-radius: 11px;
+
+    background: #ffffff;
+
+    text-align: center;
+
+    box-shadow:
+        0 5px 13px
+        rgba(0, 0, 0, 0.045);
+}
+
+
+.aviso-prioridades-conduce__resumen article.total {
+    border-top: 4px solid #1677c8;
+}
+
+
+.aviso-prioridades-conduce__resumen article.atendibles,
+.aviso-prioridades-conduce__resumen article.inmediatas {
+    border-top: 4px solid #28a745;
+}
+
+
+.aviso-prioridades-conduce__resumen article.parciales {
+    border-top: 4px solid #f58220;
+}
+
+
+.aviso-prioridades-conduce__resumen article.qa {
+    border-top: 4px solid #e0b000;
+}
+
+
+.aviso-prioridades-conduce__resumen span {
+    color: #777777;
+
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+
+.aviso-prioridades-conduce__resumen strong {
+    color: #262626;
+
+    font-size: 22px;
+    line-height: 1;
+}
+
+
+.aviso-prioridades-conduce__mensaje {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+
+    padding: 11px 13px;
+
+    border-left: 4px solid #1677c8;
+    border-radius: 9px;
+
+    background:
+        rgba(22, 119, 200, 0.08);
+}
+
+
+.aviso-prioridades-conduce__mensaje i {
+    flex: 0 0 auto;
+
+    margin-top: 2px;
+
+    color: #1677c8;
+
+    font-size: 15px;
+}
+
+
+.aviso-prioridades-conduce__mensaje p {
+    margin: 0;
+
+    color: #40566a;
+
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+
+.aviso-prioridades-conduce__acciones {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+
+    padding-top: 4px;
+}
+
+
+.btn-ver-prioridades-aviso,
+.btn-continuar-conduce-aviso {
+    min-height: 40px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding:
+        0
+        16px;
+
+    border: 0;
+    border-radius: 9px;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 750;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        opacity 0.18s ease;
+}
+
+
+.btn-ver-prioridades-aviso {
+    background: #d71920;
+    color: #ffffff;
+
+    box-shadow:
+        0 5px 12px
+        rgba(215, 25, 32, 0.20);
+}
+
+
+.btn-continuar-conduce-aviso {
+    background: #f58220;
+    color: #ffffff;
+
+    box-shadow:
+        0 5px 12px
+        rgba(245, 130, 32, 0.20);
+}
+
+
+.btn-ver-prioridades-aviso:hover,
+.btn-continuar-conduce-aviso:hover {
+    transform: translateY(-1px);
+}
+
+
+.btn-ver-prioridades-aviso:disabled,
+.btn-continuar-conduce-aviso:disabled {
+    opacity: 0.65;
+
+    cursor: not-allowed;
+
+    transform: none;
+}

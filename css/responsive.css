@@ -1810,3 +1810,109 @@
     }
 
 }
+
+/* ============================================================
+   AVISO DE PRIORIDADES DEL NUEVO CONDUCE
+   TABLET
+   ============================================================ */
+
+@media (max-width: 1024px) {
+
+    .aviso-prioridades-conduce {
+        width: 100%;
+
+        gap: 14px;
+    }
+
+
+    .aviso-prioridades-conduce__resumen {
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+    }
+
+
+    .aviso-prioridades-conduce__resumen
+    article:nth-child(4),
+    .aviso-prioridades-conduce__resumen
+    article:nth-child(5) {
+        grid-column:
+            span 1;
+    }
+
+}
+
+
+/* ============================================================
+   AVISO DE PRIORIDADES DEL NUEVO CONDUCE
+   TELÉFONO
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    .modo-aviso-prioridades-conduce {
+        overflow-y: auto !important;
+
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+    }
+
+
+    .aviso-prioridades-conduce {
+        gap: 12px;
+
+        padding-bottom:
+            calc(
+                10px +
+                env(safe-area-inset-bottom)
+            );
+    }
+
+
+    .aviso-prioridades-conduce__icono {
+        width: 48px;
+        height: 48px;
+
+        border-radius: 14px;
+
+        font-size: 21px;
+    }
+
+
+    .aviso-prioridades-conduce__introduccion h3 {
+        font-size: 17px;
+    }
+
+
+    .aviso-prioridades-conduce__introduccion p {
+        font-size: 11px;
+    }
+
+
+    .aviso-prioridades-conduce__resumen {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+
+    .aviso-prioridades-conduce__resumen
+    article.total {
+        grid-column:
+            1 / -1;
+    }
+
+
+    .aviso-prioridades-conduce__acciones {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+
+    .btn-ver-prioridades-aviso,
+    .btn-continuar-conduce-aviso {
+        width: 100%;
+
+        min-height: 44px;
+    }
+
+}

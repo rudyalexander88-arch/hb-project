@@ -533,3 +533,512 @@
 
     white-space: nowrap;
 }
+
+/* ============================================================
+   ESTRUCTURA ÚNICA DE TARJETAS DE INDICADORES DEL DASHBOARD
+   Título: superior izquierda
+   Icono: superior derecha
+   KPI: centro
+   Subtítulo: inferior izquierda
+   Botón: inferior derecha
+   ============================================================ */
+
+.cards .card-indicador {
+    position: relative !important;
+    overflow: hidden;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows:
+        auto
+        minmax(58px, 1fr)
+        auto !important;
+    grid-template-areas:
+        "titulo icono"
+        "valor valor"
+        "detalle boton" !important;
+
+    align-items: center !important;
+    column-gap: 12px !important;
+    row-gap: 5px !important;
+
+    min-height: 190px !important;
+    height: 190px !important;
+
+    padding: 15px 16px 14px !important;
+
+    text-align: left !important;
+    box-sizing: border-box;
+}
+
+
+/* TÍTULO */
+
+.cards .card-indicador > h3,
+.cards .card-indicador .titulo-card-exactitud {
+    grid-area: titulo !important;
+    align-self: start;
+
+    min-width: 0;
+    margin: 0 !important;
+
+    color: #292929;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+    text-align: left !important;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* ICONO */
+
+.cards .card-indicador .card-indicador-icono {
+    grid-area: icono !important;
+    align-self: start;
+    justify-self: end;
+
+    position: static !important;
+
+    width: 38px !important;
+    height: 38px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    margin: 0 !important;
+
+    border-radius: 11px !important;
+}
+
+.cards .card-indicador .card-indicador-icono i {
+    margin: 0 !important;
+
+    font-size: 19px !important;
+    line-height: 1 !important;
+}
+
+
+/* KPI CENTRAL */
+
+.cards .card-indicador > h1,
+.cards .card-indicador #valorExactitudDespachos {
+    grid-area: valor !important;
+    align-self: center;
+    justify-self: center;
+
+    margin: 0 !important;
+
+    color: #111111;
+    font-size: 29px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+
+    white-space: nowrap;
+}
+
+
+/* SUBTÍTULO INFERIOR IZQUIERDO */
+
+.cards .card-indicador .card-indicador-detalle,
+.cards .card-indicador .card-indicador-secundario,
+.cards .card-indicador .resumen-card-exactitud {
+    grid-area: detalle !important;
+    align-self: center;
+
+    min-width: 0;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    overflow: hidden;
+
+    color: #555555 !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+    text-align: left !important;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* BOTÓN INFERIOR DERECHO */
+
+.cards .card-indicador .btn-card-indicador {
+    grid-area: boton !important;
+    align-self: center;
+    justify-self: end;
+
+    position: static !important;
+
+    min-width: 132px !important;
+    width: auto !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+
+    margin: 0 !important;
+    padding: 0 12px !important;
+
+    border-radius: 9px !important;
+
+    color: #ffffff !important;
+
+    font-family: inherit !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+
+    white-space: nowrap;
+}
+
+.cards .card-indicador .btn-card-indicador i,
+.cards .card-indicador .btn-card-indicador span {
+    margin: 0 !important;
+
+    color: #ffffff !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+}
+
+
+/* TABLET */
+
+@media (max-width: 1180px) {
+
+    .cards .card-indicador {
+        height: 185px !important;
+        min-height: 185px !important;
+        padding: 14px !important;
+    }
+
+    .cards .card-indicador .btn-card-indicador {
+        min-width: 122px !important;
+        padding-inline: 9px !important;
+        font-size: 9px !important;
+    }
+
+}
+
+
+/* MÓVIL */
+
+@media (max-width: 700px) {
+
+    .cards .card-indicador {
+        height: auto !important;
+        min-height: 205px !important;
+
+        grid-template-rows:
+            auto
+            minmax(55px, 1fr)
+            auto
+            auto !important;
+
+        grid-template-areas:
+            "titulo icono"
+            "valor valor"
+            "detalle detalle"
+            "boton boton" !important;
+    }
+
+    .cards .card-indicador .resumen-card-exactitud,
+    .cards .card-indicador .card-indicador-detalle,
+    .cards .card-indicador .card-indicador-secundario {
+        text-align: center !important;
+        white-space: normal;
+    }
+
+    .cards .card-indicador .btn-card-indicador {
+        justify-self: stretch;
+        width: 100% !important;
+    }
+
+}
+
+/* ============================================================
+   ESTRUCTURA ÚNICA PARA TODAS LAS TARJETAS DEL DASHBOARD
+   Título: superior izquierda
+   Icono: superior derecha
+   KPI: centro
+   Subtítulo: inferior izquierda
+   Botón: inferior derecha
+   ============================================================ */
+
+.cards > .card {
+    position: relative !important;
+    overflow: hidden !important;
+
+    display: grid !important;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        auto !important;
+
+    grid-template-rows:
+        auto
+        minmax(56px, 1fr)
+        auto !important;
+
+    grid-template-areas:
+        "titulo icono"
+        "valor valor"
+        "detalle boton" !important;
+
+    align-items: center !important;
+    column-gap: 12px !important;
+    row-gap: 6px !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+
+    height: 170px !important;
+    min-height: 170px !important;
+
+    padding: 15px 16px 14px !important;
+
+    text-align: left !important;
+    box-sizing: border-box !important;
+}
+
+
+/* TÍTULO */
+
+.cards > .card > h3,
+.cards > .card .titulo-card-exactitud {
+    grid-area: titulo !important;
+
+    position: static !important;
+    align-self: start !important;
+
+    min-width: 0 !important;
+
+    margin: 0 !important;
+
+    color: #292929 !important;
+
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+
+    text-align: left !important;
+
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+
+/* ICONO ENVUELTO */
+
+.cards > .card .card-indicador-icono {
+    grid-area: icono !important;
+
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+
+    align-self: start !important;
+    justify-self: end !important;
+
+    width: 38px !important;
+    height: 38px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    margin: 0 !important;
+
+    border-radius: 11px !important;
+}
+
+
+/* ICONO DIRECTO DE INVENTARIO */
+
+.cards > .card > i {
+    grid-area: icono !important;
+
+    align-self: start !important;
+    justify-self: end !important;
+
+    width: 38px !important;
+    height: 38px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    margin: 0 !important;
+
+    border-radius: 11px !important;
+
+    font-size: 19px !important;
+    line-height: 1 !important;
+}
+
+
+/* KPI PRINCIPAL */
+
+.cards > .card > h1,
+.cards > .card #valorExactitudDespachos {
+    grid-area: valor !important;
+
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+
+    align-self: center !important;
+    justify-self: center !important;
+
+    margin: 0 !important;
+
+    color: #111111 !important;
+
+    font-size: 29px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+
+    text-align: center !important;
+
+    transform: none !important;
+    white-space: nowrap !important;
+}
+
+
+/* SUBTÍTULO INFERIOR IZQUIERDO */
+
+.cards > .card .card-indicador-detalle,
+.cards > .card .card-indicador-secundario,
+.cards > .card .resumen-card-exactitud {
+    grid-area: detalle !important;
+
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+
+    align-self: end !important;
+
+    min-width: 0 !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    overflow: hidden !important;
+
+    color: #555555 !important;
+
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+
+    text-align: left !important;
+
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+
+/* BOTÓN INFERIOR DERECHO */
+
+.cards > .card .btn-card-indicador {
+    grid-area: boton !important;
+
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+
+    align-self: end !important;
+    justify-self: end !important;
+
+    min-width: 132px !important;
+    width: auto !important;
+
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+
+    margin: 0 !important;
+    padding: 0 12px !important;
+
+    border-radius: 9px !important;
+
+    color: #ffffff !important;
+
+    font-family: inherit !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+
+    white-space: nowrap !important;
+}
+
+.cards > .card .btn-card-indicador i,
+.cards > .card .btn-card-indicador span {
+    margin: 0 !important;
+
+    color: #ffffff !important;
+
+    font-size: 11px !important;
+    line-height: 1 !important;
+}
+
+
+/* MÓVIL */
+
+@media (max-width: 700px) {
+
+    .cards > .card {
+        height: auto !important;
+        min-height: 195px !important;
+
+        grid-template-rows:
+            auto
+            minmax(52px, 1fr)
+            auto
+            auto !important;
+
+        grid-template-areas:
+            "titulo icono"
+            "valor valor"
+            "detalle detalle"
+            "boton boton" !important;
+    }
+
+    .cards > .card .card-indicador-detalle,
+    .cards > .card .card-indicador-secundario,
+    .cards > .card .resumen-card-exactitud {
+        text-align: center !important;
+        white-space: normal !important;
+    }
+
+    .cards > .card .btn-card-indicador {
+        justify-self: stretch !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+}

@@ -1122,7 +1122,7 @@
     }
 
     .pasos-compactos .paso{
-        font-size:10px;
+        font-size:14px;
     }
 
 }
@@ -1136,7 +1136,7 @@
     display:block;
     margin-top:3px;
     color:#F59E0B;
-    font-size:11px;
+    font-size:14px;
     font-weight:700;
 }
 
@@ -1235,11 +1235,11 @@
 
 #tablaAbiertos td,
 #tablaCerrados td{
-    font-size:13px;
+    font-size:14px;
 }
 
 .estado-borrador{
-    font-size:10px;
+    font-size:14px;
 }
 
 .fecha-conduce{
@@ -1510,7 +1510,7 @@
 .estado-despacho{
     display:block;
     margin-top:3px;
-    font-size:10px;
+    font-size:14px;
     font-weight:700;
 }
 
@@ -1565,7 +1565,7 @@
     border-radius:50%;
 
     color:#fff;
-    font-size:13px;
+    font-size:14px;
     line-height:1;
 
     cursor:pointer;
@@ -5131,7 +5131,7 @@ body.centro-despachos-abierto
     .panel > h3 {
         margin: 0 !important;
 
-        font-size: 13px !important;
+        font-size: 14px !important;
         line-height: 1.15 !important;
     }
 
@@ -5145,7 +5145,7 @@ body.centro-despachos-abierto
             4px
             8px !important;
 
-        font-size: 8px !important;
+        font-size: 10px !important;
     }
 
 }
@@ -5215,7 +5215,7 @@ body.centro-despachos-abierto
         background: #df1821 !important;
         color: #ffffff !important;
 
-        font-size: 9px !important;
+        font-size: 10px !important;
         line-height: 1.15 !important;
 
         box-shadow:
@@ -5233,7 +5233,7 @@ body.centro-despachos-abierto
 
         background: #ffffff;
 
-        font-size: 9px !important;
+        font-size: 10px !important;
         line-height: 1.2 !important;
     }
 

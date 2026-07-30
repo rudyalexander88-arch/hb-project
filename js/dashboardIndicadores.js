@@ -180,11 +180,7 @@ const DashboardIndicadores = {
 					<strong class="card-indicador-detalle">
 						Materiales con bajo inventario en FB
 					</strong>
-
-					<span class="card-indicador-secundario">
-						Según promedio de ventas
-					</span>
-
+			
 				</div>
 
                 <button

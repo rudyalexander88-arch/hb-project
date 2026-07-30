@@ -912,3 +912,72 @@ body {
 }
 
 
+/* =========================================================
+   NOTIFICACIONES GLOBALES — CONTRASTE Y LEGIBILIDAD
+   ========================================================= */
+
+.notificacion,
+.notificacion-sistema,
+.alerta-flotante,
+.toast,
+.toast-sistema,
+.sistema-toast,
+.mensaje-flotante {
+    color: #ffffff !important;
+}
+
+.notificacion *,
+.notificacion-sistema *,
+.alerta-flotante *,
+.toast *,
+.toast-sistema *,
+.sistema-toast *,
+.mensaje-flotante * {
+    color: #ffffff !important;
+}
+
+.notificacion .mensaje,
+.notificacion-sistema .mensaje,
+.alerta-flotante .mensaje,
+.toast .mensaje,
+.toast-sistema .mensaje,
+.sistema-toast .mensaje,
+.mensaje-flotante .mensaje,
+.notificacion p,
+.notificacion-sistema p,
+.alerta-flotante p,
+.toast p,
+.toast-sistema p,
+.sistema-toast p {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+.notificacion i,
+.notificacion-sistema i,
+.alerta-flotante i,
+.toast i,
+.toast-sistema i,
+.sistema-toast i {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+.notificacion button,
+.notificacion-sistema button,
+.alerta-flotante button,
+.toast button,
+.toast-sistema button,
+.sistema-toast button {
+    color: #ffffff !important;
+    opacity: 0.9 !important;
+}
+
+.notificacion button:hover,
+.notificacion-sistema button:hover,
+.alerta-flotante button:hover,
+.toast button:hover,
+.toast-sistema button:hover,
+.sistema-toast button:hover {
+    opacity: 1 !important;
+}

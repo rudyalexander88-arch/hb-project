@@ -1761,3 +1761,212 @@
     }
 }
 
+/* ============================================================
+   CRUCE DE MATERIAL
+   ============================================================ */
+
+.panel-cruce-material[hidden] {
+    display: none !important;
+}
+
+.panel-cruce-material {
+    margin-top: 14px;
+}
+
+.contenido-cruce-material {
+    padding: 14px;
+    border: 1px solid #f0b35a;
+    border-radius: 10px;
+    background: #fffdf8;
+}
+
+.encabezado-cruce-material {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+.encabezado-cruce-material span {
+    display: block;
+    color: #e36a00;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.encabezado-cruce-material strong {
+    display: block;
+    margin-top: 3px;
+    color: #4a4a4a;
+    font-size: 11px;
+}
+
+.encabezado-cruce-material > i {
+    color: #ef7d00;
+    font-size: 22px;
+}
+
+.buscador-cruce-material {
+    position: relative;
+    margin-bottom: 12px;
+}
+
+.buscador-cruce-material > label {
+    display: block;
+    margin-bottom: 5px;
+    color: #444;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.control-busqueda-cruce-material {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: 7px;
+}
+
+.control-busqueda-cruce-material input {
+    width: 100%;
+    height: 42px;
+    padding: 0 11px;
+    border: 1px solid #d8d8d8;
+    border-radius: 8px;
+    font-family: inherit;
+}
+
+.btn-buscar-material-cruce {
+    height: 42px;
+    border: none;
+    border-radius: 8px;
+    background: #ef7d00;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.resultados-material-cruce {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 260px;
+    padding: 6px;
+    overflow-y: auto;
+    border: 1px solid #d8d8d8;
+    border-radius: 9px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.resultados-material-cruce[hidden] {
+    display: none !important;
+}
+
+.opcion-material-cruce {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 3px 10px;
+    padding: 9px 10px;
+    border: none;
+    border-bottom: 1px solid #eeeeee;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+}
+
+.opcion-material-cruce:hover {
+    background: #fff5e8;
+}
+
+.opcion-material-cruce strong {
+    color: #ba171b;
+}
+
+.opcion-material-cruce span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.opcion-material-cruce small {
+    grid-column: 2;
+    color: #777777;
+}
+
+.resultado-material-cruce-vacio {
+    padding: 14px;
+    color: #777777;
+    text-align: center;
+}
+
+.datos-material-cruce {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.datos-material-cruce > div {
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid #ececec;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.datos-material-cruce span {
+    display: block;
+    color: #777777;
+    font-size: 9px;
+}
+
+.datos-material-cruce strong {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: #252525;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.campos-datos-cruce-material {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.nota-cruce-material {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 11px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: #eef6ff;
+    color: #40617d;
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+@media (max-width: 1000px) {
+    .datos-material-cruce,
+    .campos-datos-cruce-material {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .datos-material-cruce,
+    .campos-datos-cruce-material {
+        grid-template-columns: 1fr;
+    }
+
+    .opcion-material-cruce {
+        grid-template-columns: 90px minmax(0, 1fr);
+    }
+}

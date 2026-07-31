@@ -3299,13 +3299,23 @@ window.ExactitudDespachos = {
         ""
       );
 
-
     const temporal =
       this.estado.correccionesTemporales[
         idDetalle
       ] ||
       {};
 
+    const tipoSeleccionado =
+      String(
+        temporal.tipoCorreccion ||
+        linea.Tipo_Correccion ||
+        ""
+      ).trim();
+
+    const esCruce =
+      this.esTipoCruceMaterial(
+        tipoSeleccionado
+      );
 
     return `
 
@@ -3363,8 +3373,7 @@ window.ExactitudDespachos = {
             >
 
               ${this.renderOpcionesTipoCorreccion(
-                temporal.tipoCorreccion ||
-                linea.Tipo_Correccion
+                tipoSeleccionado
               )}
 
             </select>
@@ -3423,6 +3432,24 @@ window.ExactitudDespachos = {
         </div>
 
 
+        <div
+          class="panel-cruce-material"
+          ${
+            esCruce
+              ? ""
+              : "hidden"
+          }
+        >
+
+          ${this.renderCamposCruceMaterial(
+            temporal.materialCruce ||
+            {},
+            modoConsulta
+          )}
+
+        </div>
+
+
         ${
           !modoConsulta
             ? `
@@ -3459,37 +3486,331 @@ window.ExactitudDespachos = {
   },
 
 
+  renderCamposCruceMaterial(
+    materialCruce,
+    modoConsulta
+  ) {
+
+    const datos =
+      materialCruce ||
+      {};
+
+    const cantidadPrincipal =
+      datos.cantidadPrincipal ||
+      "";
+
+    const recorte =
+      datos.recorte ||
+      "";
+
+    const total =
+      Number(
+        cantidadPrincipal || 0
+      ) +
+      Number(
+        recorte || 0
+      );
+
+    return `
+
+      <section class="contenido-cruce-material">
+
+        <div class="encabezado-cruce-material">
+
+          <div>
+
+            <span>
+              Material realmente despachado
+            </span>
+
+            <strong>
+              Busque y seleccione el material encontrado físicamente.
+            </strong>
+
+          </div>
+
+          <i class="fa-solid fa-right-left"></i>
+
+        </div>
+
+
+        <div class="buscador-cruce-material">
+
+          <label>
+            Material destino
+          </label>
+
+          <div class="control-busqueda-cruce-material">
+
+            <input
+              type="search"
+              class="input-busqueda-material-cruce"
+              placeholder="Código o descripción"
+              autocomplete="off"
+              value="${this.escapar(
+                datos.textoBusqueda ||
+                datos.descripcion ||
+                datos.material ||
+                ""
+              )}"
+              ${
+                modoConsulta
+                  ? "disabled"
+                  : ""
+              }
+            >
+
+            <button
+              type="button"
+              class="btn-buscar-material-cruce"
+              title="Buscar material"
+              ${
+                modoConsulta
+                  ? "disabled"
+                  : ""
+              }
+            >
+
+              <i class="fa-solid fa-magnifying-glass"></i>
+
+            </button>
+
+          </div>
+
+
+          <div
+            class="resultados-material-cruce"
+            hidden
+          ></div>
+
+        </div>
+
+
+        <input
+          type="hidden"
+          class="input-cruce-material-id"
+          value="${this.escapar(
+            datos.material ||
+            ""
+          )}"
+        >
+
+
+        <div class="datos-material-cruce">
+
+          <div>
+            <span>Código</span>
+            <strong class="dato-cruce-material">${this.escapar(datos.material || "-")}</strong>
+          </div>
+
+          <div>
+            <span>Descripción</span>
+            <strong class="dato-cruce-descripcion">${this.escapar(datos.descripcion || "-")}</strong>
+          </div>
+
+          <div>
+            <span>UM</span>
+            <strong class="dato-cruce-um">${this.escapar(datos.um || "-")}</strong>
+          </div>
+
+          <div>
+            <span>UMB</span>
+            <strong class="dato-cruce-umb">${this.escapar(datos.umb || "-")}</strong>
+          </div>
+
+          <div>
+            <span>Base estándar</span>
+            <strong class="dato-cruce-base">${this.escapar(datos.base || "-")}</strong>
+          </div>
+
+          <div>
+            <span>Altura estándar</span>
+            <strong class="dato-cruce-altura">${this.escapar(datos.altura || "-")}</strong>
+          </div>
+
+          <div>
+            <span>Estándar pallet</span>
+            <strong class="dato-cruce-estandar">${this.escapar(datos.estandarPallet || "-")}</strong>
+          </div>
+
+          <div>
+            <span>Vida útil</span>
+            <strong class="dato-cruce-vida-util">${
+              datos.vidaUtilAnios
+                ? this.escapar(datos.vidaUtilAnios) + " años"
+                : "-"
+            }</strong>
+          </div>
+
+        </div>
+
+
+        <div class="campos-datos-cruce-material">
+
+          <div class="campo-correccion-material">
+
+            <label>
+              Cantidad principal
+            </label>
+
+            <input
+              type="number"
+              min="1"
+              step="1"
+              class="input-cruce-cantidad-principal"
+              value="${this.escapar(
+                cantidadPrincipal
+              )}"
+              ${
+                modoConsulta
+                  ? "disabled"
+                  : ""
+              }
+            >
+
+            <small>
+              No puede superar el estándar pallet.
+            </small>
+
+          </div>
+
+
+          <div class="campo-correccion-material">
+
+            <label>
+              Recorte adicional
+            </label>
+
+            <input
+              type="number"
+              min="0"
+              step="1"
+              class="input-cruce-recorte"
+              value="${this.escapar(
+                recorte
+              )}"
+              ${
+                modoConsulta
+                  ? "disabled"
+                  : ""
+              }
+            >
+
+          </div>
+
+
+          <div class="campo-correccion-material">
+
+            <label>
+              Total material agregado
+            </label>
+
+            <input
+              type="text"
+              class="input-cruce-total"
+              value="${this.escapar(
+                total
+              )}"
+              disabled
+            >
+
+          </div>
+
+
+          <div class="campo-correccion-material">
+
+            <label>
+              Fecha de fabricación
+            </label>
+
+            <input
+              type="date"
+              class="input-cruce-fecha-produccion"
+              value="${this.escapar(
+                datos.fechaProduccion ||
+                ""
+              )}"
+              ${
+                modoConsulta
+                  ? "disabled"
+                  : ""
+              }
+            >
+
+          </div>
+
+        </div>
+
+
+        <div class="nota-cruce-material">
+
+          <i class="fa-solid fa-circle-info"></i>
+
+          <span>
+            El lote y el vencimiento serán calculados automáticamente al guardar.
+          </span>
+
+        </div>
+
+      </section>
+
+    `;
+
+  },
+
+
   renderOpcionesTipoCorreccion(
     seleccionado
   ) {
 
     const opciones = [
 
-      "",
+      ["", "Seleccionar"],
 
-      "REPOSICIÓN DE FALTANTE",
+      [
+        "REPOSICIÓN DE FALTANTE",
+        "Reposición de faltante"
+      ],
 
-      "RETORNO DE SOBRANTE",
+      [
+        "RETORNO DE SOBRANTE",
+        "Retorno de sobrante"
+      ],
 
-      "AJUSTE DOCUMENTAL",
+      [
+        "AJUSTE DOCUMENTAL",
+        "Ajuste documental"
+      ],
 
-      "CORRECCIÓN DE CONTEO",
+      [
+        "CORRECCIÓN DE CONTEO",
+        "Corrección de conteo"
+      ],
 
-      "OTRA"
+      [
+        "CRUCE DE MATERIAL",
+        "Cruce de material"
+      ],
+
+      [
+        "OTRA",
+        "Otra"
+      ]
 
     ];
 
-
     return opciones
       .map(
-        valor => `
+        opcion => `
 
           <option
             value="${this.escapar(
-              valor
+              opcion[0]
             )}"
             ${
-              String(valor) ===
+              String(
+                opcion[0]
+              ) ===
               String(
                 seleccionado ||
                 ""
@@ -3499,16 +3820,29 @@ window.ExactitudDespachos = {
             }
           >
 
-            ${
-              valor ||
-              "Seleccionar"
-            }
+            ${this.escapar(
+              opcion[1]
+            )}
 
           </option>
 
         `
       )
       .join("");
+
+  },
+
+
+  esTipoCruceMaterial(
+    valor
+  ) {
+
+    return String(
+      valor || ""
+    )
+      .trim()
+      .toUpperCase() ===
+      "CRUCE DE MATERIAL";
 
   },
 
@@ -3662,18 +3996,15 @@ window.ExactitudDespachos = {
         "btnVolverCentroExactitud"
       );
 
-
     const editar =
       document.getElementById(
         "btnEditarVerificacion"
       );
 
-
     const lista =
       document.getElementById(
         "listaMaterialesVerificacion"
       );
-
 
     const guardarGeneral =
       document.getElementById(
@@ -3720,13 +4051,12 @@ window.ExactitudDespachos = {
     if (lista) {
 
       lista.onclick =
-        evento => {
+        async evento => {
 
           const cabecera =
             evento.target.closest(
               ".cabecera-desplegable-material"
             );
-
 
           if (cabecera) {
 
@@ -3746,7 +4076,6 @@ window.ExactitudDespachos = {
               ".btn-guardar-linea-verificacion"
             );
 
-
           if (guardarLinea) {
 
             evento.preventDefault();
@@ -3754,6 +4083,61 @@ window.ExactitudDespachos = {
             this.guardarLineaDesdeTarjeta(
               guardarLinea
             );
+
+            return;
+
+          }
+
+
+          const buscarMaterial =
+            evento.target.closest(
+              ".btn-buscar-material-cruce"
+            );
+
+          if (buscarMaterial) {
+
+            evento.preventDefault();
+
+            const tarjeta =
+              buscarMaterial.closest(
+                ".tarjeta-material-verificacion"
+              );
+
+            if (tarjeta) {
+
+              await this.buscarMaterialesCruceDesdeTarjeta(
+                tarjeta
+              );
+
+            }
+
+            return;
+
+          }
+
+
+          const opcionMaterial =
+            evento.target.closest(
+              ".opcion-material-cruce"
+            );
+
+          if (opcionMaterial) {
+
+            evento.preventDefault();
+
+            const tarjeta =
+              opcionMaterial.closest(
+                ".tarjeta-material-verificacion"
+              );
+
+            if (tarjeta) {
+
+              this.seleccionarMaterialCruce(
+                tarjeta,
+                opcionMaterial.dataset.material
+              );
+
+            }
 
           }
 
@@ -3768,20 +4152,24 @@ window.ExactitudDespachos = {
               ".tarjeta-material-verificacion"
             );
 
-
           if (!tarjeta) {
             return;
           }
 
-
           if (
             evento.target.matches(
               ".input-correccion-cantidad, " +
-              ".input-correccion-tipo, " +
               ".input-correccion-causa, " +
-              ".input-correccion-comentario"
+              ".input-correccion-comentario, " +
+              ".input-cruce-cantidad-principal, " +
+              ".input-cruce-recorte, " +
+              ".input-cruce-fecha-produccion"
             )
           ) {
+
+            this.actualizarTotalCruceMaterial(
+              tarjeta
+            );
 
             this.capturarCorreccionTemporal(
               tarjeta
@@ -3793,31 +4181,97 @@ window.ExactitudDespachos = {
 
 
       lista.onchange =
-        evento => {
+        async evento => {
+
+          const tarjeta =
+            evento.target.closest(
+              ".tarjeta-material-verificacion"
+            );
+
+          if (!tarjeta) {
+            return;
+          }
+
+
+          if (
+            evento.target.matches(
+              ".input-correccion-tipo"
+            )
+          ) {
+
+            this.capturarCorreccionTemporal(
+              tarjeta
+            );
+
+            const panel =
+              tarjeta.querySelector(
+                ".panel-cruce-material"
+              );
+
+            if (panel) {
+
+              panel.hidden =
+                !this.esTipoCruceMaterial(
+                  evento.target.value
+                );
+
+            }
+
+            if (
+              this.esTipoCruceMaterial(
+                evento.target.value
+              )
+            ) {
+
+              await this.cargarCatalogoMaterialesCruce();
+
+            }
+
+          }
+
 
           const check =
             evento.target.closest(
               ".check-incluir-correccion"
             );
 
-
           if (check) {
 
-            const tarjeta =
-              check.closest(
-                ".tarjeta-material-verificacion"
-              );
+            this.capturarCorreccionTemporal(
+              tarjeta
+            );
+
+            this.actualizarContadorCorrecciones();
+
+          }
+
+        };
 
 
-            if (tarjeta) {
+      lista.onkeydown =
+        async evento => {
 
-              this.capturarCorreccionTemporal(
-                tarjeta
-              );
+          if (
+            evento.key !== "Enter" ||
+            !evento.target.matches(
+              ".input-busqueda-material-cruce"
+            )
+          ) {
+            return;
+          }
 
-              this.actualizarContadorCorrecciones();
+          evento.preventDefault();
 
-            }
+          const tarjeta =
+            evento.target.closest(
+              ".tarjeta-material-verificacion"
+            );
+
+          if (tarjeta) {
+
+            await this.buscarMaterialesCruceDesdeTarjeta(
+              tarjeta
+            );
 
           }
 
@@ -4030,40 +4484,99 @@ window.ExactitudDespachos = {
     const idDetalle =
       tarjeta.dataset.idDetalle;
 
-
     if (!idDetalle) {
       return;
     }
 
 
+    const obtener =
+      selector =>
+        tarjeta.querySelector(
+          selector
+        );
+
+
     const cantidad =
-      tarjeta.querySelector(
+      obtener(
         ".input-correccion-cantidad"
       );
 
-
     const tipo =
-      tarjeta.querySelector(
+      obtener(
         ".input-correccion-tipo"
       );
 
-
     const causa =
-      tarjeta.querySelector(
+      obtener(
         ".input-correccion-causa"
       );
 
-
     const comentario =
-      tarjeta.querySelector(
+      obtener(
         ".input-correccion-comentario"
       );
 
-
     const incluir =
-      tarjeta.querySelector(
+      obtener(
         ".check-incluir-correccion"
       );
+
+    const materialId =
+      obtener(
+        ".input-cruce-material-id"
+      );
+
+    const busqueda =
+      obtener(
+        ".input-busqueda-material-cruce"
+      );
+
+    const principal =
+      obtener(
+        ".input-cruce-cantidad-principal"
+      );
+
+    const recorte =
+      obtener(
+        ".input-cruce-recorte"
+      );
+
+    const fecha =
+      obtener(
+        ".input-cruce-fecha-produccion"
+      );
+
+
+    const anterior =
+      this.estado.correccionesTemporales[
+        idDetalle
+      ] ||
+      {};
+
+
+    const catalogo =
+      Array.isArray(
+        this.estado.catalogoMaterialesCruce
+      )
+        ? this.estado.catalogoMaterialesCruce
+        : [];
+
+
+    const seleccionado =
+      catalogo.find(
+        item =>
+          String(
+            item.material ||
+            ""
+          ) ===
+          String(
+            materialId
+              ? materialId.value
+              : ""
+          )
+      ) ||
+      anterior.materialCruce ||
+      {};
 
 
     this.estado.correccionesTemporales[
@@ -4093,7 +4606,68 @@ window.ExactitudDespachos = {
       comentarioDiferencia:
         comentario
           ? comentario.value
-          : ""
+          : "",
+
+      materialCruce: {
+
+        material:
+          materialId
+            ? materialId.value
+            : "",
+
+        textoBusqueda:
+          busqueda
+            ? busqueda.value
+            : "",
+
+        descripcion:
+          seleccionado.descripcion ||
+          "",
+
+        unidadMedida:
+          seleccionado.unidadMedida ||
+          "",
+
+        um:
+          seleccionado.um ||
+          "",
+
+        umb:
+          seleccionado.umb ||
+          "",
+
+        base:
+          seleccionado.base ||
+          "",
+
+        altura:
+          seleccionado.altura ||
+          "",
+
+        estandarPallet:
+          seleccionado.estandarPallet ||
+          "",
+
+        vidaUtilAnios:
+          seleccionado.vidaUtilAnios ||
+          "",
+
+        cantidadPrincipal:
+          principal
+            ? principal.value
+            : "",
+
+        recorte:
+          recorte
+            ? recorte.value
+            : "0",
+
+        fechaProduccion:
+          fecha
+            ? fecha.value
+            : ""
+
+      }
 
     };
 
@@ -4114,7 +4688,6 @@ window.ExactitudDespachos = {
               idDetalle
             ];
 
-
           return {
 
             idDetalleVerificacion:
@@ -4132,6 +4705,14 @@ window.ExactitudDespachos = {
             comentarioDiferencia:
               item.comentarioDiferencia,
 
+            materialCruce:
+              this.esTipoCruceMaterial(
+                item.tipoCorreccion
+              )
+                ? item.materialCruce ||
+                  null
+                : null,
+
             incluir:
               item.incluir === true
 
@@ -4141,6 +4722,555 @@ window.ExactitudDespachos = {
       )
       .filter(
         item => item.incluir
+      );
+
+  },
+
+
+  async cargarCatalogoMaterialesCruce() {
+
+    if (
+      Array.isArray(
+        this.estado.catalogoMaterialesCruce
+      ) &&
+      this.estado.catalogoMaterialesCruce.length > 0
+    ) {
+
+      return this.estado.catalogoMaterialesCruce;
+
+    }
+
+
+    this.mostrarCarga(
+      "Cargando materiales",
+      "Consultando el catálogo para el cruce."
+    );
+
+
+    try {
+
+      const respuesta =
+        await API.post({
+
+          action:
+            "listarMateriales"
+
+        });
+
+
+      if (
+        !respuesta ||
+        !respuesta.ok
+      ) {
+
+        throw new Error(
+          respuesta &&
+          respuesta.mensaje
+            ? respuesta.mensaje
+            : "No fue posible cargar los materiales."
+        );
+
+      }
+
+
+      const registros =
+        Array.isArray(
+          respuesta.data
+        )
+          ? respuesta.data
+          : [];
+
+
+      this.estado.catalogoMaterialesCruce =
+        registros
+          .map(
+            item =>
+              this.normalizarMaterialCruceCatalogo(
+                item
+              )
+          )
+          .filter(
+            item =>
+              item.material
+          );
+
+
+      return this.estado.catalogoMaterialesCruce;
+
+
+    } finally {
+
+      this.ocultarCarga();
+
+    }
+
+  },
+
+
+  normalizarMaterialCruceCatalogo(
+    item
+  ) {
+
+    const material =
+      String(
+        item.id ||
+        item.ID_Material ||
+        item.idMaterial ||
+        item.Material ||
+        item.material ||
+        ""
+      ).trim();
+
+
+    const base =
+      Number(
+        item.base ||
+        item.Base_Estandar ||
+        item.baseEstandar ||
+        0
+      );
+
+
+    const altura =
+      Number(
+        item.altura ||
+        item.Altura_Estandar ||
+        item.alturaEstandar ||
+        0
+      );
+
+
+    return {
+
+      material:
+        material,
+
+      descripcion:
+        String(
+          item.descripcion ||
+          item.Descripcion ||
+          ""
+        ).trim(),
+
+      unidadMedida:
+        String(
+          item.unidad_medida ||
+          item.Unidad_Medida ||
+          item.unidadMedida ||
+          ""
+        ).trim(),
+
+      um:
+        String(
+          item.um ||
+          item.UM ||
+          ""
+        ).trim(),
+
+      umb:
+        Number(
+          item.umb ||
+          item.UMB ||
+          0
+        ),
+
+      base:
+        base,
+
+      altura:
+        altura,
+
+      estandarPallet:
+        Number(
+          item.estandarPallet ||
+          item.Estandar_Pallet ||
+          (
+            base *
+            altura
+          ) ||
+          0
+        ),
+
+      vidaUtilAnios:
+        Number(
+          item.vida_util ||
+          item.Vida_Util_Años ||
+          item.vidaUtilAnios ||
+          0
+        )
+
+    };
+
+  },
+
+
+  async buscarMaterialesCruceDesdeTarjeta(
+    tarjeta
+  ) {
+
+    const input =
+      tarjeta.querySelector(
+        ".input-busqueda-material-cruce"
+      );
+
+
+    const contenedor =
+      tarjeta.querySelector(
+        ".resultados-material-cruce"
+      );
+
+
+    if (
+      !input ||
+      !contenedor
+    ) {
+      return;
+    }
+
+
+    const texto =
+      String(
+        input.value ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      texto.length < 2
+    ) {
+
+      this.notificar(
+        "Escriba al menos dos caracteres para buscar.",
+        "advertencia"
+      );
+
+      return;
+
+    }
+
+
+    const catalogo =
+      await this.cargarCatalogoMaterialesCruce();
+
+
+    const resultados =
+      catalogo
+        .filter(
+          item =>
+            String(
+              item.material ||
+              ""
+            )
+              .toLowerCase()
+              .includes(
+                texto
+              ) ||
+            String(
+              item.descripcion ||
+              ""
+            )
+              .toLowerCase()
+              .includes(
+                texto
+              )
+        )
+        .slice(
+          0,
+          15
+        );
+
+
+    if (
+      resultados.length === 0
+    ) {
+
+      contenedor.innerHTML = `
+
+        <div class="resultado-material-cruce-vacio">
+
+          No se encontraron materiales.
+
+        </div>
+
+      `;
+
+      contenedor.hidden =
+        false;
+
+      return;
+
+    }
+
+
+    contenedor.innerHTML =
+      resultados
+        .map(
+          item => `
+
+            <button
+              type="button"
+              class="opcion-material-cruce"
+              data-material="${this.escapar(
+                item.material
+              )}"
+            >
+
+              <strong>
+                ${this.escapar(
+                  item.material
+                )}
+              </strong>
+
+              <span>
+                ${this.escapar(
+                  item.descripcion
+                )}
+              </span>
+
+              <small>
+                ${
+                  item.um
+                    ? this.escapar(
+                        item.um
+                      ) + " · "
+                    : ""
+                }
+
+                Estándar:
+                ${this.escapar(
+                  item.estandarPallet
+                )}
+              </small>
+
+            </button>
+
+          `
+        )
+        .join("");
+
+
+    contenedor.hidden =
+      false;
+
+  },
+
+
+  seleccionarMaterialCruce(
+    tarjeta,
+    materialId
+  ) {
+
+    const catalogo =
+      Array.isArray(
+        this.estado.catalogoMaterialesCruce
+      )
+        ? this.estado.catalogoMaterialesCruce
+        : [];
+
+
+    const material =
+      catalogo.find(
+        item =>
+          String(
+            item.material
+          ) ===
+          String(
+            materialId
+          )
+      );
+
+
+    if (!material) {
+
+      this.notificar(
+        "No fue posible identificar el material seleccionado.",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    const texto =
+      (
+        selector,
+        valor
+      ) => {
+
+        const elemento =
+          tarjeta.querySelector(
+            selector
+          );
+
+        if (elemento) {
+
+          elemento.textContent =
+            valor === "" ||
+            valor === null ||
+            typeof valor === "undefined"
+              ? "-"
+              : valor;
+
+        }
+
+      };
+
+
+    const id =
+      tarjeta.querySelector(
+        ".input-cruce-material-id"
+      );
+
+    const busqueda =
+      tarjeta.querySelector(
+        ".input-busqueda-material-cruce"
+      );
+
+    const cantidad =
+      tarjeta.querySelector(
+        ".input-cruce-cantidad-principal"
+      );
+
+    const resultados =
+      tarjeta.querySelector(
+        ".resultados-material-cruce"
+      );
+
+
+    if (id) {
+
+      id.value =
+        material.material;
+
+    }
+
+
+    if (busqueda) {
+
+      busqueda.value =
+        material.material +
+        " - " +
+        material.descripcion;
+
+    }
+
+
+    if (
+      cantidad &&
+      !String(
+        cantidad.value ||
+        ""
+      ).trim()
+    ) {
+
+      cantidad.value =
+        material.estandarPallet ||
+        "";
+
+    }
+
+
+    texto(
+      ".dato-cruce-material",
+      material.material
+    );
+
+    texto(
+      ".dato-cruce-descripcion",
+      material.descripcion
+    );
+
+    texto(
+      ".dato-cruce-um",
+      material.um
+    );
+
+    texto(
+      ".dato-cruce-umb",
+      material.umb
+    );
+
+    texto(
+      ".dato-cruce-base",
+      material.base
+    );
+
+    texto(
+      ".dato-cruce-altura",
+      material.altura
+    );
+
+    texto(
+      ".dato-cruce-estandar",
+      material.estandarPallet
+    );
+
+    texto(
+      ".dato-cruce-vida-util",
+      material.vidaUtilAnios
+        ? material.vidaUtilAnios +
+          " años"
+        : "-"
+    );
+
+
+    if (resultados) {
+
+      resultados.hidden =
+        true;
+
+    }
+
+
+    this.actualizarTotalCruceMaterial(
+      tarjeta
+    );
+
+    this.capturarCorreccionTemporal(
+      tarjeta
+    );
+
+  },
+
+
+  actualizarTotalCruceMaterial(
+    tarjeta
+  ) {
+
+    const principal =
+      tarjeta.querySelector(
+        ".input-cruce-cantidad-principal"
+      );
+
+    const recorte =
+      tarjeta.querySelector(
+        ".input-cruce-recorte"
+      );
+
+    const total =
+      tarjeta.querySelector(
+        ".input-cruce-total"
+      );
+
+
+    if (!total) {
+      return;
+    }
+
+
+    total.value =
+      Number(
+        principal
+          ? principal.value || 0
+          : 0
+      ) +
+      Number(
+        recorte
+          ? recorte.value || 0
+          : 0
       );
 
   },
@@ -4239,6 +5369,71 @@ window.ExactitudDespachos = {
 
       }
 
+      if (
+        this.esTipoCruceMaterial(
+          correcciones[i]
+            .tipoCorreccion
+        )
+      ) {
+
+        const cruce =
+          correcciones[i]
+            .materialCruce ||
+          {};
+
+
+        if (
+          !String(
+            cruce.material ||
+            ""
+          ).trim()
+        ) {
+
+          this.notificar(
+            "Debe seleccionar el material destino del cruce.",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+
+        if (
+          Number(
+            cruce.cantidadPrincipal ||
+            0
+          ) <= 0
+        ) {
+
+          this.notificar(
+            "Debe indicar una cantidad principal válida para el material cruzado.",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+
+        if (
+          !String(
+            cruce.fechaProduccion ||
+            ""
+          ).trim()
+        ) {
+
+          this.notificar(
+            "Debe indicar la fecha de fabricación del material cruzado.",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+      }
+
     }
 
 
@@ -4286,14 +5481,26 @@ window.ExactitudDespachos = {
       this.obtenerSesion();
 
 
+    const corregidoPor =
+      sesion.nombre ||
+      sesion.Nombre ||
+      sesion.nombreCompleto ||
+      "Analista";
+
+
     this.mostrarCarga(
       "Guardando corrección",
-      "Actualizando los materiales y el documento SAP."
+      "Validando el documento SAP y actualizando los materiales."
     );
 
 
     try {
 
+      /*
+       * =====================================================
+       * 1. REGISTRAR CORRECCIÓN Y MODIFICAR EL CONDUCE
+       * =====================================================
+       */
       const respuesta =
         await API.post({
 
@@ -4312,10 +5519,7 @@ window.ExactitudDespachos = {
               : "",
 
           corregidoPor:
-            sesion.nombre ||
-            sesion.Nombre ||
-            sesion.nombreCompleto ||
-            "Analista",
+            corregidoPor,
 
           correcciones:
             correcciones.map(
@@ -4334,7 +5538,11 @@ window.ExactitudDespachos = {
                   item.causaDiferencia,
 
                 comentarioDiferencia:
-                  item.comentarioDiferencia
+                  item.comentarioDiferencia,
+
+                materialCruce:
+                  item.materialCruce ||
+                  null
 
               })
             )
@@ -4357,6 +5565,125 @@ window.ExactitudDespachos = {
       }
 
 
+      const resultadoCorreccion =
+        respuesta.data ||
+        {};
+
+
+      const conduceCorregido =
+        resultadoCorreccion
+          .conduceCorregido ||
+        null;
+
+
+      if (
+        !conduceCorregido ||
+        !conduceCorregido.conduce
+      ) {
+
+        throw new Error(
+          "La corrección fue registrada, pero el backend no devolvió el conduce corregido para generar su documento."
+        );
+
+      }
+
+
+      /*
+       * =====================================================
+       * 2. CONSTRUIR EL HTML OFICIAL DEL CONDUCE
+       * =====================================================
+       *
+       * Reutilizamos exactamente el generador que ya funciona
+       * en despachos.js. El estado global de Conduce se conserva
+       * y se restaura al finalizar para no alterar otros módulos.
+       */
+      this.mostrarCarga(
+        "Generando conduce corregido",
+        "Recalculando el documento oficial con las cantidades verificadas."
+      );
+
+
+      const htmlCorregido =
+        await this.construirHTMLConduceCorregido(
+          conduceCorregido.conduce
+        );
+
+
+      if (!htmlCorregido) {
+
+        throw new Error(
+          "No fue posible construir el HTML del conduce corregido."
+        );
+
+      }
+
+
+      /*
+       * =====================================================
+       * 3. GUARDAR PDF VERSIONADO EN DRIVE
+       * =====================================================
+       */
+      this.mostrarCarga(
+        "Guardando PDF corregido",
+        "Creando una nueva versión sin eliminar el conduce original."
+      );
+
+
+      const respuestaPDF =
+        await API.post({
+
+          action:
+            "guardarPDFConduce",
+
+          idConduce:
+            conduceCorregido.idConduce,
+
+          noConduce:
+            conduceCorregido.noConduce,
+
+          html:
+            htmlCorregido,
+
+          tipoDocumento:
+            "CORRECCION",
+
+          corregidoPor:
+            corregidoPor,
+
+          documentoSAP:
+            documento.value,
+
+          comentarioCorreccion:
+            comentario
+              ? comentario.value
+              : ""
+
+        });
+
+
+      if (
+        !respuestaPDF ||
+        !respuestaPDF.ok
+      ) {
+
+        throw new Error(
+          respuestaPDF &&
+          respuestaPDF.mensaje
+            ? (
+                "La corrección fue aplicada al conduce, pero no fue posible generar el PDF: " +
+                respuestaPDF.mensaje
+              )
+            : "La corrección fue aplicada al conduce, pero no fue posible generar el PDF."
+        );
+
+      }
+
+
+      const pdf =
+        respuestaPDF.data ||
+        {};
+
+
       this.estado.correccionesTemporales =
         {};
 
@@ -4364,14 +5691,61 @@ window.ExactitudDespachos = {
       await this.recargarPaqueteActual();
 
 
+      /*
+       * =====================================================
+       * 4. RESULTADO VISIBLE PARA EL USUARIO
+       * =====================================================
+       */
+      this.mostrarResultadoCorreccion({
+
+        noConduce:
+          conduceCorregido.noConduce,
+
+        materialesCorregidos:
+          resultadoCorreccion.operacion &&
+          resultadoCorreccion.operacion
+            .materialesCorregidos
+              ? resultadoCorreccion.operacion
+                  .materialesCorregidos
+              : correcciones.length,
+
+        totalLineas:
+          conduceCorregido.totalLineas,
+
+        totalUnidades:
+          conduceCorregido.totalUnidades,
+
+        numeroCorreccion:
+          pdf.numeroCorreccion,
+
+        nombreArchivo:
+          pdf.nombreArchivo,
+
+        archivoUrl:
+          pdf.archivoUrl,
+
+        carpetaUrl:
+          pdf.carpetaUrl,
+
+        originalConservado:
+          pdf.originalConservado === true
+
+      });
+
+
       this.notificar(
-        respuesta.mensaje ||
-        "Corrección guardada correctamente.",
+        "Corrección aplicada y PDF generado correctamente.",
         "exito"
       );
 
 
     } catch (error) {
+
+      console.error(
+        "Error guardando la corrección general:",
+        error
+      );
+
 
       this.notificar(
         error &&
@@ -4385,6 +5759,565 @@ window.ExactitudDespachos = {
     } finally {
 
       this.ocultarCarga();
+
+    }
+
+  },
+
+
+  /**
+   * Construye el HTML oficial reutilizando despachos.js.
+   *
+   * No modifica permanentemente el estado global de Conduce.
+   */
+ async construirHTMLConduceCorregido(
+  conduce
+) {
+
+  if (
+    !window.Despachos ||
+    typeof Despachos
+      .construirHTMLConduceFinal !==
+      "function"
+  ) {
+
+    throw new Error(
+      "El generador oficial de conduces no está cargado. Verifique que despachos.js esté incluido antes de exactitudDespachos.js."
+    );
+
+  }
+
+
+  /*
+   * Conduce está declarado directamente en despachos.js.
+   * Puede existir como variable global aunque no aparezca
+   * dentro de window.
+   */
+  if (
+    typeof Conduce ===
+    "undefined"
+  ) {
+
+    throw new Error(
+      "El estado interno del módulo de despachos no está disponible."
+    );
+
+  }
+
+
+  const datos =
+    conduce ||
+    {};
+
+
+  if (
+    !datos.encabezado ||
+    !Array.isArray(
+      datos.detalle
+    )
+  ) {
+
+    throw new Error(
+      "El conduce corregido no contiene encabezado y detalle válidos."
+    );
+
+  }
+
+
+  if (
+    datos.detalle.length === 0
+  ) {
+
+    throw new Error(
+      "El conduce corregido no contiene líneas para generar el documento."
+    );
+
+  }
+
+
+  /*
+   * Conservamos el estado verdadero usado por despachos.js.
+   */
+  const encabezadoAnterior =
+    Conduce.encabezado;
+
+
+  const detalleAnterior =
+    Conduce.detalle;
+
+
+  try {
+
+    /*
+     * Cargamos temporalmente el conduce corregido dentro del
+     * mismo objeto que utiliza construirHTMLConduceFinal().
+     */
+    Conduce.encabezado =
+      JSON.parse(
+        JSON.stringify(
+          datos.encabezado
+        )
+      );
+
+
+    Conduce.detalle =
+      JSON.parse(
+        JSON.stringify(
+          datos.detalle
+        )
+      );
+
+
+    console.log(
+      "Generando PDF corregido:",
+      {
+        noConduce:
+          Conduce.encabezado
+            .noConduce,
+
+        totalLineas:
+          Conduce.detalle.length,
+
+        primeraLinea:
+          Conduce.detalle[0]
+      }
+    );
+
+
+    const html =
+      await Promise.race([
+
+        Despachos
+          .construirHTMLConduceFinal(),
+
+        new Promise(
+          (
+            resolver,
+            rechazar
+          ) => {
+
+            setTimeout(
+              () => {
+
+                rechazar(
+                  new Error(
+                    "La generación del conduce corregido superó el tiempo máximo permitido."
+                  )
+                );
+
+              },
+              30000
+            );
+
+          }
+        )
+
+      ]);
+
+
+    if (
+      !html ||
+      typeof html !==
+      "string"
+    ) {
+
+      throw new Error(
+        "El generador oficial no devolvió el HTML del conduce corregido."
+      );
+
+    }
+
+
+    return html;
+
+
+  } finally {
+
+    /*
+     * Restauramos el estado anterior para no afectar el
+     * asistente normal de despachos.
+     */
+    Conduce.encabezado =
+      encabezadoAnterior;
+
+
+    Conduce.detalle =
+      detalleAnterior;
+
+  }
+
+},
+
+
+  /**
+   * Presenta el resultado completo de la corrección.
+   */
+  mostrarResultadoCorreccion(
+    datos
+  ) {
+
+    const resultado =
+      datos ||
+      {};
+
+
+    const urlPDF =
+      String(
+        resultado.archivoUrl ||
+        ""
+      ).trim();
+
+
+    const urlCarpeta =
+      String(
+        resultado.carpetaUrl ||
+        ""
+      ).trim();
+
+
+    const contenido = `
+
+      <section class="resultado-correccion-despacho">
+
+        <div class="resultado-correccion-icono">
+
+          <i class="fa-solid fa-circle-check"></i>
+
+        </div>
+
+
+        <div class="resultado-correccion-encabezado">
+
+          <span>
+            Corrección completada
+          </span>
+
+          <h3>
+            Conduce ${this.escapar(
+              resultado.noConduce ||
+              "-"
+            )}
+          </h3>
+
+          <p>
+            El documento corregido fue creado como una nueva
+            versión. El conduce original permanece almacenado
+            en la misma carpeta de Drive.
+          </p>
+
+        </div>
+
+
+        <div class="resultado-correccion-resumen">
+
+          <article>
+
+            <span>
+              Materiales corregidos
+            </span>
+
+            <strong>
+              ${this.formatearNumero(
+				  resultado.materialesCorregidos
+				)}
+            </strong>
+
+          </article>
+
+
+          <article>
+
+            <span>
+              Líneas del conduce
+            </span>
+
+            <strong>
+              ${this.formatearNumero(
+				  resultado.totalLineas
+				)}
+            </strong>
+
+          </article>
+
+
+          <article>
+
+            <span>
+              Unidades vigentes
+            </span>
+
+            <strong>
+              ${this.formatearNumero(
+				  resultado.totalUnidades
+				)}
+            </strong>
+
+          </article>
+
+
+          <article>
+
+            <span>
+              Versión
+            </span>
+
+            <strong>
+              Corrección ${String(
+                Number(
+                  resultado.numeroCorreccion ||
+                  0
+                )
+              ).padStart(
+                2,
+                "0"
+              )}
+            </strong>
+
+          </article>
+
+        </div>
+
+
+        <div class="resultado-correccion-archivo">
+
+          <i class="fa-solid fa-file-pdf"></i>
+
+          <div>
+
+            <span>
+              Documento vigente
+            </span>
+
+            <strong>
+              ${this.escapar(
+                resultado.nombreArchivo ||
+                "PDF corregido"
+              )}
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div class="resultado-correccion-nota">
+
+          <i class="fa-solid fa-shield-halved"></i>
+
+          <span>
+            El PDF contiene la marca visual
+            <strong>CORRECCIÓN</strong> y su información de
+            trazabilidad.
+          </span>
+
+        </div>
+
+
+        <div class="resultado-correccion-acciones">
+
+          ${
+            urlPDF
+              ? `
+
+                <button
+                  type="button"
+                  id="btnVerPDFCorreccion"
+                  class="btn-resultado-correccion principal"
+                >
+
+                  <i class="fa-solid fa-eye"></i>
+
+                  Ver PDF
+
+                </button>
+
+
+                <button
+                  type="button"
+                  id="btnImprimirPDFCorreccion"
+                  class="btn-resultado-correccion secundario"
+                >
+
+                  <i class="fa-solid fa-print"></i>
+
+                  Imprimir
+
+                </button>
+
+              `
+              : ""
+          }
+
+
+          ${
+            urlCarpeta
+              ? `
+
+                <button
+                  type="button"
+                  id="btnAbrirCarpetaCorreccion"
+                  class="btn-resultado-correccion secundario"
+                >
+
+                  <i class="fa-brands fa-google-drive"></i>
+
+                  Ver carpeta
+
+                </button>
+
+              `
+              : ""
+          }
+
+
+          <button
+            type="button"
+            id="btnCerrarResultadoCorreccion"
+            class="btn-resultado-correccion cerrar"
+          >
+
+            <i class="fa-solid fa-xmark"></i>
+
+            Cerrar
+
+          </button>
+
+        </div>
+
+      </section>
+
+    `;
+
+
+    Sistema.abrirModal(
+      "Resultado de la corrección",
+      contenido,
+      {
+        clase:
+          "modal-resultado-correccion"
+      }
+    );
+
+
+    const verPDF =
+      document.getElementById(
+        "btnVerPDFCorreccion"
+      );
+
+
+    const imprimir =
+      document.getElementById(
+        "btnImprimirPDFCorreccion"
+      );
+
+
+    const carpeta =
+      document.getElementById(
+        "btnAbrirCarpetaCorreccion"
+      );
+
+
+    const cerrar =
+      document.getElementById(
+        "btnCerrarResultadoCorreccion"
+      );
+
+
+    if (verPDF) {
+
+      verPDF.onclick =
+        () => {
+
+          window.open(
+            urlPDF,
+            "_blank",
+            "noopener,noreferrer"
+          );
+
+        };
+
+    }
+
+
+    if (imprimir) {
+
+      imprimir.onclick =
+        () => {
+
+          const ventana =
+            window.open(
+              urlPDF,
+              "_blank",
+              "noopener,noreferrer"
+            );
+
+
+          if (!ventana) {
+
+            this.notificar(
+              "El navegador bloqueó la ventana de impresión.",
+              "advertencia"
+            );
+
+            return;
+
+          }
+
+
+          /*
+           * Drive puede requerir cargar primero su visor.
+           * Por eso abrimos el PDF en una pestaña independiente
+           * y el usuario utiliza la impresión del visor.
+           */
+          this.notificar(
+            "El PDF fue abierto. Utilice el botón de impresión del visor.",
+            "info"
+          );
+
+        };
+
+    }
+
+
+    if (carpeta) {
+
+      carpeta.onclick =
+        () => {
+
+          window.open(
+            urlCarpeta,
+            "_blank",
+            "noopener,noreferrer"
+          );
+
+        };
+
+    }
+
+
+    if (cerrar) {
+
+      cerrar.onclick =
+        () => {
+
+          const modal =
+            document.getElementById(
+              "modalSistema"
+            );
+
+
+          if (modal) {
+
+            modal.classList.add(
+              "oculto"
+            );
+
+          }
+
+
+          this.abrirCentro();
+
+        };
 
     }
 

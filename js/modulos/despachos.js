@@ -10323,33 +10323,114 @@ async obtenerLogoDashboard() {
     const imagen =
         document.querySelector(
             'img[src*="logo_dashboard"]'
+        ) ||
+        document.querySelector(
+            ".sidebar .logo img"
         );
+
 
     if (!imagen) {
         return "";
     }
 
-    await imagen.decode().catch(() => {});
 
-    const canvas =
-        document.createElement("canvas");
+    /*
+     * Evita que la generación del conduce quede esperando
+     * indefinidamente si el navegador no termina de
+     * decodificar la imagen.
+     */
+    try {
 
-    canvas.width =
-        imagen.naturalWidth;
+        await Promise.race([
 
-    canvas.height =
-        imagen.naturalHeight;
+            imagen.decode()
+                .catch(
+                    () => null
+                ),
 
-    const contexto =
-        canvas.getContext("2d");
+            new Promise(
+                resolver =>
+                    setTimeout(
+                        resolver,
+                        3000
+                    )
+            )
 
-    contexto.drawImage(
-        imagen,
-        0,
-        0
-    );
+        ]);
 
-    return canvas.toDataURL("image/png");
+    } catch (error) {
+
+        console.warn(
+            "No fue posible decodificar el logo:",
+            error
+        );
+
+    }
+
+
+    if (
+        !imagen.naturalWidth ||
+        !imagen.naturalHeight
+    ) {
+
+        console.warn(
+            "El logo no tiene dimensiones válidas. El conduce continuará sin logo incrustado."
+        );
+
+        return imagen.src || "";
+
+    }
+
+
+    try {
+
+        const canvas =
+            document.createElement(
+                "canvas"
+            );
+
+
+        canvas.width =
+            imagen.naturalWidth;
+
+
+        canvas.height =
+            imagen.naturalHeight;
+
+
+        const contexto =
+            canvas.getContext(
+                "2d"
+            );
+
+
+        if (!contexto) {
+            return imagen.src || "";
+        }
+
+
+        contexto.drawImage(
+            imagen,
+            0,
+            0
+        );
+
+
+        return canvas.toDataURL(
+            "image/png"
+        );
+
+
+    } catch (error) {
+
+        console.warn(
+            "No fue posible convertir el logo a Base64:",
+            error
+        );
+
+        return imagen.src || "";
+
+    }
 
 },
 

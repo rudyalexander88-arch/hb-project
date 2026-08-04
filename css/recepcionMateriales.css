@@ -688,3 +688,489 @@
     }
 
 }
+
+
+/* ============================================================
+   CENTRO DE GESTIÓN DE RECEPCIONES
+   ============================================================ */
+
+.centro-recepciones {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.indicadores-recepciones {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.indicador-recepcion {
+    min-width: 0;
+    padding: 15px 16px;
+    border: 1px solid var(--rec-borde);
+    border-left: 5px solid var(--rec-rojo);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.indicador-recepcion.verde {
+    border-left-color: var(--rec-verde);
+}
+
+.indicador-recepcion.azul {
+    border-left-color: var(--rec-azul);
+}
+
+.indicador-recepcion.naranja {
+    border-left-color: var(--rec-amarillo);
+}
+
+.indicador-recepcion span,
+.indicador-recepcion small {
+    display: block;
+    color: var(--rec-secundario);
+    font-size: 10px;
+}
+
+.indicador-recepcion strong {
+    display: block;
+    margin: 4px 0;
+    color: var(--rec-texto);
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+.bloque-centro-recepciones {
+    padding: 16px;
+    border: 1px solid var(--rec-borde);
+    border-radius: 14px;
+    background: #fff;
+}
+
+.encabezado-bloque-recepciones {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.encabezado-bloque-recepciones span {
+    color: var(--rec-rojo);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.encabezado-bloque-recepciones h3 {
+    margin: 2px 0 0;
+    color: var(--rec-texto);
+}
+
+.encabezado-bloque-recepciones p {
+    margin: 5px 0 0;
+    color: var(--rec-secundario);
+    font-size: 11px;
+}
+
+.encabezado-bloque-recepciones.compacto {
+    margin-bottom: 12px;
+}
+
+.rejilla-inferior-recepciones {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.estado-proximo-recepciones {
+    min-height: 105px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    padding: 18px;
+    border: 1px dashed var(--rec-borde);
+    border-radius: 11px;
+    background: var(--rec-fondo);
+    color: var(--rec-secundario);
+    font-size: 11px;
+    text-align: center;
+}
+
+.estado-proximo-recepciones i {
+    color: var(--rec-azul);
+    font-size: 22px;
+}
+
+.metricas-colaborador-recepcion {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.metricas-colaborador-recepcion div {
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--rec-fondo);
+}
+
+.metricas-colaborador-recepcion span {
+    display: block;
+    color: var(--rec-secundario);
+    font-size: 9px;
+}
+
+.metricas-colaborador-recepcion strong {
+    color: var(--rec-texto);
+    font-size: 19px;
+}
+
+
+/* ============================================================
+   MODAL DEL ASISTENTE DE RECEPCIÓN
+   ============================================================ */
+
+body.asistente-recepcion-abierto {
+    overflow: hidden;
+}
+
+.modal-asistente-recepcion {
+    position: fixed;
+    inset: 0;
+    z-index: 16000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(17, 24, 39, .58);
+    backdrop-filter: blur(2px);
+}
+
+.modal-asistente-recepcion.oculto {
+    display: none;
+}
+
+.modal-asistente-recepcion-contenido {
+    width: min(1180px, 96vw);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, .28);
+}
+
+.modal-asistente-recepcion-header {
+    flex: 0 0 auto;
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 0 22px;
+    background: linear-gradient(
+        105deg,
+        #df151b 0%,
+        #f23f12 52%,
+        #f89a08 100%
+    );
+    color: #fff;
+}
+
+.modal-asistente-recepcion-header h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 23px;
+    font-weight: 800;
+}
+
+.modal-asistente-recepcion-header button {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #fff;
+    font-size: 23px;
+    cursor: pointer;
+}
+
+.modal-asistente-recepcion-header button:hover {
+    background: rgba(255, 255, 255, .15);
+}
+
+.modal-asistente-recepcion-cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px;
+    background: #f8f9fb;
+}
+
+.modal-asistente-recepcion-cuerpo .barra-recepcion-actual {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, .06);
+}
+
+.modal-asistente-recepcion-cuerpo .recepcion-paso {
+    box-shadow: none;
+}
+
+
+/* ============================================================
+   RESPONSIVE DEL CENTRO Y MODAL
+   ============================================================ */
+
+@media (max-width: 980px) {
+
+    .indicadores-recepciones {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rejilla-inferior-recepciones {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+@media (max-width: 700px) {
+
+    .modal-asistente-recepcion {
+        align-items: stretch;
+        padding: 0;
+    }
+
+    .modal-asistente-recepcion-contenido {
+        width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .modal-asistente-recepcion-header {
+        min-height: 60px;
+        padding: 0 14px;
+    }
+
+    .modal-asistente-recepcion-header h2 {
+        overflow: hidden;
+        font-size: 18px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .modal-asistente-recepcion-cuerpo {
+        padding: 11px;
+    }
+
+    .encabezado-bloque-recepciones {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .encabezado-bloque-recepciones .btn-recepcion {
+        width: 100%;
+    }
+
+}
+
+@media (max-width: 520px) {
+
+    .indicadores-recepciones {
+        grid-template-columns: 1fr;
+    }
+
+    .metricas-colaborador-recepcion {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+/* ============================================================
+   SUBMODAL INTERNO DEL ASISTENTE DE RECEPCIÓN
+   ============================================================ */
+
+.submodal-recepcion {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(17, 24, 39, 0.58);
+    backdrop-filter: blur(2px);
+}
+
+.submodal-recepcion-contenido {
+    width: min(480px, 100%);
+    overflow: hidden;
+
+    border: 1px solid #e5e7eb;
+    border-top: 4px solid #d71920;
+    border-radius: 15px;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 20px 55px
+        rgba(0, 0, 0, 0.28);
+}
+
+.submodal-recepcion-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 18px 20px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.submodal-recepcion-icono {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+
+    display: grid;
+    place-items: center;
+
+    border-radius: 12px;
+
+    background: #fff1f1;
+    color: #d71920;
+
+    font-size: 19px;
+}
+
+.submodal-recepcion-header span {
+    display: block;
+
+    color: #d71920;
+
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.submodal-recepcion-header h3 {
+    margin: 2px 0 0;
+
+    color: #202124;
+
+    font-size: 17px;
+}
+
+.submodal-recepcion-cuerpo {
+    padding: 18px 20px;
+}
+
+.submodal-recepcion-cuerpo p {
+    margin: 0 0 15px;
+
+    color: #6b7280;
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.submodal-recepcion-cuerpo label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: #202124;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.submodal-recepcion-cuerpo input {
+    width: 100%;
+    min-height: 46px;
+
+    padding: 0 12px;
+
+    border: 1px solid #d9dde3;
+    border-radius: 9px;
+
+    font-family: inherit;
+    font-size: 14px;
+
+    box-sizing: border-box;
+}
+
+.submodal-recepcion-cuerpo input:focus {
+    border-color: #d71920;
+    outline: none;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(215, 25, 32, 0.08);
+}
+
+.submodal-recepcion-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+
+    padding: 14px 20px;
+
+    border-top: 1px solid #e5e7eb;
+
+    background: #f8f9fa;
+}
+
+.modal-asistente-recepcion {
+    position: fixed;
+}
+
+.modal-asistente-recepcion-contenido {
+    position: relative;
+}
+
+@media (max-width: 520px) {
+
+    .submodal-recepcion {
+        align-items: flex-end;
+
+        padding: 0;
+    }
+
+    .submodal-recepcion-contenido {
+        width: 100%;
+
+        border-radius:
+            15px 15px 0 0;
+    }
+
+    .submodal-recepcion-acciones {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .submodal-recepcion-acciones
+    .btn-recepcion {
+        width: 100%;
+    }
+
+}
+
+.modal-asistente-recepcion {
+    position: fixed;
+}
+
+.modal-asistente-recepcion-contenido {
+    position: relative;
+}

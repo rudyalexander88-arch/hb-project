@@ -72,9 +72,143 @@ window.RecepcionMateriales = {
 
     document
       .getElementById("btnNuevaRecepcionMateriales")
-      .onclick = () => this.mostrarInicioNuevaRecepcion();
+      .onclick = () => this.abrirAsistenteNueva();
 
     await this.cargarCatalogos();
+
+  },
+
+
+  asegurarModalAsistente() {
+
+    let modal =
+      document.getElementById(
+        "modalRecepcionMateriales"
+      );
+
+    if (modal) {
+      return modal;
+    }
+
+    modal = document.createElement("div");
+    modal.id = "modalRecepcionMateriales";
+    modal.className =
+      "modal-asistente-recepcion oculto";
+
+    modal.innerHTML = `
+      <div class="modal-asistente-recepcion-contenido">
+
+        <header class="modal-asistente-recepcion-header">
+          <h2 id="tituloAsistenteRecepcion">
+            Asistente de Recepción
+          </h2>
+
+          <button
+            type="button"
+            id="btnCerrarAsistenteRecepcion"
+            aria-label="Cerrar asistente"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </header>
+
+        <div
+          id="contenidoAsistenteRecepcion"
+          class="modal-asistente-recepcion-cuerpo"
+        ></div>
+
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document
+      .getElementById("btnCerrarAsistenteRecepcion")
+      .onclick = () => this.cerrarAsistente();
+
+    modal.addEventListener("click", evento => {
+      if (evento.target === modal) {
+        this.cerrarAsistente();
+      }
+    });
+
+    return modal;
+
+  },
+
+
+  abrirAsistente(titulo) {
+
+    const modal = this.asegurarModalAsistente();
+
+    const tituloElemento =
+      document.getElementById(
+        "tituloAsistenteRecepcion"
+      );
+
+    if (tituloElemento) {
+      tituloElemento.textContent =
+        titulo || "Asistente de Recepción";
+    }
+
+    modal.classList.remove("oculto");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add(
+      "asistente-recepcion-abierto"
+    );
+
+  },
+
+
+  async cerrarAsistente() {
+
+    const modal =
+      document.getElementById(
+        "modalRecepcionMateriales"
+      );
+
+    if (modal) {
+      modal.classList.add("oculto");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    document.body.classList.remove(
+      "asistente-recepcion-abierto"
+    );
+
+    this.estado.recepcionActual = null;
+    this.estado.materialSeleccionado = null;
+    this.estado.resultadosMateriales = [];
+    this.estado.distribucion = {};
+    this.estado.camaraActiva = "";
+
+    await this.cargarCatalogos();
+
+  },
+
+
+  obtenerContenedorAsistente() {
+
+    return document.getElementById(
+      "contenidoAsistenteRecepcion"
+    );
+
+  },
+
+
+  abrirAsistenteNueva() {
+
+    this.estado.recepcionActual = null;
+    this.estado.materialSeleccionado = null;
+    this.estado.resultadosMateriales = [];
+    this.estado.distribucion = {};
+    this.estado.camaraActiva = "";
+
+    this.abrirAsistente(
+      "Asistente de Recepción"
+    );
+
+    this.mostrarInicioNuevaRecepcion();
 
   },
 
@@ -149,48 +283,183 @@ window.RecepcionMateriales = {
 
     const lista = this.estado.recepcionesAbiertas;
 
-    panel.innerHTML = `
-      <div class="recepcion-resumen-superior">
-        <div>
-          <span>Recepciones abiertas</span>
-          <strong>${lista.length}</strong>
-        </div>
-        <p>
-          Continúe una recepción existente o inicie una nueva.
-        </p>
-      </div>
+    const totalTarimas = lista.reduce(
+      (total, item) =>
+        total + Number(item.totalTarimas || 0),
+      0
+    );
 
-      <div class="recepciones-abiertas-grid">
-        ${
-          lista.length
-            ? lista.map(
-                item => this.renderTarjetaRecepcion(item)
-              ).join("")
-            : `
-              <article class="recepcion-vacia">
-                <i class="fa-solid fa-inbox"></i>
-                <h3>No hay recepciones abiertas</h3>
+    const totalPosiciones = lista.reduce(
+      (total, item) =>
+        total + Number(
+          item.totalPosicionesOcupadas || 0
+        ),
+      0
+    );
+
+    const conParcial = lista.filter(
+      item => Number(item.totalParciales || 0) > 0
+    ).length;
+
+    panel.innerHTML = `
+      <section class="centro-recepciones">
+
+        <div class="indicadores-recepciones">
+
+          <article class="indicador-recepcion rojo">
+            <span>Recepciones abiertas</span>
+            <strong>${lista.length}</strong>
+            <small>Procesos pendientes de cierre</small>
+          </article>
+
+          <article class="indicador-recepcion verde">
+            <span>Tarimas registradas</span>
+            <strong>
+              ${this.formatearNumero(totalTarimas)}
+            </strong>
+            <small>En recepciones actualmente abiertas</small>
+          </article>
+
+          <article class="indicador-recepcion azul">
+            <span>Posiciones ocupadas</span>
+            <strong>
+              ${this.formatearNumero(totalPosiciones)}
+            </strong>
+            <small>Según el registro de recepción</small>
+          </article>
+
+          <article class="indicador-recepcion naranja">
+            <span>Recepciones con parcial</span>
+            <strong>${conParcial}</strong>
+            <small>Procesos abiertos con parciales</small>
+          </article>
+
+        </div>
+
+        <section class="bloque-centro-recepciones">
+
+          <header class="encabezado-bloque-recepciones">
+            <div>
+              <span>Operación actual</span>
+              <h3>Recepciones abiertas</h3>
+              <p>
+                Continúe los procesos que todavía no han sido
+                finalizados.
+              </p>
+            </div>
+          </header>
+
+          <div class="recepciones-abiertas-grid">
+            ${
+              lista.length
+                ? lista.map(
+                    item => this.renderTarjetaRecepcion(item)
+                  ).join("")
+                : `
+                  <article class="recepcion-vacia compacta">
+                    <i class="fa-solid fa-inbox"></i>
+                    <h3>No hay recepciones abiertas</h3>
+                    <p>
+                      Inicie una nueva recepción cuando
+                      Producción entregue material.
+                    </p>
+                  </article>
+                `
+            }
+          </div>
+
+        </section>
+
+        <div class="rejilla-inferior-recepciones">
+
+          <section class="bloque-centro-recepciones">
+            <header class="encabezado-bloque-recepciones compacto">
+              <div>
+                <span>Seguimiento</span>
+                <h3>Actividad reciente</h3>
                 <p>
-                  Inicie una nueva recepción cuando Producción
-                  entregue material.
+                  Este espacio mostrará las recepciones cerradas
+                  cuando conectemos la consulta histórica.
                 </p>
-              </article>
-            `
-        }
-      </div>
+              </div>
+
+              <button
+                type="button"
+                id="btnHistoricoRecepciones"
+                class="btn-recepcion secundario"
+              >
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                Ver histórico
+              </button>
+            </header>
+
+            <div class="estado-proximo-recepciones">
+              <i class="fa-solid fa-list-check"></i>
+              <span>
+                La estructura está preparada para el histórico,
+                filtros y consulta de recepciones.
+              </span>
+            </div>
+          </section>
+
+          <section class="bloque-centro-recepciones">
+            <header class="encabezado-bloque-recepciones compacto">
+              <div>
+                <span>Mi rendimiento</span>
+                <h3>Desempeño del colaborador</h3>
+                <p>
+                  Los indicadores personales se conectarán con
+                  las recepciones finalizadas del usuario.
+                </p>
+              </div>
+            </header>
+
+            <div class="metricas-colaborador-recepcion">
+              <div>
+                <span>Abiertas</span>
+                <strong>${lista.length}</strong>
+              </div>
+              <div>
+                <span>Tarimas</span>
+                <strong>
+                  ${this.formatearNumero(totalTarimas)}
+                </strong>
+              </div>
+              <div>
+                <span>Posiciones</span>
+                <strong>
+                  ${this.formatearNumero(totalPosiciones)}
+                </strong>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </section>
     `;
 
     panel
       .querySelectorAll("[data-abrir-recepcion]")
       .forEach(boton => {
-
         boton.onclick = () => {
           this.abrirRecepcion(
             boton.dataset.abrirRecepcion
           );
         };
-
       });
+
+    const historico =
+      document.getElementById("btnHistoricoRecepciones");
+
+    if (historico) {
+      historico.onclick = () => {
+        this.notificar(
+          "La consulta histórica se conectará en la siguiente etapa.",
+          "advertencia"
+        );
+      };
+    }
 
   },
 
@@ -267,7 +536,7 @@ window.RecepcionMateriales = {
   mostrarInicioNuevaRecepcion() {
 
     const panel =
-      document.getElementById("panelRecepcionMateriales");
+      this.obtenerContenedorAsistente();
 
     if (!panel) {
       return;
@@ -356,7 +625,7 @@ window.RecepcionMateriales = {
 
     document
       .getElementById("btnVolverRecepciones")
-      .onclick = () => this.renderRecepcionesAbiertas();
+      .onclick = () => this.cerrarAsistente();
 
     document
       .getElementById("btnIniciarRecepcion")
@@ -402,6 +671,17 @@ window.RecepcionMateriales = {
       this.estado.recepcionActual =
         respuesta.data.recepcion;
 
+      const titulo =
+        document.getElementById(
+          "tituloAsistenteRecepcion"
+        );
+
+      if (titulo) {
+        titulo.textContent =
+          "Recepción · " +
+          this.estado.recepcionActual.idRecepcion;
+      }
+
       this.renderSeleccionMaterial();
 
       this.notificar(
@@ -429,6 +709,10 @@ window.RecepcionMateriales = {
 
   async abrirRecepcion(idRecepcion) {
 
+    this.abrirAsistente(
+      "Continuar Recepción"
+    );
+
     this.mostrarCarga(
       "Abriendo recepción",
       "Consultando el detalle registrado."
@@ -451,6 +735,17 @@ window.RecepcionMateriales = {
 
       this.estado.recepcionActual =
         respuesta.data.recepcion;
+
+      const titulo =
+        document.getElementById(
+          "tituloAsistenteRecepcion"
+        );
+
+      if (titulo) {
+        titulo.textContent =
+          "Recepción · " +
+          this.estado.recepcionActual.idRecepcion;
+      }
 
       const detalles =
         Array.isArray(respuesta.data.detalles)
@@ -570,7 +865,7 @@ window.RecepcionMateriales = {
   renderSeleccionMaterial() {
 
     const panel =
-      document.getElementById("panelRecepcionMateriales");
+      this.obtenerContenedorAsistente();
 
     if (!panel) {
       return;
@@ -625,7 +920,7 @@ window.RecepcionMateriales = {
 
     document
       .getElementById("btnSalirRecepcionActual")
-      .onclick = () => this.cargarCatalogos();
+      .onclick = () => this.cerrarAsistente();
 
     const input =
       document.getElementById(
@@ -820,7 +1115,7 @@ window.RecepcionMateriales = {
   renderDistribucionCamaras() {
 
     const panel =
-      document.getElementById("panelRecepcionMateriales");
+      this.obtenerContenedorAsistente();
 
     if (!panel) {
       return;
@@ -1204,7 +1499,7 @@ window.RecepcionMateriales = {
 
     document
       .getElementById("btnSalirRecepcionActual")
-      .onclick = () => this.cargarCatalogos();
+      .onclick = () => this.cerrarAsistente();
 
     document
       .getElementById("btnCambiarMaterialRecepcion")
@@ -1613,101 +1908,239 @@ window.RecepcionMateriales = {
   },
 
 
-  solicitarFechaProduccion() {
+			  solicitarFechaProduccion() {
 
-    return new Promise(resolver => {
+			  return new Promise(
+				resolver => {
 
-      const modal =
-        document.getElementById("modalSistema");
+				  const modalAsistente =
+			  document.querySelector(
+				".modal-asistente-recepcion:not(.oculto)"
+			  ) ||
+			  document.querySelector(
+				".modal-asistente-recepcion"
+			  );
 
-      const titulo =
-        document.getElementById("tituloModal");
 
-      const contenido =
-        document.getElementById("contenidoModal");
+			if (!modalAsistente) {
 
-      if (!modal || !titulo || !contenido) {
-        resolver("");
-        return;
+			  this.notificar(
+				"No se encontró el asistente de recepción.",
+				"error"
+			  );
+
+			  resolver("");
+
+			  return;
+
+			}
+
+
+      const existente =
+        document.getElementById(
+          "submodalFechaProduccionRecepcion"
+        );
+
+
+      if (existente) {
+
+        existente.remove();
+
       }
 
+
       const hoy =
-        new Date().toISOString().slice(0, 10);
+        new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          );
 
-      titulo.textContent = "Fecha de producción";
 
-      contenido.innerHTML = `
-        <div class="modal-fecha-produccion-recepcion">
+      const submodal =
+        document.createElement(
+          "div"
+        );
 
-          <p>
-            Confirme la fecha indicada en la etiqueta.
-          </p>
 
-          <input
-            type="date"
-            id="inputFechaProduccionRecepcion"
-            value="${hoy}"
-          >
+      submodal.id =
+        "submodalFechaProduccionRecepcion";
 
-          <div class="recepcion-acciones-finales">
+
+      submodal.className =
+        "submodal-recepcion";
+
+
+      submodal.innerHTML = `
+
+        <div class="submodal-recepcion-contenido">
+
+          <header class="submodal-recepcion-header">
+
+            <div class="submodal-recepcion-icono">
+
+              <i class="fa-solid fa-calendar-days"></i>
+
+            </div>
+
+            <div>
+
+              <span>
+                Datos de producción
+              </span>
+
+              <h3>
+                Confirma la fecha de producción
+              </h3>
+
+            </div>
+
+          </header>
+
+
+          <div class="submodal-recepcion-cuerpo">
+
+            <p>
+              Selecciona la fecha indicada en la etiqueta del material.
+              El sistema calculará automáticamente el lote y el vencimiento.
+            </p>
+
+
+            <label
+              for="inputFechaProduccionRecepcion"
+            >
+              Fecha de producción
+            </label>
+
+
+            <input
+              type="date"
+              id="inputFechaProduccionRecepcion"
+              value="${hoy}"
+              max="${hoy}"
+            >
+
+          </div>
+
+
+          <footer class="submodal-recepcion-acciones">
 
             <button
               type="button"
               id="btnCancelarFechaProduccion"
               class="btn-recepcion secundario"
             >
+
               Cancelar
+
             </button>
+
 
             <button
               type="button"
               id="btnConfirmarFechaProduccion"
               class="btn-recepcion principal"
             >
-              Confirmar
+
+              <i class="fa-solid fa-check"></i>
+
+              Confirmar y guardar
+
             </button>
 
-          </div>
+          </footer>
+
         </div>
+
       `;
 
-      modal.classList.remove("oculto");
 
-      const cerrar = valor => {
-        modal.classList.add("oculto");
-        contenido.innerHTML = "";
-        resolver(valor);
-      };
+      modalAsistente.appendChild(
+        submodal
+      );
 
-      document
-        .getElementById("btnCancelarFechaProduccion")
-        .onclick = () => cerrar("");
 
-      document
-        .getElementById("btnConfirmarFechaProduccion")
-        .onclick = () => {
+      const cerrar =
+        valor => {
 
-          const valor =
-            document.getElementById(
-              "inputFechaProduccionRecepcion"
-            ).value;
+          submodal.remove();
 
-          if (!valor) {
-            this.notificar(
-              "Debe indicar la fecha de producción.",
-              "advertencia"
-            );
-            return;
-          }
-
-          cerrar(valor);
+          resolver(
+            valor
+          );
 
         };
 
-    });
 
-  },
+      document
+        .getElementById(
+          "btnCancelarFechaProduccion"
+        )
+        .onclick =
+          () => {
 
+            cerrar("");
+
+          };
+
+
+      document
+        .getElementById(
+          "btnConfirmarFechaProduccion"
+        )
+        .onclick =
+          () => {
+
+            const input =
+              document.getElementById(
+                "inputFechaProduccionRecepcion"
+              );
+
+
+            const valor =
+              input
+                ? input.value
+                : "";
+
+
+            if (!valor) {
+
+              this.notificar(
+                "Debe indicar la fecha de producción.",
+                "advertencia"
+              );
+
+              return;
+
+            }
+
+
+            cerrar(
+              valor
+            );
+
+          };
+
+
+      submodal.onclick =
+        evento => {
+
+          if (
+            evento.target ===
+            submodal
+          ) {
+
+            cerrar("");
+
+          }
+
+        };
+
+    }
+  );
+
+},
 
   renderError(mensaje) {
 

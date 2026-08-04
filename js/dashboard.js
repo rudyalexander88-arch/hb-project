@@ -98,6 +98,48 @@ function inicializarMenu() {
             Despachos.cargar();
 
         });
+		
+		const menuRecepciones =
+    document.getElementById(
+        "menuRecepciones"
+    );
+
+
+if (menuRecepciones) {
+
+    menuRecepciones.addEventListener(
+        "click",
+        () => {
+
+            activarMenu(
+                "menuRecepciones"
+            );
+
+
+            if (
+                window.RecepcionMateriales &&
+                typeof window
+                    .RecepcionMateriales
+                    .cargar ===
+                    "function"
+            ) {
+
+                window
+                    .RecepcionMateriales
+                    .cargar();
+
+            } else {
+
+                console.error(
+                    "RecepcionMateriales no está disponible."
+                );
+
+            }
+
+        }
+    );
+
+}
 
 
     document.getElementById("salir")

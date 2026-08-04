@@ -938,6 +938,19 @@ window.ExactitudDespachos = {
 
             </button>
 
+
+            <button
+              type="button"
+              id="btnPDFExactitud"
+              class="btn-exactitud pdf"
+            >
+
+              <i class="fa-solid fa-file-pdf"></i>
+
+              PDF
+
+            </button>
+
           </div>
 
         </div>
@@ -1592,6 +1605,12 @@ window.ExactitudDespachos = {
       );
 
 
+    const pdf =
+      document.getElementById(
+        "btnPDFExactitud"
+      );
+
+
     const listado =
       document.getElementById(
         "listaConducesExactitud"
@@ -1634,6 +1653,20 @@ window.ExactitudDespachos = {
           evento.preventDefault();
 
           this.cargarMas();
+
+        };
+
+    }
+
+
+    if (pdf) {
+
+      pdf.onclick =
+        evento => {
+
+          evento.preventDefault();
+
+          this.generarPDFCentroExactitud();
 
         };
 
@@ -2221,7 +2254,113 @@ window.ExactitudDespachos = {
     }
 
 
-    if (canvasDesviaciones) {
+       if (canvasDesviaciones) {
+
+      /*
+       * Composición de las desviaciones detectadas.
+       */
+      const faltantes =
+        Number(
+          resumen.faltantes || 0
+        );
+
+
+      const sobrantes =
+        Number(
+          resumen.sobrantes || 0
+        );
+
+
+      const corregidos =
+        Number(
+          resumen.bultosCorregidos || 0
+        );
+
+
+      const pendientes =
+        Number(
+          resumen.bultosPendientes || 0
+        );
+
+
+      const totalDesviaciones =
+        faltantes +
+        sobrantes;
+
+
+      /*
+       * El resumen actual entrega el total corregido,
+       * pero no lo separa entre faltantes y sobrantes.
+       *
+       * Para la representación visual se distribuye
+       * proporcionalmente según la composición de las
+       * desviaciones detectadas.
+       */
+      const corregidosFaltantes =
+        totalDesviaciones > 0
+          ? Math.round(
+              corregidos *
+              (
+                faltantes /
+                totalDesviaciones
+              )
+            )
+          : 0;
+
+
+      const corregidosSobrantes =
+        Math.max(
+          0,
+          corregidos -
+          corregidosFaltantes
+        );
+
+
+      /*
+       * Distribución proporcional de los pendientes.
+       * Se parte de lo que permanece después de considerar
+       * la composición de los bultos corregidos.
+       */
+      const faltantesRestantes =
+        Math.max(
+          0,
+          faltantes -
+          corregidosFaltantes
+        );
+
+
+      const sobrantesRestantes =
+        Math.max(
+          0,
+          sobrantes -
+          corregidosSobrantes
+        );
+
+
+      const totalRestante =
+        faltantesRestantes +
+        sobrantesRestantes;
+
+
+      const pendientesFaltantes =
+        totalRestante > 0
+          ? Math.round(
+              pendientes *
+              (
+                faltantesRestantes /
+                totalRestante
+              )
+            )
+          : 0;
+
+
+      const pendientesSobrantes =
+        Math.max(
+          0,
+          pendientes -
+          pendientesFaltantes
+        );
+
 
       this.graficoDesviaciones =
         new Chart(
@@ -2247,16 +2386,63 @@ window.ExactitudDespachos = {
                 {
 
                   label:
-                    "Bultos",
+                    "Faltantes",
 
                   data: [
 
-                    resumen.faltantes || 0,
-                    resumen.sobrantes || 0,
-                    resumen.bultosCorregidos || 0,
-                    resumen.bultosPendientes || 0
+                    faltantes,
+                    0,
+                    corregidosFaltantes,
+                    pendientesFaltantes
 
-                  ]
+                  ],
+
+                  backgroundColor:
+                    "#D71920",
+
+                  borderColor:
+                    "#B9141A",
+
+                  borderWidth:
+                    1,
+
+                  borderRadius:
+                    5,
+
+                  stack:
+                    "desviaciones"
+
+                },
+
+
+                {
+
+                  label:
+                    "Sobrantes",
+
+                  data: [
+
+                    0,
+                    sobrantes,
+                    corregidosSobrantes,
+                    pendientesSobrantes
+
+                  ],
+
+                  backgroundColor:
+                    "#F7941D",
+
+                  borderColor:
+                    "#D9780F",
+
+                  borderWidth:
+                    1,
+
+                  borderRadius:
+                    5,
+
+                  stack:
+                    "desviaciones"
 
                 }
 
@@ -2270,7 +2456,130 @@ window.ExactitudDespachos = {
                 true,
 
               maintainAspectRatio:
-                false
+                false,
+
+              plugins: {
+
+                /*
+                 * Se elimina la leyenda superior porque
+                 * cada columna ya está identificada por
+                 * su etiqueta inferior.
+                 */
+                legend: {
+
+                  display:
+                    false
+
+                },
+
+
+                tooltip: {
+
+                  mode:
+                    "index",
+
+                  intersect:
+                    false,
+
+                  callbacks: {
+
+                    footer:
+                      elementos => {
+
+                        if (
+                          !elementos ||
+                          elementos.length === 0
+                        ) {
+
+                          return "";
+
+                        }
+
+
+                        const indice =
+                          elementos[0]
+                            .dataIndex;
+
+
+                        const totales = [
+
+                          faltantes,
+                          sobrantes,
+                          corregidos,
+                          pendientes
+
+                        ];
+
+
+                        return (
+                          "Total: " +
+                          this.formatearNumero(
+                            totales[indice] || 0
+                          )
+                        );
+
+                      }
+
+                  }
+
+                }
+
+              },
+
+
+              interaction: {
+
+                mode:
+                  "index",
+
+                intersect:
+                  false
+
+              },
+
+
+              scales: {
+
+                x: {
+
+                  stacked:
+                    true,
+
+                  grid: {
+
+                    display:
+                      false
+
+                  }
+
+                },
+
+
+                y: {
+
+                  stacked:
+                    true,
+
+                  beginAtZero:
+                    true,
+
+                  ticks: {
+
+                    precision:
+                      0
+
+                  },
+
+                  grid: {
+
+                    color:
+                      "rgba(0, 0, 0, 0.06)"
+
+                  }
+
+                }
+
+              }
 
             }
 
@@ -2278,7 +2587,6 @@ window.ExactitudDespachos = {
         );
 
     }
-
   },
 
 
@@ -5597,10 +5905,17 @@ window.ExactitudDespachos = {
        * en despachos.js. El estado global de Conduce se conserva
        * y se restaura al finalizar para no alterar otros módulos.
        */
-      this.mostrarCarga(
-        "Generando conduce corregido",
-        "Recalculando el documento oficial con las cantidades verificadas."
-      );
+		/*
+		 * Cerramos la etapa anterior antes de abrir la siguiente.
+		 * Esto mantiene equilibrado el contador interno del cargador.
+		 */
+		this.ocultarCarga();
+
+
+		this.mostrarCarga(
+		  "Generando conduce corregido",
+		  "Recalculando el documento oficial con las cantidades verificadas."
+		);
 
 
       const htmlCorregido =
@@ -5623,11 +5938,17 @@ window.ExactitudDespachos = {
        * 3. GUARDAR PDF VERSIONADO EN DRIVE
        * =====================================================
        */
-      this.mostrarCarga(
-        "Guardando PDF corregido",
-        "Creando una nueva versión sin eliminar el conduce original."
-      );
+      /*
+	 * Cerramos la etapa de generación antes de mostrar la etapa
+	 * de guardado del PDF.
+	 */
+	this.ocultarCarga();
 
+
+	this.mostrarCarga(
+	  "Guardando PDF corregido",
+	  "Creando una nueva versión sin eliminar el conduce original."
+	);
 
       const respuestaPDF =
         await API.post({
@@ -6466,6 +6787,661 @@ window.ExactitudDespachos = {
 
 
     return "conforme";
+
+  },
+
+
+  /**
+   * Genera el PDF temporal del Centro de Exactitud.
+   *
+   * Usa los filtros activos y consulta todas las páginas
+   * del resultado sin modificar el listado visible.
+   */
+  async generarPDFCentroExactitud() {
+
+    this.leerFiltrosCentro();
+
+
+    const boton =
+      document.getElementById(
+        "btnPDFExactitud"
+      );
+
+
+    if (
+      Number(
+        this.estado.total || 0
+      ) <= 0
+    ) {
+
+      this.notificar(
+        "No existen conduces con los filtros actuales para generar el PDF.",
+        "advertencia"
+      );
+
+      return;
+
+    }
+
+
+    if (boton) {
+
+      boton.disabled =
+        true;
+
+      boton.innerHTML = `
+
+        <i class="fa-solid fa-spinner fa-spin"></i>
+
+        Generando...
+
+      `;
+
+    }
+
+
+    this.mostrarCarga(
+      "Generando reporte",
+      "Preparando el informe de exactitud con los filtros seleccionados."
+    );
+
+
+    try {
+
+      const registros =
+        await this.obtenerTodosRegistrosReporteExactitud();
+
+
+      if (
+        registros.length === 0
+      ) {
+
+        throw new Error(
+          "No existen registros disponibles para el informe."
+        );
+
+      }
+
+
+      const graficos =
+        this.capturarGraficosReporteExactitud();
+
+
+      const sesion =
+        this.obtenerSesion();
+
+
+      const generadoPor =
+        sesion.nombre ||
+        sesion.Nombre ||
+        sesion.nombreCompleto ||
+        sesion.usuario ||
+        "Usuario del sistema";
+
+
+      const respuesta =
+        await API.post({
+
+          action:
+            "generarPDFCentroExactitudDespachos",
+
+          filtros:
+            Object.assign(
+              {},
+              this.estado.filtros
+            ),
+
+          resumen:
+            Object.assign(
+              {},
+              this.estado.resumen
+            ),
+
+          evolucion:
+            Array.isArray(
+              this.estado.evolucion
+            )
+              ? this.estado.evolucion
+              : [],
+
+          registros:
+            registros,
+
+          graficoExactitudBase64:
+            graficos.exactitud,
+
+          graficoDesviacionesBase64:
+            graficos.desviaciones,
+
+          generadoPor:
+            generadoPor
+
+        });
+
+
+      const resultado =
+        respuesta &&
+        respuesta.data &&
+        !respuesta.base64
+          ? respuesta.data
+          : respuesta;
+
+
+      if (
+        !resultado ||
+        resultado.exito !== true
+      ) {
+
+        throw new Error(
+          resultado &&
+          resultado.mensaje
+            ? resultado.mensaje
+            : "No fue posible generar el reporte de exactitud."
+        );
+
+      }
+
+
+      if (!resultado.base64) {
+
+        throw new Error(
+          "El servidor no devolvió el contenido del PDF."
+        );
+
+      }
+
+
+      this.abrirPDFBase64Exactitud(
+        resultado.base64,
+        resultado.nombreArchivo ||
+        "Reporte_Exactitud_Despachos.pdf"
+      );
+
+
+      this.notificar(
+        resultado.mensaje ||
+        "Reporte de exactitud generado correctamente.",
+        "exito"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error generando el PDF de exactitud:",
+        error
+      );
+
+
+      this.notificar(
+        error &&
+        error.message
+          ? error.message
+          : "No fue posible generar el PDF de exactitud.",
+        "error"
+      );
+
+
+    } finally {
+
+      this.ocultarCarga();
+
+
+      if (boton) {
+
+        boton.disabled =
+          false;
+
+        boton.innerHTML = `
+
+          <i class="fa-solid fa-file-pdf"></i>
+
+          PDF
+
+        `;
+
+      }
+
+    }
+
+  },
+
+
+  /**
+   * Consulta todos los registros filtrados en bloques de 50.
+   *
+   * El backend limita cada consulta a 50 registros.
+   */
+  async obtenerTodosRegistrosReporteExactitud() {
+
+    const filtros =
+      this.estado.filtros ||
+      {};
+
+
+    const registros = [];
+
+    let desplazamiento =
+      0;
+
+    let hayMas =
+      true;
+
+    let seguridad =
+      0;
+
+
+    while (
+      hayMas &&
+      seguridad < 500
+    ) {
+
+      const respuesta =
+        await API.post({
+
+          action:
+            "obtenerCentroExactitudDespachos",
+
+          limite:
+            50,
+
+          desplazamiento:
+            desplazamiento,
+
+          fechaDesde:
+            filtros.fechaDesde || "",
+
+          fechaHasta:
+            filtros.fechaHasta || "",
+
+          busqueda:
+            filtros.busqueda || "",
+
+          supervisor:
+            filtros.supervisor || "",
+
+          estado:
+            filtros.estado || "",
+
+          resultado:
+            filtros.resultado || "",
+
+          resolucion:
+            filtros.resolucion || "",
+
+          tipoDiferencia:
+            filtros.tipoDiferencia || "",
+
+          agrupacion:
+            filtros.agrupacion || "DIA",
+
+          soloPendientes:
+            filtros.soloPendientes === true
+
+        });
+
+
+      if (
+        !respuesta ||
+        !respuesta.ok
+      ) {
+
+        throw new Error(
+          respuesta &&
+          respuesta.mensaje
+            ? respuesta.mensaje
+            : "No fue posible cargar todos los registros del reporte."
+        );
+
+      }
+
+
+      const datos =
+        respuesta.data ||
+        {};
+
+
+      const pagina =
+        Array.isArray(
+          datos.registros
+        )
+          ? datos.registros
+          : [];
+
+
+      registros.push(
+        ...pagina
+      );
+
+
+      hayMas =
+        datos.hayMas === true;
+
+
+      desplazamiento =
+        Number(
+          datos.siguienteDesplazamiento ||
+          registros.length
+        );
+
+
+      seguridad++;
+
+    }
+
+
+    if (
+      seguridad >= 500
+    ) {
+
+      throw new Error(
+        "La consulta del reporte superó el límite de páginas permitido."
+      );
+
+    }
+
+
+    return registros;
+
+  },
+
+
+  /**
+   * Captura ambos gráficos actuales como imágenes PNG.
+   */
+   /**
+   * Captura los gráficos para el PDF en un tamaño controlado.
+   *
+   * No altera los canvas visibles. Crea copias comprimidas
+   * para evitar solicitudes y respuestas Base64 excesivas.
+   */
+  capturarGraficosReporteExactitud() {
+
+    const capturarComprimido =
+      (
+        idCanvas,
+        anchoMaximo,
+        altoMaximo
+      ) => {
+
+        try {
+
+          const origen =
+            document.getElementById(
+              idCanvas
+            );
+
+
+          if (
+            !origen ||
+            typeof origen.toDataURL !==
+              "function"
+          ) {
+
+            return "";
+
+          }
+
+
+          const anchoOrigen =
+            Number(
+              origen.width ||
+              origen.clientWidth ||
+              0
+            );
+
+
+          const altoOrigen =
+            Number(
+              origen.height ||
+              origen.clientHeight ||
+              0
+            );
+
+
+          if (
+            anchoOrigen <= 0 ||
+            altoOrigen <= 0
+          ) {
+
+            return "";
+
+          }
+
+
+          const escala =
+            Math.min(
+              1,
+              anchoMaximo /
+                anchoOrigen,
+              altoMaximo /
+                altoOrigen
+            );
+
+
+          const anchoDestino =
+            Math.max(
+              1,
+              Math.round(
+                anchoOrigen *
+                escala
+              )
+            );
+
+
+          const altoDestino =
+            Math.max(
+              1,
+              Math.round(
+                altoOrigen *
+                escala
+              )
+            );
+
+
+          const copia =
+            document.createElement(
+              "canvas"
+            );
+
+
+          copia.width =
+            anchoDestino;
+
+
+          copia.height =
+            altoDestino;
+
+
+          const contexto =
+            copia.getContext(
+              "2d"
+            );
+
+
+          if (!contexto) {
+
+            return "";
+
+          }
+
+
+          /*
+           * Fondo blanco necesario porque JPEG no admite
+           * transparencia.
+           */
+          contexto.fillStyle =
+            "#FFFFFF";
+
+
+          contexto.fillRect(
+            0,
+            0,
+            anchoDestino,
+            altoDestino
+          );
+
+
+          contexto.drawImage(
+            origen,
+            0,
+            0,
+            anchoOrigen,
+            altoOrigen,
+            0,
+            0,
+            anchoDestino,
+            altoDestino
+          );
+
+
+          /*
+           * JPEG reduce considerablemente el peso frente al PNG
+           * generado directamente por Chart.js.
+           */
+          return copia.toDataURL(
+            "image/jpeg",
+            0.78
+          );
+
+
+        } catch (error) {
+
+          console.warn(
+            "No fue posible capturar el gráfico " +
+            idCanvas +
+            ":",
+            error
+          );
+
+
+          return "";
+
+        }
+
+      };
+
+
+    return {
+
+      exactitud:
+        capturarComprimido(
+          "graficoEvolucionExactitud",
+          900,
+          420
+        ),
+
+      desviaciones:
+        capturarComprimido(
+          "graficoDesviacionesExactitud",
+          760,
+          420
+        )
+
+    };
+
+  },
+
+  /**
+   * Abre un PDF Base64 en una pestaña nueva.
+   */
+  abrirPDFBase64Exactitud(
+    base64,
+    nombreArchivo
+  ) {
+
+    const binario =
+      window.atob(
+        String(
+          base64 || ""
+        )
+      );
+
+
+    const bytes =
+      new Uint8Array(
+        binario.length
+      );
+
+
+    for (
+      let i = 0;
+      i < binario.length;
+      i++
+    ) {
+
+      bytes[i] =
+        binario.charCodeAt(
+          i
+        );
+
+    }
+
+
+    const blob =
+      new Blob(
+        [
+          bytes
+        ],
+        {
+          type:
+            "application/pdf"
+        }
+      );
+
+
+    const url =
+      URL.createObjectURL(
+        blob
+      );
+
+
+    const ventana =
+      window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+
+    if (!ventana) {
+
+      const enlace =
+        document.createElement(
+          "a"
+        );
+
+
+      enlace.href =
+        url;
+
+
+      enlace.download =
+        nombreArchivo ||
+        "Reporte_Exactitud_Despachos.pdf";
+
+
+      document.body.appendChild(
+        enlace
+      );
+
+
+      enlace.click();
+      enlace.remove();
+
+    }
+
+
+    window.setTimeout(
+      () => {
+
+        URL.revokeObjectURL(
+          url
+        );
+
+      },
+      120000
+    );
 
   },
 

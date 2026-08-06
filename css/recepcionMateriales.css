@@ -1467,3 +1467,288 @@ body.asistente-recepcion-abierto {
         text-align: left;
     }
 }
+
+/* ============================================================
+   RECEPCIONES ABIERTAS — TARJETAS COMPACTAS CORREGIDAS
+   ============================================================ */
+
+.lista-recepciones-abiertas {
+    display: grid;
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(360px, 1fr)
+        );
+    gap: 12px;
+}
+
+
+/* Tarjeta */
+.tarjeta-recepcion-abierta {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+
+    min-width: 0;
+    min-height: 0;
+
+    padding: 13px 14px 13px 18px;
+
+    border: 1px solid var(--rec-borde);
+    border-radius: 11px;
+
+    background: #ffffff;
+    overflow: hidden;
+}
+
+
+/* Franja de estado */
+.tarjeta-recepcion-abierta
+.tarjeta-recepcion-franja {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+
+    width: 5px;
+
+    border-radius: 11px 0 0 11px;
+}
+
+
+/* Cabecera */
+.tarjeta-recepcion-abierta > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+
+    min-width: 0;
+    margin: 0;
+}
+
+
+.tarjeta-recepcion-abierta > header > div {
+    min-width: 0;
+}
+
+
+.tarjeta-recepcion-abierta > header span:first-child {
+    display: block;
+
+    color: var(--rec-secundario);
+    font-size: 8px;
+}
+
+
+.tarjeta-recepcion-abierta > header h3 {
+    max-width: 100%;
+
+    margin: 2px 0;
+
+    overflow: hidden;
+
+    color: var(--rec-texto);
+    font-size: 13px;
+    line-height: 1.25;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+.tarjeta-recepcion-abierta > header small {
+    display: block;
+
+    overflow: hidden;
+
+    color: var(--rec-secundario);
+    font-size: 8px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+.tarjeta-recepcion-abierta
+.estado-recepcion-abierta {
+    flex: 0 0 auto;
+
+    padding: 4px 7px;
+
+    border-radius: 999px;
+
+    font-size: 7px;
+    font-weight: 700;
+}
+
+
+/* Datos compactos */
+.tarjeta-recepcion-abierta
+.tarjeta-recepcion-datos.ampliada {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+
+    margin: 0;
+}
+
+
+.tarjeta-recepcion-abierta
+.tarjeta-recepcion-datos.ampliada > div {
+    flex:
+        1 1
+        72px;
+
+    min-width: 65px;
+    max-width: 115px;
+
+    padding: 6px 8px;
+
+    border-radius: 7px;
+
+    background: var(--rec-fondo);
+}
+
+
+.tarjeta-recepcion-abierta
+.tarjeta-recepcion-datos.ampliada span {
+    display: block;
+
+    overflow: hidden;
+
+    color: var(--rec-secundario);
+    font-size: 7px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+.tarjeta-recepcion-abierta
+.tarjeta-recepcion-datos.ampliada strong {
+    display: block;
+
+    overflow: hidden;
+
+    margin-top: 1px;
+
+    color: var(--rec-texto);
+    font-size: 10px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* Oculta campos en cero para reducir ruido visual */
+.tarjeta-recepcion-abierta
+.tarjeta-recepcion-datos.ampliada > div:has(strong:empty) {
+    display: none;
+}
+
+
+/* Cámaras */
+.tarjeta-recepcion-abierta
+.camaras-tarjeta-recepcion {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+
+    margin: 0;
+}
+
+
+.tarjeta-recepcion-abierta
+.camaras-tarjeta-recepcion span {
+    padding: 3px 7px;
+
+    border-radius: 999px;
+
+    background: #f0f3f6;
+
+    color: var(--rec-secundario);
+    font-size: 7px;
+}
+
+
+/* Botón */
+.tarjeta-recepcion-abierta
+.btn-recepcion.continuar {
+    align-self: flex-end;
+
+    width: auto;
+    min-width: 138px;
+    max-width: 170px;
+    min-height: 34px;
+
+    margin: 0;
+    padding: 7px 12px;
+
+    border-radius: 8px;
+
+    font-size: 9px;
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   PANTALLAS GRANDES
+   ============================================================ */
+
+@media (min-width: 1350px) {
+
+    .lista-recepciones-abiertas {
+        grid-template-columns:
+            repeat(
+                3,
+                minmax(0, 1fr)
+            );
+    }
+
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 1000px) {
+
+    .lista-recepciones-abiertas {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+    }
+
+}
+
+
+/* ============================================================
+   MÓVIL
+   ============================================================ */
+
+@media (max-width: 680px) {
+
+    .lista-recepciones-abiertas {
+        grid-template-columns: 1fr;
+    }
+
+
+    .tarjeta-recepcion-abierta
+    .tarjeta-recepcion-datos.ampliada > div {
+        max-width: none;
+    }
+
+
+    .tarjeta-recepcion-abierta
+    .btn-recepcion.continuar {
+        width: 100%;
+        max-width: none;
+    }
+
+}

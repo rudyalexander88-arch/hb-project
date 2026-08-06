@@ -495,30 +495,38 @@ document.addEventListener(
             cerrarMenu
         );
 
-        sidebar
-            .querySelectorAll("a, button")
-            .forEach(elemento => {
+        /*
+ * Cierra automáticamente el menú móvil
+ * al seleccionar cualquier opción lateral.
+ *
+ * Los elementos del menú son <li>, no enlaces <a>.
+ */
+sidebar
+    .querySelectorAll("li")
+    .forEach(elemento => {
 
-                elemento.addEventListener(
-                    "click",
-                    () => {
+        elemento.addEventListener(
+            "click",
+            () => {
 
-                        if (
-                            window.innerWidth <= 768
-                        ) {
-                            cerrarMenu();
-                        }
+                if (
+                    window.innerWidth <= 1024
+                ) {
 
-                    }
-                );
+                    cerrarMenu();
 
-            });
+                }
+
+            }
+        );
+
+    });
 
         window.addEventListener(
             "resize",
             () => {
 
-                if (window.innerWidth > 768) {
+                if (window.innerWidth > 1024) {
                     cerrarMenu();
                 }
 

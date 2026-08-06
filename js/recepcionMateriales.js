@@ -55,8 +55,8 @@ window.RecepcionMateriales = {
             <span>Operación de almacén</span>
             <h2>Recepción de materiales</h2>
             <p>
-              Registre una recepción productiva y distribuya
-              el material entre las cámaras utilizadas.
+              Registre el ingreso de los mareriales y su distribución
+              entre las cámaras.
             </p>
           </div>
 

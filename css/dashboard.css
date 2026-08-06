@@ -981,3 +981,153 @@ body {
 .sistema-toast button:hover {
     opacity: 1 !important;
 }
+
+/* ============================================================
+   PANEL PLEGABLE DE INDICADORES GENERALES
+   Tablet y móvil
+   ============================================================ */
+
+.btn-alternar-tarjetas {
+    display: none;
+}
+
+
+/* Escritorio: las tarjetas permanecen visibles. */
+@media (min-width: 1025px) {
+
+    #tarjetasDashboard {
+        max-height: none !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+        transform: none !important;
+    }
+
+}
+
+
+/* Tablet y móvil */
+@media (max-width: 1024px) {
+
+    #tarjetasDashboard {
+        max-height: 900px;
+
+        margin-bottom: 0;
+
+        overflow: hidden;
+
+        opacity: 1;
+
+        transform: translateY(0);
+
+        transition:
+            max-height 320ms ease,
+            opacity 220ms ease,
+            transform 280ms ease,
+            margin 280ms ease;
+    }
+
+
+    #tarjetasDashboard.cards-ocultas {
+        max-height: 0;
+
+        margin-top: 0;
+        margin-bottom: 0;
+
+        opacity: 0;
+
+        transform: translateY(-18px);
+
+        pointer-events: none;
+    }
+
+
+    #tarjetasDashboard.sin-animacion {
+        transition: none !important;
+    }
+
+
+    .btn-alternar-tarjetas {
+        position: relative;
+        z-index: 4;
+
+        width: 70px;
+        height: 26px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        margin:
+            5px
+            auto
+            10px;
+
+        padding: 0;
+
+        border: 1px solid #dfe3e8;
+        border-top: none;
+        border-radius: 0 0 12px 12px;
+
+        background: #ffffff;
+
+        color: #d71920;
+
+        box-shadow:
+            0 5px 12px
+            rgba(0, 0, 0, 0.08);
+
+        font-size: 13px;
+
+        cursor: pointer;
+
+        transition:
+            transform 180ms ease,
+            background 180ms ease,
+            box-shadow 180ms ease;
+    }
+
+
+    .btn-alternar-tarjetas:hover {
+        background: #fff5f5;
+
+        box-shadow:
+            0 6px 15px
+            rgba(0, 0, 0, 0.12);
+    }
+
+
+    .btn-alternar-tarjetas:active {
+        transform: scale(0.94);
+    }
+
+
+    .btn-alternar-tarjetas i {
+        transition:
+            transform 220ms ease;
+    }
+
+
+    .btn-alternar-tarjetas.tarjetas-ocultas {
+        margin-top: 2px;
+
+        border-top:
+            1px solid
+            #dfe3e8;
+
+        border-radius: 12px;
+    }
+
+}
+
+
+/* Móvil */
+@media (max-width: 600px) {
+
+    .btn-alternar-tarjetas {
+        width: 62px;
+        height: 25px;
+
+        margin-bottom: 8px;
+    }
+
+}

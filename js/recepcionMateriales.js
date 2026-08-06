@@ -1179,10 +1179,12 @@ configurarScrollInterno() {
         detalles.length > 0;
 
       this.estado.distribucion = {};
-      this.estado.camaraActiva =
-        this.estado.camaras[0]
-          ? this.estado.camaras[0].idCamara
-          : "";
+
+		/*
+		 * Ninguna cámara se selecciona automáticamente.
+		 * El auxiliar debe pulsar la cámara correcta.
+		 */
+		this.estado.camaraActiva = "";
 
       if (detalles.length) {
 
@@ -1595,14 +1597,20 @@ configurarScrollInterno() {
             return;
           }
 
-          this.estado.materialSeleccionado = material;
-          this.estado.distribucion = {};
-          this.estado.camaraActiva =
-            this.estado.camaras[0]
-              ? this.estado.camaras[0].idCamara
-              : "";
+          this.estado.materialSeleccionado =
+			  material;
 
-          this.renderDistribucionCamaras();
+			this.estado.distribucion =
+			  {};
+
+			/*
+			 * Ninguna cámara queda seleccionada automáticamente.
+			 * El auxiliar debe indicar primero dónde colocó el material.
+			 */
+			this.estado.camaraActiva =
+			  "";
+
+			this.renderDistribucionCamaras();
 
         };
 
@@ -2117,6 +2125,38 @@ mostrarOrigenNuevoIngreso() {
 
 
   renderCamaraActiva() {
+if (
+  !this.estado.camaraActiva
+) {
+
+  return `
+
+    <div class="estado-seleccionar-camara-recepcion">
+
+      <div class="estado-seleccionar-camara-icono">
+
+        <i class="fa-solid fa-hand-pointer"></i>
+
+      </div>
+
+      <div>
+
+        <strong>
+          Selecciona una cámara
+        </strong>
+
+        <span>
+          Pulsa la cámara donde colocaste el material
+          para registrar las tarimas y el parcial.
+        </span>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
 
     const camara = this.estado.camaras.find(
       item => item.idCamara === this.estado.camaraActiva
@@ -2352,11 +2392,59 @@ mostrarOrigenNuevoIngreso() {
       .querySelectorAll("[data-camara]")
       .forEach(boton => {
 
-        boton.onclick = () => {
-          this.estado.camaraActiva =
-            boton.dataset.camara;
-          this.renderDistribucionCamaras();
-        };
+        boton.onclick =
+  () => {
+
+    const idCamara =
+      boton.dataset.camara;
+
+
+    if (!idCamara) {
+      return;
+    }
+
+
+    this.estado.camaraActiva =
+      idCamara;
+
+
+    this.renderDistribucionCamaras();
+
+
+    /*
+     * Después del render, desplaza suavemente
+     * el formulario hacia la zona visible.
+     */
+    requestAnimationFrame(
+      () => {
+
+        const contenido =
+          document.getElementById(
+            "contenidoCamaraRecepcion"
+          );
+
+
+        if (contenido) {
+
+          contenido.classList.add(
+            "camara-recepcion-desplegada"
+          );
+
+
+          contenido.scrollIntoView({
+            behavior:
+              "smooth",
+
+            block:
+              "nearest"
+          });
+
+        }
+
+      }
+    );
+
+  };
 
       });
 

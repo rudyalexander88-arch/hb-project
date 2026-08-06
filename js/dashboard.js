@@ -383,6 +383,8 @@ window.CargadorSistema =
 document.addEventListener(
     "DOMContentLoaded",
     () => {
+		
+		iniciarControlTarjetasDashboard();
 
         const botonMenu =
             document.getElementById(
@@ -525,3 +527,194 @@ document.addEventListener(
 
     }
 );
+
+function iniciarControlTarjetasDashboard() {
+
+    const tarjetas =
+        document.getElementById(
+            "tarjetasDashboard"
+        );
+
+    const boton =
+        document.getElementById(
+            "btnAlternarTarjetasDashboard"
+        );
+
+
+    if (
+        !tarjetas ||
+        !boton
+    ) {
+
+        return;
+
+    }
+
+
+    const icono =
+        boton.querySelector("i");
+
+
+    const claveSesion =
+        "dashboard_tarjetas_ocultas";
+
+
+    function aplicarEstado(
+        ocultas,
+        animar = true
+    ) {
+
+        if (!animar) {
+
+            tarjetas.classList.add(
+                "sin-animacion"
+            );
+
+        }
+
+
+        tarjetas.classList.toggle(
+            "cards-ocultas",
+            ocultas
+        );
+
+
+        boton.classList.toggle(
+            "tarjetas-ocultas",
+            ocultas
+        );
+
+
+        boton.setAttribute(
+            "aria-expanded",
+            ocultas
+                ? "false"
+                : "true"
+        );
+
+
+        boton.setAttribute(
+            "aria-label",
+            ocultas
+                ? "Mostrar indicadores generales"
+                : "Ocultar indicadores generales"
+        );
+
+
+        if (icono) {
+
+            icono.className =
+                ocultas
+                    ? "fa-solid fa-chevron-down"
+                    : "fa-solid fa-chevron-up";
+
+        }
+
+
+        sessionStorage.setItem(
+            claveSesion,
+            ocultas
+                ? "SI"
+                : "NO"
+        );
+
+
+        if (!animar) {
+
+            requestAnimationFrame(
+                () => {
+
+                    tarjetas.classList.remove(
+                        "sin-animacion"
+                    );
+
+                }
+            );
+
+        }
+
+    }
+
+
+    const estadoGuardado =
+        sessionStorage.getItem(
+            claveSesion
+        );
+
+
+    /*
+     * En móvil y tablet inicia con el último estado usado.
+     * En escritorio siempre se mantiene visible.
+     */
+    const esDispositivoCompacto =
+        window.matchMedia(
+            "(max-width: 1024px)"
+        ).matches;
+
+
+    aplicarEstado(
+        esDispositivoCompacto &&
+        estadoGuardado === "SI",
+        false
+    );
+
+
+    boton.addEventListener(
+        "click",
+        () => {
+
+            const ocultas =
+                !tarjetas.classList.contains(
+                    "cards-ocultas"
+                );
+
+
+            aplicarEstado(
+                ocultas
+            );
+
+        }
+    );
+
+
+    window.addEventListener(
+        "resize",
+        () => {
+
+            const escritorio =
+                window.matchMedia(
+                    "(min-width: 1025px)"
+                ).matches;
+
+
+            if (escritorio) {
+
+                tarjetas.classList.remove(
+                    "cards-ocultas"
+                );
+
+
+                boton.classList.remove(
+                    "tarjetas-ocultas"
+                );
+
+
+                boton.setAttribute(
+                    "aria-expanded",
+                    "true"
+                );
+
+
+                if (icono) {
+
+                    icono.className =
+                        "fa-solid fa-chevron-up";
+
+                }
+
+            }
+
+        }
+    );
+
+}

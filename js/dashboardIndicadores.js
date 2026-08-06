@@ -37,6 +37,14 @@ const DashboardIndicadores = {
 
     causasCache: [],
 
+    ocupacionCache: null,
+
+    detalleOcupacionCache: [],
+
+    graficoOcupacionCamaras: null,
+
+    cargandoOcupacion: false,
+
     filtrosMetas: {
         mes: "",
         supervisor: "TODOS",
@@ -61,6 +69,7 @@ const DashboardIndicadores = {
 
         this.prepararTarjetas();
         this.conectarEventosTarjetas();
+        this.cargarIndicadorOcupacion();
         this.cargarMetaMensual();
 
     },
@@ -80,11 +89,23 @@ const DashboardIndicadores = {
         const tarjetas =
             document.querySelectorAll(".cards .card");
 
+        let tarjetaOcupacion =
+            document.getElementById("cardOcupacionCamaras");
+
         let tarjetaMeta =
             document.getElementById("cardMetaMensual");
 
         let tarjetaPrioridades =
             document.getElementById("cardPrioridadesDespacho");
+
+
+        if (!tarjetaOcupacion && tarjetas.length >= 1) {
+
+            tarjetaOcupacion = tarjetas[0];
+            tarjetaOcupacion.id =
+                "cardOcupacionCamaras";
+
+        }
 
 
         if (!tarjetaMeta && tarjetas.length >= 2) {
@@ -100,6 +121,60 @@ const DashboardIndicadores = {
             tarjetaPrioridades = tarjetas[3];
             tarjetaPrioridades.id =
                 "cardPrioridadesDespacho";
+
+        }
+
+
+        if (tarjetaOcupacion) {
+
+            tarjetaOcupacion.classList.add(
+                "card-indicador",
+                "card-ocupacion-camaras",
+                "indicador-sin-datos"
+            );
+
+            tarjetaOcupacion.innerHTML = `
+
+                <div class="card-indicador-icono">
+                    <i class="fa-solid fa-warehouse"></i>
+                </div>
+
+                <h3>
+                    Ocupación de Cámaras
+                </h3>
+
+                <h1 id="valorOcupacionCamaras">
+                    --
+                </h1>
+
+                <div class="card-indicador-info">
+
+                    <strong
+                        id="detalleOcupacionCamaras"
+                        class="card-indicador-detalle"
+                    >
+                        Cargando ocupación...
+                    </strong>
+
+                    <span
+                        id="disponibleOcupacionCamaras"
+                        class="card-indicador-secundario"
+                    >
+                        --
+                    </span>
+
+                </div>
+
+                <button
+                    type="button"
+                    id="btnOcupacionCamaras"
+                    class="btn-card-indicador"
+                >
+                    <i class="fa-solid fa-chart-area"></i>
+                    Ver ocupación
+                </button>
+
+            `;
 
         }
 
@@ -210,6 +285,29 @@ const DashboardIndicadores = {
 
     conectarEventosTarjetas() {
 
+        const botonOcupacion =
+            document.getElementById(
+                "btnOcupacionCamaras"
+            );
+
+        if (
+            botonOcupacion &&
+            !botonOcupacion.dataset.eventoIndicadores
+        ) {
+
+            botonOcupacion.dataset.eventoIndicadores =
+                "true";
+
+            botonOcupacion.addEventListener(
+                "click",
+                () => {
+                    this.abrirOcupacionCamaras();
+                }
+            );
+
+        }
+
+
         const botonHistorico =
             document.getElementById(
                 "btnHistoricoMetas"
@@ -258,6 +356,1139 @@ const DashboardIndicadores = {
             );
 
         }
+
+    },
+
+
+    // ========================================================
+    // OCUPACIÓN DE CÁMARAS
+    // ========================================================
+
+    async cargarIndicadorOcupacion(
+        forzarConsulta = false
+    ) {
+
+        if (this.cargandoOcupacion) {
+            return;
+        }
+
+        if (
+            this.ocupacionCache &&
+            !forzarConsulta
+        ) {
+
+            this.actualizarTarjetaOcupacion();
+            return;
+
+        }
+
+        this.cargandoOcupacion = true;
+        this.mostrarEstadoCargaTarjetaOcupacion();
+
+        try {
+
+            const respuesta = await API.post({
+                accion:
+                    "obtenerIndicadorOcupacionCamaras",
+                action:
+                    "obtenerIndicadorOcupacionCamaras"
+            });
+
+            if (!this.respuestaExitosa(respuesta)) {
+
+                throw new Error(
+                    this.obtenerMensajeRespuesta(
+                        respuesta,
+                        "No fue posible cargar la ocupación."
+                    )
+                );
+
+            }
+
+            this.ocupacionCache =
+                respuesta.data ||
+                respuesta.ocupacion ||
+                respuesta;
+
+            this.actualizarTarjetaOcupacion();
+
+        } catch (error) {
+
+            console.error(
+                "Error al cargar la ocupación de cámaras:",
+                error
+            );
+
+            this.mostrarErrorTarjetaOcupacion();
+
+        } finally {
+
+            this.cargandoOcupacion = false;
+
+        }
+
+    },
+
+
+    actualizarTarjetaOcupacion() {
+
+        const valor =
+            document.getElementById(
+                "valorOcupacionCamaras"
+            );
+
+        const detalle =
+            document.getElementById(
+                "detalleOcupacionCamaras"
+            );
+
+        const disponible =
+            document.getElementById(
+                "disponibleOcupacionCamaras"
+            );
+
+        const tarjeta =
+            document.getElementById(
+                "cardOcupacionCamaras"
+            );
+
+        if (
+            !valor ||
+            !detalle ||
+            !disponible ||
+            !tarjeta
+        ) {
+            return;
+        }
+
+        const datos =
+            this.ocupacionCache ||
+            {};
+
+        const capacidad =
+            Sistema.convertirNumero(
+                datos.capacidadTotal
+            );
+
+        const ocupadas =
+            Sistema.convertirNumero(
+                datos.posicionesOcupadas
+            );
+
+        const libres =
+            Math.max(
+                0,
+                Sistema.convertirNumero(
+                    datos.posicionesDisponibles
+                )
+            );
+
+        const porcentaje =
+            capacidad > 0
+                ? (
+                    ocupadas /
+                    capacidad
+                  ) * 100
+                : 0;
+
+        valor.textContent =
+            Sistema.formatearPorcentaje(
+                porcentaje,
+                1
+            );
+
+        detalle.textContent =
+            Sistema.formatearNumero(
+                ocupadas,
+                0
+            ) +
+            " de " +
+            Sistema.formatearNumero(
+                capacidad,
+                0
+            ) +
+            " posiciones ocupadas";
+
+        disponible.textContent =
+            Sistema.formatearNumero(
+                libres,
+                0
+            ) +
+            (
+                libres === 1
+                    ? " posición disponible"
+                    : " posiciones disponibles"
+            );
+
+        tarjeta.classList.remove(
+            "ocupacion-baja",
+            "ocupacion-media",
+            "ocupacion-alta",
+            "ocupacion-critica",
+            "indicador-sin-datos"
+        );
+
+        if (capacidad <= 0) {
+
+            tarjeta.classList.add(
+                "indicador-sin-datos"
+            );
+
+        } else if (porcentaje >= 90) {
+
+            tarjeta.classList.add(
+                "ocupacion-critica"
+            );
+
+        } else if (porcentaje >= 75) {
+
+            tarjeta.classList.add(
+                "ocupacion-alta"
+            );
+
+        } else if (porcentaje >= 60) {
+
+            tarjeta.classList.add(
+                "ocupacion-media"
+            );
+
+        } else {
+
+            tarjeta.classList.add(
+                "ocupacion-baja"
+            );
+
+        }
+
+    },
+
+
+    mostrarEstadoCargaTarjetaOcupacion() {
+
+        const valor =
+            document.getElementById(
+                "valorOcupacionCamaras"
+            );
+
+        const detalle =
+            document.getElementById(
+                "detalleOcupacionCamaras"
+            );
+
+        const disponible =
+            document.getElementById(
+                "disponibleOcupacionCamaras"
+            );
+
+        if (valor) {
+            valor.textContent = "...";
+        }
+
+        if (detalle) {
+            detalle.textContent =
+                "Calculando ocupación actual...";
+        }
+
+        if (disponible) {
+            disponible.textContent = "";
+        }
+
+    },
+
+
+    mostrarErrorTarjetaOcupacion() {
+
+        const valor =
+            document.getElementById(
+                "valorOcupacionCamaras"
+            );
+
+        const detalle =
+            document.getElementById(
+                "detalleOcupacionCamaras"
+            );
+
+        const disponible =
+            document.getElementById(
+                "disponibleOcupacionCamaras"
+            );
+
+        if (valor) {
+            valor.textContent = "--";
+        }
+
+        if (detalle) {
+            detalle.textContent =
+                "No fue posible cargar la ocupación.";
+        }
+
+        if (disponible) {
+            disponible.textContent =
+                "Pulse Ver ocupación para reintentar.";
+        }
+
+    },
+
+
+    async abrirOcupacionCamaras() {
+
+        Sistema.mostrarCarga(
+            "Cargando ocupación",
+            "Consultando el estado actual de las cámaras."
+        );
+
+        try {
+
+            const respuesta = await API.post({
+                accion:
+                    "obtenerDetalleOcupacionCamaras",
+                action:
+                    "obtenerDetalleOcupacionCamaras"
+            });
+
+            if (!this.respuestaExitosa(respuesta)) {
+
+                throw new Error(
+                    this.obtenerMensajeRespuesta(
+                        respuesta,
+                        "No fue posible consultar la ocupación."
+                    )
+                );
+
+            }
+
+            const datos =
+                respuesta.data ||
+                respuesta.ocupacion ||
+                respuesta;
+
+            this.ocupacionCache =
+                datos.general ||
+                datos;
+
+            this.detalleOcupacionCache =
+                Array.isArray(datos.camaras)
+                    ? datos.camaras
+                    : [];
+
+            this.actualizarTarjetaOcupacion();
+
+            Sistema.abrirModal(
+                "Ocupación de Cámaras",
+                this.construirVistaOcupacionCamaras(),
+                {
+                    clase:
+                        "modal-ocupacion-camaras"
+                }
+            );
+
+            this.conectarEventosOcupacionCamaras();
+            this.renderizarDetalleCamaras();
+            await this.consultarHistoricoOcupacion(
+                "SEMANA",
+                "GENERAL"
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Error al abrir la ocupación de cámaras:",
+                error
+            );
+
+            Sistema.error(
+                error.message ||
+                "No fue posible abrir la ocupación."
+            );
+
+        } finally {
+
+            Sistema.ocultarCarga();
+
+        }
+
+    },
+
+
+    construirVistaOcupacionCamaras() {
+
+        const datos =
+            this.ocupacionCache ||
+            {};
+
+        return `
+
+            <div class="ocupacion-camaras-modal">
+
+                <section class="resumen-ocupacion-general">
+
+                    <div class="ocupacion-general-principal">
+
+                        <span>
+                            Ocupación general
+                        </span>
+
+                        <strong id="modalPorcentajeOcupacion">
+                            ${Sistema.formatearPorcentaje(
+                                datos.porcentajeOcupacion ||
+                                0,
+                                1
+                            )}
+                        </strong>
+
+                        <div class="barra-ocupacion-general">
+                            <span
+                                style="width: ${Math.min(
+                                    100,
+                                    Math.max(
+                                        0,
+                                        Sistema.convertirNumero(
+                                            datos.porcentajeOcupacion
+                                        )
+                                    )
+                                )}%"
+                            ></span>
+                        </div>
+
+                    </div>
+
+                    <div class="metricas-ocupacion-general">
+
+                        <div>
+                            <span>Ocupadas</span>
+                            <strong>
+                                ${Sistema.formatearNumero(
+                                    datos.posicionesOcupadas,
+                                    0
+                                )}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Capacidad</span>
+                            <strong>
+                                ${Sistema.formatearNumero(
+                                    datos.capacidadTotal,
+                                    0
+                                )}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Disponibles</span>
+                            <strong>
+                                ${Sistema.formatearNumero(
+                                    datos.posicionesDisponibles,
+                                    0
+                                )}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Cámaras activas</span>
+                            <strong>
+                                ${Sistema.formatearNumero(
+                                    datos.camarasActivas,
+                                    0
+                                )}
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <section class="seccion-ocupacion-camaras">
+
+                    <div class="encabezado-seccion-ocupacion">
+
+                        <div>
+                            <span>Estado actual</span>
+                            <h3>Ocupación por cámara</h3>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="btnActualizarOcupacionCamaras"
+                            class="btn-actualizar-ocupacion"
+                        >
+                            <i class="fa-solid fa-rotate"></i>
+                            Actualizar
+                        </button>
+
+                    </div>
+
+                    <div
+                        id="rejillaDetalleOcupacionCamaras"
+                        class="rejilla-detalle-ocupacion"
+                    ></div>
+
+                </section>
+
+
+                <section class="seccion-historico-ocupacion">
+
+                    <div class="encabezado-seccion-ocupacion">
+
+                        <div>
+                            <span>Evolución</span>
+                            <h3>Histórico de ocupación</h3>
+                        </div>
+
+                        <p id="textoPeriodoHistoricoOcupacion"></p>
+
+                    </div>
+
+                    <div class="filtros-historico-ocupacion">
+
+                        <div>
+                            <label for="filtroPeriodoOcupacion">
+                                Período
+                            </label>
+
+                            <select id="filtroPeriodoOcupacion">
+                                <option value="SEMANA">
+                                    Semana
+                                </option>
+                                <option value="MES">
+                                    Mes
+                                </option>
+                                <option value="ANO">
+                                    Año
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="filtroCamaraOcupacion">
+                                Vista
+                            </label>
+
+                            <select id="filtroCamaraOcupacion">
+
+                                <option value="GENERAL">
+                                    Ocupación general
+                                </option>
+
+                                ${this.detalleOcupacionCache
+                                    .map(camara => `
+                                        <option
+                                            value="${Sistema.escaparAtributo(
+                                                camara.idCamara
+                                            )}"
+                                        >
+                                            ${Sistema.escaparHTML(
+                                                camara.codigo +
+                                                " · " +
+                                                camara.nombre
+                                            )}
+                                        </option>
+                                    `)
+                                    .join("")}
+
+                            </select>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="btnConsultarHistoricoOcupacion"
+                            class="btn-consultar-ocupacion"
+                        >
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            Consultar
+                        </button>
+
+                    </div>
+
+                    <div class="contenedor-grafico-ocupacion">
+                        <canvas id="graficoHistoricoOcupacion"></canvas>
+                    </div>
+
+                    <div
+                        id="sinDatosHistoricoOcupacion"
+                        class="sin-datos-historico-ocupacion oculto"
+                    >
+                        No existen movimientos para representar
+                        en el período seleccionado.
+                    </div>
+
+                </section>
+
+            </div>
+
+        `;
+
+    },
+
+
+    conectarEventosOcupacionCamaras() {
+
+        const actualizar =
+            document.getElementById(
+                "btnActualizarOcupacionCamaras"
+            );
+
+        const consultar =
+            document.getElementById(
+                "btnConsultarHistoricoOcupacion"
+            );
+
+        if (actualizar) {
+
+            actualizar.addEventListener(
+                "click",
+                async () => {
+
+                    await this.actualizarModalOcupacion();
+
+                }
+            );
+
+        }
+
+        if (consultar) {
+
+            consultar.addEventListener(
+                "click",
+                async () => {
+
+                    const periodo =
+                        document.getElementById(
+                            "filtroPeriodoOcupacion"
+                        );
+
+                    const camara =
+                        document.getElementById(
+                            "filtroCamaraOcupacion"
+                        );
+
+                    await this.consultarHistoricoOcupacion(
+                        periodo
+                            ? periodo.value
+                            : "SEMANA",
+                        camara
+                            ? camara.value
+                            : "GENERAL"
+                    );
+
+                }
+            );
+
+        }
+
+    },
+
+
+    async actualizarModalOcupacion() {
+
+        Sistema.mostrarCarga(
+            "Actualizando ocupación",
+            "Consultando el inventario actual."
+        );
+
+        try {
+
+            const respuesta = await API.post({
+                accion:
+                    "obtenerDetalleOcupacionCamaras",
+                action:
+                    "obtenerDetalleOcupacionCamaras"
+            });
+
+            if (!this.respuestaExitosa(respuesta)) {
+
+                throw new Error(
+                    this.obtenerMensajeRespuesta(
+                        respuesta,
+                        "No fue posible actualizar la ocupación."
+                    )
+                );
+
+            }
+
+            const datos =
+                respuesta.data ||
+                respuesta.ocupacion ||
+                respuesta;
+
+            this.ocupacionCache =
+                datos.general ||
+                datos;
+
+            this.detalleOcupacionCache =
+                Array.isArray(datos.camaras)
+                    ? datos.camaras
+                    : [];
+
+            this.actualizarTarjetaOcupacion();
+            this.actualizarResumenModalOcupacion();
+            this.renderizarDetalleCamaras();
+
+        } catch (error) {
+
+            Sistema.error(
+                error.message ||
+                "No fue posible actualizar la ocupación."
+            );
+
+        } finally {
+
+            Sistema.ocultarCarga();
+
+        }
+
+    },
+
+
+    actualizarResumenModalOcupacion() {
+
+        const datos =
+            this.ocupacionCache ||
+            {};
+
+        const porcentaje =
+            document.getElementById(
+                "modalPorcentajeOcupacion"
+            );
+
+        if (porcentaje) {
+
+            porcentaje.textContent =
+                Sistema.formatearPorcentaje(
+                    datos.porcentajeOcupacion,
+                    1
+                );
+
+        }
+
+    },
+
+
+    renderizarDetalleCamaras() {
+
+        const contenedor =
+            document.getElementById(
+                "rejillaDetalleOcupacionCamaras"
+            );
+
+        if (!contenedor) {
+            return;
+        }
+
+        const lista =
+            Array.isArray(
+                this.detalleOcupacionCache
+            )
+                ? this.detalleOcupacionCache
+                : [];
+
+        if (!lista.length) {
+
+            contenedor.innerHTML = `
+                <div class="estado-vacio-ocupacion">
+                    No existen cámaras activas configuradas.
+                </div>
+            `;
+
+            return;
+
+        }
+
+        contenedor.innerHTML =
+            lista
+                .map(camara =>
+                    this.construirTarjetaOcupacionCamara(
+                        camara
+                    )
+                )
+                .join("");
+
+    },
+
+
+    construirTarjetaOcupacionCamara(
+        camara
+    ) {
+
+        const porcentaje =
+            Sistema.convertirNumero(
+                camara.porcentajeOcupacion
+            );
+
+        let nivel = "baja";
+
+        if (porcentaje >= 90) {
+            nivel = "critica";
+        } else if (porcentaje >= 75) {
+            nivel = "alta";
+        } else if (porcentaje >= 60) {
+            nivel = "media";
+        }
+
+        return `
+
+            <article
+                class="tarjeta-ocupacion-camara nivel-${nivel}"
+            >
+
+                <header>
+
+                    <div>
+                        <span>
+                            ${Sistema.escaparHTML(
+                                camara.codigo ||
+                                camara.idCamara
+                            )}
+                        </span>
+
+                        <h4>
+                            ${Sistema.escaparHTML(
+                                camara.nombre ||
+                                "Cámara"
+                            )}
+                        </h4>
+                    </div>
+
+                    <strong>
+                        ${Sistema.formatearPorcentaje(
+                            porcentaje,
+                            1
+                        )}
+                    </strong>
+
+                </header>
+
+                <div class="barra-camara">
+                    <span
+                        style="width: ${Math.min(
+                            100,
+                            Math.max(0, porcentaje)
+                        )}%"
+                    ></span>
+                </div>
+
+                <div class="metricas-camara">
+
+                    <div>
+                        <span>Ocupadas</span>
+                        <strong>
+                            ${Sistema.formatearNumero(
+                                camara.posicionesOcupadas,
+                                0
+                            )}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Capacidad</span>
+                        <strong>
+                            ${Sistema.formatearNumero(
+                                camara.capacidad,
+                                0
+                            )}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Disponibles</span>
+                        <strong>
+                            ${Sistema.formatearNumero(
+                                camara.posicionesDisponibles,
+                                0
+                            )}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Materiales</span>
+                        <strong>
+                            ${Sistema.formatearNumero(
+                                camara.materialesDistintos,
+                                0
+                            )}
+                        </strong>
+                    </div>
+
+                </div>
+
+                <footer>
+
+                    <span>
+                        <i class="fa-solid fa-temperature-low"></i>
+                        ${Sistema.escaparHTML(
+                            camara.temperaturaObjetivo ||
+                            "Sin objetivo"
+                        )}
+                    </span>
+
+                    <span>
+                        ${Sistema.formatearNumero(
+                            camara.totalUnidades,
+                            0
+                        )}
+                        bultos
+                    </span>
+
+                </footer>
+
+            </article>
+
+        `;
+
+    },
+
+
+    async consultarHistoricoOcupacion(
+        periodo,
+        idCamara
+    ) {
+
+        const contenedor =
+            document.querySelector(
+                ".contenedor-grafico-ocupacion"
+            );
+
+        if (contenedor) {
+            contenedor.classList.add(
+                "cargando"
+            );
+        }
+
+        try {
+
+            const respuesta = await API.post({
+                accion:
+                    "obtenerHistoricoOcupacionCamaras",
+                action:
+                    "obtenerHistoricoOcupacionCamaras",
+                periodo:
+                    periodo || "SEMANA",
+                idCamara:
+                    idCamara || "GENERAL"
+            });
+
+            if (!this.respuestaExitosa(respuesta)) {
+
+                throw new Error(
+                    this.obtenerMensajeRespuesta(
+                        respuesta,
+                        "No fue posible consultar el histórico."
+                    )
+                );
+
+            }
+
+            const datos =
+                respuesta.data ||
+                {};
+
+            this.renderizarGraficoOcupacion(
+                Array.isArray(datos.puntos)
+                    ? datos.puntos
+                    : [],
+                datos
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Error al consultar histórico de ocupación:",
+                error
+            );
+
+            Sistema.error(
+                error.message ||
+                "No fue posible consultar el histórico."
+            );
+
+        } finally {
+
+            if (contenedor) {
+                contenedor.classList.remove(
+                    "cargando"
+                );
+            }
+
+        }
+
+    },
+
+
+    renderizarGraficoOcupacion(
+        puntos,
+        informacion
+    ) {
+
+        const canvas =
+            document.getElementById(
+                "graficoHistoricoOcupacion"
+            );
+
+        const sinDatos =
+            document.getElementById(
+                "sinDatosHistoricoOcupacion"
+            );
+
+        const textoPeriodo =
+            document.getElementById(
+                "textoPeriodoHistoricoOcupacion"
+            );
+
+        if (!canvas) {
+            return;
+        }
+
+        if (this.graficoOcupacionCamaras) {
+
+            this.graficoOcupacionCamaras.destroy();
+            this.graficoOcupacionCamaras = null;
+
+        }
+
+        if (textoPeriodo) {
+
+            textoPeriodo.textContent =
+                informacion.fechaDesde &&
+                informacion.fechaHasta
+                    ? informacion.fechaDesde +
+                      " al " +
+                      informacion.fechaHasta
+                    : "";
+
+        }
+
+        if (!puntos.length) {
+
+            canvas.classList.add("oculto");
+
+            if (sinDatos) {
+                sinDatos.classList.remove(
+                    "oculto"
+                );
+            }
+
+            return;
+
+        }
+
+        canvas.classList.remove("oculto");
+
+        if (sinDatos) {
+            sinDatos.classList.add("oculto");
+        }
+
+        if (typeof Chart === "undefined") {
+
+            console.warn(
+                "Chart.js no está disponible."
+            );
+
+            return;
+
+        }
+
+        this.graficoOcupacionCamaras =
+            new Chart(
+                canvas.getContext("2d"),
+                {
+                    type: "line",
+
+                    data: {
+                        labels:
+                            puntos.map(
+                                punto => punto.etiqueta
+                            ),
+
+                        datasets: [
+                            {
+                                label:
+                                    "Ocupación %",
+                                data:
+                                    puntos.map(
+                                        punto =>
+                                            Sistema.convertirNumero(
+                                                punto.porcentaje
+                                            )
+                                    ),
+                                borderColor:
+                                    "rgba(33, 150, 243, 1)",
+                                backgroundColor:
+                                    "rgba(33, 150, 243, 0.13)",
+                                fill: true,
+                                tension: 0.28,
+                                borderWidth: 2,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            }
+                        ]
+                    },
+
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+
+                        interaction: {
+                            mode: "index",
+                            intersect: false
+                        },
+
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+
+                            tooltip: {
+                                callbacks: {
+                                    afterLabel: contexto => {
+
+                                        const punto =
+                                            puntos[
+                                                contexto.dataIndex
+                                            ];
+
+                                        return (
+                                            Sistema.formatearNumero(
+                                                punto.ocupadas,
+                                                0
+                                            ) +
+                                            " de " +
+                                            Sistema.formatearNumero(
+                                                punto.capacidad,
+                                                0
+                                            ) +
+                                            " posiciones"
+                                        );
+
+                                    }
+                                }
+                            }
+                        },
+
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                suggestedMax: 100,
+                                max: 100,
+                                ticks: {
+                                    callback:
+                                        valor => valor + "%"
+                                },
+                                grid: {
+                                    color:
+                                        "rgba(0, 0, 0, 0.06)"
+                                }
+                            },
+
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                }
+            );
 
     },
 

@@ -8,16 +8,27 @@ window.RecepcionMateriales = {
   estado: {
     camaras: [],
     recepcionesAbiertas: [],
+    recepcionesRecientes: [],
     recepcionActual: null,
     materialSeleccionado: null,
     resultadosMateriales: [],
     distribucion: {},
     camaraActiva: "",
-    origenTraslado: "Carritos"
+    origenTraslado: "Carritos",
+    resumenAcumulado: null,
+    tieneRegistrosPrevios: false
   },
 
 
   async cargar() {
+
+    /*
+     * Protección: si un modal anterior dejó el bloqueo activo,
+     * se restablece el desplazamiento del módulo.
+     */
+    document.body.classList.remove(
+      "asistente-recepcion-abierto"
+    );
 
     const contenedor =
       document.getElementById("contenidoPrincipal");
@@ -28,9 +39,12 @@ window.RecepcionMateriales = {
     }
 
     this.estado.recepcionActual = null;
+    this.estado.recepcionesRecientes = [];
     this.estado.materialSeleccionado = null;
     this.estado.resultadosMateriales = [];
     this.estado.distribucion = {};
+    this.estado.resumenAcumulado = null;
+    this.estado.tieneRegistrosPrevios = false;
 
     contenedor.innerHTML = `
       <section class="recepcion-materiales">
@@ -71,10 +85,17 @@ window.RecepcionMateriales = {
     `;
 
     document
-      .getElementById("btnNuevaRecepcionMateriales")
-      .onclick = () => this.abrirAsistenteNueva();
+  .getElementById(
+    "btnNuevaRecepcionMateriales"
+  )
+  .onclick =
+    () => this.abrirAsistenteNueva();
 
-    await this.cargarCatalogos();
+
+this.configurarScrollInterno();
+
+
+await this.cargarCatalogos();
 
   },
 
@@ -181,6 +202,8 @@ window.RecepcionMateriales = {
     this.estado.resultadosMateriales = [];
     this.estado.distribucion = {};
     this.estado.camaraActiva = "";
+    this.estado.resumenAcumulado = null;
+    this.estado.tieneRegistrosPrevios = false;
 
     await this.cargarCatalogos();
 
@@ -203,6 +226,8 @@ window.RecepcionMateriales = {
     this.estado.resultadosMateriales = [];
     this.estado.distribucion = {};
     this.estado.camaraActiva = "";
+    this.estado.resumenAcumulado = null;
+    this.estado.tieneRegistrosPrevios = false;
 
     this.abrirAsistente(
       "Asistente de Recepción"
@@ -212,47 +237,155 @@ window.RecepcionMateriales = {
 
   },
 
+configurarScrollInterno() {
+
+  const modulo =
+    document.querySelector(
+      ".recepcion-materiales"
+    );
+
+
+  if (!modulo) {
+    return;
+  }
+
+
+  const actualizarAltura =
+    () => {
+
+      const posicion =
+        modulo.getBoundingClientRect();
+
+
+      const margenInferior =
+        18;
+
+
+      const alturaDisponible =
+        Math.max(
+          420,
+          window.innerHeight -
+          posicion.top -
+          margenInferior
+        );
+
+
+      modulo.style.setProperty(
+        "--alto-modulo-recepciones",
+        alturaDisponible + "px"
+      );
+
+    };
+
+
+  actualizarAltura();
+
+
+  if (
+    !this._eventoResizeRecepciones
+  ) {
+
+    this._eventoResizeRecepciones =
+      () => {
+
+        window.requestAnimationFrame(
+          actualizarAltura
+        );
+
+      };
+
+
+    window.addEventListener(
+      "resize",
+      this._eventoResizeRecepciones
+    );
+
+  }
+
+},
 
   async cargarCatalogos() {
 
     this.mostrarCarga(
       "Cargando recepciones",
-      "Consultando cámaras y recepciones abiertas."
+      "Consultando procesos abiertos y actividad reciente."
     );
 
     try {
 
-      const sesion = this.obtenerSesion();
+      const resultados =
+        await Promise.all([
 
-      const respuesta = await API.post({
-        action: "obtenerCatalogosRecepcionMateriales",
-        usuarioId:
-          sesion.id ||
-          sesion.ID_Usuario ||
-          sesion.usuario ||
-          "",
-        limite: 50
-      });
+          API.post({
+            action:
+              "obtenerCatalogosRecepcionMateriales",
+            limite:
+              50
+          }),
 
-      if (!respuesta || respuesta.ok !== true) {
+          API.post({
+            action:
+              "listarRecepcionesRecientes",
+            limite:
+              6
+          })
+
+        ]);
+
+
+      const respuestaCatalogos =
+        resultados[0];
+
+
+      const respuestaRecientes =
+        resultados[1];
+
+
+      if (
+        !respuestaCatalogos ||
+        respuestaCatalogos.ok !== true
+      ) {
+
         throw new Error(
-          respuesta && respuesta.mensaje
-            ? respuesta.mensaje
+          respuestaCatalogos &&
+          respuestaCatalogos.mensaje
+            ? respuestaCatalogos.mensaje
             : "No fue posible cargar los catálogos."
         );
+
       }
 
-      const datos = respuesta.data || {};
+
+      const datos =
+        respuestaCatalogos.data ||
+        {};
+
 
       this.estado.camaras =
-        Array.isArray(datos.camaras)
+        Array.isArray(
+          datos.camaras
+        )
           ? datos.camaras
           : [];
 
+
       this.estado.recepcionesAbiertas =
-        Array.isArray(datos.recepcionesAbiertas)
+        Array.isArray(
+          datos.recepcionesAbiertas
+        )
           ? datos.recepcionesAbiertas
           : [];
+
+
+      this.estado.recepcionesRecientes =
+        respuestaRecientes &&
+        respuestaRecientes.ok === true &&
+        Array.isArray(
+          respuestaRecientes.data
+        )
+          ? respuestaRecientes.data
+          : [];
+
 
       this.renderRecepcionesAbiertas();
 
@@ -273,6 +406,10 @@ window.RecepcionMateriales = {
 
 
   renderRecepcionesAbiertas() {
+
+    document.body.classList.remove(
+      "asistente-recepcion-abierto"
+    );
 
     const panel =
       document.getElementById("panelRecepcionMateriales");
@@ -321,11 +458,19 @@ window.RecepcionMateriales = {
           </article>
 
           <article class="indicador-recepcion azul">
-            <span>Posiciones ocupadas</span>
+            <span>Bultos recibidos</span>
             <strong>
-              ${this.formatearNumero(totalPosiciones)}
+              ${this.formatearNumero(
+                lista.reduce(
+                  (total, item) =>
+                    total + Number(item.totalUnidades || 0),
+                  0
+                )
+              )}
             </strong>
-            <small>Según el registro de recepción</small>
+            <small>
+              ${this.formatearNumero(totalPosiciones)} posiciones ocupadas
+            </small>
           </article>
 
           <article class="indicador-recepcion naranja">
@@ -393,13 +538,7 @@ window.RecepcionMateriales = {
               </button>
             </header>
 
-            <div class="estado-proximo-recepciones">
-              <i class="fa-solid fa-list-check"></i>
-              <span>
-                La estructura está preparada para el histórico,
-                filtros y consulta de recepciones.
-              </span>
-            </div>
+            ${this.renderActividadReciente()}
           </section>
 
           <section class="bloque-centro-recepciones">
@@ -464,7 +603,227 @@ window.RecepcionMateriales = {
   },
 
 
+  renderActividadReciente() {
+
+    const lista =
+      Array.isArray(
+        this.estado.recepcionesRecientes
+      )
+        ? this.estado.recepcionesRecientes
+        : [];
+
+
+    if (!lista.length) {
+
+      return `
+
+        <div class="estado-proximo-recepciones">
+
+          <i class="fa-solid fa-box-archive"></i>
+
+          <span>
+            Todavía no hay recepciones finalizadas recientes
+            para mostrar.
+          </span>
+
+        </div>
+
+      `;
+
+    }
+
+
+    return `
+
+      <div class="lista-recepciones-recientes">
+
+        ${lista
+          .map(
+            item =>
+              this.renderRecepcionReciente(
+                item
+              )
+          )
+          .join("")}
+
+      </div>
+
+    `;
+
+  },
+
+
+  renderRecepcionReciente(
+    item
+  ) {
+
+    const auxiliares =
+      Array.isArray(
+        item.auxiliares
+      )
+        ? item.auxiliares
+        : [];
+
+
+    const camaras =
+      Array.isArray(
+        item.camaras
+      )
+        ? item.camaras
+        : [];
+
+
+    return `
+
+      <article class="tarjeta-recepcion-reciente">
+
+        <div class="recepcion-reciente-icono">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+
+        <div class="recepcion-reciente-contenido">
+
+          <header>
+
+            <div>
+              <span>Recepción finalizada</span>
+
+              <h4>
+                ${this.escapar(
+                  item.descripcion ||
+                  "Material recibido"
+                )}
+              </h4>
+
+              <small>
+                ${this.escapar(
+                  item.idRecepcion ||
+                  "-"
+                )}
+              </small>
+            </div>
+
+            <time>
+              ${this.escapar(
+                this.formatearFechaLegible(
+                  item.fecha
+                )
+              )}
+
+              <strong>
+                ${this.escapar(
+                  this.formatearHoraRecepcion(
+                    item.horaFinal ||
+                    item.horaInicio
+                  )
+                )}
+              </strong>
+            </time>
+
+          </header>
+
+          <div class="metricas-recepcion-reciente">
+
+            <div>
+              <span>Tarimas</span>
+              <strong>
+                ${this.formatearNumero(
+                  item.totalTarimas
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>Parciales</span>
+              <strong>
+                ${this.formatearNumero(
+                  item.totalParciales
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>Bultos</span>
+              <strong>
+                ${this.formatearNumero(
+                  item.totalUnidades
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>Duración</span>
+              <strong>
+                ${this.formatearNumero(
+                  item.duracionMinutos
+                )}
+                min
+              </strong>
+            </div>
+
+          </div>
+
+          <footer>
+
+            <div>
+              <i class="fa-solid fa-user-group"></i>
+              <span>
+                ${
+                  auxiliares.length
+                    ? auxiliares
+                        .map(
+                          auxiliar =>
+                            this.escapar(
+                              auxiliar.nombre ||
+                              auxiliar.id
+                            )
+                        )
+                        .join(", ")
+                    : "Sin auxiliar identificado"
+                }
+              </span>
+            </div>
+
+            <div>
+              <i class="fa-solid fa-warehouse"></i>
+              <span>
+                ${
+                  camaras.length
+                    ? camaras
+                        .map(
+                          camara =>
+                            this.escapar(
+                              camara.codigo ||
+                              camara.nombre
+                            )
+                        )
+                        .join(", ")
+                    : "Sin cámara identificada"
+                }
+              </span>
+            </div>
+
+          </footer>
+
+        </div>
+
+      </article>
+
+    `;
+
+  },
+
+
   renderTarjetaRecepcion(item) {
+
+    const camaras =
+      Array.isArray(item.camarasUtilizadas)
+        ? item.camarasUtilizadas
+        : [];
+
+    const titulo =
+      item.descripcion ||
+      "Recepción pendiente de material";
 
     return `
       <article class="tarjeta-recepcion-abierta">
@@ -472,30 +831,35 @@ window.RecepcionMateriales = {
         <div class="tarjeta-recepcion-franja"></div>
 
         <header>
+
           <div>
-            <span>Recepción</span>
-            <strong>
+            <span>Producto en recepción</span>
+
+            <h3>
+              ${this.escapar(titulo)}
+            </h3>
+
+            <small>
               ${this.escapar(item.idRecepcion || "-")}
-            </strong>
+            </small>
           </div>
 
           <span class="estado-recepcion-abierta">
             ${this.escapar(item.estado || "ABIERTA")}
           </span>
+
         </header>
 
-        <div class="tarjeta-recepcion-datos">
-          <div>
-            <span>Auxiliar</span>
-            <strong>
-              ${this.escapar(item.usuarioNombre || "-")}
-            </strong>
-          </div>
+        <div class="tarjeta-recepcion-datos ampliada">
 
           <div>
-            <span>Turno</span>
+            <span>Hora de inicio</span>
             <strong>
-              ${this.escapar(item.turno || "-")}
+              ${this.escapar(
+                this.formatearHoraRecepcion(
+                  item.horaInicio
+                )
+              )}
             </strong>
           </div>
 
@@ -507,14 +871,70 @@ window.RecepcionMateriales = {
           </div>
 
           <div>
-            <span>Posiciones</span>
+            <span>Parciales</span>
+            <strong>
+              ${this.formatearNumero(item.totalParciales)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Bultos recibidos</span>
+            <strong>
+              ${this.formatearNumero(
+                item.totalUnidades
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Posiciones ocupadas</span>
             <strong>
               ${this.formatearNumero(
                 item.totalPosicionesOcupadas
               )}
             </strong>
           </div>
+
+          <div>
+            <span>Cámaras utilizadas</span>
+            <strong>
+              ${this.formatearNumero(item.cantidadCamaras)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Último auxiliar</span>
+            <strong>
+              ${this.escapar(
+                item.ultimoAuxiliarNombre ||
+                item.usuarioNombre ||
+                "-"
+              )}
+            </strong>
+          </div>
+
         </div>
+
+        ${
+          camaras.length
+            ? `
+              <div class="camaras-tarjeta-recepcion">
+                ${camaras
+                  .map(
+                    camara => `
+                      <span>
+                        ${this.escapar(
+                          camara.codigo ||
+                          camara.nombre
+                        )}
+                      </span>
+                    `
+                  )
+                  .join("")}
+              </div>
+            `
+            : ""
+        }
 
         <button
           type="button"
@@ -524,7 +944,7 @@ window.RecepcionMateriales = {
           )}"
         >
           <i class="fa-solid fa-arrow-right"></i>
-          Continuar
+          Continuar recepción
         </button>
 
       </article>
@@ -637,6 +1057,9 @@ window.RecepcionMateriales = {
   async iniciarNuevaRecepcion() {
 
     const sesion = this.obtenerSesion();
+	
+	const origenSeleccionado =
+	this.estado.origenTraslado;
 
     this.mostrarCarga(
       "Iniciando recepción",
@@ -670,6 +1093,17 @@ window.RecepcionMateriales = {
 
       this.estado.recepcionActual =
         respuesta.data.recepcion;
+		
+		/*
+		 * La respuesta del backend reemplaza la recepción actual,
+		 * pero la vía seleccionada pertenece al ingreso que todavía
+		 * se está capturando.
+		 */
+		this.estado.origenTraslado =
+		  origenSeleccionado;
+
+      this.estado.resumenAcumulado = null;
+      this.estado.tieneRegistrosPrevios = false;
 
       const titulo =
         document.getElementById(
@@ -715,7 +1149,7 @@ window.RecepcionMateriales = {
 
     this.mostrarCarga(
       "Abriendo recepción",
-      "Consultando el detalle registrado."
+      "Consultando el avance acumulado."
     );
 
     try {
@@ -736,25 +1170,45 @@ window.RecepcionMateriales = {
       this.estado.recepcionActual =
         respuesta.data.recepcion;
 
-      const titulo =
-        document.getElementById(
-          "tituloAsistenteRecepcion"
-        );
-
-      if (titulo) {
-        titulo.textContent =
-          "Recepción · " +
-          this.estado.recepcionActual.idRecepcion;
-      }
-
       const detalles =
         Array.isArray(respuesta.data.detalles)
           ? respuesta.data.detalles
           : [];
 
+      this.estado.tieneRegistrosPrevios =
+        detalles.length > 0;
+
+      this.estado.distribucion = {};
+      this.estado.camaraActiva =
+        this.estado.camaras[0]
+          ? this.estado.camaras[0].idCamara
+          : "";
+
       if (detalles.length) {
 
         const primero = detalles[0];
+        const ultimo =
+          detalles[detalles.length - 1];
+
+        const camarasUsadas = {};
+
+        detalles.forEach(item => {
+
+          if (!item.idCamara) {
+            return;
+          }
+
+          camarasUsadas[item.idCamara] = {
+            idCamara: item.idCamara,
+            codigo:
+              item.camaraCodigo ||
+              item.idCamara,
+            nombre:
+              item.camaraNombre ||
+              item.idCamara
+          };
+
+        });
 
         this.estado.materialSeleccionado = {
           id: primero.material,
@@ -768,36 +1222,75 @@ window.RecepcionMateriales = {
           um: primero.um
         };
 
-        this.estado.distribucion = {};
+        this.estado.resumenAcumulado = {
+          totalTarimas:
+            Number(
+              this.estado.recepcionActual
+                .totalTarimas || 0
+            ),
+          totalParciales:
+            Number(
+              this.estado.recepcionActual
+                .totalParciales || 0
+            ),
+          totalPosiciones:
+            Number(
+              this.estado.recepcionActual
+                .totalPosicionesOcupadas || 0
+            ),
+          totalUnidades:
+            Number(
+              this.estado.recepcionActual
+                .totalUnidades || 0
+            ),
+          camaras:
+            Object.values(camarasUsadas),
+          ultimoAuxiliar:
+            ultimo.auxiliarNombre || "-",
+          ultimaHora:
+            ultimo.horaRegistro || "-"
+        };
 
-        detalles.forEach(item => {
-
-          this.estado.distribucion[item.idCamara] = {
-            idCamara: item.idCamara,
-            tarimasCompletas:
-              Number(item.tarimasCompletas || 0),
-            parcialUnidades:
-              Number(item.parcialUnidades || 0),
-            parcialOcupaPosicion:
-              item.parcialOcupaPosicion || "NO"
-          };
-
-        });
-
-        this.estado.camaraActiva =
-          detalles[0].idCamara ||
-          (
-            this.estado.camaras[0]
-              ? this.estado.camaras[0].idCamara
-              : ""
+        const titulo =
+          document.getElementById(
+            "tituloAsistenteRecepcion"
           );
+
+        if (titulo) {
+          titulo.textContent =
+            this.estado.materialSeleccionado
+              .descripcion ||
+            (
+              "Recepción · " +
+              this.estado.recepcionActual
+                .idRecepcion
+            );
+        }
+
+        /*
+         * Los ingresos anteriores son históricos.
+         * El nuevo registro comienza con campos vacíos.
+         */
+        this.estado.distribucion = {};
 
         this.renderDistribucionCamaras();
 
       } else {
 
         this.estado.materialSeleccionado = null;
-        this.estado.distribucion = {};
+        this.estado.resumenAcumulado = null;
+
+        const titulo =
+          document.getElementById(
+            "tituloAsistenteRecepcion"
+          );
+
+        if (titulo) {
+          titulo.textContent =
+            "Recepción · " +
+            this.estado.recepcionActual.idRecepcion;
+        }
+
         this.renderSeleccionMaterial();
 
       }
@@ -843,7 +1336,11 @@ window.RecepcionMateriales = {
         <div>
           <span>Hora inicio</span>
           <strong>
-            ${this.escapar(r.horaInicio || "-")}
+            ${this.escapar(
+              this.formatearHoraRecepcion(
+                r.horaInicio
+              )
+            )}
           </strong>
         </div>
 
@@ -873,6 +1370,8 @@ window.RecepcionMateriales = {
 
     panel.innerHTML = `
       ${this.renderBarraRecepcion()}
+
+      ${this.renderAvanceAcumuladoRecepcion()}
 
       <section class="recepcion-paso">
 
@@ -1112,6 +1611,363 @@ window.RecepcionMateriales = {
   },
 
 
+  renderAvanceAcumuladoRecepcion() {
+
+    if (
+      !this.estado.tieneRegistrosPrevios ||
+      !this.estado.resumenAcumulado
+    ) {
+      return "";
+    }
+
+    const resumen =
+      this.estado.resumenAcumulado;
+
+    const material =
+      this.estado.materialSeleccionado || {};
+
+    const camaras =
+      Array.isArray(resumen.camaras)
+        ? resumen.camaras
+        : [];
+
+    return `
+      <article class="avance-acumulado-recepcion">
+
+        <header>
+
+          <div>
+            <span>Avance acumulado</span>
+
+            <h3>
+              ${this.escapar(
+                material.descripcion ||
+                "Material en recepción"
+              )}
+            </h3>
+
+            <small>
+              ${this.escapar(
+                material.id ||
+                material.material ||
+                ""
+              )}
+            </small>
+          </div>
+
+          <div class="ultimo-ingreso-recepcion">
+            <span>Último ingreso</span>
+
+            <strong>
+              ${this.escapar(
+                resumen.ultimoAuxiliar || "-"
+              )}
+            </strong>
+
+            <small>
+              ${this.escapar(
+                resumen.ultimaHora || "-"
+              )}
+            </small>
+          </div>
+
+        </header>
+
+        <div class="metricas-avance-recepcion">
+
+          <div>
+            <span>Tarimas</span>
+            <strong>
+              ${this.formatearNumero(
+                resumen.totalTarimas
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Parciales</span>
+            <strong>
+              ${this.formatearNumero(
+                resumen.totalParciales
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Posiciones</span>
+            <strong>
+              ${this.formatearNumero(
+                resumen.totalPosiciones
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Unidades</span>
+            <strong>
+              ${this.formatearNumero(
+                resumen.totalUnidades
+              )}
+            </strong>
+          </div>
+
+        </div>
+
+        <div class="camaras-avance-recepcion">
+
+          <span>Cámaras utilizadas</span>
+
+          <div>
+            ${
+              camaras.length
+                ? camaras
+                    .map(
+                      camara => `
+                        <span class="etiqueta-camara-avance">
+                          ${this.escapar(
+                            camara.codigo ||
+                            camara.nombre
+                          )}
+                        </span>
+                      `
+                    )
+                    .join("")
+                : `
+                    <span class="sin-camaras-avance">
+                      Sin cámaras registradas
+                    </span>
+                  `
+            }
+          </div>
+
+        </div>
+
+      </article>
+
+      <div class="separador-nuevo-ingreso">
+        <span>Nuevo ingreso</span>
+        <strong>
+          Registra solamente lo recibido ahora.
+        </strong>
+      </div>
+    `;
+
+  },
+
+
+mostrarOrigenNuevoIngreso() {
+
+  const panel =
+    this.obtenerContenedorAsistente();
+
+
+  if (!panel) {
+    return;
+  }
+
+
+  this.estado.origenTraslado =
+    "";
+
+
+  panel.innerHTML = `
+
+    ${this.renderBarraRecepcion()}
+
+
+    ${this.renderAvanceAcumuladoRecepcion()}
+
+
+    <section class="recepcion-paso">
+
+      <header class="recepcion-paso-encabezado">
+
+        <div class="numero-paso-recepcion">
+          1
+        </div>
+
+        <div>
+
+          <span>
+            Nuevo ingreso
+          </span>
+
+          <h3>
+            ¿Cómo recibiste este material ahora?
+          </h3>
+
+        </div>
+
+      </header>
+
+
+      <p class="ayuda-origen-nuevo-ingreso">
+
+        Selecciona la vía utilizada únicamente para este nuevo ingreso.
+        Los registros anteriores no serán modificados.
+
+      </p>
+
+
+      <div class="origen-recepcion-grid">
+
+        <button
+          type="button"
+          class="opcion-origen-recepcion"
+          data-origen-nuevo-ingreso="Carritos"
+        >
+
+          <i class="fa-solid fa-dolly"></i>
+
+          <strong>
+            Carritos
+          </strong>
+
+          <span>
+            Traslado desde Producción por carritos.
+          </span>
+
+        </button>
+
+
+        <button
+          type="button"
+          class="opcion-origen-recepcion"
+          data-origen-nuevo-ingreso="Túnel refrigerador"
+        >
+
+          <i class="fa-solid fa-temperature-low"></i>
+
+          <strong>
+            Túnel refrigerador
+          </strong>
+
+          <span>
+            Entrada directa desde el túnel.
+          </span>
+
+        </button>
+
+      </div>
+
+
+      <div class="recepcion-acciones-finales">
+
+        <button
+          type="button"
+          id="btnContinuarOrigenNuevoIngreso"
+          class="btn-recepcion principal"
+          disabled
+        >
+
+          <i class="fa-solid fa-arrow-right"></i>
+
+          Continuar
+
+        </button>
+
+      </div>
+
+    </section>
+
+  `;
+
+
+  const botonContinuar =
+    document.getElementById(
+      "btnContinuarOrigenNuevoIngreso"
+    );
+
+
+  panel
+    .querySelectorAll(
+      "[data-origen-nuevo-ingreso]"
+    )
+    .forEach(
+      boton => {
+
+        boton.onclick =
+          () => {
+
+            panel
+              .querySelectorAll(
+                "[data-origen-nuevo-ingreso]"
+              )
+              .forEach(
+                item => {
+
+                  item.classList.remove(
+                    "activo"
+                  );
+
+                }
+              );
+
+
+            boton.classList.add(
+              "activo"
+            );
+
+
+            this.estado.origenTraslado =
+              boton.dataset
+                .origenNuevoIngreso;
+
+
+            if (botonContinuar) {
+
+              botonContinuar.disabled =
+                false;
+
+            }
+
+          };
+
+      }
+    );
+
+
+  if (botonContinuar) {
+
+    botonContinuar.onclick =
+      () => {
+
+        if (
+          !this.estado.origenTraslado
+        ) {
+
+          this.notificar(
+            "Seleccione la vía utilizada para este ingreso.",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+
+        this.renderDistribucionCamaras();
+
+      };
+
+  }
+
+
+  const salir =
+    document.getElementById(
+      "btnSalirRecepcionActual"
+    );
+
+
+  if (salir) {
+
+    salir.onclick =
+      () => this.cerrarAsistente();
+
+  }
+
+},
+
   renderDistribucionCamaras() {
 
     const panel =
@@ -1177,14 +2033,21 @@ window.RecepcionMateriales = {
         </div>
 
         <div class="recepcion-acciones-finales">
-          <button
-            type="button"
-            id="btnCambiarMaterialRecepcion"
-            class="btn-recepcion secundario"
-          >
-            <i class="fa-solid fa-rotate-left"></i>
-            Cambiar material
-          </button>
+
+          ${
+            !this.estado.tieneRegistrosPrevios
+              ? `
+                  <button
+                    type="button"
+                    id="btnCambiarMaterialRecepcion"
+                    class="btn-recepcion secundario"
+                  >
+                    <i class="fa-solid fa-rotate-left"></i>
+                    Cambiar material
+                  </button>
+                `
+              : ""
+          }
 
           <button
             type="button"
@@ -1501,13 +2364,20 @@ window.RecepcionMateriales = {
       .getElementById("btnSalirRecepcionActual")
       .onclick = () => this.cerrarAsistente();
 
-    document
-      .getElementById("btnCambiarMaterialRecepcion")
-      .onclick = () => {
+    const cambiarMaterial =
+      document.getElementById(
+        "btnCambiarMaterialRecepcion"
+      );
+
+    if (cambiarMaterial) {
+
+      cambiarMaterial.onclick = () => {
         this.estado.materialSeleccionado = null;
         this.estado.distribucion = {};
         this.renderSeleccionMaterial();
       };
+
+    }
 
     document
       .getElementById("btnGuardarDistribucionRecepcion")
@@ -1817,98 +2687,237 @@ window.RecepcionMateriales = {
   },
 
 
-  async guardarDistribucion() {
+ async guardarDistribucion() {
 
-    const distribucion =
-      this.obtenerDistribucionUtilizada();
+  const distribucion =
+    this.obtenerDistribucionUtilizada();
 
-    if (!distribucion.length) {
 
-      this.notificar(
-        "Registre tarimas o un parcial en al menos una cámara.",
-        "advertencia"
-      );
+  if (!distribucion.length) {
 
-      return;
+    this.notificar(
+      "Registre tarimas o un parcial en al menos una cámara.",
+      "advertencia"
+    );
 
-    }
+    return;
 
-    const fechaProduccion =
-      await this.solicitarFechaProduccion();
+  }
 
-    if (!fechaProduccion) {
-      return;
-    }
 
-    const sesion = this.obtenerSesion();
-    const recepcion = this.estado.recepcionActual;
-    const material = this.estado.materialSeleccionado;
+  const fechaProduccion =
+    await this.solicitarFechaProduccion();
 
+
+  if (!fechaProduccion) {
+    return;
+  }
+
+
+  const sesion =
+    this.obtenerSesion();
+
+
+  const recepcion =
+    this.estado.recepcionActual;
+
+
+  const material =
+    this.estado.materialSeleccionado;
+
+
+  let cargadorActivo =
+    false;
+
+	const origenIngreso =
+	  this.estado.origenTraslado ||
+	  (
+		this.estado.recepcionActual
+		  ? (
+			  this.estado.recepcionActual.origenTraslado ||
+			  this.estado.recepcionActual.Origen_Traslado ||
+			  ""
+			)
+		  : ""
+	  );
+
+
+	if (!origenIngreso) {
+
+	  this.notificar(
+		"No se pudo recuperar la vía seleccionada. Regrese y seleccione Carritos o Túnel.",
+		"advertencia"
+	  );
+
+	  return;
+
+	}
+
+  try {
+
+    /*
+     * ETAPA 1:
+     * Guardar las líneas de distribución.
+     */
     this.mostrarCarga(
       "Guardando distribución",
       "Registrando el material en las cámaras seleccionadas."
     );
 
-    try {
 
-      const respuesta = await API.post({
+    cargadorActivo =
+      true;
+
+
+    const respuesta =
+      await API.post({
+
         action:
           "guardarDistribucionMaterialRecepcion",
+
         idRecepcion:
           recepcion.idRecepcion,
+
         material:
-          material.id || material.material,
+          material.id ||
+          material.material,
+
         fechaProduccion:
           fechaProduccion,
+		  
+		origenTraslado:
+			origenIngreso,
+
         auxiliarId:
           sesion.id ||
           sesion.ID_Usuario ||
           sesion.usuario ||
           "",
+
         auxiliarNombre:
           sesion.nombre ||
           sesion.Nombre ||
           "Usuario",
+
         distribucion:
           distribucion
+
       });
 
-      if (!respuesta || respuesta.ok !== true) {
-        throw new Error(
-          respuesta && respuesta.mensaje
-            ? respuesta.mensaje
-            : "No fue posible guardar la distribución."
-        );
-      }
 
-      this.notificar(
-        respuesta.mensaje ||
-        "Material guardado correctamente.",
-        "exito"
+    if (
+      !respuesta ||
+      respuesta.ok !== true
+    ) {
+
+      throw new Error(
+        respuesta &&
+        respuesta.mensaje
+          ? respuesta.mensaje
+          : "No fue posible guardar la distribución."
       );
-
-      await this.abrirRecepcion(
-        recepcion.idRecepcion
-      );
-
-    } catch (error) {
-
-      this.notificar(
-        error.message ||
-        "No fue posible guardar la distribución.",
-        "error"
-      );
-
-    } finally {
-
-      this.ocultarCarga();
 
     }
 
-  },
+
+    /*
+     * Las líneas ya fueron guardadas.
+     * Se oculta el cargador para permitir responder
+     * la pregunta sobre el estado de Producción.
+     */
+    this.ocultarCarga();
 
 
-			  solicitarFechaProduccion() {
+    cargadorActivo =
+      false;
+
+
+    this.notificar(
+      respuesta.mensaje ||
+      "Material guardado correctamente.",
+      "exito"
+    );
+
+
+    /*
+     * ETAPA 2:
+     * Preguntar si Producción terminó.
+     */
+    const produccionFinalizada =
+      await this.preguntarProduccionFinalizada();
+
+
+    /*
+     * ETAPA 3:
+     * Actualizar el estado del encabezado.
+     */
+    this.mostrarCarga(
+      produccionFinalizada
+        ? "Finalizando recepción"
+        : "Manteniendo recepción abierta",
+
+      produccionFinalizada
+        ? "Registrando el cierre del proceso productivo."
+        : "Preparando la recepción para el próximo ingreso."
+    );
+
+
+    cargadorActivo =
+      true;
+
+
+    await this.actualizarEstadoProduccion(
+      produccionFinalizada
+        ? "SI"
+        : "NO"
+    );
+
+
+    this.ocultarCarga();
+
+
+    cargadorActivo =
+      false;
+
+
+    /*
+     * ETAPA 4:
+     * Cerrar el asistente y actualizar el centro.
+     */
+    await this.cerrarAsistenteDespuesDeGuardar();
+
+
+  } catch (error) {
+
+    this.notificar(
+      error &&
+      error.message
+        ? error.message
+        : "No fue posible completar la recepción.",
+      "error"
+    );
+
+
+  } finally {
+
+    /*
+     * Evita dejar el cargador visible cuando ocurre
+     * un error en cualquiera de las etapas.
+     */
+    if (cargadorActivo) {
+
+      this.ocultarCarga(
+        true
+      );
+
+    }
+
+  }
+
+},
+
+
+ solicitarFechaProduccion() {
 
 			  return new Promise(
 				resolver => {
@@ -2142,6 +3151,225 @@ window.RecepcionMateriales = {
 
 },
 
+  preguntarProduccionFinalizada() {
+
+    return new Promise(resolver => {
+
+      const modalAsistente =
+        document.querySelector(
+          ".modal-asistente-recepcion:not(.oculto)"
+        ) ||
+        document.querySelector(
+          ".modal-asistente-recepcion"
+        );
+
+      if (!modalAsistente) {
+        resolver(false);
+        return;
+      }
+
+      const anterior =
+        document.getElementById(
+          "submodalProduccionFinalizadaRecepcion"
+        );
+
+      if (anterior) {
+        anterior.remove();
+      }
+
+      const submodal =
+        document.createElement("div");
+
+      submodal.id =
+        "submodalProduccionFinalizadaRecepcion";
+
+      submodal.className =
+        "submodal-recepcion";
+
+      submodal.innerHTML = `
+        <div class="submodal-recepcion-contenido">
+
+          <header class="submodal-recepcion-header">
+
+            <div class="submodal-recepcion-icono">
+              <i class="fa-solid fa-industry"></i>
+            </div>
+
+            <div>
+              <span>Estado de producción</span>
+              <h3>
+                ¿Producción terminó este material?
+              </h3>
+            </div>
+
+          </header>
+
+          <div class="submodal-recepcion-cuerpo">
+            <p>
+              Si todavía continuarán fabricando, la orden
+              permanecerá abierta para que otro auxiliar pueda
+              registrar el próximo ingreso del mismo material.
+            </p>
+          </div>
+
+          <footer
+            class="submodal-recepcion-acciones dos-opciones"
+          >
+
+            <button
+              type="button"
+              id="btnProduccionContinua"
+              class="btn-recepcion secundario"
+            >
+              <i class="fa-solid fa-clock-rotate-left"></i>
+              No, continuará
+            </button>
+
+            <button
+              type="button"
+              id="btnProduccionFinalizada"
+              class="btn-recepcion principal"
+            >
+              <i class="fa-solid fa-circle-check"></i>
+              Sí, finalizar recepción
+            </button>
+
+          </footer>
+
+        </div>
+      `;
+
+      modalAsistente.appendChild(submodal);
+
+      const cerrar = valor => {
+        submodal.remove();
+        resolver(valor);
+      };
+
+      document
+        .getElementById("btnProduccionContinua")
+        .onclick = () => cerrar(false);
+
+      document
+        .getElementById("btnProduccionFinalizada")
+        .onclick = () => cerrar(true);
+
+    });
+
+  },
+
+
+  async actualizarEstadoProduccion(valor) {
+
+    const recepcion =
+      this.estado.recepcionActual || {};
+
+    const respuesta = await API.post({
+      action:
+        "finalizarOContinuarRecepcionMateriales",
+      idRecepcion:
+        recepcion.idRecepcion,
+      produccionFinalizada:
+        valor
+    });
+
+    if (!respuesta || respuesta.ok !== true) {
+      throw new Error(
+        respuesta && respuesta.mensaje
+          ? respuesta.mensaje
+          : "No fue posible actualizar el estado de la recepción."
+      );
+    }
+
+    this.notificar(
+      respuesta.mensaje ||
+      "Estado de la recepción actualizado.",
+      "exito"
+    );
+
+  },
+
+
+/**
+ * Cierra el asistente después de guardar una recepción
+ * y actualiza el centro de gestión.
+ */
+async cerrarAsistenteDespuesDeGuardar() {
+
+  const submodalFecha =
+    document.getElementById(
+      "submodalFechaProduccionRecepcion"
+    );
+
+  if (submodalFecha) {
+    submodalFecha.remove();
+  }
+
+  const submodalProduccion =
+    document.getElementById(
+      "submodalProduccionFinalizadaRecepcion"
+    );
+
+  if (submodalProduccion) {
+    submodalProduccion.remove();
+  }
+
+
+  const modalAsistente =
+    document.querySelector(
+      ".modal-asistente-recepcion"
+    );
+
+
+  if (modalAsistente) {
+
+    modalAsistente.classList.add(
+      "oculto"
+    );
+
+    modalAsistente.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+
+  }
+
+
+  document.body.classList.remove(
+    "asistente-recepcion-abierto"
+  );
+
+
+  this.estado.recepcionActual =
+    null;
+
+
+  this.estado.materialSeleccionado =
+    null;
+
+
+  this.estado.resultadosMateriales =
+    [];
+
+
+  this.estado.distribucion =
+    {};
+
+
+  this.estado.camaraActiva =
+    "";
+
+  this.estado.resumenAcumulado =
+    null;
+
+  this.estado.tieneRegistrosPrevios =
+    false;
+
+
+  await this.cargarCatalogos();
+
+},
+
   renderError(mensaje) {
 
     const panel =
@@ -2238,6 +3466,174 @@ window.RecepcionMateriales = {
     }
 
     console.log(mensaje);
+
+  },
+
+
+  formatearFechaLegible(
+    valor
+  ) {
+
+    if (
+      valor === null ||
+      valor === undefined ||
+      valor === ""
+    ) {
+
+      return "-";
+
+    }
+
+
+    let fecha =
+      null;
+
+
+    if (
+      valor instanceof Date &&
+      !isNaN(
+        valor.getTime()
+      )
+    ) {
+
+      fecha =
+        new Date(
+          valor
+        );
+
+    } else {
+
+      const texto =
+        String(
+          valor
+        ).trim();
+
+
+      const iso =
+        texto.match(
+          /^(\d{4})-(\d{2})-(\d{2})/
+        );
+
+
+      if (iso) {
+
+        fecha =
+          new Date(
+            Number(
+              iso[1]
+            ),
+            Number(
+              iso[2]
+            ) -
+            1,
+            Number(
+              iso[3]
+            )
+          );
+
+      } else {
+
+        const posible =
+          new Date(
+            texto
+          );
+
+
+        if (
+          !isNaN(
+            posible.getTime()
+          )
+        ) {
+
+          fecha =
+            posible;
+
+        }
+
+      }
+
+    }
+
+
+    if (!fecha) {
+
+      return String(
+        valor
+      );
+
+    }
+
+
+    return fecha.toLocaleDateString(
+      "es-DO",
+      {
+        day:
+          "2-digit",
+
+        month:
+          "short",
+
+        year:
+          "numeric"
+      }
+    );
+
+  },
+
+
+  formatearHoraRecepcion(valor) {
+
+    if (
+      valor === null ||
+      valor === undefined ||
+      valor === ""
+    ) {
+      return "-";
+    }
+
+    if (valor instanceof Date && !isNaN(valor.getTime())) {
+      return valor.toLocaleTimeString(
+        "es-DO",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        }
+      );
+    }
+
+    const texto = String(valor).trim();
+
+    const horaSimple = texto.match(
+      /(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s|$)/
+    );
+
+    if (horaSimple) {
+      return (
+        String(horaSimple[1]).padStart(2, "0") +
+        ":" +
+        horaSimple[2] +
+        ":" +
+        (horaSimple[3] || "00")
+      );
+    }
+
+    const fecha = new Date(texto);
+
+    if (!isNaN(fecha.getTime())) {
+      return fecha.toLocaleTimeString(
+        "es-DO",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        }
+      );
+    }
+
+    return texto;
 
   },
 

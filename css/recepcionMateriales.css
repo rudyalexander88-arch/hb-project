@@ -1174,3 +1174,296 @@ body.asistente-recepcion-abierto {
 .modal-asistente-recepcion-contenido {
     position: relative;
 }
+
+/* El centro de Recepciones debe poder desplazarse verticalmente. */
+#contenidoPrincipal:has(.recepcion-materiales) {
+    min-height: 0;
+    overflow: visible;
+}
+
+.recepcion-materiales {
+    min-height: 0;
+    padding-bottom: 32px;
+}
+
+.recepcion-panel,
+.centro-recepciones {
+    min-height: 0;
+    overflow: visible;
+}
+
+/* Evita que una hora devuelta por Sheets rompa la tarjeta. */
+.tarjeta-recepcion-datos strong,
+.barra-recepcion-actual strong {
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+/* ============================================================
+   CONTENEDOR INTERNO CON SCROLL — RECEPCIONES
+   ============================================================ */
+
+.recepcion-materiales {
+    height:
+        var(
+            --alto-modulo-recepciones,
+            calc(100vh - 330px)
+        );
+
+    min-height: 420px;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+
+/*
+ * La cabecera del módulo permanece siempre visible.
+ */
+.recepcion-materiales
+.recepcion-encabezado {
+    flex: 0 0 auto;
+
+    margin-bottom: 16px;
+}
+
+
+/*
+ * Todo el contenido operativo se desplaza
+ * dentro de esta sección.
+ */
+.recepcion-materiales
+.recepcion-panel {
+    flex: 1 1 auto;
+
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding-right: 7px;
+    padding-bottom: 18px;
+
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+
+/*
+ * Barra visual del scroll interno.
+ */
+.recepcion-materiales
+.recepcion-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+
+.recepcion-materiales
+.recepcion-panel::-webkit-scrollbar-track {
+    border-radius: 999px;
+
+    background: #eef0f3;
+}
+
+
+.recepcion-materiales
+.recepcion-panel::-webkit-scrollbar-thumb {
+    border: 2px solid #eef0f3;
+    border-radius: 999px;
+
+    background: #aeb4bd;
+}
+
+
+.recepcion-materiales
+.recepcion-panel::-webkit-scrollbar-thumb:hover {
+    background: #8f969f;
+}
+
+
+/*
+ * Evita que las tarjetas se corten contra
+ * el borde derecho del panel.
+ */
+.recepcion-materiales
+.centro-recepciones {
+    width: 100%;
+
+    box-sizing: border-box;
+}
+
+
+/*
+ * El asistente continúa usando su propio
+ * scroll interno independiente.
+ */
+.modal-asistente-recepcion-cuerpo {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    overscroll-behavior: contain;
+}
+
+
+/* Tablet */
+@media (max-width: 900px) {
+
+    .recepcion-materiales {
+        min-height: 380px;
+    }
+
+}
+
+
+/* Móvil */
+@media (max-width: 700px) {
+
+    .recepcion-materiales {
+        height:
+            var(
+                --alto-modulo-recepciones,
+                calc(100vh - 145px)
+            );
+
+        min-height: 360px;
+    }
+
+    .recepcion-materiales
+    .recepcion-panel {
+        padding-right: 3px;
+    }
+
+}
+
+/* ACTIVIDAD RECIENTE DE RECEPCIONES */
+
+.lista-recepciones-recientes {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    max-height: 330px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 5px;
+    overscroll-behavior: contain;
+}
+
+.tarjeta-recepcion-reciente {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 11px;
+    padding: 12px;
+    border: 1px solid var(--rec-borde);
+    border-radius: 11px;
+    background: #fff;
+}
+
+.recepcion-reciente-icono {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #eaf7ee;
+    color: var(--rec-verde);
+}
+
+.recepcion-reciente-contenido {
+    min-width: 0;
+}
+
+.recepcion-reciente-contenido > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.recepcion-reciente-contenido header span,
+.recepcion-reciente-contenido header small,
+.recepcion-reciente-contenido time {
+    display: block;
+    color: var(--rec-secundario);
+    font-size: 9px;
+}
+
+.recepcion-reciente-contenido h4 {
+    margin: 2px 0;
+    color: var(--rec-texto);
+    font-size: 13px;
+}
+
+.recepcion-reciente-contenido time {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.recepcion-reciente-contenido time strong {
+    display: block;
+    margin-top: 2px;
+    color: var(--rec-texto);
+    font-size: 11px;
+}
+
+.metricas-recepcion-reciente {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.metricas-recepcion-reciente div {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--rec-fondo);
+}
+
+.metricas-recepcion-reciente span {
+    display: block;
+    color: var(--rec-secundario);
+    font-size: 8px;
+}
+
+.metricas-recepcion-reciente strong {
+    display: block;
+    overflow: hidden;
+    color: var(--rec-texto);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recepcion-reciente-contenido > footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 14px;
+    margin-top: 9px;
+    color: var(--rec-secundario);
+    font-size: 9px;
+}
+
+.recepcion-reciente-contenido > footer div {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+@media (max-width: 700px) {
+    .metricas-recepcion-reciente {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .recepcion-reciente-contenido > header {
+        flex-direction: column;
+    }
+
+    .recepcion-reciente-contenido time {
+        text-align: left;
+    }
+}

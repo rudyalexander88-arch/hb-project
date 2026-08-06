@@ -1354,3 +1354,399 @@ body.modal-sistema-abierto {
     color: #777777;
 }
 
+
+/* ============================================================
+   OCUPACIÓN DE CÁMARAS
+   ============================================================ */
+
+.card-ocupacion-camaras::before {
+    background: #1976d2;
+}
+
+.card-ocupacion-camaras .card-indicador-icono {
+    background: rgba(25, 118, 210, 0.11);
+}
+
+.card-ocupacion-camaras .card-indicador-icono i {
+    color: #1976d2;
+}
+
+.card-ocupacion-camaras.ocupacion-baja::before {
+    background: #2e7d32;
+}
+
+.card-ocupacion-camaras.ocupacion-baja
+.card-indicador-icono {
+    background: rgba(46, 125, 50, 0.11);
+}
+
+.card-ocupacion-camaras.ocupacion-baja
+.card-indicador-icono i {
+    color: #2e7d32;
+}
+
+.card-ocupacion-camaras.ocupacion-media::before {
+    background: #1976d2;
+}
+
+.card-ocupacion-camaras.ocupacion-alta::before {
+    background: #f7941d;
+}
+
+.card-ocupacion-camaras.ocupacion-alta
+.card-indicador-icono {
+    background: rgba(247, 148, 29, 0.13);
+}
+
+.card-ocupacion-camaras.ocupacion-alta
+.card-indicador-icono i {
+    color: #f7941d;
+}
+
+.card-ocupacion-camaras.ocupacion-critica::before {
+    background: #d71920;
+}
+
+.card-ocupacion-camaras.ocupacion-critica
+.card-indicador-icono {
+    background: rgba(215, 25, 32, 0.11);
+}
+
+.card-ocupacion-camaras.ocupacion-critica
+.card-indicador-icono i {
+    color: #d71920;
+}
+
+.modal-ocupacion-camaras {
+    width: min(1220px, 96vw);
+    max-width: 1220px;
+}
+
+.ocupacion-camaras-modal {
+    width: 100%;
+}
+
+.resumen-ocupacion-general {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
+    gap: 15px;
+    margin-bottom: 18px;
+}
+
+.ocupacion-general-principal,
+.metricas-ocupacion-general,
+.seccion-ocupacion-camaras,
+.seccion-historico-ocupacion {
+    border: 1px solid #e9ecef;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 7px 18px rgba(0, 0, 0, 0.045);
+}
+
+.ocupacion-general-principal {
+    padding: 18px;
+}
+
+.ocupacion-general-principal > span {
+    display: block;
+    color: #6f757b;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.ocupacion-general-principal > strong {
+    display: block;
+    margin: 7px 0 14px;
+    color: #1d1d1d;
+    font-size: 34px;
+    line-height: 1;
+}
+
+.barra-ocupacion-general,
+.barra-camara {
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #edf0f3;
+}
+
+.barra-ocupacion-general span,
+.barra-camara span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #1976d2, #42a5f5);
+}
+
+.metricas-ocupacion-general {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding: 15px;
+}
+
+.metricas-ocupacion-general > div {
+    min-width: 0;
+    padding: 13px;
+    border-radius: 10px;
+    background: #f7f8fa;
+}
+
+.metricas-ocupacion-general span,
+.metricas-camara span {
+    display: block;
+    color: #81868b;
+    font-size: 9px;
+}
+
+.metricas-ocupacion-general strong {
+    display: block;
+    margin-top: 4px;
+    color: #222222;
+    font-size: 20px;
+}
+
+.seccion-ocupacion-camaras,
+.seccion-historico-ocupacion {
+    margin-bottom: 18px;
+    padding: 17px;
+}
+
+.encabezado-seccion-ocupacion {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.encabezado-seccion-ocupacion span {
+    display: block;
+    color: #d71920;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.encabezado-seccion-ocupacion h3 {
+    margin: 2px 0 0;
+    color: #272727;
+    font-size: 15px;
+}
+
+.encabezado-seccion-ocupacion p {
+    margin: 0;
+    color: #777777;
+    font-size: 10px;
+}
+
+.btn-actualizar-ocupacion,
+.btn-consultar-ocupacion {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 13px;
+    border-radius: 9px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-actualizar-ocupacion {
+    border: 1px solid #d71920;
+    background: #ffffff;
+    color: #d71920;
+}
+
+.btn-consultar-ocupacion {
+    border: none;
+    background: #d71920;
+    color: #ffffff;
+}
+
+.rejilla-detalle-ocupacion {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.tarjeta-ocupacion-camara {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #e9ecef;
+    border-left: 5px solid #2e7d32;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.tarjeta-ocupacion-camara.nivel-media {
+    border-left-color: #1976d2;
+}
+
+.tarjeta-ocupacion-camara.nivel-alta {
+    border-left-color: #f7941d;
+}
+
+.tarjeta-ocupacion-camara.nivel-critica {
+    border-left-color: #d71920;
+}
+
+.tarjeta-ocupacion-camara > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.tarjeta-ocupacion-camara header span {
+    color: #1976d2;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.tarjeta-ocupacion-camara h4 {
+    margin: 2px 0 0;
+    color: #272727;
+    font-size: 13px;
+}
+
+.tarjeta-ocupacion-camara header > strong {
+    color: #222222;
+    font-size: 17px;
+}
+
+.tarjeta-ocupacion-camara .barra-camara {
+    height: 7px;
+    margin: 12px 0;
+}
+
+.tarjeta-ocupacion-camara.nivel-alta
+.barra-camara span {
+    background: #f7941d;
+}
+
+.tarjeta-ocupacion-camara.nivel-critica
+.barra-camara span {
+    background: #d71920;
+}
+
+.metricas-camara {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.metricas-camara > div {
+    padding: 8px;
+    border-radius: 8px;
+    background: #f7f8fa;
+}
+
+.metricas-camara strong {
+    display: block;
+    margin-top: 2px;
+    color: #252525;
+    font-size: 12px;
+}
+
+.tarjeta-ocupacion-camara > footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 11px;
+    color: #757575;
+    font-size: 9px;
+}
+
+.filtros-historico-ocupacion {
+    display: grid;
+    grid-template-columns:
+        minmax(150px, 0.75fr)
+        minmax(230px, 1.2fr)
+        auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 15px;
+    padding: 14px;
+    border-radius: 11px;
+    background: #f8f9fa;
+}
+
+.filtros-historico-ocupacion label {
+    display: block;
+    margin-bottom: 5px;
+    color: #444444;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.filtros-historico-ocupacion select {
+    width: 100%;
+    height: 39px;
+    padding: 0 10px;
+    border: 1px solid #d8dde2;
+    border-radius: 8px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 11px;
+}
+
+.contenedor-grafico-ocupacion {
+    position: relative;
+    height: 300px;
+}
+
+.sin-datos-historico-ocupacion,
+.estado-vacio-ocupacion {
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #858585;
+    font-size: 11px;
+    text-align: center;
+}
+
+@media (max-width: 1050px) {
+
+    .rejilla-detalle-ocupacion {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+}
+
+@media (max-width: 760px) {
+
+    .resumen-ocupacion-general {
+        grid-template-columns: 1fr;
+    }
+
+    .metricas-ocupacion-general {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .rejilla-detalle-ocupacion {
+        grid-template-columns: 1fr;
+    }
+
+    .filtros-historico-ocupacion {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-consultar-ocupacion {
+        width: 100%;
+    }
+
+    .contenedor-grafico-ocupacion {
+        height: 245px;
+    }
+
+}
+

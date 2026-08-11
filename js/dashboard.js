@@ -186,18 +186,81 @@ function activarMenu(idMenu){
 // CERRAR SESIÓN
 // ===============================
 
-function cerrarSesion(){
+async function cerrarSesion() {
 
-    // Borra solo la sesión activa
-    localStorage.removeItem("sesion");
-    sessionStorage.removeItem("sesion");
+    /*
+     * Para cerrar sesión usamos directamente API,
+     * que es quien administra el token.
+     */
+    const sesion =
+        API.obtenerSesion();
 
-    // No borra usuarioRecordado
-    // No borra recordarUsuario si fue marcado
 
-    window.location = "../index.html";
+    try {
+
+        if (
+            sesion &&
+            sesion.idEmpleado &&
+            sesion.tokenSesion
+        ) {
+
+            const resultado =
+                await API.post({
+
+                    action:
+                        "cerrarSesionUsuario",
+
+                    /*
+                     * Los enviamos explícitamente.
+                     * Aunque API.post también los incorpora,
+                     * aquí no dejamos ninguna ambigüedad.
+                     */
+                    idEmpleado:
+                        sesion.idEmpleado,
+
+                    tokenSesion:
+                        sesion.tokenSesion
+
+                });
+
+
+            if (
+                !resultado ||
+                !resultado.ok
+            ) {
+
+                console.warn(
+                    "El backend no confirmó el cierre de sesión:",
+                    resultado
+                );
+
+            }
+
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "No fue posible eliminar la sesión del servidor:",
+            error
+        );
+
+    } finally {
+
+        /*
+         * La sesión local siempre se elimina.
+         * Usuario recordado y Recordarme permanecen.
+         */
+        API.limpiarSesion();
+
+
+        window.location.href =
+            "../index.html";
+
+    }
 
 }
+
 
 // ======================================================
 // CARGADOR GLOBAL DEL SISTEMA
@@ -383,13 +446,23 @@ window.CargadorSistema =
 document.addEventListener(
     "DOMContentLoaded",
     () => {
-		
-		iniciarControlTarjetasDashboard();
+
+        iniciarControlTarjetasDashboard();
+
+        verificarSesionActiva();
+
+        window.setInterval(
+            verificarSesionActiva,
+            60000
+        );
+
 
         const botonMenu =
             document.getElementById(
                 "btnMenuMovil"
             );
+
+       
 
         const sidebar =
             document.getElementById(
@@ -724,5 +797,66 @@ function iniciarControlTarjetasDashboard() {
 
         }
     );
+
+}
+
+async function verificarSesionActiva() {
+
+    const sesion =
+        Sistema.obtenerSesion();
+
+
+    if (
+        !sesion ||
+        !sesion.idEmpleado ||
+        !sesion.tokenSesion
+    ) {
+
+        localStorage.removeItem(
+            "sesion"
+        );
+
+        sessionStorage.removeItem(
+            "sesion"
+        );
+
+        window.location.href =
+            "../index.html";
+
+        return false;
+
+    }
+
+
+    const respuesta =
+        await API.post({
+            action:
+                "verificarSesionUsuario"
+        });
+
+
+    if (
+        !respuesta ||
+        !respuesta.ok
+    ) {
+
+        if (
+            respuesta &&
+            respuesta.codigo ===
+                "SESION_INVALIDADA"
+        ) {
+
+            API.cerrarPorSesionInvalidada(
+                respuesta.mensaje
+            );
+
+        }
+
+        return false;
+
+    }
+
+
+    return true;
 
 }

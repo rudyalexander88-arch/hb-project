@@ -277,6 +277,169 @@ const Sistema = {
             ).trim()
             : "";
     },
+	
+	// ==========================================
+    // CONTROL DE ACCESO Y PERMISOS
+    // ==========================================
+
+    normalizarPermiso(valor) {
+
+        return String(valor || "")
+            .trim()
+            .toUpperCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, "_");
+
+    },
+
+
+    esAdministrador() {
+
+        const sesion = this.obtenerSesion();
+
+        if (!sesion) {
+            return false;
+        }
+
+        return (
+            sesion.accesoTotal === true ||
+            this.normalizarPermiso(sesion.rol) ===
+                "ADMINISTRADOR"
+        );
+
+    },
+
+
+    tieneAccesoModulo(modulo) {
+
+        const sesion = this.obtenerSesion();
+
+        if (!sesion) {
+            return false;
+        }
+
+
+        if (this.esAdministrador()) {
+            return true;
+        }
+
+
+        const moduloBuscado =
+            this.normalizarPermiso(modulo);
+
+
+        const modulos =
+            Array.isArray(sesion.modulos)
+                ? sesion.modulos
+                : [];
+
+
+        return modulos.some(
+            item =>
+                this.normalizarPermiso(item) ===
+                moduloBuscado
+        );
+
+    },
+
+
+    tienePermiso(permiso) {
+
+        const sesion = this.obtenerSesion();
+
+        if (!sesion) {
+            return false;
+        }
+
+
+        if (this.esAdministrador()) {
+            return true;
+        }
+
+
+        const permisoBuscado =
+            this.normalizarPermiso(permiso);
+
+
+        const permisos =
+            Array.isArray(sesion.permisos)
+                ? sesion.permisos
+                : [];
+
+
+        return permisos.some(
+            item =>
+                this.normalizarPermiso(item) ===
+                permisoBuscado
+        );
+
+    },
+
+
+    puede(modulo, permiso = "") {
+
+        if (!this.tieneAccesoModulo(modulo)) {
+            return false;
+        }
+
+
+        if (!permiso) {
+            return true;
+        }
+
+
+        return this.tienePermiso(permiso);
+
+    },
+
+
+    denegarAcceso(
+        mensaje = "No tiene permiso para realizar esta acción."
+    ) {
+
+        this.advertencia(
+            mensaje,
+            4500
+        );
+
+        return false;
+
+    },
+
+
+    exigirPermiso(
+        permiso,
+        mensaje = "No tiene permiso para realizar esta acción."
+    ) {
+
+        if (this.tienePermiso(permiso)) {
+            return true;
+        }
+
+
+        return this.denegarAcceso(
+            mensaje
+        );
+
+    },
+
+
+    exigirModulo(
+        modulo,
+        mensaje = "No tiene acceso a este módulo."
+    ) {
+
+        if (this.tieneAccesoModulo(modulo)) {
+            return true;
+        }
+
+
+        return this.denegarAcceso(
+            mensaje
+        );
+
+    },
 
 
     formatearNumero(valor, decimales = 0) {

@@ -631,12 +631,6 @@ document.addEventListener(
 
         iniciarControlTarjetasDashboard();
 
-        verificarSesionActiva();
-
-        window.setInterval(
-            verificarSesionActiva,
-            60000
-        );
 
 
         const botonMenu =

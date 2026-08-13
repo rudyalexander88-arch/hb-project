@@ -68,17 +68,120 @@ const DashboardIndicadores = {
     async iniciar() {
 
         /*
-         * Las tarjetas se preparan de inmediato para conservar
-         * exactamente la misma presentación visual.
+         * =====================================================
+         * CONTROL DE TARJETAS POR ROL
+         * =====================================================
          *
-         * Las consultas al backend se realizan después de forma
-         * secuencial para evitar varias peticiones simultáneas
-         * durante la apertura del Dashboard.
+         * Los usuarios AUXILIAR no necesitan los indicadores
+         * generales del Dashboard.
+         *
+         * IMPORTANTE:
+         * Se valida el rol ANTES de preparar o cargar tarjetas.
+         * De esta manera:
+         *
+         * 1. Se oculta completamente el bloque visual.
+         * 2. No se ejecutan los API.post() de Ocupación,
+         *    Meta mensual, Prioridades ni Exactitud.
+         */
+        if (this.esUsuarioAuxiliar()) {
+
+            this.ocultarTarjetasParaAuxiliar();
+
+            return;
+
+        }
+
+
+        /*
+         * Para los demás roles se conserva exactamente
+         * el comportamiento actual.
          */
         this.prepararTarjetas();
         this.conectarEventosTarjetas();
 
         await this.cargarTarjetasInicialesSecuencialmente();
+
+    },
+
+
+    esUsuarioAuxiliar() {
+
+        const sesion =
+            window.Sistema &&
+            typeof window.Sistema.obtenerSesion === "function"
+                ? window.Sistema.obtenerSesion()
+                : (
+                    window.API &&
+                    typeof window.API.obtenerSesion === "function"
+                        ? window.API.obtenerSesion()
+                        : null
+                );
+
+
+        const rol =
+            String(
+                sesion &&
+                sesion.rol
+                    ? sesion.rol
+                    : ""
+            )
+                .trim()
+                .toUpperCase();
+
+
+        return rol === "AUXILIAR";
+
+    },
+
+
+    ocultarTarjetasParaAuxiliar() {
+
+        /*
+         * Oculta el contenedor completo de las tarjetas.
+         * Al salir antes desde iniciar(), ninguna consulta
+         * de indicadores es enviada al backend.
+         */
+        const contenedorTarjetas =
+            document.querySelector(
+                ".cards"
+            );
+
+
+        if (contenedorTarjetas) {
+
+            contenedorTarjetas.style.display =
+                "none";
+
+            contenedorTarjetas.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+
+        }
+
+
+        /*
+         * En tablet/móvil existe un botón para contraer o
+         * expandir las tarjetas. Como AUXILIAR no las utiliza,
+         * también se oculta para evitar un control sin función.
+         */
+        const botonAlternar =
+            document.getElementById(
+                "btnAlternarTarjetasDashboard"
+            );
+
+
+        if (botonAlternar) {
+
+            botonAlternar.style.display =
+                "none";
+
+            botonAlternar.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+
+        }
 
     },
 

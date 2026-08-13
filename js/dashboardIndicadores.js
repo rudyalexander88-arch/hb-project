@@ -65,12 +65,125 @@ const DashboardIndicadores = {
     // INICIALIZACIÓN
     // ========================================================
 
-    iniciar() {
+    async iniciar() {
 
+        /*
+         * Las tarjetas se preparan de inmediato para conservar
+         * exactamente la misma presentación visual.
+         *
+         * Las consultas al backend se realizan después de forma
+         * secuencial para evitar varias peticiones simultáneas
+         * durante la apertura del Dashboard.
+         */
         this.prepararTarjetas();
         this.conectarEventosTarjetas();
-        this.cargarIndicadorOcupacion();
-        this.cargarMetaMensual();
+
+        await this.cargarTarjetasInicialesSecuencialmente();
+
+    },
+
+
+    esperarCargaInicial(
+        milisegundos
+    ) {
+
+        return new Promise(
+            resolver => {
+
+                window.setTimeout(
+                    resolver,
+                    milisegundos
+                );
+
+            }
+        );
+
+    },
+
+
+    async cargarTarjetasInicialesSecuencialmente() {
+
+        /*
+         * No se modifica la lógica interna de ninguna tarjeta.
+         * Únicamente se controla el orden en que consultan
+         * Apps Script al abrir el sistema.
+         */
+
+        await this.esperarCargaInicial(
+            300
+        );
+
+
+        await this.cargarIndicadorOcupacion();
+
+
+        await this.esperarCargaInicial(
+            350
+        );
+
+
+        await this.cargarMetaMensual();
+
+
+        await this.esperarCargaInicial(
+            350
+        );
+
+
+        if (
+            window.Prioridades &&
+            typeof window.Prioridades
+                .inicializarTarjeta ===
+                "function"
+        ) {
+
+            const resultadoPrioridades =
+                window.Prioridades
+                    .inicializarTarjeta();
+
+
+            /*
+             * Si Prioridades devuelve una Promise,
+             * esperamos su consulta real.
+             *
+             * Si su versión actual no la devuelve,
+             * dejamos un margen antes de iniciar Exactitud.
+             */
+            if (
+                resultadoPrioridades &&
+                typeof resultadoPrioridades.then ===
+                    "function"
+            ) {
+
+                await resultadoPrioridades;
+
+            } else {
+
+                await this.esperarCargaInicial(
+                    900
+                );
+
+            }
+
+        }
+
+
+        await this.esperarCargaInicial(
+            350
+        );
+
+
+        if (
+            window.ExactitudDespachos &&
+            typeof window.ExactitudDespachos
+                .cargarTarjeta ===
+                "function"
+        ) {
+
+            await window.ExactitudDespachos
+                .cargarTarjeta();
+
+        }
 
     },
 
@@ -267,16 +380,15 @@ const DashboardIndicadores = {
                     Ver prioridades
                 </button>
             `;
-					if (
-					window.Prioridades &&
-					typeof Prioridades.inicializarTarjeta ===
-						"function"
-				) {
 
-					Prioridades
-						.inicializarTarjeta();
-
-				}
+            /*
+             * La tarjeta queda preparada aquí, pero su consulta
+             * ya no se ejecuta en este punto.
+             *
+             * La carga se realiza desde
+             * cargarTarjetasInicialesSecuencialmente()
+             * para evitar peticiones simultáneas al backend.
+             */
 
         }
 

@@ -7729,7 +7729,14 @@ document.addEventListener(
 
   function() {
 
-    ExactitudDespachos.iniciar();
+    /*
+     * La tarjeta se construye inmediatamente para mantener
+     * la misma apariencia del Dashboard.
+     *
+     * Su consulta al backend se ejecuta después, de forma
+     * secuencial, desde DashboardIndicadores.
+     */
+    ExactitudDespachos.prepararTarjeta();
 
   }
 

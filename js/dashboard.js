@@ -79,91 +79,9 @@ const rolSesion =
 
 window.addEventListener("load", () => {
 
-    aplicarPermisosDashboard();
-
     inicializarMenu();
 
 });
-
-
-// ===============================
-// CONTROL DE ACCESO DEL DASHBOARD
-// ===============================
-
-function aplicarPermisosDashboard() {
-
-    const configuracionModulos = [
-        { idMenu: "menuInventario", modulo: "INVENTARIO" },
-        { idMenu: "menuDespachos", modulo: "DESPACHOS" },
-        { idMenu: "menuRecepciones", modulo: "RECEPCIONES" },
-        { idMenu: "menuReportes", modulo: "REPORTES" },
-        { idMenu: "menuUsuarios", modulo: "USUARIOS" },
-        { idMenu: "menuConfiguracion", modulo: "CONFIGURACION" }
-    ];
-
-    configuracionModulos.forEach(item => {
-
-        const elemento =
-            document.getElementById(item.idMenu);
-
-        if (!elemento) {
-            return;
-        }
-
-        const permitido =
-            Sistema.tieneAccesoModulo(
-                item.modulo
-            );
-
-        elemento.hidden = !permitido;
-
-        elemento.setAttribute(
-            "aria-hidden",
-            permitido ? "false" : "true"
-        );
-
-    });
-
-    ["menuInicio", "salir"].forEach(id => {
-
-        const elemento =
-            document.getElementById(id);
-
-        if (elemento) {
-            elemento.hidden = false;
-            elemento.setAttribute(
-                "aria-hidden",
-                "false"
-            );
-        }
-
-    });
-
-}
-
-
-function puedeAbrirModulo(
-    modulo,
-    mensaje
-) {
-
-    if (
-        Sistema.tieneAccesoModulo(
-            modulo
-        )
-    ) {
-        return true;
-    }
-
-    Sistema.advertencia(
-        mensaje ||
-        "No tiene acceso a este módulo.",
-        4200
-    );
-
-    return false;
-
-}
 
 
 // ===============================
@@ -172,164 +90,77 @@ function puedeAbrirModulo(
 
 function inicializarMenu() {
 
-    const menuDespachos =
-        document.getElementById(
-            "menuDespachos"
-        );
+    document.getElementById("menuDespachos")
+        .addEventListener("click", () => {
 
-    if (menuDespachos) {
+            activarMenu("menuDespachos");
 
-        menuDespachos.addEventListener(
-            "click",
-            () => {
+            Despachos.cargar();
 
-                if (
-                    !puedeAbrirModulo(
-                        "DESPACHOS",
-                        "No tiene acceso al módulo de Despachos."
-                    )
-                ) {
-                    return;
-                }
+        });
+		
+		const menuRecepciones =
+    document.getElementById(
+        "menuRecepciones"
+    );
 
-                activarMenu(
-                    "menuDespachos"
+
+if (menuRecepciones) {
+
+    menuRecepciones.addEventListener(
+        "click",
+        () => {
+
+            activarMenu(
+                "menuRecepciones"
+            );
+
+
+            if (
+                window.RecepcionMateriales &&
+                typeof window
+                    .RecepcionMateriales
+                    .cargar ===
+                    "function"
+            ) {
+
+                window
+                    .RecepcionMateriales
+                    .cargar();
+
+            } else {
+
+                console.error(
+                    "RecepcionMateriales no está disponible."
                 );
 
-                if (
-                    window.Despachos &&
-                    typeof window.Despachos.cargar ===
-                        "function"
-                ) {
-
-                    window.Despachos.cargar();
-
-                } else {
-
-                    console.error(
-                        "Despachos no está disponible."
-                    );
-
-                }
-
             }
-        );
 
-    }
+        }
+    );
 
-
-    const menuRecepciones =
-        document.getElementById(
-            "menuRecepciones"
-        );
-
-    if (menuRecepciones) {
-
-        menuRecepciones.addEventListener(
-            "click",
-            () => {
-
-                if (
-                    !puedeAbrirModulo(
-                        "RECEPCIONES",
-                        "No tiene acceso al módulo de Recepciones."
-                    )
-                ) {
-                    return;
-                }
-
-                activarMenu(
-                    "menuRecepciones"
-                );
-
-                if (
-                    window.RecepcionMateriales &&
-                    typeof window.RecepcionMateriales.cargar ===
-                        "function"
-                ) {
-
-                    window.RecepcionMateriales.cargar();
-
-                } else {
-
-                    console.error(
-                        "RecepcionMateriales no está disponible."
-                    );
-
-                }
-
-            }
-        );
-
-    }
+}
 
 
-    const salir =
-        document.getElementById(
-            "salir"
-        );
-
-    if (salir) {
-
-        salir.addEventListener(
-            "click",
-            cerrarSesion
-        );
-
-    }
+    document.getElementById("salir")
+        .addEventListener("click", cerrarSesion);
 
 
-    const cerrarModal =
-        document.getElementById(
-            "cerrarModal"
-        );
+    document.getElementById("cerrarModal")
+    .addEventListener("click", () => {
 
-    if (cerrarModal) {
+        const modal = document.getElementById("modalSistema");
 
-        cerrarModal.addEventListener(
-            "click",
-            () => {
+        modal.classList.add("oculto");
 
-                const modal =
-                    document.getElementById(
-                        "modalSistema"
-                    );
+        if (typeof Conduce !== "undefined") {
+            Conduce.limpiar();
+        }
 
-                if (modal) {
-                    modal.classList.add(
-                        "oculto"
-                    );
-                }
+        document.getElementById("tituloModal").textContent = "";
+        document.getElementById("contenidoModal").innerHTML = "";
 
-                if (
-                    typeof Conduce !==
-                        "undefined"
-                ) {
-                    Conduce.limpiar();
-                }
-
-                const tituloModal =
-                    document.getElementById(
-                        "tituloModal"
-                    );
-
-                const contenidoModal =
-                    document.getElementById(
-                        "contenidoModal"
-                    );
-
-                if (tituloModal) {
-                    tituloModal.textContent = "";
-                }
-
-                if (contenidoModal) {
-                    contenidoModal.innerHTML = "";
-                }
-
-            }
-        );
-
-    }
+    });
 
 }
 
@@ -338,28 +169,15 @@ function inicializarMenu() {
 // ACTIVAR MENÚ
 // ===============================
 
-function activarMenu(idMenu) {
+function activarMenu(idMenu){
 
-    document
-        .querySelectorAll(".sidebar li")
-        .forEach(item => {
+    document.querySelectorAll(".sidebar li").forEach(item => {
 
-            item.classList.remove(
-                "active"
-            );
+        item.classList.remove("active");
 
-        });
+    });
 
-    const elemento =
-        document.getElementById(
-            idMenu
-        );
-
-    if (elemento) {
-        elemento.classList.add(
-            "active"
-        );
-    }
+    document.getElementById(idMenu).classList.add("active");
 
 }
 

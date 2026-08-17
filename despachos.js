@@ -57,92 +57,6 @@ async consultarBackendConCargador(
         () => API.post(datos)
     );
 },
-
-normalizarBusquedaMaterial(valor) {
-
-    return String(valor || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, " ");
-
-},
-
-buscarMaterialesInteligente(
-    materiales,
-    busqueda,
-    limite = 10
-) {
-
-    const texto =
-        Despachos.normalizarBusquedaMaterial(
-            busqueda
-        );
-
-    if (texto.length < 2) {
-        return [];
-    }
-
-    const palabras =
-        texto.split(" ").filter(Boolean);
-
-    return (Array.isArray(materiales) ? materiales : [])
-        .map(material => {
-
-            const codigo =
-                Despachos.normalizarBusquedaMaterial(
-                    material.id
-                );
-
-            const descripcion =
-                Despachos.normalizarBusquedaMaterial(
-                    material.descripcion
-                );
-
-            const textoCompleto =
-                `${codigo} ${descripcion}`;
-
-            const coincidenTodas =
-                palabras.every(palabra =>
-                    textoCompleto.includes(palabra)
-                );
-
-            if (!coincidenTodas) {
-                return null;
-            }
-
-            let prioridad = 4;
-
-            if (codigo === texto) {
-                prioridad = 0;
-            } else if (codigo.startsWith(texto)) {
-                prioridad = 1;
-            } else if (descripcion.startsWith(texto)) {
-                prioridad = 2;
-            } else if (descripcion.includes(texto)) {
-                prioridad = 3;
-            }
-
-            return {
-                material: material,
-                prioridad: prioridad,
-                descripcion: descripcion
-            };
-
-        })
-        .filter(Boolean)
-        .sort((a, b) =>
-            a.prioridad - b.prioridad ||
-            a.descripcion.localeCompare(
-                b.descripcion,
-                "es"
-            )
-        )
-        .slice(0, limite)
-        .map(item => item.material);
-
-},
 		
 	listasDashboardEstado: {
 
@@ -6958,9 +6872,17 @@ async modalAgregarTarima() {
     const inputBuscar = document.getElementById("buscarMaterialTarima");
     const inputMaterial = document.getElementById("materialTarima");
     const lista = document.getElementById("sugerenciasMaterial");
+	
+			inputBuscar.addEventListener("input", () => {
+
+			inputBuscar.value =
+				inputBuscar.value.replace(/\D/g, "");
+
+		});
+
     inputBuscar.addEventListener("input", () => {
 
-        const texto = inputBuscar.value.trim();
+        const texto = inputBuscar.value.toLowerCase().trim();
 
         inputMaterial.value = "";
         lista.innerHTML = "";
@@ -6969,23 +6891,12 @@ async modalAgregarTarima() {
             return;
         }
 
-        const resultados =
-            Despachos.buscarMaterialesInteligente(
-                materiales,
-                texto,
-                10
-            );
-
-        if (resultados.length === 0) {
-
-            lista.innerHTML = `
-                <div class="item-sugerencia">
-                    No se encontraron materiales.
-                </div>
-            `;
-
-            return;
-        }
+        const resultados = materiales
+            .filter(material =>
+                material.id.toLowerCase().includes(texto) ||
+                material.descripcion.toLowerCase().includes(texto)
+            )
+            .slice(0, 10);
 
         resultados.forEach(material => {
 
@@ -7194,9 +7105,17 @@ async modalAgregarRecorte() {
     const inputBuscar = document.getElementById("buscarMaterialRecorte");
     const inputMaterial = document.getElementById("materialRecorte");
     const lista = document.getElementById("sugerenciasMaterialRecorte");
+	
+	inputBuscar.addEventListener("input", () => {
+
+    inputBuscar.value =
+        inputBuscar.value.replace(/\D/g, "");
+
+});
+
     inputBuscar.addEventListener("input", () => {
 
-        const texto = inputBuscar.value.trim();
+        const texto = inputBuscar.value.toLowerCase().trim();
 
         inputMaterial.value = "";
         lista.innerHTML = "";
@@ -7205,12 +7124,12 @@ async modalAgregarRecorte() {
             return;
         }
 
-        const resultados =
-            Despachos.buscarMaterialesInteligente(
-                materiales,
-                texto,
-                10
-            );
+        const resultados = materiales
+            .filter(material =>
+                material.id.toLowerCase().includes(texto) ||
+                material.descripcion.toLowerCase().includes(texto)
+            )
+            .slice(0, 10);
 
         if (resultados.length === 0) {
 

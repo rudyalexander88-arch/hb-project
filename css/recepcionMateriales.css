@@ -1949,3 +1949,117 @@ body.asistente-recepcion-abierto {
     }
 
 }
+
+/* ==========================================================
+   HORA REAL DE INICIO DE RECEPCIÓN
+   ========================================================== */
+
+.campo-hora-inicio-recepcion {
+    display: grid;
+    grid-template-columns: minmax(190px, 240px) 150px 1fr;
+    align-items: center;
+    gap: 12px;
+
+    margin-top: 18px;
+    padding: 16px 18px;
+
+    background: #fff;
+    border: 1px solid #e6e9ee;
+    border-radius: 14px;
+
+    box-shadow:
+        0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+
+.campo-hora-inicio-recepcion label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #202124;
+}
+
+
+.campo-hora-inicio-recepcion input[type="time"] {
+    width: 100%;
+    min-height: 44px;
+
+    padding: 8px 12px;
+
+    border: 1px solid #d9dde3;
+    border-radius: 10px;
+
+    background: #f8f9fb;
+
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: #202124;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+
+.campo-hora-inicio-recepcion input[type="time"]:focus {
+    background: #fff;
+    border-color: #e31b23;
+
+    box-shadow:
+        0 0 0 3px rgba(227, 27, 35, 0.10);
+}
+
+
+.campo-hora-inicio-recepcion small {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #73777f;
+}
+
+
+/* ==========================================================
+   TABLET
+   ========================================================== */
+
+@media (max-width: 900px) {
+
+    .campo-hora-inicio-recepcion {
+        grid-template-columns: 1fr 140px;
+    }
+
+    .campo-hora-inicio-recepcion small {
+        grid-column: 1 / -1;
+    }
+
+}
+
+
+/* ==========================================================
+   MÓVIL
+   ========================================================== */
+
+@media (max-width: 600px) {
+
+    .campo-hora-inicio-recepcion {
+        grid-template-columns: 1fr;
+        gap: 8px;
+
+        margin-top: 14px;
+        padding: 14px;
+    }
+
+
+    .campo-hora-inicio-recepcion input[type="time"] {
+        min-height: 48px;
+        font-size: 16px;
+    }
+
+
+    .campo-hora-inicio-recepcion small {
+        grid-column: auto;
+    }
+
+}

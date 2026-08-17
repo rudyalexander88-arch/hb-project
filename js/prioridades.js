@@ -62,7 +62,7 @@ window.Prioridades = {
     },
 
 
-    inicializarTarjeta() {
+    async inicializarTarjeta() {
 
         const boton =
             document.getElementById(
@@ -92,7 +92,12 @@ window.Prioridades = {
         }
 
 
-        Prioridades
+        /*
+         * Esperamos la carga real del indicador antes de que
+         * DashboardIndicadores continúe con la siguiente tarjeta.
+         * Así evitamos solapar Prioridades y Exactitud.
+         */
+        await Prioridades
             .cargarIndicadorTarjeta();
 
     },

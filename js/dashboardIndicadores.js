@@ -69,23 +69,23 @@ const DashboardIndicadores = {
 
         /*
          * =====================================================
-         * CONTROL DE TARJETAS POR ROL
+         * CONTROL DE TARJETAS POR PERMISOS
          * =====================================================
          *
-         * Los usuarios AUXILIAR no necesitan los indicadores
-         * generales del Dashboard.
+         * AUXILIAR:
+         * - No visualiza tarjetas.
+         * - No ejecuta los API.post() de indicadores.
          *
-         * IMPORTANTE:
-         * Se valida el rol ANTES de preparar o cargar tarjetas.
-         * De esta manera:
+         * SUPERVISOR:
+         * - Solo visualiza y carga las tarjetas cuando posee
+         *   el permiso TARJETAS_INDICADORES.
          *
-         * 1. Se oculta completamente el bloque visual.
-         * 2. No se ejecutan los API.post() de Ocupación,
-         *    Meta mensual, Prioridades ni Exactitud.
+         * ADMINISTRADOR y demás roles conservan por ahora
+         * el comportamiento existente.
          */
-        if (this.esUsuarioAuxiliar()) {
+        if (!this.puedeVerTarjetasIndicadores()) {
 
-            this.ocultarTarjetasParaAuxiliar();
+            this.ocultarTarjetasIndicadores();
 
             return;
 
@@ -93,7 +93,7 @@ const DashboardIndicadores = {
 
 
         /*
-         * Para los demás roles se conserva exactamente
+         * Si tiene acceso, se conserva exactamente
          * el comportamiento actual.
          */
         this.prepararTarjetas();
@@ -104,7 +104,7 @@ const DashboardIndicadores = {
     },
 
 
-    esUsuarioAuxiliar() {
+    obtenerRolSesion() {
 
         const sesion =
             window.Sistema &&
@@ -118,28 +118,71 @@ const DashboardIndicadores = {
                 );
 
 
-        const rol =
-            String(
-                sesion &&
-                sesion.rol
-                    ? sesion.rol
-                    : ""
-            )
-                .trim()
-                .toUpperCase();
-
-
-        return rol === "AUXILIAR";
+        return String(
+            sesion &&
+            sesion.rol
+                ? sesion.rol
+                : ""
+        )
+            .trim()
+            .toUpperCase();
 
     },
 
 
-    ocultarTarjetasParaAuxiliar() {
+    puedeVerTarjetasIndicadores() {
+
+        const rol =
+            this.obtenerRolSesion();
+
 
         /*
-         * Oculta el contenedor completo de las tarjetas.
-         * Al salir antes desde iniciar(), ninguna consulta
-         * de indicadores es enviada al backend.
+         * AUXILIAR continúa sin tarjetas.
+         */
+        if (rol === "AUXILIAR") {
+
+            return false;
+
+        }
+
+
+        /*
+         * SUPERVISOR queda gobernado por un permiso configurable
+         * desde Permisos_Roles:
+         *
+         * SUPERVISOR | TARJETAS | TARJETAS_INDICADORES | ACTIVO
+         *
+         * Si la fila está INACTIVA o no existe, no se muestran
+         * ni se consultan las tarjetas.
+         */
+        if (rol === "SUPERVISOR") {
+
+            return (
+                window.Sistema &&
+                typeof window.Sistema.tienePermiso === "function" &&
+                window.Sistema.tienePermiso(
+                    "TARJETAS_INDICADORES"
+                )
+            );
+
+        }
+
+
+        /*
+         * Los demás roles conservan por ahora el comportamiento
+         * anterior para no modificar lo que ya funciona.
+         */
+        return true;
+
+    },
+
+
+    ocultarTarjetasIndicadores() {
+
+        /*
+         * Oculta el contenedor completo.
+         * Como iniciar() termina inmediatamente después,
+         * no se ejecuta ningún API.post() de las tarjetas.
          */
         const contenedorTarjetas =
             document.querySelector(
@@ -161,9 +204,8 @@ const DashboardIndicadores = {
 
 
         /*
-         * En tablet/móvil existe un botón para contraer o
-         * expandir las tarjetas. Como AUXILIAR no las utiliza,
-         * también se oculta para evitar un control sin función.
+         * En tablet/móvil también se oculta el control para
+         * expandir/contraer las tarjetas.
          */
         const botonAlternar =
             document.getElementById(

@@ -368,7 +368,32 @@ function activarMenu(idMenu) {
 // CERRAR SESIÓN
 // ===============================
 
+let cierreSesionEnProceso = false;
+
+
 async function cerrarSesion() {
+
+    /*
+     * Evita dobles clics o varios intentos de cierre
+     * mientras Apps Script elimina la sesión activa.
+     */
+    if (cierreSesionEnProceso) {
+        return;
+    }
+
+
+    cierreSesionEnProceso = true;
+
+
+    /*
+     * Bloquea visualmente la interfaz mientras el backend
+     * elimina el token de Sesiones_Usuarios.
+     */
+    CargadorSistema.mostrar(
+        "Cerrando el sistema",
+        "Estamos finalizando su sesión de forma segura."
+    );
+
 
     /*
      * Para cerrar sesión usamos directamente API,
@@ -436,6 +461,11 @@ async function cerrarSesion() {
         API.limpiarSesion();
 
 
+        /*
+         * No ocultamos el cargador antes de redirigir.
+         * Así la interfaz permanece bloqueada hasta que
+         * aparezca nuevamente la pantalla de inicio.
+         */
         window.location.href =
             "../index.html";
 
@@ -631,7 +661,8 @@ document.addEventListener(
 
         iniciarControlTarjetasDashboard();
 
-
+        verificarSesionActiva();
+        
 
         const botonMenu =
             document.getElementById(

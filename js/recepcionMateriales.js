@@ -15,6 +15,7 @@ window.RecepcionMateriales = {
     distribucion: {},
     camaraActiva: "",
     origenTraslado: "Carritos",
+    horaInicioIngreso: "",
     resumenAcumulado: null,
     tieneRegistrosPrevios: false
   },
@@ -43,6 +44,7 @@ window.RecepcionMateriales = {
     this.estado.materialSeleccionado = null;
     this.estado.resultadosMateriales = [];
     this.estado.distribucion = {};
+    this.estado.horaInicioIngreso = "";
     this.estado.resumenAcumulado = null;
     this.estado.tieneRegistrosPrevios = false;
 
@@ -60,14 +62,22 @@ window.RecepcionMateriales = {
             </p>
           </div>
 
-          <button
-            type="button"
-            id="btnNuevaRecepcionMateriales"
-            class="btn-recepcion principal"
-          >
-            <i class="fa-solid fa-plus"></i>
-            Nueva recepción
-          </button>
+          ${
+            Sistema.tienePermiso(
+              "RECEPCIONES_CREAR"
+            )
+              ? `
+                  <button
+                    type="button"
+                    id="btnNuevaRecepcionMateriales"
+                    class="btn-recepcion principal"
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    Nueva recepción
+                  </button>
+                `
+              : ""
+          }
 
         </header>
 
@@ -84,12 +94,17 @@ window.RecepcionMateriales = {
       </section>
     `;
 
-    document
-  .getElementById(
-    "btnNuevaRecepcionMateriales"
-  )
-  .onclick =
-    () => this.abrirAsistenteNueva();
+    const botonNuevaRecepcion =
+      document.getElementById(
+        "btnNuevaRecepcionMateriales"
+      );
+
+    if (botonNuevaRecepcion) {
+
+      botonNuevaRecepcion.onclick =
+        () => this.abrirAsistenteNueva();
+
+    }
 
 
 this.configurarScrollInterno();
@@ -202,6 +217,7 @@ await this.cargarCatalogos();
     this.estado.resultadosMateriales = [];
     this.estado.distribucion = {};
     this.estado.camaraActiva = "";
+    this.estado.horaInicioIngreso = "";
     this.estado.resumenAcumulado = null;
     this.estado.tieneRegistrosPrevios = false;
 
@@ -221,11 +237,21 @@ await this.cargarCatalogos();
 
   abrirAsistenteNueva() {
 
+    if (
+      !Sistema.exigirPermiso(
+        "RECEPCIONES_CREAR",
+        "No tiene permiso para crear recepciones."
+      )
+    ) {
+      return;
+    }
+
     this.estado.recepcionActual = null;
     this.estado.materialSeleccionado = null;
     this.estado.resultadosMateriales = [];
     this.estado.distribucion = {};
     this.estado.camaraActiva = "";
+    this.estado.horaInicioIngreso = "";
     this.estado.resumenAcumulado = null;
     this.estado.tieneRegistrosPrevios = false;
 
@@ -936,16 +962,24 @@ configurarScrollInterno() {
             : ""
         }
 
-        <button
-          type="button"
-          class="btn-recepcion continuar"
-          data-abrir-recepcion="${this.escapar(
-            item.idRecepcion
-          )}"
-        >
-          <i class="fa-solid fa-arrow-right"></i>
-          Continuar recepción
-        </button>
+        ${
+          Sistema.tienePermiso(
+            "RECEPCIONES_CONTINUAR"
+          )
+            ? `
+                <button
+                  type="button"
+                  class="btn-recepcion continuar"
+                  data-abrir-recepcion="${this.escapar(
+                    item.idRecepcion
+                  )}"
+                >
+                  <i class="fa-solid fa-arrow-right"></i>
+                  Continuar recepción
+                </button>
+              `
+            : ""
+        }
 
       </article>
     `;
@@ -1006,6 +1040,23 @@ configurarScrollInterno() {
 
         </div>
 
+        <div class="campo-hora-inicio-recepcion">
+          <label for="inputHoraInicioRecepcion">
+            Hora en que comenzó a recibir
+          </label>
+
+          <input
+            type="time"
+            id="inputHoraInicioRecepcion"
+            step="60"
+            required
+          >
+
+          <small>
+            Indique la hora real de inicio. La hora final se registrará automáticamente al guardar.
+          </small>
+        </div>
+
         <div class="recepcion-acciones-finales">
           <button
             type="button"
@@ -1049,7 +1100,34 @@ configurarScrollInterno() {
 
     document
       .getElementById("btnIniciarRecepcion")
-      .onclick = () => this.iniciarNuevaRecepcion();
+      .onclick = () => {
+
+        const inputHora =
+          document.getElementById(
+            "inputHoraInicioRecepcion"
+          );
+
+        const horaInicio =
+          inputHora
+            ? String(inputHora.value || "").trim()
+            : "";
+
+        if (!horaInicio) {
+
+          this.notificar(
+            "Indique la hora en que comenzó a recibir el material.",
+            "advertencia"
+          );
+
+          return;
+        }
+
+        this.estado.horaInicioIngreso =
+          horaInicio;
+
+        this.iniciarNuevaRecepcion();
+
+      };
 
   },
 
@@ -1080,7 +1158,9 @@ configurarScrollInterno() {
           sesion.Nombre ||
           "Usuario",
         origenTraslado:
-          this.estado.origenTraslado
+          this.estado.origenTraslado,
+        horaInicio:
+          this.estado.horaInicioIngreso
       });
 
       if (!respuesta || respuesta.ok !== true) {
@@ -1142,6 +1222,17 @@ configurarScrollInterno() {
 
 
   async abrirRecepcion(idRecepcion) {
+
+    if (
+      !Sistema.exigirPermiso(
+        "RECEPCIONES_CONTINUAR",
+        "No tiene permiso para continuar recepciones."
+      )
+    ) {
+      return;
+    }
+
+    this.estado.horaInicioIngreso = "";
 
     this.abrirAsistente(
       "Continuar Recepción"
@@ -1274,8 +1365,9 @@ configurarScrollInterno() {
          * El nuevo registro comienza con campos vacíos.
          */
         this.estado.distribucion = {};
+        this.estado.horaInicioIngreso = "";
 
-        this.renderDistribucionCamaras();
+        this.mostrarOrigenNuevoIngreso();
 
       } else {
 
@@ -1777,6 +1869,9 @@ mostrarOrigenNuevoIngreso() {
   this.estado.origenTraslado =
     "";
 
+  this.estado.horaInicioIngreso =
+    "";
+
 
   panel.innerHTML = `
 
@@ -1855,6 +1950,26 @@ mostrarOrigenNuevoIngreso() {
           </span>
 
         </button>
+
+      </div>
+
+
+      <div class="campo-hora-inicio-recepcion">
+
+        <label for="inputHoraInicioNuevoIngreso">
+          Hora en que comenzó a recibir
+        </label>
+
+        <input
+          type="time"
+          id="inputHoraInicioNuevoIngreso"
+          step="60"
+          required
+        >
+
+        <small>
+          Indique la hora real de inicio de este ingreso. La hora final se registrará automáticamente al guardar.
+        </small>
 
       </div>
 
@@ -1952,6 +2067,34 @@ mostrarOrigenNuevoIngreso() {
           return;
 
         }
+
+
+        const inputHora =
+          document.getElementById(
+            "inputHoraInicioNuevoIngreso"
+          );
+
+
+        const horaInicio =
+          inputHora
+            ? String(inputHora.value || "").trim()
+            : "";
+
+
+        if (!horaInicio) {
+
+          this.notificar(
+            "Indique la hora en que comenzó a recibir este ingreso.",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+
+        this.estado.horaInicioIngreso =
+          horaInicio;
 
 
         this.renderDistribucionCamaras();
@@ -2841,6 +2984,25 @@ if (
 
 	}
 
+
+    const horaInicioIngreso =
+      String(
+        this.estado.horaInicioIngreso ||
+        ""
+      ).trim();
+
+
+    if (!horaInicioIngreso) {
+
+      this.notificar(
+        "No se encontró la hora de inicio de este ingreso. Regrese y selecciónela nuevamente.",
+        "advertencia"
+      );
+
+      return;
+
+    }
+
   try {
 
     /*
@@ -2875,6 +3037,9 @@ if (
 		  
 		origenTraslado:
 			origenIngreso,
+
+        horaInicio:
+          horaInicioIngreso,
 
         auxiliarId:
           sesion.id ||

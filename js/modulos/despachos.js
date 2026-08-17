@@ -4,6 +4,59 @@
 // ==========================================
 
 window.Despachos = {
+
+async ejecutarConCargador(
+    titulo,
+    mensaje,
+    proceso
+) {
+
+    const inicioCargador = Date.now();
+
+    if (
+        typeof CargadorSistema !== "undefined" &&
+        typeof CargadorSistema.mostrar === "function"
+    ) {
+        CargadorSistema.mostrar(titulo, mensaje);
+    }
+
+    try {
+        return await proceso();
+    } finally {
+
+        const tiempoTranscurrido =
+            Date.now() - inicioCargador;
+
+        const tiempoRestante =
+            Math.max(0, 450 - tiempoTranscurrido);
+
+        if (tiempoRestante > 0) {
+            await new Promise(resolve =>
+                setTimeout(resolve, tiempoRestante)
+            );
+        }
+
+        if (
+            typeof CargadorSistema !== "undefined" &&
+            typeof CargadorSistema.ocultar === "function"
+        ) {
+            CargadorSistema.ocultar();
+        }
+    }
+
+},
+
+async consultarBackendConCargador(
+    datos,
+    titulo,
+    mensaje
+) {
+    return Despachos.ejecutarConCargador(
+        titulo,
+        mensaje,
+        () => API.post(datos)
+    );
+},
 		
 	listasDashboardEstado: {
 
@@ -3526,10 +3579,10 @@ async continuarBorrador(idConduce, opciones = {}) {
 
     try {
 
-        const respuesta = await API.post({
+        const respuesta = await Despachos.consultarBackendConCargador({
             action: "obtenerBorrador",
             idConduce: idConduce
-        });
+        }, "Cargando conduce", "Estamos recuperando la información del despacho.");
 
         if (!respuesta.ok) {
 
@@ -3719,10 +3772,10 @@ async verConduce(idConduce) {
         return;
     }
 
-    const respuesta = await API.post({
+    const respuesta = await Despachos.consultarBackendConCargador({
         action: "obtenerBorrador",
         idConduce: idConduce
-    });
+    }, "Abriendo conduce", "Estamos preparando la visualización del despacho.");
 
     if (!respuesta.ok) {
 
@@ -5711,10 +5764,10 @@ async confirmarFrioBoxComoDestinoFinal(
 
         if (!precinto1EsAnterior) {
 
-            const validar1 = await API.post({
+            const validar1 = await Despachos.consultarBackendConCargador({
                 action: "validarPrecinto",
                 no_precinto: precinto1
-            });
+            }, "Validando precinto", "Estamos verificando el precinto del destino 1.");
 
             if (!validar1.ok) {
 
@@ -5738,10 +5791,10 @@ async confirmarFrioBoxComoDestinoFinal(
             !precinto2EsAnterior
         ) {
 
-            const validar2 = await API.post({
+            const validar2 = await Despachos.consultarBackendConCargador({
                 action: "validarPrecinto",
                 no_precinto: precinto2
-            });
+            }, "Validando precinto", "Estamos verificando el precinto del destino 2.");
 
             if (!validar2.ok) {
 
@@ -5788,7 +5841,8 @@ async confirmarFrioBoxComoDestinoFinal(
          * en Google Sheets, aunque todavía no tenga tarimas.
          */
         const guardado = await Despachos.guardarCambios({
-            silencioso: true
+            silencioso: true,
+            mostrarCargador: true
         });
 
         if (!guardado) {
@@ -6014,7 +6068,9 @@ async pasoCarga() {
 	
 	document.getElementById("btnGuardarBorrador").onclick = async () => {
 
-    await Despachos.guardarCambios();
+    await Despachos.guardarCambios({
+        mostrarCargador: true
+    });
 
 	};
 
@@ -6091,12 +6147,12 @@ async cargarInspeccionConduce(
     try {
 
         const respuesta =
-            await API.post({
+            await Despachos.consultarBackendConCargador({
                 action:
                     "obtenerInspeccionConduce",
                 idConduce:
                     idConduce
-            });
+            }, "Consultando inspección", "Estamos verificando la inspección BASC vinculada.");
 
         const datos =
             respuesta && respuesta.ok
@@ -6645,10 +6701,10 @@ async editarDestinosConduce() {
 
         if (precinto1Cambio) {
 
-            const validacion1 = await API.post({
+            const validacion1 = await Despachos.consultarBackendConCargador({
                 action: "validarPrecinto",
                 no_precinto: precinto1
-            });
+            }, "Validando precinto", "Estamos verificando el nuevo precinto del destino 1.");
 
             if (!validacion1.ok) {
 
@@ -6665,10 +6721,10 @@ async editarDestinosConduce() {
 
         if (precinto2Cambio) {
 
-            const validacion2 = await API.post({
+            const validacion2 = await Despachos.consultarBackendConCargador({
                 action: "validarPrecinto",
                 no_precinto: precinto2
-            });
+            }, "Validando precinto", "Estamos verificando el nuevo precinto del destino 2.");
 
             if (!validacion2.ok) {
 
@@ -6711,7 +6767,8 @@ async editarDestinosConduce() {
                 : "";
 
         const guardado = await Despachos.guardarCambios({
-            silencioso: true
+            silencioso: true,
+            mostrarCargador: true
         });
 
         if (!guardado) {
@@ -6735,7 +6792,11 @@ async editarDestinosConduce() {
 
 async modalAgregarTarima() {
 
-    const materiales = await Catalogos.cargarMateriales();
+    const materiales = await Despachos.ejecutarConCargador(
+        "Cargando materiales",
+        "Estamos preparando el catálogo para agregar tarimas.",
+        () => Catalogos.cargarMateriales()
+    );
 
     document.getElementById("tituloModal").textContent = "Agregar Tarima";
 
@@ -6912,7 +6973,8 @@ async modalAgregarTarima() {
         }
 		
 		const guardado = await Despachos.guardarCambios({
-			silencioso: true
+			silencioso: true,
+			mostrarCargador: true
 		});
 
 		if (!guardado) {
@@ -6935,7 +6997,11 @@ async modalAgregarTarima() {
 
 async modalAgregarRecorte() {
 
-    const materiales = await Catalogos.cargarMateriales();
+    const materiales = await Despachos.ejecutarConCargador(
+        "Cargando materiales",
+        "Estamos preparando el catálogo para agregar recortes.",
+        () => Catalogos.cargarMateriales()
+    );
 
     document.getElementById("tituloModal").textContent = "Agregar Recorte";
 
@@ -7389,7 +7455,8 @@ async agregarRecorte(
 		Despachos.refrescarCarga();
 
 		await Despachos.guardarCambios({
-			silencioso: true
+			silencioso: true,
+			mostrarCargador: true
 		});
 
 },
@@ -7813,7 +7880,8 @@ editarLinea(idLinea) {
     }
 
     await Despachos.guardarCambios({
-        silencioso: true
+        silencioso: true,
+        mostrarCargador: true
     });
 
     Despachos.notificar(
@@ -7859,7 +7927,8 @@ async eliminarLinea(idLinea) {
     Despachos.refrescarCarga();
 
     await Despachos.guardarCambios({
-        silencioso: true
+        silencioso: true,
+        mostrarCargador: true
     });
 
     Despachos.notificar(
@@ -8563,7 +8632,9 @@ return true;
 		}
 
         const guardado =
-            await Despachos.guardarCambios();
+            await Despachos.guardarCambios({
+                mostrarCargador: true
+            });
 
         if (!guardado) {
             return;
@@ -8588,14 +8659,15 @@ return true;
 	}
 
     const guardado = await Despachos.guardarCambios({
-        silencioso: true
+        silencioso: true,
+        mostrarCargador: true
     });
 
     if (!guardado) {
         return;
     }
 
-    const respuesta = await API.post({
+    const respuesta = await Despachos.consultarBackendConCargador({
 
         action: "finalizarCarga",
 
@@ -8604,7 +8676,7 @@ return true;
             detalle: Conduce.detalle
         }
 
-    });
+    }, "Preparando conduce", "Estamos guardando la carga antes de generar el documento.");
 
     if (!respuesta.ok) {
 
@@ -9181,6 +9253,22 @@ async guardarCambios(opciones = {}) {
     const silencioso =
         opciones.silencioso === true;
 
+    const mostrarCargador =
+        opciones.mostrarCargador === true;
+
+    const inicioCargador = Date.now();
+
+    if (
+        mostrarCargador &&
+        typeof CargadorSistema !== "undefined" &&
+        typeof CargadorSistema.mostrar === "function"
+    ) {
+        CargadorSistema.mostrar(
+            "Guardando despacho",
+            "Estamos registrando los cambios del conduce."
+        );
+    }
+
     try {
 
         const respuesta = await API.post({
@@ -9251,6 +9339,28 @@ async guardarCambios(opciones = {}) {
         );
 
         return false;
+
+    } finally {
+
+        if (
+            mostrarCargador &&
+            typeof CargadorSistema !== "undefined" &&
+            typeof CargadorSistema.ocultar === "function"
+        ) {
+            const tiempoTranscurrido =
+                Date.now() - inicioCargador;
+
+            const tiempoRestante =
+                Math.max(0, 450 - tiempoTranscurrido);
+
+            if (tiempoRestante > 0) {
+                await new Promise(resolve =>
+                    setTimeout(resolve, tiempoRestante)
+                );
+            }
+
+            CargadorSistema.ocultar();
+        }
 
     }
 
@@ -11575,10 +11685,10 @@ async verConduce(idConduce) {
 
     }
 
-    const respuesta = await API.post({
+    const respuesta = await Despachos.consultarBackendConCargador({
         action: "obtenerBorrador",
         idConduce: idConduce
-    });
+    }, "Abriendo conduce", "Estamos preparando la visualización del despacho.");
 
     if (!respuesta.ok) {
 
@@ -12028,7 +12138,7 @@ async aplicarUnidadTemporal() {
     try {
 
         const resultado =
-            await API.post({
+            await Despachos.consultarBackendConCargador({
                 action:
                     "guardarUnidadCargaNueva",
 
@@ -12048,7 +12158,7 @@ async aplicarUnidadTemporal() {
 
                 establecerPredeterminado:
                     establecerPredeterminado
-            });
+            }, "Guardando unidad", "Estamos registrando la unidad de carga y sus datos.");
 
         if (!resultado.ok) {
 

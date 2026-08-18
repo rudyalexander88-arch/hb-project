@@ -930,18 +930,7 @@ function iniciarControlTarjetasDashboard() {
         );
 
 
-    /*
-     * En móvil y tablet inicia con el último estado usado.
-     * En escritorio siempre se mantiene visible.
-     */
-    const esDispositivoCompacto =
-        window.matchMedia(
-            "(max-width: 1024px)"
-        ).matches;
-
-
     aplicarEstado(
-        esDispositivoCompacto &&
         estadoGuardado === "SI",
         false
     );
@@ -964,46 +953,6 @@ function iniciarControlTarjetasDashboard() {
         }
     );
 
-
-    window.addEventListener(
-        "resize",
-        () => {
-
-            const escritorio =
-                window.matchMedia(
-                    "(min-width: 1025px)"
-                ).matches;
-
-
-            if (escritorio) {
-
-                tarjetas.classList.remove(
-                    "cards-ocultas"
-                );
-
-
-                boton.classList.remove(
-                    "tarjetas-ocultas"
-                );
-
-
-                boton.setAttribute(
-                    "aria-expanded",
-                    "true"
-                );
-
-
-                if (icono) {
-
-                    icono.className =
-                        "fa-solid fa-chevron-up";
-
-                }
-
-            }
-
-        }
-    );
 
 }
 

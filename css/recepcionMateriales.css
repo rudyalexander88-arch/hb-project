@@ -1861,6 +1861,7 @@ body.asistente-recepcion-abierto {
 
 }
 
+
 /* ============================================================
    MODO APP - MÓVIL
    ============================================================ */
@@ -2060,6 +2061,158 @@ body.asistente-recepcion-abierto {
 
     .campo-hora-inicio-recepcion small {
         grid-column: auto;
+    }
+
+}
+
+
+/* ============================================================
+   CABECERA COMPACTA Y LÍMITE LIMPIO DEL SCROLL
+   Esta capa final prevalece sobre las reglas históricas.
+   ============================================================ */
+
+.recepcion-materiales {
+    gap: 0 !important;
+}
+
+.recepcion-materiales .recepcion-encabezado {
+    position: relative;
+    z-index: 2;
+    align-items: center;
+    min-height: 0;
+    margin: 0 !important;
+    padding: 10px 16px;
+    border-radius: 14px 14px 0 0;
+    background: #ffffff;
+}
+
+.recepcion-materiales .recepcion-encabezado h2 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.15;
+}
+
+.recepcion-materiales .recepcion-encabezado p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+@media (min-width: 769px) {
+
+    #btnNuevaRecepcionMateriales {
+        height: 34px;
+        min-height: 34px;
+        padding: 0 14px;
+        border-radius: 8px;
+        font-size: 11px;
+    }
+
+}
+
+.recepcion-materiales .recepcion-panel {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding-top: 0;
+    border-top: 0;
+    border-radius: 0 0 14px 14px;
+}
+
+.recepcion-materiales .recepcion-panel > .centro-recepciones {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+@media (max-width: 768px) {
+
+    .recepcion-materiales .recepcion-encabezado {
+        min-height: 48px;
+        padding: 9px 12px;
+    }
+
+    .recepcion-materiales .recepcion-encabezado > div:first-child {
+        max-width: calc(100% - 64px);
+    }
+
+    .recepcion-materiales .recepcion-encabezado h2 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.15;
+    }
+
+    .recepcion-materiales .recepcion-encabezado p {
+        display: none;
+    }
+
+}
+
+
+/* ============================================================
+   TÍTULO EXTERIOR Y CUERPO OPERATIVO INDEPENDIENTE
+   ============================================================ */
+
+#contenidoPrincipal:has(.recepcion-materiales) {
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.recepcion-materiales {
+    gap: 8px !important;
+    padding-bottom: 0 !important;
+}
+
+.recepcion-materiales .recepcion-encabezado {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    padding: 2px 8px 7px;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.recepcion-materiales .recepcion-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0 !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid var(--rec-borde);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.recepcion-materiales .recepcion-panel > .centro-recepciones {
+    width: 100%;
+    margin: 0;
+    padding: 12px 14px 18px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+
+    .recepcion-materiales {
+        gap: 5px !important;
+    }
+
+    .recepcion-materiales .recepcion-encabezado {
+        min-height: 42px;
+        padding: 0 7px 5px;
+    }
+
+    .recepcion-materiales .recepcion-panel {
+        border-radius: 13px;
+    }
+
+    .recepcion-materiales .recepcion-panel > .centro-recepciones {
+        padding: 9px 9px 82px;
     }
 
 }

@@ -246,6 +246,71 @@ const DashboardIndicadores = {
     },
 
 
+    compactarResumenExactitud() {
+
+        const resumen =
+            document.querySelector(
+                ".resumen-card-exactitud"
+            );
+
+        if (!resumen) {
+            return;
+        }
+
+        const compactar = texto =>
+            String(texto || "")
+                .replace(
+                    /\bdespachos?\s+verificados?\b/gi,
+                    "desp. verif."
+                )
+                .replace(
+                    /\bbultos?\s+pendientes?\b/gi,
+                    "bult. pend."
+                );
+
+        const aplicarFormato = () => {
+
+            const textoActual =
+                resumen.textContent.trim();
+
+            const textoCompacto =
+                compactar(textoActual);
+
+            if (textoCompacto !== textoActual) {
+
+                resumen.title = textoActual;
+                resumen.textContent = textoCompacto;
+
+            }
+
+        };
+
+        aplicarFormato();
+
+        if (!resumen.dataset.resumenCompactoActivo) {
+
+            resumen.dataset.resumenCompactoActivo =
+                "true";
+
+            const observador =
+                new MutationObserver(
+                    aplicarFormato
+                );
+
+            observador.observe(
+                resumen,
+                {
+                    childList: true,
+                    characterData: true,
+                    subtree: true
+                }
+            );
+
+        }
+
+    },
+
+
     async cargarTarjetasInicialesSecuencialmente() {
 
         /*
@@ -327,6 +392,8 @@ const DashboardIndicadores = {
 
             await window.ExactitudDespachos
                 .cargarTarjeta();
+
+            this.compactarResumenExactitud();
 
         }
 
@@ -418,7 +485,6 @@ const DashboardIndicadores = {
                         id="disponibleOcupacionCamaras"
                         class="card-indicador-secundario"
                     >
-                        --
                     </span>
 
                 </div>
@@ -471,7 +537,6 @@ const DashboardIndicadores = {
 									id="diasOperativosMetaMensual"
 									class="card-indicador-secundario"
 								>
-									--
 								</span>
 
 							</div>
@@ -759,23 +824,19 @@ const DashboardIndicadores = {
                 ocupadas,
                 0
             ) +
-            " de " +
+            " ocupadas de " +
             Sistema.formatearNumero(
                 capacidad,
                 0
             ) +
-            " posiciones ocupadas";
-
-        disponible.textContent =
+            " posc. · " +
             Sistema.formatearNumero(
                 libres,
                 0
             ) +
-            (
-                libres === 1
-                    ? " posición disponible"
-                    : " posiciones disponibles"
-            );
+            " libres";
+
+        disponible.textContent = "";
 
         tarjeta.classList.remove(
             "ocupacion-baja",
@@ -880,8 +941,7 @@ const DashboardIndicadores = {
         }
 
         if (disponible) {
-            disponible.textContent =
-                "Pulse Ver ocupación para reintentar.";
+            disponible.textContent = "";
         }
 
     },
@@ -1863,20 +1923,20 @@ const DashboardIndicadores = {
                 resumen.despachosRealizados,
                 0
             ) +
-            " / " +
+            "/" +
             Sistema.formatearNumero(
                 resumen.metaAcumulada,
                 0
             ) +
-            " despachos";
-
-        dias.textContent =
+            " despachos · " +
             resumen.diasOperativos +
             (
                 resumen.diasOperativos === 1
                     ? " día operativo"
                     : " días operativos"
             );
+
+        dias.textContent = "";
 
         const tarjeta =
             document.getElementById(
@@ -1983,8 +2043,7 @@ const DashboardIndicadores = {
         }
 
         if (dias) {
-            dias.textContent =
-                "Pulse Ver histórico para reintentar.";
+            dias.textContent = "";
         }
 
     },

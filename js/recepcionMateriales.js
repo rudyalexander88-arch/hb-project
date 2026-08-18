@@ -54,10 +54,9 @@ window.RecepcionMateriales = {
         <header class="recepcion-encabezado">
 
           <div>
-            <span>Operación de almacén</span>
             <h2>Recepción de materiales</h2>
             <p>
-              Registre el ingreso de los mareriales y su distribución
+              Registre el ingreso de los materiales y su distribución
               entre las cámaras.
             </p>
           </div>

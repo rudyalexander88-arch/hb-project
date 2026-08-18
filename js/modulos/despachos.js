@@ -5968,7 +5968,7 @@ async pasoCarga() {
 
             <button class="btn-naranja" id="btnAgregarRecorte">
                 <i class="fa-solid fa-plus"></i>
-                Agregar Recorte
+                Agregar Parcial
             </button>
 
         </div>
@@ -7088,17 +7088,17 @@ async modalAgregarRecorte() {
 
     const materiales = await Despachos.ejecutarConCargador(
         "Cargando materiales",
-        "Estamos preparando el catálogo para agregar recortes.",
+        "Estamos preparando el catálogo para agregar parciales.",
         () => Catalogos.cargarMateriales()
     );
 
-    document.getElementById("tituloModal").textContent = "Agregar Recorte";
+    document.getElementById("tituloModal").textContent = "Agregar Parcial";
 
     document.getElementById("contenidoModal").innerHTML = `
 
         <div class="formulario-conduce">
 
-            <h3>Datos del Recorte</h3>
+            <h3>Datos del Parcial</h3>
 
             <div class="grid-form">
 
@@ -7124,7 +7124,7 @@ async modalAgregarRecorte() {
     Number(Conduce.encabezado.cantidadDestinos) === 2
         ? `
         <div class="campo campo-full">
-            <label>Destino del recorte</label>
+            <label>Destino del parcial</label>
 
             <select id="destinoRecorte">
                 <option value="">Seleccione destino</option>
@@ -7155,7 +7155,7 @@ async modalAgregarRecorte() {
 
                 <div class="campo">
 
-                    <label>Cantidad del recorte</label>
+                    <label>Cantidad del parcial</label>
 
                     <input
                         type="number"
@@ -7182,7 +7182,7 @@ async modalAgregarRecorte() {
                     class="btn-naranja"
                     id="btnGuardarRecorte">
 
-                    Agregar Recorte
+                    Agregar Parcial
 
                 </button>
 
@@ -7277,7 +7277,7 @@ async modalAgregarRecorte() {
 
         }
 		
-		if (!destino) { Despachos.notificar("Debe seleccionar el destino del recorte.", "error" );
+		if (!destino) { Despachos.notificar("Debe seleccionar el destino del parcial.", "error" );
 				return;
 			}
 
@@ -7306,7 +7306,7 @@ async modalAgregarRecorte() {
         if (!Number.isInteger(cantidad) || cantidad < 1) {
 
             Despachos.notificar(
-                "La cantidad del recorte debe ser mayor que cero.",
+                "La cantidad del parcial debe ser mayor que cero.",
                 "error"
             );
 
@@ -7337,7 +7337,7 @@ async modalAgregarRecorte() {
 		);
 
         Despachos.notificar(
-            `Recorte de ${cantidad} ${material.unidad_medida} agregado correctamente.`,
+            `Parcial de ${cantidad} ${material.unidad_medida} agregado correctamente.`,
             "exito"
         );
 
@@ -7716,7 +7716,7 @@ refrescarCarga() {
 
         tbody.innerHTML += `
             <tr class="fila-separador-recorte">
-                <td colspan="9">Recortes</td>
+                <td colspan="9">Parciales</td>
             </tr>
         `;
 
@@ -7827,7 +7827,7 @@ editarLinea(idLinea) {
                 </div>
 
                 <div class="campo">
-                    <label>Recorte</label>
+                    <label>Parcial</label>
                     <input type="number" id="editRecorte" min="0" value="${linea.recorte}">
                 </div>
 
@@ -10399,7 +10399,7 @@ const filasTotalesMaterial =
 						<th class="col-fecha">F. Producción</th>
 						<th class="col-fecha">Vence</th>
 						<th class="col-ba">B × A</th>
-						<th class="col-recorte">Recorte</th>
+						<th class="col-recorte">Parcial</th>
 						<th class="col-cantidad">Cantidad</th>
 
                     </tr>
@@ -10430,7 +10430,7 @@ const filasTotalesMaterial =
             </div>
 
             <div>
-                <strong>Recortes:</strong>
+                <strong>Parciales:</strong>
                 ${recortes.length}
             </div>
 
@@ -11579,7 +11579,7 @@ const documentosSAP = [
 						<th class="col-fecha">F. Producción</th>
 						<th class="col-fecha">Vence</th>
 						<th class="col-ba">B × A</th>
-						<th class="col-recorte">Recorte</th>
+						<th class="col-recorte">Parcial</th>
 						<th class="col-cantidad">Cantidad</th>
 
                     </tr>
@@ -11610,7 +11610,7 @@ const documentosSAP = [
                         </div>
 
                         <div>
-                            <strong>Recortes:</strong>
+                            <strong>Parciales:</strong>
                             ${recortes.length}
                         </div>
 

@@ -7922,10 +7922,21 @@ editarLinea(idLinea) {
     if (linea.fechaProduccion) {
 
         const material =
-            Catalogos.cache.materiales.find(
-                item =>
-                    item.id === linea.material
-            );
+				Catalogos.cache.materiales.find(
+					item =>
+						String(item.id).trim() ===
+						String(linea.material).trim()
+				);
+
+			if (!material) {
+
+				Despachos.notificar(
+					"No fue posible localizar el material para calcular su vencimiento.",
+					"error"
+				);
+
+				return;
+			}
 
         linea.lote =
             Despachos.calcularLote(

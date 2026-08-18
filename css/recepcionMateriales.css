@@ -2216,3 +2216,209 @@ body.asistente-recepcion-abierto {
     }
 
 }
+
+
+/* ============================================================
+   VALIDACIÓN DE MATERIAL EN CURSO
+   ============================================================ */
+
+.recepcion-material-en-curso {
+    text-align: center;
+}
+
+.recepcion-en-curso-icono {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 10px;
+    border-radius: 16px;
+    background: #fff4dc;
+    color: #a66b00;
+    font-size: 25px;
+}
+
+.recepcion-en-curso-etiqueta {
+    color: var(--rec-rojo);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.recepcion-material-en-curso h3 {
+    margin: 5px 0 14px;
+    font-size: 20px;
+}
+
+.recepcion-material-en-curso > p {
+    max-width: 620px;
+    margin: 14px auto;
+    color: var(--rec-secundario);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.recepcion-en-curso-material {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 13px 16px;
+    border: 1px solid #f0d69b;
+    border-radius: 12px;
+    background: #fffaf0;
+}
+
+.recepcion-en-curso-material strong {
+    font-size: 16px;
+}
+
+.recepcion-en-curso-material span,
+.recepcion-en-curso-datos span {
+    color: var(--rec-secundario);
+    font-size: 11px;
+}
+
+.recepcion-en-curso-datos {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 9px;
+    background: var(--rec-fondo);
+}
+
+/* ============================================================
+   DOBLE CONFIRMACIÓN: CIERRE DEFINITIVO DE PRODUCCIÓN
+   ============================================================ */
+
+.alerta-cierre-produccion {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 11px;
+    margin: 14px 0;
+    padding: 13px;
+    border: 1px solid #f2c66d;
+    border-radius: 11px;
+    background: #fff9e9;
+    text-align: left;
+}
+
+.alerta-cierre-produccion > i {
+    color: #d98b00;
+    font-size: 18px;
+    margin-top: 2px;
+}
+
+.alerta-cierre-produccion strong,
+.alerta-cierre-produccion span {
+    display: block;
+}
+
+.alerta-cierre-produccion strong {
+    margin-bottom: 4px;
+    color: #7a5100;
+    font-size: 12px;
+}
+
+.alerta-cierre-produccion span {
+    color: #765f32;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.deslizador-finalizar-produccion {
+    position: relative;
+    overflow: hidden;
+    min-height: 58px;
+    border: 1px solid #e1e4e8;
+    border-radius: 999px;
+    background:
+        linear-gradient(
+            90deg,
+            rgba(215, 25, 32, .12) 0,
+            rgba(215, 25, 32, .12) var(--avance-cierre-produccion, 0%),
+            #f3f4f6 var(--avance-cierre-produccion, 0%),
+            #f3f4f6 100%
+        );
+}
+
+.deslizador-finalizar-texto {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 54px;
+    pointer-events: none;
+    color: #5f6368;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.deslizador-finalizar-produccion input[type="range"] {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 58px;
+    margin: 0;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: grab;
+}
+
+.deslizador-finalizar-produccion input[type="range"]:active {
+    cursor: grabbing;
+}
+
+.deslizador-finalizar-produccion input[type="range"]::-webkit-slider-runnable-track {
+    height: 58px;
+    background: transparent;
+}
+
+.deslizador-finalizar-produccion input[type="range"]::-webkit-slider-thumb {
+    width: 46px;
+    height: 46px;
+    margin-top: 6px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--rec-rojo);
+    box-shadow: 0 4px 12px rgba(215, 25, 32, .28);
+    -webkit-appearance: none;
+}
+
+.deslizador-finalizar-produccion input[type="range"]::-moz-range-track {
+    height: 58px;
+    background: transparent;
+}
+
+.deslizador-finalizar-produccion input[type="range"]::-moz-range-thumb {
+    width: 46px;
+    height: 46px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--rec-rojo);
+    box-shadow: 0 4px 12px rgba(215, 25, 32, .28);
+}
+
+@media (max-width: 520px) {
+    .recepcion-material-en-curso .recepcion-acciones-finales {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .recepcion-material-en-curso .btn-recepcion {
+        width: 100%;
+    }
+
+    .deslizador-finalizar-texto {
+        padding: 0 48px;
+        font-size: 10px;
+    }
+}

@@ -1157,7 +1157,21 @@ configurarScrollInterno() {
         this.estado.horaInicioIngreso =
           horaInicio;
 
-        this.iniciarNuevaRecepcion();
+        /*
+         * IMPORTANTE:
+         * Todavía NO se crea la recepción en Google Sheets.
+         * Primero el auxiliar debe seleccionar un material.
+         * La creación real ocurre después de validar que ese material
+         * no tenga otra recepción abierta.
+         */
+        this.estado.recepcionActual = {
+          idRecepcion: "",
+          turno: "",
+          horaInicio: horaInicio,
+          estado: "PENDIENTE MATERIAL"
+        };
+
+        this.renderSeleccionMaterial();
 
       };
 
@@ -1249,6 +1263,209 @@ configurarScrollInterno() {
       this.ocultarCarga();
 
     }
+
+  },
+
+
+  async crearRecepcionConMaterial(material) {
+
+    const sesion = this.obtenerSesion();
+
+    const codigoMaterial = String(
+      material && (material.id || material.material) || ""
+    ).trim();
+
+    const detalleMaterial = String(
+      material && material.descripcion || ""
+    ).trim();
+
+    if (!codigoMaterial) {
+      this.notificar(
+        "Debe seleccionar un material antes de iniciar la recepción.",
+        "advertencia"
+      );
+      return;
+    }
+
+    if (!this.estado.horaInicioIngreso) {
+      this.notificar(
+        "Debe indicar la hora real de inicio antes de seleccionar el material.",
+        "advertencia"
+      );
+      this.mostrarInicioNuevaRecepcion();
+      return;
+    }
+
+    this.mostrarCarga(
+      "Validando material",
+      "Comprobando si existe una recepción en curso."
+    );
+
+    try {
+
+      const respuesta = await API.post({
+        action: "iniciarRecepcionMateriales",
+        usuarioId:
+          sesion.id ||
+          sesion.ID_Usuario ||
+          sesion.usuario ||
+          "",
+        usuarioNombre:
+          sesion.nombre ||
+          sesion.Nombre ||
+          "Usuario",
+        origenTraslado:
+          this.estado.origenTraslado,
+        horaInicio:
+          this.estado.horaInicioIngreso,
+        material:
+          codigoMaterial,
+        detalle:
+          detalleMaterial
+      });
+
+      if (
+        respuesta &&
+        respuesta.ok !== true &&
+        respuesta.codigo === "RECEPCION_MATERIAL_EN_CURSO" &&
+        respuesta.data &&
+        respuesta.data.recepcionExistente
+      ) {
+        this.mostrarRecepcionMaterialEnCurso(
+          respuesta.data.recepcionExistente,
+          codigoMaterial,
+          detalleMaterial
+        );
+        return;
+      }
+
+      if (!respuesta || respuesta.ok !== true) {
+        throw new Error(
+          respuesta && respuesta.mensaje
+            ? respuesta.mensaje
+            : "No fue posible iniciar la recepción."
+        );
+      }
+
+      this.estado.recepcionActual =
+        respuesta.data.recepcion;
+
+      this.estado.materialSeleccionado = material;
+      this.estado.distribucion = {};
+      this.estado.camaraActiva = "";
+      this.estado.resumenAcumulado = null;
+      this.estado.tieneRegistrosPrevios = false;
+
+      const titulo = document.getElementById(
+        "tituloAsistenteRecepcion"
+      );
+
+      if (titulo) {
+        titulo.textContent =
+          "Recepción · " +
+          this.estado.recepcionActual.idRecepcion;
+      }
+
+      this.renderDistribucionCamaras();
+
+      this.notificar(
+        "Recepción iniciada para " +
+          codigoMaterial +
+          (detalleMaterial ? " - " + detalleMaterial : "") +
+          ".",
+        "exito"
+      );
+
+    } catch (error) {
+
+      this.notificar(
+        error.message ||
+        "No fue posible validar el material.",
+        "error"
+      );
+
+    } finally {
+      this.ocultarCarga();
+    }
+
+  },
+
+
+  mostrarRecepcionMaterialEnCurso(
+    recepcion,
+    material,
+    detalle
+  ) {
+
+    const panel = this.obtenerContenedorAsistente();
+
+    if (!panel) {
+      return;
+    }
+
+    panel.innerHTML = `
+      <section class="recepcion-paso recepcion-material-en-curso">
+
+        <div class="recepcion-en-curso-icono">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+
+        <span class="recepcion-en-curso-etiqueta">
+          Recepción existente
+        </span>
+
+        <h3>
+          Ya existe una recepción en curso de este material
+        </h3>
+
+        <div class="recepcion-en-curso-material">
+          <strong>${this.escapar(material)}</strong>
+          <span>${this.escapar(detalle || recepcion.detalle || "")}</span>
+        </div>
+
+        <p>
+          Producción todavía no ha finalizado la recepción de este material.
+          Continúe la recepción existente antes de crear una nueva.
+        </p>
+
+        <div class="recepcion-en-curso-datos">
+          <span>Recepción</span>
+          <strong>${this.escapar(recepcion.idRecepcion || "-")}</strong>
+        </div>
+
+        <div class="recepcion-acciones-finales">
+          <button
+            type="button"
+            id="btnVolverSeleccionMaterial"
+            class="btn-recepcion secundario"
+          >
+            <i class="fa-solid fa-arrow-left"></i>
+            Volver
+          </button>
+
+          <button
+            type="button"
+            id="btnContinuarRecepcionExistente"
+            class="btn-recepcion principal"
+          >
+            <i class="fa-solid fa-arrow-right"></i>
+            Continuar recepción
+          </button>
+        </div>
+
+      </section>
+    `;
+
+    document
+      .getElementById("btnVolverSeleccionMaterial")
+      .onclick = () => this.renderSeleccionMaterial();
+
+    document
+      .getElementById("btnContinuarRecepcionExistente")
+      .onclick = () =>
+        this.abrirRecepcion(
+          recepcion.idRecepcion
+        );
 
   },
 
@@ -1721,20 +1938,28 @@ configurarScrollInterno() {
             return;
           }
 
-          this.estado.materialSeleccionado =
-			  material;
+          /*
+           * Si todavía no existe un ID de recepción, estamos creando
+           * una nueva. La validación del material se hace ANTES de
+           * insertar cualquier encabezado en Google Sheets.
+           */
+          if (
+            !this.estado.recepcionActual ||
+            !this.estado.recepcionActual.idRecepcion
+          ) {
+            this.crearRecepcionConMaterial(material);
+            return;
+          }
 
-			this.estado.distribucion =
-			  {};
+          this.estado.materialSeleccionado = material;
+          this.estado.distribucion = {};
 
-			/*
-			 * Ninguna cámara queda seleccionada automáticamente.
-			 * El auxiliar debe indicar primero dónde colocó el material.
-			 */
-			this.estado.camaraActiva =
-			  "";
-
-			this.renderDistribucionCamaras();
+          /*
+           * Ninguna cámara queda seleccionada automáticamente.
+           * El auxiliar debe indicar primero dónde colocó el material.
+           */
+          this.estado.camaraActiva = "";
+          this.renderDistribucionCamaras();
 
         };
 
@@ -3462,63 +3687,69 @@ if (
         anterior.remove();
       }
 
-      const submodal =
-        document.createElement("div");
+      const submodal = document.createElement("div");
 
       submodal.id =
         "submodalProduccionFinalizadaRecepcion";
 
-      submodal.className =
-        "submodal-recepcion";
+      submodal.className = "submodal-recepcion";
 
       submodal.innerHTML = `
         <div class="submodal-recepcion-contenido">
 
           <header class="submodal-recepcion-header">
-
             <div class="submodal-recepcion-icono">
               <i class="fa-solid fa-industry"></i>
             </div>
-
             <div>
               <span>Estado de producción</span>
-              <h3>
-                ¿Producción terminó este material?
-              </h3>
+              <h3>¿Producción terminó este material?</h3>
             </div>
-
           </header>
 
           <div class="submodal-recepcion-cuerpo">
             <p>
-              Si todavía continuarán fabricando, la orden
-              permanecerá abierta para que otro auxiliar pueda
-              registrar el próximo ingreso del mismo material.
+              Si Producción continuará fabricando este mismo material,
+              mantenga la recepción abierta para el próximo ingreso.
             </p>
+
+            <div class="alerta-cierre-produccion">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <div>
+                <strong>Finalice solo cuando Producción cambie de material</strong>
+                <span>
+                  Deslice completamente únicamente si está seguro de que
+                  Producción no continuará fabricando este material.
+                </span>
+              </div>
+            </div>
+
+            <div class="deslizador-finalizar-produccion">
+              <div class="deslizador-finalizar-texto">
+                <i class="fa-solid fa-arrow-right"></i>
+                Deslice para confirmar cierre definitivo
+              </div>
+              <input
+                type="range"
+                id="sliderFinalizarProduccion"
+                min="0"
+                max="100"
+                value="0"
+                step="1"
+                aria-label="Deslice para confirmar que Producción terminó el material"
+              >
+            </div>
           </div>
 
-          <footer
-            class="submodal-recepcion-acciones dos-opciones"
-          >
-
+          <footer class="submodal-recepcion-acciones">
             <button
               type="button"
               id="btnProduccionContinua"
               class="btn-recepcion secundario"
             >
               <i class="fa-solid fa-clock-rotate-left"></i>
-              No, continuará
+              Producción continuará
             </button>
-
-            <button
-              type="button"
-              id="btnProduccionFinalizada"
-              class="btn-recepcion principal"
-            >
-              <i class="fa-solid fa-circle-check"></i>
-              Sí, finalizar recepción
-            </button>
-
           </footer>
 
         </div>
@@ -3526,7 +3757,11 @@ if (
 
       modalAsistente.appendChild(submodal);
 
+      let resuelto = false;
+
       const cerrar = valor => {
+        if (resuelto) return;
+        resuelto = true;
         submodal.remove();
         resolver(valor);
       };
@@ -3535,14 +3770,46 @@ if (
         .getElementById("btnProduccionContinua")
         .onclick = () => cerrar(false);
 
-      document
-        .getElementById("btnProduccionFinalizada")
-        .onclick = () => cerrar(true);
+      const slider =
+        document.getElementById(
+          "sliderFinalizarProduccion"
+        );
+
+      slider.oninput = () => {
+        const valor = Number(slider.value || 0);
+        submodal.style.setProperty(
+          "--avance-cierre-produccion",
+          valor + "%"
+        );
+      };
+
+      slider.onchange = () => {
+        const valor = Number(slider.value || 0);
+
+        if (valor >= 95) {
+          slider.value = "100";
+          submodal.style.setProperty(
+            "--avance-cierre-produccion",
+            "100%"
+          );
+
+          window.setTimeout(
+            () => cerrar(true),
+            180
+          );
+          return;
+        }
+
+        slider.value = "0";
+        submodal.style.setProperty(
+          "--avance-cierre-produccion",
+          "0%"
+        );
+      };
 
     });
 
   },
-
 
   async actualizarEstadoProduccion(valor) {
 

@@ -13859,6 +13859,24 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
         return;
     }
 
+    let sesionActual = {};
+
+    try {
+        sesionActual = JSON.parse(
+            localStorage.getItem("sesion") ||
+            sessionStorage.getItem("sesion") ||
+            "{}"
+        );
+    } catch (error) {
+        sesionActual = {};
+    }
+
+    const esAdministrador =
+        String(sesionActual.rol || "")
+            .trim()
+            .toLowerCase() ===
+        "administrador";
+
     lista.innerHTML = inspecciones.map(item => {
 
         const estado =
@@ -13963,6 +13981,26 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
 								: ""
 						}
 
+                        ${
+                            esAdministrador &&
+                            estadoNormalizado.startsWith("complet")
+                                ? `
+                                    <button
+                                        type="button"
+                                        class="btn-regenerar-pdf-inspeccion"
+                                        data-id-inspeccion="${Despachos.escaparHTMLInspecciones(
+                                            item.idInspeccion || ""
+                                        )}"
+                                        title="Regenerar el PDF con los datos actuales de Google Sheets"
+                                        style="border:0;border-radius:8px;padding:9px 12px;background:#f59e0b;color:#fff;font-weight:700;cursor:pointer;"
+                                    >
+                                        <i class="fa-solid fa-rotate"></i>
+                                        Regenerar PDF
+                                    </button>
+                                `
+                                : ""
+                        }
+
 						<button
 							type="button"
 							class="btn-abrir-pdf-inspeccion"
@@ -13982,6 +14020,102 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
         `;
 
     }).join("");
+
+    lista
+        .querySelectorAll(
+            ".btn-regenerar-pdf-inspeccion"
+        )
+        .forEach(boton => {
+
+            boton.onclick = async () => {
+
+                const idInspeccion =
+                    String(
+                        boton.dataset.idInspeccion || ""
+                    ).trim();
+
+                const confirmado =
+                    await Despachos
+                        .confirmarRegeneracionPDFInspeccion(
+                            idInspeccion
+                        );
+
+                if (!confirmado) return;
+
+                try {
+
+                    const respuesta =
+                        await Despachos.ejecutarConCargador(
+                            "Regenerando PDF BASC",
+                            "Estamos creando el documento con los datos corregidos.",
+                            () => API.post({
+                                action: "regenerarPDFInspeccionContenedor",
+                                idInspeccion: idInspeccion,
+                                rol: sesionActual.rol || "",
+                                usuario:
+                                    sesionActual.usuario ||
+                                    sesionActual.nombre || "",
+                                usuarioId:
+                                    sesionActual.id ||
+                                    sesionActual.usuarioId || ""
+                            })
+                        );
+
+                    if (!respuesta || !respuesta.ok) {
+                        throw new Error(
+                            respuesta?.mensaje ||
+                            "No fue posible regenerar el PDF."
+                        );
+                    }
+
+                    const nuevaUrl =
+                        String(
+                            respuesta.data?.pdfUrl || ""
+                        ).trim();
+
+                    const botonPDF =
+                        boton.closest(
+                            ".tarjeta-inspeccion-realizada"
+                        )?.querySelector(
+                            ".btn-abrir-pdf-inspeccion"
+                        );
+
+                    if (botonPDF && nuevaUrl) {
+                        botonPDF.dataset.pdfUrl = nuevaUrl;
+                        botonPDF.disabled = false;
+                    }
+
+                    Despachos.notificar(
+                        "PDF regenerado y vínculo actualizado correctamente.",
+                        "exito"
+                    );
+
+                    if (nuevaUrl) {
+                        window.open(
+                            nuevaUrl,
+                            "_blank",
+                            "noopener,noreferrer"
+                        );
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "Error regenerando PDF de inspección:",
+                        error
+                    );
+
+                    Despachos.notificar(
+                        error.message ||
+                        "No fue posible regenerar el PDF.",
+                        "error"
+                    );
+
+                }
+
+            };
+
+        });
 
     lista
         .querySelectorAll(
@@ -14126,6 +14260,77 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
             };
 
         });	
+},
+
+
+confirmarRegeneracionPDFInspeccion(idInspeccion) {
+
+    return new Promise(resolve => {
+
+        const modal = document.createElement("div");
+
+        modal.className =
+            "modal-confirmacion-friobox";
+
+        modal.innerHTML = `
+            <div class="modal-confirmacion-friobox__fondo"></div>
+            <div class="modal-confirmacion-friobox__tarjeta">
+                <div class="modal-confirmacion-friobox__icono">
+                    <i class="fa-solid fa-file-circle-exclamation"></i>
+                </div>
+                <div class="modal-confirmacion-friobox__contenido">
+                    <span>Acción administrativa</span>
+                    <h3>
+                        ¿Regenerar el PDF de
+                        ${Despachos.escaparHTMLInspecciones(idInspeccion)}?
+                    </h3>
+                    <p>
+                        Se leerán los datos actuales de Google Sheets.
+                        El PDF anterior permanecerá en Drive y PDF_URL
+                        apuntará al documento nuevo.
+                    </p>
+                    <div class="modal-confirmacion-friobox__acciones">
+                        <button
+                            type="button"
+                            class="btn-confirmacion-friobox btn-confirmacion-friobox--no"
+                            id="btnCancelarRegeneracionPDF"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            class="btn-confirmacion-friobox btn-confirmacion-friobox--si"
+                            id="btnConfirmarRegeneracionPDF"
+                        >
+                            <i class="fa-solid fa-rotate"></i>
+                            Regenerar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const cerrar = resultado => {
+            modal.remove();
+            resolve(resultado);
+        };
+
+        modal.querySelector(
+            "#btnCancelarRegeneracionPDF"
+        ).onclick = () => cerrar(false);
+
+        modal.querySelector(
+            "#btnConfirmarRegeneracionPDF"
+        ).onclick = () => cerrar(true);
+
+        modal.querySelector(
+            ".modal-confirmacion-friobox__fondo"
+        ).onclick = () => cerrar(false);
+
+        document.body.appendChild(modal);
+
+    });
+
 },
 
 

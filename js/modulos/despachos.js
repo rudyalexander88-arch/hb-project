@@ -494,7 +494,7 @@ async cargar() {
         <div class="card-resumen-encabezado">
 
             <h3>
-                Completados Hoy
+                Despachados Hoy
             </h3>
 
             <div class="card-resumen-icono">

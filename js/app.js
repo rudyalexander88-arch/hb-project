@@ -101,6 +101,9 @@ window.addEventListener("load", () => {
             correo:
                 data.correo,
 
+            fechaIngreso:
+                data.fechaIngreso || "",
+
             rol:
                 data.rol,
 

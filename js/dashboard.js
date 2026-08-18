@@ -83,6 +83,16 @@ window.addEventListener("load", () => {
 
     inicializarMenu();
 
+    if (
+        window.InicioOperativo &&
+        typeof window.InicioOperativo.cargar ===
+            "function"
+    ) {
+
+        window.InicioOperativo.cargar();
+
+    }
+
 });
 
 
@@ -171,6 +181,37 @@ function puedeAbrirModulo(
 // ===============================
 
 function inicializarMenu() {
+
+    const menuInicio =
+        document.getElementById(
+            "menuInicio"
+        );
+
+    if (menuInicio) {
+
+        menuInicio.addEventListener(
+            "click",
+            () => {
+
+                activarMenu(
+                    "menuInicio"
+                );
+
+                if (
+                    window.InicioOperativo &&
+                    typeof window.InicioOperativo.cargar ===
+                        "function"
+                ) {
+
+                    window.InicioOperativo.cargar();
+
+                }
+
+            }
+        );
+
+    }
+
 
     const menuDespachos =
         document.getElementById(

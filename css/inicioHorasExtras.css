@@ -1,0 +1,647 @@
+/* ============================================================
+   INICIO OPERATIVO + HORAS EXTRAS
+   Sistema Logístico PT - Helados BON
+   ============================================================ */
+
+.inicio-operativo {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.inicio-operativo-bienvenida {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin: 0;
+    padding: 22px 24px;
+    border: 1px solid #eceff2;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #ffffff 0%, #fff8f0 100%);
+}
+
+.inicio-operativo-eyebrow,
+.he-eyebrow,
+.inicio-card-etiqueta {
+    display: inline-block;
+    margin-bottom: 5px;
+    color: #d71920;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.inicio-operativo-bienvenida h2 {
+    margin: 0 0 6px;
+    font-size: clamp(22px, 3vw, 30px);
+    line-height: 1.2;
+}
+
+.inicio-operativo-bienvenida p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.inicio-operativo-fecha {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #eceff2;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.inicio-operativo-fecha i {
+    color: #d71920;
+}
+
+.inicio-operativo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.inicio-card {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    border: 1px solid #e7e9ed;
+    border-radius: 17px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+}
+
+.inicio-card-icono {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: #fff1f2;
+    color: #d71920;
+    font-size: 21px;
+}
+
+.inicio-card-horas-extra .inicio-card-icono {
+    background: #fff7ed;
+    color: #ea580c;
+}
+
+.inicio-card-epp .inicio-card-icono {
+    background: #eefbf2;
+    color: #2e7d32;
+}
+
+.inicio-card h3 {
+    margin: 0 0 5px;
+    font-size: 19px;
+}
+
+.inicio-card p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.inicio-card-resumen {
+    min-height: 48px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.inicio-card-resumen strong {
+    font-size: 26px;
+    color: #111827;
+}
+
+.inicio-card-resumen span,
+.inicio-card-resumen small {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.inicio-card-resumen small {
+    width: 100%;
+}
+
+.inicio-resumen-cargando {
+    color: #8a8f98;
+}
+
+.inicio-card-boton,
+.he-btn {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 15px;
+    border: 0;
+    border-radius: 11px;
+    background: #d71920;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+}
+
+.inicio-card-boton {
+    margin-top: auto;
+    width: 100%;
+}
+
+.inicio-card-boton:hover,
+.he-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 16px rgba(215, 25, 32, .18);
+}
+
+.inicio-card-boton.secundario,
+.he-btn.secundario {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.he-btn.salida {
+    background: #20252b;
+}
+
+.he-btn.mini {
+    min-height: 34px;
+    padding: 7px 11px;
+    font-size: 11px;
+}
+
+.he-btn:disabled {
+    opacity: .48;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* ============================================================
+   HORAS EXTRAS
+   ============================================================ */
+
+.modal-horas-extras {
+    max-width: 1180px;
+}
+
+.horas-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.he-seccion {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.he-seccion + .he-seccion {
+    padding-top: 22px;
+    border-top: 1px solid #eceff2;
+}
+
+.he-seccion-encabezado {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.he-seccion-encabezado h3 {
+    margin: 0 0 4px;
+    font-size: 20px;
+}
+
+.he-seccion-encabezado p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.he-grid-jornadas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.he-jornada-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 17px;
+    border: 1px solid #e5e7eb;
+    border-radius: 15px;
+    background: #ffffff;
+}
+
+.he-jornada-fecha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #4b5563;
+    font-size: 12px;
+}
+
+.he-jornada-fecha i {
+    color: #d71920;
+}
+
+.he-jornada-card h4 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.he-jornada-datos {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.he-jornada-datos span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.he-lista-mis-jornadas,
+.he-gestion-listado {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.he-mi-jornada {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    padding: 16px 17px;
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid #cbd5e1;
+    border-radius: 13px;
+    background: #ffffff;
+}
+
+.he-mi-jornada.en_turno {
+    border-left-color: #2e7d32;
+}
+
+.he-mi-jornada.completado {
+    border-left-color: #64748b;
+    background: #fafafa;
+}
+
+.he-mi-jornada-principal {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.he-mi-jornada h4 {
+    margin: 4px 0 6px;
+    font-size: 15px;
+}
+
+.he-mi-jornada p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.he-estado {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
+.he-horas-turno {
+    white-space: nowrap;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.he-mi-jornada-marcajes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.he-mi-jornada-marcajes span {
+    padding: 9px 10px;
+    border-radius: 9px;
+    background: #f8fafc;
+    color: #6b7280;
+    font-size: 11px;
+}
+
+.he-mi-jornada-marcajes strong {
+    color: #111827;
+}
+
+.he-vacio {
+    grid-column: 1 / -1;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    border: 1px dashed #d6dbe2;
+    border-radius: 14px;
+    color: #6b7280;
+    text-align: center;
+}
+
+.he-vacio.compacto {
+    min-height: 95px;
+}
+
+.he-vacio i {
+    color: #d71920;
+    font-size: 25px;
+}
+
+.he-vacio span {
+    max-width: 520px;
+    font-size: 12px;
+}
+
+.he-vacio.error i {
+    color: #d71920;
+}
+
+.he-form-programacion {
+    display: grid;
+    grid-template-columns: 1.15fr 1.2fr .9fr .9fr .65fr auto;
+    gap: 10px;
+    align-items: end;
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fafafa;
+}
+
+.he-form-programacion label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #4b5563;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.he-form-programacion input,
+.he-tabla select {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #d9dde3;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #111827;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.he-form-programacion input:focus,
+.he-tabla select:focus {
+    border-color: #d71920;
+    box-shadow: 0 0 0 3px rgba(215, 25, 32, .08);
+}
+
+.he-programa-gestion {
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 15px;
+    background: #ffffff;
+}
+
+.he-programa-gestion > header {
+    margin: 0;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.he-programa-gestion > header span {
+    color: #6b7280;
+    font-size: 11px;
+}
+
+.he-programa-gestion > header h4 {
+    margin: 2px 0 0;
+    font-size: 15px;
+}
+
+.he-programa-resumen {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.he-programa-resumen strong {
+    font-size: 12px;
+}
+
+.he-tabla-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.he-tabla {
+    width: 100%;
+    min-width: 880px;
+    border-collapse: collapse;
+}
+
+.he-tabla th,
+.he-tabla td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #eef0f3;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 11px;
+}
+
+.he-tabla th {
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.he-tabla td strong,
+.he-tabla td small {
+    display: block;
+}
+
+.he-tabla td small {
+    margin-top: 2px;
+    color: #8b919a;
+}
+
+.he-sin-inscritos {
+    color: #8a8f98;
+    text-align: center !important;
+}
+
+@media (max-width: 1050px) {
+
+    .inicio-operativo-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .he-grid-jornadas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .he-form-programacion {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .he-form-programacion .he-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 700px) {
+
+    .inicio-operativo-bienvenida,
+    .he-mi-jornada-principal {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .inicio-operativo-fecha {
+        width: 100%;
+        justify-content: center;
+        border-radius: 11px;
+    }
+
+    .inicio-operativo-grid,
+    .he-grid-jornadas,
+    .he-form-programacion,
+    .he-mi-jornada-marcajes {
+        grid-template-columns: 1fr;
+    }
+
+    .inicio-card,
+    .he-jornada-card,
+    .he-mi-jornada {
+        padding: 15px;
+    }
+
+    .he-horas-turno {
+        white-space: normal;
+    }
+}
+
+
+/* ==========================================================
+   ANTIGÜEDAD Y ANIVERSARIO - INICIO OPERATIVO
+   ========================================================== */
+
+.inicio-aniversario {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 0 0 22px;
+    padding: 18px 20px;
+    border: 1px solid #f1d7a4;
+    border-radius: 16px;
+    background: linear-gradient(
+        135deg,
+        #fffdf7 0%,
+        #fff7e8 100%
+    );
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.inicio-aniversario-icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: #fff0d5;
+    font-size: 22px;
+    color: #e31b23;
+}
+
+.inicio-aniversario span {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #e31b23;
+}
+
+.inicio-aniversario h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    line-height: 1.25;
+    color: #161616;
+}
+
+.inicio-aniversario p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #62666d;
+}
+
+@media (max-width: 600px) {
+    .inicio-aniversario {
+        align-items: flex-start;
+        padding: 15px;
+    }
+
+    .inicio-aniversario-icono {
+        flex-basis: 44px;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        font-size: 18px;
+    }
+
+    .inicio-aniversario h3 {
+        font-size: 16px;
+    }
+}

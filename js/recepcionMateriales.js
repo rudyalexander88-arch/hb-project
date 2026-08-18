@@ -630,12 +630,45 @@ configurarScrollInterno() {
 
   renderActividadReciente() {
 
-    const lista =
+    const listaBase =
       Array.isArray(
         this.estado.recepcionesRecientes
       )
         ? this.estado.recepcionesRecientes
         : [];
+
+
+    const lista =
+      [...listaBase]
+        .sort(
+          (a, b) => {
+
+            const diferencia =
+              this.obtenerMarcaTiempoRecepcion(
+                b
+              ) -
+              this.obtenerMarcaTiempoRecepcion(
+                a
+              );
+
+            if (diferencia !== 0) {
+              return diferencia;
+            }
+
+            return String(
+              b.idRecepcion || ""
+            ).localeCompare(
+              String(
+                a.idRecepcion || ""
+              ),
+              "es",
+              {
+                numeric: true
+              }
+            );
+
+          }
+        );
 
 
     if (!lista.length) {
@@ -3718,6 +3751,128 @@ async cerrarAsistenteDespuesDeGuardar() {
     }
 
     console.log(mensaje);
+
+  },
+
+
+  obtenerMarcaTiempoRecepcion(
+    item
+  ) {
+
+    const registro =
+      item || {};
+
+    const valorFecha =
+      registro.fechaFinalizacion ||
+      registro.fechaFinal ||
+      registro.fechaCierre ||
+      registro.fecha ||
+      "";
+
+    const valorHora =
+      registro.horaFinal ||
+      registro.horaCierre ||
+      registro.horaInicio ||
+      "00:00:00";
+
+    let anio;
+    let mes;
+    let dia;
+
+    if (
+      valorFecha instanceof Date &&
+      !isNaN(valorFecha.getTime())
+    ) {
+
+      anio = valorFecha.getFullYear();
+      mes = valorFecha.getMonth();
+      dia = valorFecha.getDate();
+
+    } else {
+
+      const textoFecha =
+        String(valorFecha || "").trim();
+
+      const fechaIso =
+        textoFecha.match(
+          /^(\d{4})-(\d{1,2})-(\d{1,2})/
+        );
+
+      const fechaLatina =
+        textoFecha.match(
+          /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/
+        );
+
+      if (fechaIso) {
+
+        anio = Number(fechaIso[1]);
+        mes = Number(fechaIso[2]) - 1;
+        dia = Number(fechaIso[3]);
+
+      } else if (fechaLatina) {
+
+        anio = Number(fechaLatina[3]);
+        mes = Number(fechaLatina[2]) - 1;
+        dia = Number(fechaLatina[1]);
+
+      } else {
+
+        const fechaInterpretada =
+          new Date(textoFecha);
+
+        if (isNaN(fechaInterpretada.getTime())) {
+          return 0;
+        }
+
+        anio = fechaInterpretada.getFullYear();
+        mes = fechaInterpretada.getMonth();
+        dia = fechaInterpretada.getDate();
+
+      }
+
+    }
+
+    let horas = 0;
+    let minutos = 0;
+    let segundos = 0;
+
+    if (
+      valorHora instanceof Date &&
+      !isNaN(valorHora.getTime())
+    ) {
+
+      horas = valorHora.getHours();
+      minutos = valorHora.getMinutes();
+      segundos = valorHora.getSeconds();
+
+    } else {
+
+      const coincidenciaHora =
+        String(valorHora || "")
+          .match(
+            /(\d{1,2}):(\d{2})(?::(\d{2}))?/
+          );
+
+      if (coincidenciaHora) {
+
+        horas = Number(coincidenciaHora[1]);
+        minutos = Number(coincidenciaHora[2]);
+        segundos = Number(
+          coincidenciaHora[3] || 0
+        );
+
+      }
+
+    }
+
+    return new Date(
+      anio,
+      mes,
+      dia,
+      horas,
+      minutos,
+      segundos
+    ).getTime();
 
   },
 

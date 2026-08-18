@@ -7945,25 +7945,25 @@ editarLinea(idLinea) {
 
     }
 
-    /*
-     * Si cambió la fecha, el popup permitirá decidir
-     * si se aplica a las demás líneas.
-     */
     if (
         fechaAnterior !== fechaNueva &&
         fechaNueva !== ""
     ) {
 
-        Despachos.popupAplicarFecha(linea);
-
+        await Despachos.popupAplicarFecha(linea);
         return;
 
     }
 
-    await Despachos.guardarCambios({
-        silencioso: true,
-        mostrarCargador: true
-    });
+    const guardado =
+        await Despachos.guardarCambios({
+            silencioso: true,
+            mostrarCargador: true
+        });
+
+    if (!guardado) {
+        return;
+    }
 
     Despachos.notificar(
         "Tarima actualizada correctamente.",
@@ -7973,7 +7973,6 @@ editarLinea(idLinea) {
     Despachos.pasoCarga();
 
 };
-
     
 
 },
@@ -8007,10 +8006,15 @@ async eliminarLinea(idLinea) {
     Despachos.normalizarDetalleCarga();
     Despachos.refrescarCarga();
 
-    await Despachos.guardarCambios({
-        silencioso: true,
-        mostrarCargador: true
-    });
+    const guardado =
+        await Despachos.guardarCambios({
+            silencioso: true,
+            mostrarCargador: true
+        });
+
+    if (!guardado) {
+        return;
+    }
 
     Despachos.notificar(
         "Línea eliminada y posiciones reorganizadas.",
@@ -8058,15 +8062,38 @@ fechaEsFutura(fecha) {
 },
   
   
-  popupAplicarFecha(lineaBase) {
+  async popupAplicarFecha(lineaBase) {
 
     const mismasLineas = Conduce.detalle.filter(linea =>
         linea.material === lineaBase.material &&
         linea.idLinea !== lineaBase.idLinea
     );
 
-    if (mismasLineas.length === 0) {
+    const guardarEdicion = async (aplicadaATodas = false) => {
+
+        const guardado =
+            await Despachos.guardarCambios({
+                silencioso: true,
+                mostrarCargador: true
+            });
+
+        if (!guardado) {
+            return false;
+        }
+
+        Despachos.notificar(
+            aplicadaATodas
+                ? "Fecha aplicada al mismo material y cambios guardados correctamente."
+                : "Tarima actualizada correctamente.",
+            "exito"
+        );
+
         Despachos.pasoCarga();
+        return true;
+    };
+
+    if (mismasLineas.length === 0) {
+        await guardarEdicion(false);
         return;
     }
 
@@ -8105,11 +8132,11 @@ fechaEsFutura(fecha) {
 
     `;
 
-    document.getElementById("btnNoAplicarFecha").onclick = () => {
-        Despachos.pasoCarga();
+    document.getElementById("btnNoAplicarFecha").onclick = async () => {
+        await guardarEdicion(false);
     };
 
-    document.getElementById("btnSiAplicarFecha").onclick = () => {
+    document.getElementById("btnSiAplicarFecha").onclick = async () => {
 
         mismasLineas.forEach(linea => {
             linea.fechaProduccion = lineaBase.fechaProduccion;
@@ -8117,8 +8144,7 @@ fechaEsFutura(fecha) {
             linea.fechaVencimiento = lineaBase.fechaVencimiento;
         });
 
-        Despachos.notificar("Fecha aplicada al mismo material.", "exito");
-        Despachos.pasoCarga();
+        await guardarEdicion(true);
 
     };
 

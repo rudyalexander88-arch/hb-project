@@ -5777,3 +5777,57 @@ body.centro-despachos-abierto
 
     transform: none;
 }
+
+
+/* ==========================================
+   BOTÓN DESPACHAR CONTENEDOR
+   Ajuste del antiguo botón minimal de impresión.
+   Mantiene intactos Volver y Guardar.
+   ========================================== */
+
+.barra-finalizar-carga .btn-imprimir-minimal{
+    width:auto;
+    min-width:190px;
+    height:40px;
+
+    padding:0 16px;
+
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+
+    white-space:nowrap;
+
+    background:#444;
+    color:#fff;
+
+    font-family:inherit;
+    font-size:13px;
+    font-weight:700;
+}
+
+.barra-finalizar-carga .btn-imprimir-minimal i{
+    flex:0 0 auto;
+    font-size:14px;
+}
+
+.barra-finalizar-carga .btn-imprimir-minimal span{
+    display:inline-block;
+    line-height:1;
+}
+
+@media(max-width:600px){
+
+    .barra-finalizar-carga{
+        flex-wrap:wrap;
+    }
+
+    .barra-finalizar-carga .btn-imprimir-minimal{
+        min-width:0;
+        flex:1 1 180px;
+        padding:0 12px;
+        font-size:12px;
+    }
+
+}

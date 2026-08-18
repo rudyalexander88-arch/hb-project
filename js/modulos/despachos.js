@@ -7921,22 +7921,30 @@ editarLinea(idLinea) {
 
     if (linea.fechaProduccion) {
 
+        const materiales =
+            await Despachos.ejecutarConCargador(
+                "Consultando material",
+                "Estamos verificando los datos del material.",
+                () => Catalogos.cargarMateriales()
+            );
+
         const material =
-				Catalogos.cache.materiales.find(
-					item =>
-						String(item.id).trim() ===
-						String(linea.material).trim()
-				);
+            (Array.isArray(materiales) ? materiales : [])
+                .find(
+                    item =>
+                        String(item.id || "").trim() ===
+                        String(linea.material || "").trim()
+                );
 
-			if (!material) {
+        if (!material) {
 
-				Despachos.notificar(
-					"No fue posible localizar el material para calcular su vencimiento.",
-					"error"
-				);
+            Despachos.notificar(
+                `No fue posible localizar el material ${linea.material || ""} para calcular su vencimiento.`,
+                "error"
+            );
 
-				return;
-			}
+            return;
+        }
 
         linea.lote =
             Despachos.calcularLote(
@@ -8528,9 +8536,10 @@ contenidoModal.style.overflowY = "auto";
 						type="button"
 						class="btn-accion-minimal btn-imprimir-minimal"
 						id="btnImprimirConduceFinal"
-						title="Imprimir conduce"
+						title="Despachar contenedor"
 					>
 						<i class="fa-solid fa-print"></i>
+						<span>Despachar contenedor</span>
 					</button>
 
 					<button

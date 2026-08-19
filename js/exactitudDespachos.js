@@ -96,8 +96,76 @@ window.ExactitudDespachos = {
    */
   iniciar() {
 
+    this.inicializarAccesoDirecto();
     this.prepararTarjeta();
     this.cargarTarjeta();
+
+  },
+
+
+  inicializarAccesoDirecto() {
+
+    const acceso =
+      document.getElementById(
+        "menuVerificacionDespachos"
+      );
+
+    if (!acceso) {
+      return;
+    }
+
+    const permitido = Boolean(
+      window.Sistema &&
+      (
+        (
+          typeof Sistema.esAdministrador === "function" &&
+          Sistema.esAdministrador()
+        ) ||
+        (
+          typeof Sistema.tieneAccesoModulo === "function" &&
+          Sistema.tieneAccesoModulo("VERIFICACION_DESPACHOS")
+        ) ||
+        (
+          typeof Sistema.tienePermiso === "function" &&
+          (
+            Sistema.tienePermiso("VERIFICACION_DESPACHOS_VER") ||
+            Sistema.tienePermiso("VERIFICAR_DESPACHOS")
+          )
+        )
+      )
+    );
+
+    acceso.hidden = !permitido;
+
+    if (!permitido) {
+      acceso.onclick = null;
+      return;
+    }
+
+    acceso.onclick = async () => {
+
+      document
+        .querySelectorAll(".sidebar li.active")
+        .forEach(item => item.classList.remove("active"));
+
+      acceso.classList.add("active");
+
+      const sidebar = document.getElementById("sidebarPrincipal");
+      const fondo = document.getElementById("fondoMenuMovil");
+      const boton = document.getElementById("btnMenuMovil");
+
+      if (sidebar) sidebar.classList.remove("sidebar-abierto");
+      if (fondo) fondo.classList.remove("visible");
+      document.body.classList.remove("menu-movil-abierto");
+
+      if (boton) {
+        boton.innerHTML = '<i class="fa-solid fa-bars"></i>';
+        boton.setAttribute("aria-expanded", "false");
+      }
+
+      await this.abrirCentro();
+
+    };
 
   },
 
@@ -7737,6 +7805,7 @@ document.addEventListener(
      * secuencial, desde DashboardIndicadores.
      */
     ExactitudDespachos.prepararTarjeta();
+    ExactitudDespachos.inicializarAccesoDirecto();
 
   }
 

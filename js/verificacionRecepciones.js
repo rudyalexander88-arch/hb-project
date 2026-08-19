@@ -352,18 +352,6 @@ window.VerificacionRecepciones = {
             </div>
           </div>
 
-          <div class="vr-paginacion">
-            <button
-              type="button"
-              id="btnVrCargarMas"
-              class="vr-btn secundario"
-              hidden
-            >
-              <i class="fa-solid fa-plus"></i>
-              Cargar 12 más
-            </button>
-          </div>
-
         </section>
 
       </section>
@@ -414,18 +402,6 @@ window.VerificacionRecepciones = {
 
         }
       );
-
-    const btnMas =
-      document.getElementById(
-        "btnVrCargarMas"
-      );
-
-    if (btnMas) {
-
-      btnMas.onclick =
-        () => this.cargarMas();
-
-    }
 
   },
 
@@ -909,21 +885,11 @@ window.VerificacionRecepciones = {
         "vrTotalPendientes"
       );
 
-    const btnMas =
-      document.getElementById(
-        "btnVrCargarMas"
-      );
-
     if (total) {
       total.textContent =
         this.formatearNumero(
           this.estado.totalPendientes
         );
-    }
-
-    if (btnMas) {
-      btnMas.hidden =
-        !this.estado.hayMas;
     }
 
     if (!contenedor) {
@@ -959,7 +925,33 @@ window.VerificacionRecepciones = {
               item
             )
         )
-        .join("");
+        .join("") +
+      (
+        this.estado.hayMas
+          ? `
+              <div class="vr-paginacion">
+                <button
+                  type="button"
+                  id="btnVrCargarMas"
+                  class="vr-btn secundario"
+                >
+                  <i class="fa-solid fa-plus"></i>
+                  Cargar 12 registros más
+                </button>
+              </div>
+            `
+          : ""
+      );
+
+    const btnMas =
+      document.getElementById(
+        "btnVrCargarMas"
+      );
+
+    if (btnMas) {
+      btnMas.onclick =
+        () => this.cargarMas();
+    }
 
     contenedor
       .querySelectorAll(
@@ -978,6 +970,31 @@ window.VerificacionRecepciones = {
 
               this.iniciarVerificacion(
                 id
+              );
+
+            };
+
+        }
+      );
+
+    contenedor
+      .querySelectorAll(
+        "[data-vr-corregir]"
+      )
+      .forEach(
+        boton => {
+
+          boton.onclick =
+            () => {
+
+              const id =
+                boton.getAttribute(
+                  "data-vr-corregir"
+                );
+
+              this.iniciarVerificacion(
+                id,
+                true
               );
 
             };
@@ -1116,16 +1133,30 @@ window.VerificacionRecepciones = {
 
         <div class="vr-tarjeta-cabecera">
 
-          <div>
-            <span class="vr-codigo">
-              ${this.escapar(material)}
-            </span>
+          <div class="vr-tarjeta-identidad">
+
+            <div class="vr-material-linea">
+              <span class="vr-codigo">
+                ${this.escapar(material)}
+              </span>
+
+              ${
+                estadoVista === "PENDIENTE_CORRECCION"
+                  ? `
+                      <span class="vr-desviacion-tarjeta">
+                        ${this.formatearConSigno(item.desviacionPendiente)}
+                        · ${this.formatearMoneda(item.valorPendiente)}
+                      </span>
+                    `
+                  : ""
+              }
+            </div>
 
             <h3>
               ${this.escapar(detalle)}
             </h3>
 
-            <small>
+            <small class="vr-id-recepcion">
               ${this.escapar(item.idRecepcion || "-")}
             </small>
           </div>
@@ -1186,6 +1217,22 @@ window.VerificacionRecepciones = {
                 Verificar
               </button>
             `
+            : estadoVista === "PENDIENTE_CORRECCION" &&
+              this.tienePermiso(
+                "VERIFICACION_RECEPCIONES_CERRAR"
+              )
+              ? `
+                  <button
+                    type="button"
+                    class="vr-btn vr-btn-corregir"
+                    data-vr-corregir="${this.escapar(
+                      item.idRecepcion || ""
+                    )}"
+                  >
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    Corregir
+                  </button>
+                `
             : `
               <div class="vr-resultado-listado ${claseEstado}">
                 ${
@@ -1336,17 +1383,26 @@ window.VerificacionRecepciones = {
 
 
   async iniciarVerificacion(
-    idRecepcion
+    idRecepcion,
+    modoCorreccion = false
   ) {
 
     if (
-      !this.tienePermiso(
-        "VERIFICACION_RECEPCIONES_INICIAR"
+      !(
+        modoCorreccion
+          ? this.tienePermiso(
+              "VERIFICACION_RECEPCIONES_CERRAR"
+            )
+          : this.tienePermiso(
+              "VERIFICACION_RECEPCIONES_INICIAR"
+            )
       )
     ) {
 
       this.mostrarAdvertencia(
-        "No tiene permiso para iniciar verificaciones."
+        modoCorreccion
+          ? "No tiene permiso para corregir verificaciones."
+          : "No tiene permiso para iniciar verificaciones."
       );
 
       return;
@@ -1361,7 +1417,9 @@ window.VerificacionRecepciones = {
               action:
                 "obtenerDatosRecepcionParaVerificacion",
               idRecepcion:
-                idRecepcion
+                idRecepcion,
+              incluirVerificacion:
+                modoCorreccion
             },
             "Preparando verificación",
             "Consultando la recepción seleccionada."
@@ -1374,6 +1432,12 @@ window.VerificacionRecepciones = {
 
       this.estado.recepcionActual =
         respuestaRecepcion.recepcion;
+
+      this.estado.recepcionActual.esCorreccion =
+        Boolean(
+          modoCorreccion ||
+          this.estado.recepcionActual.esCorreccion
+        );
 
       this.estado.fechaInicioMs =
         Date.now();
@@ -1478,6 +1542,18 @@ window.VerificacionRecepciones = {
 
     if (!panel || !r) {
       return;
+    }
+
+    const tituloModal =
+      document.getElementById(
+        "vrTituloModal"
+      );
+
+    if (tituloModal) {
+      tituloModal.textContent =
+        r.esCorreccion
+          ? "Corrección de Recepción"
+          : "Verificación de Recepción";
     }
 
     const colaboradores =
@@ -1650,6 +1726,8 @@ window.VerificacionRecepciones = {
                 step="1"
                 inputmode="numeric"
                 placeholder="0"
+                value="${this.escapar(r.cantidadLibroProduccion || 0)}"
+                ${r.esCorreccion ? "readonly" : ""}
               >
             </label>
 
@@ -1662,6 +1740,8 @@ window.VerificacionRecepciones = {
                 step="1"
                 inputmode="numeric"
                 placeholder="0"
+                value="${this.escapar(r.cantidadSAP || 0)}"
+                ${r.esCorreccion ? "readonly" : ""}
               >
             </label>
 
@@ -1674,6 +1754,8 @@ window.VerificacionRecepciones = {
                 step="1"
                 inputmode="numeric"
                 placeholder="0"
+                value="${this.escapar(r.cantidadVerificada || 0)}"
+                ${r.esCorreccion ? "readonly" : ""}
               >
             </label>
 
@@ -1710,7 +1792,7 @@ window.VerificacionRecepciones = {
                 id="vrCantidadCorregida"
                 min="0"
                 step="1"
-                value="0"
+                value="${this.escapar(r.cantidadCorregida || 0)}"
                 inputmode="numeric"
               >
             </label>
@@ -1721,7 +1803,7 @@ window.VerificacionRecepciones = {
                 id="vrComentario"
                 rows="4"
                 placeholder="Agregue observaciones, causas o contexto de la verificación."
-              ></textarea>
+              >${this.escapar(r.comentarioAnalista || "")}</textarea>
             </label>
 
           </div>
@@ -1749,7 +1831,11 @@ window.VerificacionRecepciones = {
                   class="vr-btn principal"
                 >
                   <i class="fa-solid fa-floppy-disk"></i>
-                  Guardar verificación
+                  ${
+                    r.esCorreccion
+                      ? "Guardar corrección"
+                      : "Guardar verificación"
+                  }
                 </button>
               `
               : ""
@@ -1761,6 +1847,74 @@ window.VerificacionRecepciones = {
     `;
 
     this.conectarEventosFormulario();
+
+    this.precargarResponsablesFormulario();
+
+    this.actualizarComparacion();
+
+  },
+
+
+  precargarResponsablesFormulario() {
+
+    const r =
+      this.estado.recepcionActual || {};
+
+    const asignaciones = [
+      [
+        "vrResponsableProduccion",
+        r.responsableProduccionId,
+        r.responsableProduccionNombre
+      ],
+      [
+        "vrLineaProduccion",
+        r.lineaProduccion,
+        r.lineaProduccion
+      ],
+      [
+        "vrSupervisorPT",
+        r.supervisorPTId,
+        r.supervisorPTNombre
+      ]
+    ];
+
+    asignaciones.forEach(
+      item => {
+
+        const campo =
+          document.getElementById(
+            item[0]
+          );
+
+        const valor =
+          String(item[1] || "");
+
+        if (
+          campo &&
+          valor
+        ) {
+
+          const existe =
+            Array.from(campo.options).some(
+              opcion => opcion.value === valor
+            );
+
+          if (!existe) {
+            const opcion =
+              document.createElement("option");
+
+            opcion.value = valor;
+            opcion.textContent =
+              String(item[2] || valor);
+
+            campo.appendChild(opcion);
+          }
+
+          campo.value = valor;
+        }
+
+      }
+    );
 
   },
 

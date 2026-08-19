@@ -14,7 +14,7 @@
     <link rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
-	<link rel="stylesheet" href="../css/dashboard.css?v=20260819-4">	
+	<link rel="stylesheet" href="../css/dashboard.css?v=20260819-6">	
 	<link rel="stylesheet" href="../css/dashboardIndicadores.css">	
 	<link rel="stylesheet" href="../css/dashboardIndicadoresGraficos.css">	
 	<link rel="stylesheet" href="../css/exactitudDespachos.css?v=2.0.1">	
@@ -87,7 +87,14 @@
 
     </div>
 
-    <div class="usuario-sidebar">
+    <button
+        type="button"
+        class="usuario-sidebar"
+        id="btnPerfilUsuario"
+        data-perfil-usuario
+        aria-label="Abrir mi perfil"
+        title="Abrir mi perfil"
+    >
 
         <div class="usuario-sidebar-icono">
             <i class="fa-solid fa-user"></i>
@@ -105,7 +112,9 @@
 
         </div>
 
-    </div>
+        <i class="fa-solid fa-chevron-right usuario-sidebar-flecha"></i>
+
+    </button>
 
     <ul>
 
@@ -201,13 +210,25 @@
 
         </div>
 
-        <div class="usuario">
+        <button
+            type="button"
+            class="usuario perfil-acceso-escritorio"
+            id="btnPerfilUsuarioEscritorio"
+            data-perfil-usuario
+            aria-label="Abrir mi perfil"
+            title="Abrir mi perfil"
+        >
+            <span class="perfil-acceso-escritorio-icono">
+                <i class="fa-solid fa-user"></i>
+            </span>
 
-            <strong id="nombreUsuario"></strong>
+            <span class="perfil-acceso-escritorio-datos">
+                <strong id="nombreUsuario"></strong>
+                <span id="rolUsuario"></span>
+            </span>
 
-            <span id="rolUsuario"></span>
-
-        </div>
+            <i class="fa-solid fa-chevron-right perfil-acceso-escritorio-flecha"></i>
+        </button>
 
     </header>
 
@@ -343,7 +364,8 @@
 <script src="../js/exactitudDespachos.js?v=1.0.2"></script>
 <script src="../js/recepcionMateriales.js?v=1.0.0"></script>
 <script src="../js/inicioOperativo.js?v=1.0.0"></script>
-	<script src="../js/verificacionRecepciones.js?v=1.0.4"></script>
+	<script src="../js/verificacionRecepciones.js?v=1.0.5"></script>
+<script src="../js/perfilUsuario.js?v=1.0.2"></script>
 <script src="../js/dashboard.js"></script>
 
 </body>

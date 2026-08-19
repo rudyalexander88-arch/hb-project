@@ -419,16 +419,41 @@ window.VerificacionRecepciones = {
     }
 
     const contenido = `
-      <section class="vr-confirmacion-reporte">
+      <section class="vr-confirmacion-reporte vr-selector-reporte">
         <div class="vr-confirmacion-reporte-icono">
-          <i class="fa-solid fa-envelope-circle-check"></i>
+          <i class="fa-solid fa-chart-pie"></i>
         </div>
 
-        <h3>¿Enviar el reporte ahora?</h3>
+        <h3>Seleccione el reporte que desea enviar</h3>
 
-        <p>
-          Se enviará el reporte actualizado de correcciones pendientes
-          a los correos definidos en Configuración.
+        <div class="vr-reporte-campos">
+          <label>
+            <span>Tipo de reporte</span>
+            <select id="vrTipoReporteManual">
+              <option value="PENDIENTES">
+                Pendientes de corrección
+              </option>
+              <option value="GENERAL">
+                Reporte general de desviaciones
+              </option>
+            </select>
+          </label>
+
+          <label id="vrGrupoPeriodoReporte" class="deshabilitado">
+            <span>Período del reporte general</span>
+            <select id="vrPeriodoReporteManual" disabled>
+              <option value="SEMANAL">Semana actual</option>
+              <option value="QUINCENAL">Quincena actual</option>
+              <option value="MENSUAL" selected>Mes actual</option>
+              <option value="TRIMESTRAL">Trimestre actual</option>
+              <option value="SEMESTRAL">Semestre actual</option>
+              <option value="ANUAL">Año actual</option>
+            </select>
+          </label>
+        </div>
+
+        <p id="vrDescripcionReporteManual">
+          Se enviará la fotografía actual de correcciones pendientes.
         </p>
 
         <div class="vr-confirmacion-reporte-acciones">
@@ -476,6 +501,53 @@ window.VerificacionRecepciones = {
         "btnVrConfirmarReporte"
       );
 
+    const tipoReporte =
+      document.getElementById(
+        "vrTipoReporteManual"
+      );
+
+    const periodoReporte =
+      document.getElementById(
+        "vrPeriodoReporteManual"
+      );
+
+    const grupoPeriodo =
+      document.getElementById(
+        "vrGrupoPeriodoReporte"
+      );
+
+    const descripcion =
+      document.getElementById(
+        "vrDescripcionReporteManual"
+      );
+
+    const actualizarTipo = () => {
+      const esGeneral =
+        tipoReporte &&
+        tipoReporte.value === "GENERAL";
+
+      if (periodoReporte) {
+        periodoReporte.disabled = !esGeneral;
+      }
+
+      if (grupoPeriodo) {
+        grupoPeriodo.classList.toggle(
+          "deshabilitado",
+          !esGeneral
+        );
+      }
+
+      if (descripcion) {
+        descripcion.textContent = esGeneral
+          ? "Se enviará el histórico completo de desviaciones del período seleccionado, incluyendo las ya corregidas."
+          : "Se enviará la fotografía actual de correcciones pendientes.";
+      }
+    };
+
+    if (tipoReporte) {
+      tipoReporte.onchange = actualizarTipo;
+    }
+
     if (cancelar) {
       cancelar.onclick =
         () => Sistema.cerrarModal();
@@ -484,15 +556,33 @@ window.VerificacionRecepciones = {
     if (confirmar) {
       confirmar.onclick =
         async () => {
+          const tipo =
+            tipoReporte
+              ? tipoReporte.value
+              : "PENDIENTES";
+
+          const periodo =
+            periodoReporte
+              ? periodoReporte.value
+              : "MENSUAL";
+
           Sistema.cerrarModal();
-          await this.enviarReporteManual();
+          await this.enviarReporteManual(
+            tipo,
+            periodo
+          );
         };
     }
+
+    actualizarTipo();
 
   },
 
 
-  async enviarReporteManual() {
+  async enviarReporteManual(
+    tipo = "PENDIENTES",
+    periodo = "MENSUAL"
+  ) {
 
     try {
 
@@ -500,10 +590,16 @@ window.VerificacionRecepciones = {
         await this.post(
           {
             action:
-              "enviarReporteSemanalVerificacionesRecepcionManual"
+              tipo === "GENERAL"
+                ? "enviarReporteGeneralDesviacionesRecepcionManual"
+                : "enviarReporteSemanalVerificacionesRecepcionManual",
+            periodo:
+              periodo
           },
           "Enviando reporte",
-          "Preparando indicadores, gráficos y correos."
+          tipo === "GENERAL"
+            ? "Analizando desviaciones del período y creando gráficos."
+            : "Preparando pendientes, gráficos y correos."
         );
 
       const destinatarios =
@@ -511,11 +607,17 @@ window.VerificacionRecepciones = {
           ? respuesta.destinatarios.length
           : 0;
 
-      const pendientes =
-        Number(respuesta.pendientes || 0);
+      const pendientes = Number(
+        tipo === "GENERAL"
+          ? respuesta.totalPendientes || 0
+          : respuesta.pendientes || 0
+      );
 
-      const valor =
-        Number(respuesta.valorTotal || 0);
+      const valor = Number(
+        tipo === "GENERAL"
+          ? respuesta.valorOriginal || 0
+          : respuesta.valorTotal || 0
+      );
 
       const valorTexto =
         new Intl.NumberFormat(
@@ -528,16 +630,15 @@ window.VerificacionRecepciones = {
           }
         ).format(valor);
 
-      const mensaje =
-        "Reporte enviado a " +
-        destinatarios +
-        " destinatario" +
-        (destinatarios === 1 ? "" : "s") +
-        ". Pendientes: " +
-        pendientes +
-        ". Valor total: " +
-        valorTexto +
-        ".";
+      const mensaje = tipo === "GENERAL"
+        ? "Reporte general enviado a " + destinatarios +
+          " destinatario" + (destinatarios === 1 ? "" : "s") +
+          ". Desviaciones: " + Number(respuesta.totalDesviaciones || 0) +
+          ". Valor original: " + valorTexto + "."
+        : "Reporte de pendientes enviado a " + destinatarios +
+          " destinatario" + (destinatarios === 1 ? "" : "s") +
+          ". Pendientes: " + pendientes +
+          ". Valor total: " + valorTexto + ".";
 
       if (
         window.Sistema &&

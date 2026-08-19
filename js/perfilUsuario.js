@@ -49,6 +49,8 @@ window.PerfilUsuario = {
   },
 
   async abrir() {
+    this.cerrarMenuMovil();
+
     try {
       const respuesta = await this.post(
         {action:"obtenerPerfilUsuario"},
@@ -61,7 +63,6 @@ window.PerfilUsuario = {
         : {};
 
       this.mostrarFormulario();
-      this.cerrarMenuMovil();
     } catch (error) {
       this.notificar(error.message, "error");
     }
@@ -199,6 +200,25 @@ window.PerfilUsuario = {
     const telefono = document.getElementById("perfilTelefono");
     const cancelar = document.getElementById("btnCancelarPerfil");
     const editar = document.getElementById("btnEditarDatosPersonales");
+
+    [
+      "perfilPasswordActual",
+      "perfilPasswordNueva",
+      "perfilPasswordConfirmar"
+    ].forEach(id => {
+      const campo = document.getElementById(id);
+      if (!campo) return;
+
+      campo.type = "password";
+
+      const boton = campo.parentElement
+        ? campo.parentElement.querySelector("button")
+        : null;
+      const icono = boton ? boton.querySelector("i") : null;
+
+      if (icono) icono.className = "fa-solid fa-eye";
+      if (boton) boton.setAttribute("aria-label", "Mostrar contraseña");
+    });
 
     const valoresExistentes = {
       perfilCedula:Boolean(this.perfil && this.perfil.cedula),
@@ -362,6 +382,10 @@ window.PerfilUsuario = {
     campo.type = mostrar ? "text" : "password";
     const icono = boton.querySelector("i");
     if (icono) icono.className = mostrar ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+    boton.setAttribute(
+      "aria-label",
+      mostrar ? "Ocultar contraseña" : "Mostrar contraseña"
+    );
   },
 
   cerrarModalPerfil() {
@@ -379,8 +403,17 @@ window.PerfilUsuario = {
   cerrarMenuMovil() {
     const sidebar = document.getElementById("sidebarPrincipal");
     const fondo = document.getElementById("fondoMenuMovil");
-    if (sidebar) sidebar.classList.remove("abierto", "activo");
-    if (fondo) fondo.classList.remove("visible", "activo");
+    const boton = document.getElementById("btnMenuMovil");
+
+    if (sidebar) sidebar.classList.remove("sidebar-abierto");
+    if (fondo) fondo.classList.remove("visible");
+
+    document.body.classList.remove("menu-movil-abierto");
+
+    if (boton) {
+      boton.innerHTML = '<i class="fa-solid fa-bars"></i>';
+      boton.setAttribute("aria-expanded", "false");
+    }
   },
 
   notificar(mensaje, tipo) {

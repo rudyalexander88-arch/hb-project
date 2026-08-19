@@ -336,6 +336,128 @@ body.carga-sistema-activa {
     }
 
 }
+
+/* ============================================================
+   AJUSTES FINALES: MENU COMPACTO Y CONFIRMACION DE REPORTE
+   Se ubican al final para prevalecer sobre reglas heredadas.
+   ============================================================ */
+
+.sidebar li {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 13px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+}
+
+.sidebar li i {
+    width: 17px;
+    flex: 0 0 17px;
+    text-align: center;
+}
+
+.sidebar li[hidden] {
+    display: none !important;
+}
+
+.vr-confirmacion-reporte {
+    max-width: 470px;
+    margin: 0 auto;
+    padding: 10px 4px 4px;
+    text-align: center;
+}
+
+.vr-confirmacion-reporte-icono {
+    width: 54px;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: rgba(215, 25, 32, 0.10);
+    color: #d71920;
+    font-size: 22px;
+}
+
+.vr-confirmacion-reporte h3 {
+    margin: 0 0 8px;
+    font-size: 19px;
+}
+
+.vr-confirmacion-reporte p {
+    margin: 0;
+    color: #666666;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.vr-confirmacion-reporte-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+@media (max-width: 600px) {
+
+    .sidebar li {
+        min-height: 40px;
+        padding: 10px 12px;
+        margin-bottom: 5px;
+    }
+
+    .vr-confirmacion-reporte-acciones {
+        flex-direction: column-reverse;
+    }
+
+    .vr-confirmacion-reporte-acciones .vr-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .vr-btn-reporte span {
+        display: none;
+    }
+
+}
+
+/* ============================================================
+   AJUSTE FINO DEL MENU LATERAL
+   Mantiene el estado activo corporativo con menor altura.
+   ============================================================ */
+
+.sidebar li {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 13px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+}
+
+.sidebar li i {
+    width: 17px;
+    flex: 0 0 17px;
+    text-align: center;
+}
+
+.sidebar li[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+
+    .sidebar li {
+        min-height: 40px;
+        padding: 10px 12px;
+        margin-bottom: 5px;
+    }
+
+}
 /* =====================================
    DASHBOARD.CSS
    Sistema Logístico PT
@@ -1079,4 +1201,33 @@ body {
         margin-bottom: 8px;
     }
 
+}
+
+/* Prevalencia final del tamaño compacto del menú lateral. */
+.sidebar li {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 13px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+}
+
+.sidebar li i {
+    width: 17px;
+    flex: 0 0 17px;
+    text-align: center;
+}
+
+.sidebar li[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+    .sidebar li {
+        min-height: 40px;
+        padding: 10px 12px;
+        margin-bottom: 5px;
+    }
 }

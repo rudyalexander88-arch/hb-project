@@ -1,0 +1,725 @@
+/* ============================================================
+   VERIFICACION RECEPCIONES
+   Sistema Logístico PT - Helados BON
+   ============================================================ */
+
+.vr-centro{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    padding:4px 0 24px;
+}
+
+.vr-encabezado{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
+    padding:22px;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 8px 28px rgba(0,0,0,.07);
+}
+
+.vr-eyebrow{
+    display:inline-block;
+    margin-bottom:6px;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#e21b2d;
+}
+
+.vr-encabezado h2{
+    margin:0;
+    font-size:26px;
+    line-height:1.15;
+    color:#222;
+}
+
+.vr-encabezado p{
+    margin:8px 0 0;
+    max-width:720px;
+    color:#666;
+    line-height:1.55;
+}
+
+.vr-encabezado-resumen{
+    flex:0 0 auto;
+    min-width:120px;
+    padding:14px 18px;
+    border-radius:16px;
+    text-align:center;
+    background:#f6f7f8;
+}
+
+.vr-encabezado-resumen span{
+    display:block;
+    font-size:12px;
+    color:#777;
+}
+
+.vr-encabezado-resumen strong{
+    display:block;
+    margin-top:4px;
+    font-size:28px;
+    line-height:1;
+    color:#222;
+}
+
+.vr-ayuda{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 16px;
+    border-radius:14px;
+    background:#fff8e9;
+    color:#715419;
+    font-size:13px;
+}
+
+.vr-lista{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+    gap:14px;
+}
+
+.vr-tarjeta{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    padding:18px;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 8px 28px rgba(0,0,0,.06);
+}
+
+.vr-tarjeta-cabecera{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+}
+
+.vr-codigo{
+    display:inline-flex;
+    align-items:center;
+    min-height:24px;
+    padding:3px 9px;
+    border-radius:999px;
+    background:#f2f2f2;
+    color:#444;
+    font-size:12px;
+    font-weight:800;
+}
+
+.vr-tarjeta h3{
+    margin:8px 0 4px;
+    font-size:16px;
+    color:#222;
+}
+
+.vr-tarjeta small{
+    color:#8b8b8b;
+}
+
+.vr-estado{
+    display:inline-flex;
+    align-items:center;
+    min-height:28px;
+    padding:5px 10px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+.vr-estado.pendiente{
+    background:#fff0cf;
+    color:#8b6000;
+}
+
+.vr-tarjeta-datos{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+}
+
+.vr-tarjeta-datos > div,
+.vr-grid-resumen > div{
+    padding:10px;
+    border-radius:12px;
+    background:#f7f8f9;
+}
+
+.vr-tarjeta-datos span,
+.vr-grid-resumen span{
+    display:block;
+    font-size:11px;
+    color:#7b7b7b;
+}
+
+.vr-tarjeta-datos strong,
+.vr-grid-resumen strong{
+    display:block;
+    margin-top:4px;
+    font-size:14px;
+    color:#222;
+}
+
+.vr-btn{
+    min-height:42px;
+    padding:10px 16px;
+    border:0;
+    border-radius:12px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    font-family:inherit;
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+    transition:.18s ease;
+}
+
+.vr-btn:hover{
+    transform:translateY(-1px);
+}
+
+.vr-btn.principal{
+    background:#e21b2d;
+    color:#fff;
+}
+
+.vr-btn.secundario{
+    background:#eceff1;
+    color:#333;
+}
+
+.vr-paginacion{
+    display:flex;
+    justify-content:center;
+}
+
+.vr-vacio{
+    grid-column:1/-1;
+    min-height:180px;
+    border-radius:18px;
+    background:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    text-align:center;
+    color:#777;
+    box-shadow:0 8px 28px rgba(0,0,0,.05);
+}
+
+.vr-vacio i{
+    font-size:30px;
+}
+
+.vr-vacio.exito i{
+    color:#2d9b52;
+}
+
+
+/* ================= MODAL ================= */
+
+body.vr-modal-abierto{
+    overflow:hidden;
+}
+
+.vr-modal{
+    position:fixed;
+    inset:0;
+    z-index:9998;
+    padding:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(16,20,24,.58);
+}
+
+.vr-modal.oculto{
+    display:none;
+}
+
+.vr-modal-dialog{
+    width:min(1050px,100%);
+    max-height:92vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    border-radius:22px;
+    background:#f4f5f6;
+    box-shadow:0 24px 70px rgba(0,0,0,.26);
+}
+
+.vr-modal-header{
+    flex:0 0 auto;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:18px;
+    padding:18px 20px;
+    background:#fff;
+    border-bottom:1px solid #e8e8e8;
+}
+
+.vr-modal-header span{
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#e21b2d;
+}
+
+.vr-modal-header h2{
+    margin:3px 0 0;
+    font-size:20px;
+    color:#222;
+}
+
+.vr-btn-icono{
+    width:40px;
+    height:40px;
+    border:0;
+    border-radius:50%;
+    background:#f1f2f3;
+    color:#333;
+    cursor:pointer;
+}
+
+.vr-modal-body{
+    flex:1 1 auto;
+    overflow:auto;
+    padding:18px;
+}
+
+.vr-asistente{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.vr-bloque{
+    padding:18px;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 7px 22px rgba(0,0,0,.045);
+}
+
+.vr-resumen-material{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+}
+
+.vr-resumen-material h3{
+    margin:0;
+    font-size:18px;
+    color:#222;
+}
+
+.vr-resumen-material p{
+    margin:4px 0 0;
+    color:#777;
+    font-size:12px;
+}
+
+.vr-grid-resumen{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    margin-top:14px;
+}
+
+.vr-colaboradores{
+    margin-top:14px;
+}
+
+.vr-colaboradores > span{
+    display:block;
+    margin-bottom:8px;
+    font-size:12px;
+    font-weight:700;
+    color:#666;
+}
+
+.vr-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+}
+
+.vr-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 10px;
+    border-radius:999px;
+    background:#f2f4f5;
+    color:#444;
+    font-size:12px;
+    font-weight:700;
+}
+
+.vr-chip.tenue{
+    color:#8b8b8b;
+}
+
+.vr-bloque-titulo{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    margin-bottom:16px;
+}
+
+.vr-bloque-titulo > i{
+    width:34px;
+    height:34px;
+    border-radius:11px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#fff0f2;
+    color:#e21b2d;
+}
+
+.vr-bloque-titulo h3{
+    margin:0;
+    font-size:16px;
+    color:#222;
+}
+
+.vr-bloque-titulo p{
+    margin:4px 0 0;
+    color:#777;
+    font-size:12px;
+}
+
+.vr-grid-form{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+}
+
+.vr-grid-form label,
+.vr-campo-cantidad{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.vr-grid-form label > span,
+.vr-campo-cantidad > span{
+    font-size:12px;
+    font-weight:700;
+    color:#555;
+}
+
+.vr-grid-form select,
+.vr-grid-form input,
+.vr-grid-form textarea,
+.vr-campo-cantidad input{
+    width:100%;
+    box-sizing:border-box;
+    border:1px solid #d9dde0;
+    border-radius:11px;
+    padding:11px 12px;
+    font-family:inherit;
+    font-size:14px;
+    background:#fff;
+    outline:none;
+}
+
+.vr-grid-form select:focus,
+.vr-grid-form input:focus,
+.vr-grid-form textarea:focus,
+.vr-campo-cantidad input:focus{
+    border-color:#e21b2d;
+    box-shadow:0 0 0 3px rgba(226,27,45,.08);
+}
+
+.vr-campo-completo{
+    grid-column:1/-1;
+}
+
+.vr-comparacion{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+}
+
+.vr-campo-cantidad{
+    min-height:110px;
+    padding:14px;
+    border-radius:15px;
+    background:#f7f8f9;
+}
+
+.vr-campo-cantidad.automatico strong{
+    margin-top:auto;
+    font-size:26px;
+    color:#222;
+}
+
+.vr-campo-cantidad.automatico small{
+    color:#8a8a8a;
+}
+
+.vr-campo-cantidad.destacado{
+    background:#fff1f3;
+}
+
+.vr-campo-cantidad input{
+    margin-top:auto;
+    font-size:22px;
+    font-weight:800;
+    text-align:center;
+}
+
+.vr-panel-diferencias{
+    margin-top:14px;
+}
+
+.vr-sin-comparacion{
+    min-height:90px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:14px;
+    border-radius:14px;
+    background:#f7f8f9;
+    color:#777;
+    text-align:center;
+    font-size:13px;
+}
+
+.vr-diferencias-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-bottom:10px;
+}
+
+.vr-diferencias-grid > div{
+    padding:10px;
+    border-radius:12px;
+    background:#f7f8f9;
+}
+
+.vr-diferencias-grid span{
+    display:block;
+    font-size:11px;
+    color:#777;
+}
+
+.vr-diferencias-grid strong{
+    display:block;
+    margin-top:4px;
+    font-size:16px;
+    color:#222;
+}
+
+.vr-diagnostico{
+    display:flex;
+    gap:14px;
+    padding:16px;
+    border-radius:16px;
+    border:1px solid transparent;
+}
+
+.vr-diagnostico.faltante{
+    background:#fff0f0;
+    border-color:#f3c6c6;
+}
+
+.vr-diagnostico.sobrante{
+    background:#fff8e8;
+    border-color:#f1dbab;
+}
+
+.vr-diagnostico.correcto{
+    background:#edf8f1;
+    border-color:#c6e6d1;
+}
+
+.vr-diagnostico-icono{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    border-radius:13px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+}
+
+.vr-diagnostico-contenido{
+    flex:1 1 auto;
+    min-width:0;
+}
+
+.vr-diagnostico-contenido > span{
+    font-size:11px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:#777;
+}
+
+.vr-diagnostico-contenido h3{
+    margin:3px 0 4px;
+    font-size:18px;
+}
+
+.vr-diagnostico-contenido p{
+    margin:0;
+    color:#555;
+    font-size:13px;
+    line-height:1.5;
+}
+
+.vr-diagnostico-numeros{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-top:12px;
+}
+
+.vr-diagnostico-numeros > div{
+    padding:9px;
+    border-radius:10px;
+    background:rgba(255,255,255,.74);
+}
+
+.vr-diagnostico-numeros span{
+    display:block;
+    font-size:10px;
+    color:#777;
+}
+
+.vr-diagnostico-numeros strong{
+    display:block;
+    margin-top:3px;
+    font-size:14px;
+}
+
+.vr-seguimiento{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 14px;
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid rgba(0,0,0,.08);
+    font-size:12px;
+}
+
+.vr-acciones{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding-bottom:4px;
+}
+
+
+/* ================= RESPONSIVE ================= */
+
+@media(max-width:900px){
+
+    .vr-grid-resumen,
+    .vr-comparacion,
+    .vr-diagnostico-numeros{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .vr-grid-form{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+}
+
+@media(max-width:640px){
+
+    .vr-centro{
+        gap:12px;
+    }
+
+    .vr-encabezado{
+        flex-direction:column;
+        padding:16px;
+    }
+
+    .vr-encabezado h2{
+        font-size:21px;
+    }
+
+    .vr-encabezado-resumen{
+        width:100%;
+        box-sizing:border-box;
+    }
+
+    .vr-lista{
+        grid-template-columns:1fr;
+    }
+
+    .vr-tarjeta-datos{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .vr-modal{
+        padding:0;
+        align-items:stretch;
+    }
+
+    .vr-modal-dialog{
+        width:100%;
+        max-height:100vh;
+        height:100vh;
+        border-radius:0;
+    }
+
+    .vr-modal-body{
+        padding:12px;
+    }
+
+    .vr-bloque{
+        padding:14px;
+    }
+
+    .vr-grid-form,
+    .vr-grid-resumen,
+    .vr-comparacion,
+    .vr-diferencias-grid,
+    .vr-diagnostico-numeros{
+        grid-template-columns:1fr;
+    }
+
+    .vr-resumen-material{
+        flex-direction:column;
+    }
+
+    .vr-diagnostico{
+        flex-direction:column;
+    }
+
+    .vr-acciones{
+        position:sticky;
+        bottom:0;
+        margin:0 -12px -12px;
+        padding:12px;
+        background:#f4f5f6;
+        border-top:1px solid #e2e2e2;
+    }
+
+    .vr-acciones .vr-btn{
+        flex:1 1 0;
+    }
+
+}

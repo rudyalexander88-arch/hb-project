@@ -5,6 +5,42 @@
 
 window.Despachos = {
 
+obtenerSesionActual() {
+    try {
+        return JSON.parse(
+            localStorage.getItem("sesion") ||
+            sessionStorage.getItem("sesion") ||
+            "{}"
+        );
+    } catch (error) {
+        console.error("No fue posible leer la sesión en Despachos:", error);
+        return {};
+    }
+},
+
+esAnalista() {
+    const sesion = Despachos.obtenerSesionActual();
+
+    return String(sesion.rol || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") === "analista";
+},
+
+denegarEdicionAnalista() {
+    if (!Despachos.esAnalista()) {
+        return false;
+    }
+
+    Despachos.notificar(
+        "El perfil Analista dispone de acceso de solo lectura en Despachos. Las correcciones deben realizarse desde Exactitud de despachos.",
+        "advertencia"
+    );
+
+    return true;
+},
+
 async ejecutarConCargador(
     titulo,
     mensaje,
@@ -382,6 +418,9 @@ async cargar() {
     const contenido =
         document.getElementById("contenidoPrincipal");
 
+    const esAnalista =
+        Despachos.esAnalista();
+
     contenido.innerHTML = `
         <div class="modulo">
 
@@ -420,25 +459,21 @@ async cargar() {
 					Ver todos los despachos
 				</button>
 								
-				<button
-					type="button"
-					id="btnInspeccionarContenedor"
-					class="btn-principal-despachos btn-inspeccionar-contenedor"
-				>
-					<i class="fa-solid fa-clipboard-check"></i>
+				${
+					esAnalista
+						? ""
+						: `
+							<button type="button" id="btnInspeccionarContenedor" class="btn-principal-despachos btn-inspeccionar-contenedor">
+								<i class="fa-solid fa-clipboard-check"></i>
+								<span>Inspeccionar contenedor</span>
+							</button>
 
-					<span>
-						Inspeccionar contenedor
-					</span>
-				</button>
-
-				<button
-					id="btnNuevoConduce"
-					class="btn-rojo"
-				>
-					<i class="fa-solid fa-plus"></i>
-					Nuevo Conduce
-				</button>
+							<button id="btnNuevoConduce" class="btn-rojo">
+								<i class="fa-solid fa-plus"></i>
+								Nuevo Conduce
+							</button>
+						`
+				}
 
 			</div>
 
@@ -825,6 +860,7 @@ if (
 			btnInspeccionarContenedor.addEventListener(
 				"click",
 				() => {
+					if (Despachos.denegarEdicionAnalista()) return;
 
 					InspeccionContenedores.abrir();
 
@@ -844,6 +880,8 @@ if (btnNuevoConduce) {
     btnNuevoConduce.addEventListener(
         "click",
         async () => {
+
+            if (Despachos.denegarEdicionAnalista()) return;
 
             await Despachos
                 .prepararNuevoConduce(
@@ -1567,6 +1605,9 @@ crearFilaCentroDespachos(
     item
 ) {
 
+    const esAnalista =
+        Despachos.esAnalista();
+
     const estado =
         String(
             item.estado || "Pendiente"
@@ -1604,7 +1645,21 @@ crearFilaCentroDespachos(
 
     let botonAccion = "";
 
-    if (
+    if (esAnalista) {
+
+        botonAccion = `
+            <button
+                type="button"
+                class="btn-accion-centro-despachos ver"
+                data-accion="ver"
+                data-id-conduce="${Despachos.escaparHTMLInspecciones(item.idConduce || "")}"
+                title="Ver despacho"
+            >
+                <i class="fa-solid fa-eye"></i>
+            </button>
+        `;
+
+    } else if (
         estadoNormalizado ===
         "borrador"
     ) {
@@ -2519,6 +2574,8 @@ configurarEventosCentroDespachos() {
                         accion === "continuar"
                     ) {
 
+                        if (Despachos.denegarEdicionAnalista()) return;
+
                         await Despachos
                             .continuarBorrador(
                                 idConduce
@@ -2931,6 +2988,21 @@ renderizarListaDashboard(
                     tipo === "abiertos"
                 ) {
 
+                    if (Despachos.esAnalista()) {
+
+                        botones = `
+                            <button
+                                type="button"
+                                class="btn-ver-despacho"
+                                data-id-conduce="${item.idConduce || ""}"
+                                title="Ver conduce"
+                            >
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        `;
+
+                    } else {
+
                     botones =
                         estadoNormalizado ===
                         "despachado"
@@ -2963,6 +3035,8 @@ renderizarListaDashboard(
                                     <i class="fa-solid fa-play"></i>
                                 </button>
                             `;
+
+                    }
 
                 } else {
 
@@ -3191,6 +3265,13 @@ async ejecutarAccionListaDashboard(
                 ? "Estamos recuperando el despacho completado."
 
                 : "Estamos recuperando la información pendiente.";
+
+    if (
+        accion !== "ver" &&
+        Despachos.denegarEdicionAnalista()
+    ) {
+        return;
+    }
 
 
     /*
@@ -3437,6 +3518,21 @@ configurarEventosListasDashboard() {
 
                 if (
                     boton.classList.contains(
+                        "btn-ver-despacho"
+                    )
+                ) {
+
+                    await Despachos.ejecutarAccionListaDashboard(
+                        boton,
+                        "ver",
+                        idConduce
+                    );
+
+                    return;
+                }
+
+                if (
+                    boton.classList.contains(
                         "btn-continuar-borrador"
                     ) ||
                     boton.classList.contains(
@@ -3651,6 +3747,8 @@ async cargarResumenDiario() {
 },
 
 async continuarBorrador(idConduce, opciones = {}) {
+
+    if (Despachos.denegarEdicionAnalista()) return;
 
     if (!idConduce) {
 
@@ -4175,6 +4273,8 @@ async verConduce(idConduce) {
 async prepararNuevoConduce(
     boton
 ) {
+
+    if (Despachos.denegarEdicionAnalista()) return;
 
     if (
         !boton ||
@@ -13947,6 +14047,7 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
 				.toLowerCase();
 
 		const mostrarContinuar =
+			!Despachos.esAnalista() &&
 			!estadoNormalizado.startsWith(
 				"complet"
 			);
@@ -14194,6 +14295,8 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
         .forEach(boton => {
 
             boton.onclick = async () => {
+
+                if (Despachos.denegarEdicionAnalista()) return;
 
                 const idConduce =
                     String(

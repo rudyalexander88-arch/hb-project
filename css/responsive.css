@@ -107,7 +107,7 @@
         background:#E31B23;
         color:#fff;
 
-        font-size:20px;
+        font-size:var(--ui-fs-20, 20px);
         cursor:pointer;
     }
 
@@ -141,13 +141,13 @@
     }
 
     .marca-movil strong{
-        font-size:14px;
+        font-size:var(--ui-fs-14, 14px);
         color:#222;
     }
 
     .marca-movil span{
         margin-top:2px;
-        font-size:10px;
+        font-size:var(--ui-fs-10, 10px);
         color:#777;
     }
 
@@ -157,12 +157,12 @@
     }
 
     .usuario-movil strong{
-        font-size:11px;
+        font-size:var(--ui-fs-11, 11px);
     }
 
     .usuario-movil span{
         margin-top:2px;
-        font-size:9px;
+        font-size:var(--ui-fs-9, 9px);
         color:#777;
     }
 
@@ -295,11 +295,11 @@
     }
 
     .modulo-header h2{
-        font-size:22px;
+        font-size:var(--ui-fs-22, 22px);
     }
 
     .modulo-header p{
-        font-size:13px;
+        font-size:var(--ui-fs-13, 13px);
     }
 
     .acciones-header-despachos{
@@ -393,11 +393,11 @@
     }
 
     .marca-movil strong{
-        font-size:12px;
+        font-size:var(--ui-fs-12, 12px);
     }
 
     .marca-movil span{
-        font-size:9px;
+        font-size:var(--ui-fs-9, 9px);
     }
 
     .usuario-movil{
@@ -405,11 +405,11 @@
     }
 
     .usuario-movil strong{
-        font-size:9px;
+        font-size:var(--ui-fs-9, 9px);
     }
 
     .usuario-movil span{
-        font-size:8px;
+        font-size:var(--ui-fs-8, 8px);
     }
 
     #sidebarPrincipal,
@@ -442,7 +442,7 @@
     }
 
     .modulo-header h2{
-        font-size:19px;
+        font-size:var(--ui-fs-19, 19px);
     }
 
     .acciones-header-despachos{
@@ -453,15 +453,15 @@
     #btnNuevoConduce,
     .btn-nuevo-conduce{
         min-height:44px;
-        font-size:13px;
+        font-size:var(--ui-fs-13, 13px);
     }
 
     .card-resumen h3{
-        font-size:13px;
+        font-size:var(--ui-fs-13, 13px);
     }
 
     .card-resumen > span{
-        font-size:28px;
+        font-size:var(--ui-fs-28, 28px);
     }
 
     .panel{
@@ -638,7 +638,7 @@
     .cards > .card > i {
         margin-bottom: 7px !important;
 
-        font-size: 22px !important;
+        font-size:var(--ui-fs-22, 22px) !important;
     }
 
 
@@ -648,7 +648,7 @@
             0
             5px !important;
 
-        font-size: 13px !important;
+        font-size:var(--ui-fs-13, 13px) !important;
         line-height: 1.25 !important;
     }
 
@@ -656,7 +656,7 @@
     .cards > .card > h1 {
         margin: 0 !important;
 
-        font-size: 25px !important;
+        font-size:var(--ui-fs-25, 25px) !important;
         line-height: 1 !important;
     }
 
@@ -689,7 +689,7 @@
 
     .card-indicador
     .card-indicador-icono i {
-        font-size: 19px !important;
+        font-size:var(--ui-fs-19, 19px) !important;
     }
 
 
@@ -699,7 +699,7 @@
             0
             4px !important;
 
-        font-size: 12px !important;
+        font-size:var(--ui-fs-12, 12px) !important;
         line-height: 1.25 !important;
     }
 
@@ -710,7 +710,7 @@
             0
             3px !important;
 
-        font-size: 25px !important;
+        font-size:var(--ui-fs-25, 25px) !important;
         line-height: 1 !important;
     }
 
@@ -723,7 +723,7 @@
             0
             2px !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1.25 !important;
     }
 
@@ -736,7 +736,7 @@
             0
             7px !important;
 
-        font-size: 9px !important;
+        font-size:var(--ui-fs-9, 9px) !important;
         line-height: 1.2 !important;
     }
 
@@ -751,7 +751,7 @@
 
         border-radius: 8px !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
     }
 
 
@@ -792,18 +792,18 @@
 
     .cards > .card > h3,
     .card-indicador h3 {
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
     }
 
 
     .cards > .card > h1,
     .card-indicador h1 {
-        font-size: 22px !important;
+        font-size:var(--ui-fs-22, 22px) !important;
     }
 
 
     .card-indicador-detalle {
-        font-size: 9px !important;
+        font-size:var(--ui-fs-9, 9px) !important;
     }
 
 
@@ -858,7 +858,7 @@
         min-width: 0;
         margin: 0 0 10px !important;
 
-        font-size: 14px !important;
+        font-size:var(--ui-fs-14, 14px) !important;
         line-height: 1.25 !important;
     }
 
@@ -872,7 +872,7 @@
         min-height: 29px !important;
         padding: 5px 8px !important;
 
-        font-size: 9px !important;
+        font-size:var(--ui-fs-9, 9px) !important;
         white-space: nowrap;
     }
 
@@ -996,7 +996,7 @@
 
         background: transparent !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1.25 !important;
 
         white-space: nowrap !important;
@@ -1022,7 +1022,7 @@
         overflow: hidden;
 
         color: #202020;
-        font-size: 12px !important;
+        font-size:var(--ui-fs-12, 12px) !important;
         font-weight: 700;
 
         text-overflow: ellipsis;
@@ -1035,7 +1035,7 @@
 
         margin-top: 2px;
 
-        font-size: 7px !important;
+        font-size:var(--ui-fs-7, 7px) !important;
         line-height: 1.1 !important;
     }
 
@@ -1060,7 +1060,7 @@
         content: "Por: ";
 
         color: #929292;
-        font-size: 8px;
+        font-size:var(--ui-fs-8, 8px);
         font-weight: 600;
     }
 
@@ -1072,7 +1072,7 @@
 
         color: #686868;
 
-        font-size: 9px !important;
+        font-size:var(--ui-fs-9, 9px) !important;
         text-align: right !important;
     }
 
@@ -1124,7 +1124,7 @@
 
         border-radius: 50% !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
     }
 
     #tablaAbiertos td:nth-child(6) button i,
@@ -1176,7 +1176,7 @@
 
     #tablaAbiertos td:nth-child(1) strong,
     #tablaDespachados td:nth-child(1) strong {
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
     }
 
     #tablaAbiertos td:nth-child(6) button,
@@ -1188,7 +1188,7 @@
         height: 28px !important;
         min-height: 28px !important;
 
-        font-size: 9px !important;
+        font-size:var(--ui-fs-9, 9px) !important;
     }
 
 }
@@ -1225,7 +1225,7 @@
     .vista-despacho-titulo > div strong {
         overflow: hidden;
 
-        font-size: 17px !important;
+        font-size:var(--ui-fs-17, 17px) !important;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -1252,7 +1252,7 @@
 
         border-radius: 999px !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1 !important;
 
         position: static !important;
@@ -1314,7 +1314,7 @@
     color: #d71920;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 
     cursor: pointer;
@@ -1344,14 +1344,14 @@
     }
 
     .panel-listado-encabezado h3 {
-        font-size: 14px !important;
+        font-size:var(--ui-fs-14, 14px) !important;
     }
 
     .btn-mas-conduces {
         min-height: 28px;
         padding: 4px 8px;
 
-        font-size: 9px;
+        font-size:var(--ui-fs-9, 9px);
     }
 
     .paneles .panel .tabla-responsive {
@@ -1874,17 +1874,17 @@
 
         border-radius: 14px;
 
-        font-size: 21px;
+        font-size:var(--ui-fs-21, 21px);
     }
 
 
     .aviso-prioridades-conduce__introduccion h3 {
-        font-size: 17px;
+        font-size:var(--ui-fs-17, 17px);
     }
 
 
     .aviso-prioridades-conduce__introduccion p {
-        font-size: 11px;
+        font-size:var(--ui-fs-11, 11px);
     }
 
 

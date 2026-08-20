@@ -40,7 +40,7 @@
 .recepcion-encabezado span,
 .recepcion-paso-encabezado span {
     color: var(--rec-rojo);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -54,7 +54,7 @@
 .recepcion-encabezado p {
     margin: 7px 0 0;
     color: var(--rec-secundario);
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .btn-recepcion {
@@ -67,7 +67,7 @@
     border: 0;
     border-radius: 9px;
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 800;
     cursor: pointer;
 }
@@ -107,7 +107,7 @@
 .recepcion-vacia i,
 .error-modulo-recepcion i {
     color: var(--rec-rojo);
-    font-size: 32px;
+    font-size:var(--ui-fs-32, 32px);
 }
 
 .recepcion-resumen-superior {
@@ -127,13 +127,13 @@
 }
 
 .recepcion-resumen-superior strong {
-    font-size: 24px;
+    font-size:var(--ui-fs-24, 24px);
 }
 
 .recepcion-resumen-superior p,
 .recepcion-resumen-superior span {
     color: var(--rec-secundario);
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .recepciones-abiertas-grid {
@@ -166,7 +166,7 @@
 .tarjeta-recepcion-datos span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .estado-recepcion-abierta {
@@ -236,12 +236,12 @@
 
 .opcion-origen-recepcion i {
     color: var(--rec-rojo);
-    font-size: 30px;
+    font-size:var(--ui-fs-30, 30px);
 }
 
 .opcion-origen-recepcion span {
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .opcion-origen-recepcion.activo {
@@ -270,7 +270,7 @@
 .barra-recepcion-actual span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .buscador-material-recepcion {
@@ -323,7 +323,7 @@
 .resultado-material-recepcion span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .ayuda-busqueda-recepcion,
@@ -336,7 +336,7 @@
     border-radius: 10px;
     background: #eef6ff;
     color: #315f88;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .material-seleccionado-recepcion {
@@ -365,7 +365,7 @@
 .material-seleccionado-recepcion p {
     margin: 0;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .material-estandar-destacado {
@@ -374,7 +374,7 @@
 
 .material-estandar-destacado strong {
     display: block;
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .pestanas-camaras-recepcion {
@@ -403,14 +403,14 @@
 
 .pestana-camara-recepcion > span {
     grid-area: codigo;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 800;
 }
 
 .pestana-camara-recepcion > small {
     grid-area: nombre;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .pestana-camara-recepcion > i {
@@ -459,7 +459,7 @@
 .capacidad-camara-recepcion small {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .campo-pregunta-recepcion {
@@ -471,7 +471,7 @@
 .etiqueta-pregunta-recepcion {
     display: block;
     margin-bottom: 10px;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 700;
 }
 
@@ -495,7 +495,7 @@
     border: 1px solid var(--rec-borde);
     border-radius: 9px;
     font-family: inherit;
-    font-size: 18px;
+    font-size:var(--ui-fs-18, 18px);
     font-weight: 800;
     text-align: center;
 }
@@ -533,7 +533,7 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: 6px;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .barra-progreso-parcial {
@@ -563,12 +563,12 @@
 .resultado-camara-recepcion span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .resultado-camara-recepcion strong {
     color: var(--rec-azul);
-    font-size: 20px;
+    font-size:var(--ui-fs-20, 20px);
 }
 
 .resumen-distribucion-recepcion {
@@ -582,7 +582,7 @@
 .resumen-distribucion-recepcion header span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .resumen-distribucion-metricas {
@@ -601,7 +601,7 @@
 .resumen-distribucion-metricas span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .modal-fecha-produccion-recepcion {
@@ -724,7 +724,7 @@ body.vr-modal-abierto {
 .vr-eyebrow,
 .vr-encabezado-texto > span {
     color: var(--rec-rojo);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 800;
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -733,14 +733,14 @@ body.vr-modal-abierto {
 .vr-encabezado h2 {
     margin: 3px 0 0;
     color: var(--rec-texto);
-    font-size: 21px;
+    font-size:var(--ui-fs-21, 21px);
 }
 
 .vr-encabezado p {
     max-width: 760px;
     margin: 7px 0 0;
     color: var(--rec-secundario);
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.5;
 }
 
@@ -757,7 +757,7 @@ body.vr-modal-abierto {
 .vr-encabezado-resumen span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -766,7 +766,7 @@ body.vr-modal-abierto {
     display: block;
     margin-top: 2px;
     color: var(--rec-rojo);
-    font-size: 24px;
+    font-size:var(--ui-fs-24, 24px);
     line-height: 1;
 }
 
@@ -779,7 +779,7 @@ body.vr-modal-abierto {
     border-radius: 11px;
     background: #f4f9ff;
     color: #315d86;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.45;
 }
 
@@ -815,7 +815,7 @@ body.vr-modal-abierto {
 
 .vr-codigo {
     color: var(--rec-rojo);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 900;
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -825,21 +825,21 @@ body.vr-modal-abierto {
 .vr-resumen-material h3 {
     margin: 3px 0;
     color: var(--rec-texto);
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     line-height: 1.3;
 }
 
 .vr-tarjeta small,
 .vr-resumen-material p {
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .vr-estado {
     flex: 0 0 auto;
     padding: 5px 9px;
     border-radius: 999px;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 900;
     text-transform: uppercase;
 }
@@ -878,7 +878,7 @@ body.vr-modal-abierto {
 .vr-diagnostico-numeros span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -890,7 +890,7 @@ body.vr-modal-abierto {
     display: block;
     margin-top: 3px;
     color: var(--rec-texto);
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     overflow-wrap: anywhere;
 }
 
@@ -904,7 +904,7 @@ body.vr-modal-abierto {
     border: 0;
     border-radius: 9px;
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 800;
     cursor: pointer;
     transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
@@ -948,7 +948,7 @@ body.vr-modal-abierto {
 
 .vr-vacio i {
     color: #b4bac3;
-    font-size: 28px;
+    font-size:var(--ui-fs-28, 28px);
 }
 
 .vr-vacio.exito i {
@@ -1015,7 +1015,7 @@ body.vr-modal-abierto {
 
 .vr-modal-header span {
     color: var(--rec-rojo);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 900;
     letter-spacing: .05em;
     text-transform: uppercase;
@@ -1024,7 +1024,7 @@ body.vr-modal-abierto {
 .vr-modal-header h2 {
     margin: 2px 0 0;
     color: var(--rec-texto);
-    font-size: 19px;
+    font-size:var(--ui-fs-19, 19px);
 }
 
 .vr-btn-icono {
@@ -1109,7 +1109,7 @@ body.vr-modal-abierto {
     display: block;
     margin-bottom: 6px;
     color: #4b5563;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 850;
     text-transform: uppercase;
 }
@@ -1129,7 +1129,7 @@ body.vr-modal-abierto {
     border-radius: 999px;
     background: #f8f9fb;
     color: #4b5563;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 }
 
@@ -1158,13 +1158,13 @@ body.vr-modal-abierto {
 .vr-bloque-titulo h3 {
     margin: 0;
     color: var(--rec-texto);
-    font-size: 14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .vr-bloque-titulo p {
     margin: 3px 0 0;
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.4;
 }
 
@@ -1191,7 +1191,7 @@ body.vr-modal-abierto {
     background: #fff;
     color: var(--rec-texto);
     font-family: inherit;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     outline: none;
 }
 
@@ -1241,13 +1241,13 @@ body.vr-modal-abierto {
 
 .vr-campo-cantidad.automatico strong {
     color: var(--rec-texto);
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .vr-campo-cantidad.automatico small {
     margin-top: 3px;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -1271,7 +1271,7 @@ body.vr-modal-abierto {
     border: 1px dashed #d9dde3;
     border-radius: 10px;
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     text-align: center;
 }
 
@@ -1313,7 +1313,7 @@ body.vr-modal-abierto {
     border-radius: 50%;
     background: #fff;
     color: var(--rec-rojo);
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 .vr-diagnostico-contenido {
@@ -1323,7 +1323,7 @@ body.vr-modal-abierto {
 
 .vr-diagnostico-contenido > span {
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 900;
     text-transform: uppercase;
 }
@@ -1331,13 +1331,13 @@ body.vr-modal-abierto {
 .vr-diagnostico-contenido > h3 {
     margin: 2px 0;
     color: var(--rec-texto);
-    font-size: 16px;
+    font-size:var(--ui-fs-16, 16px);
 }
 
 .vr-diagnostico-contenido > p {
     margin: 0 0 10px;
     color: #59616d;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.45;
 }
 
@@ -1347,7 +1347,7 @@ body.vr-modal-abierto {
     gap: 8px 16px;
     margin-top: 10px;
     color: #59616d;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .vr-acciones {
@@ -1388,7 +1388,7 @@ body.vr-modal-abierto {
     }
 
     .vr-encabezado h2 {
-        font-size: 18px;
+        font-size:var(--ui-fs-18, 18px);
     }
 
     .vr-encabezado p {
@@ -1418,7 +1418,7 @@ body.vr-modal-abierto {
     }
 
     .vr-modal-header h2 {
-        font-size: 16px;
+        font-size:var(--ui-fs-16, 16px);
     }
 
     .vr-modal-body {
@@ -1510,14 +1510,14 @@ body.vr-modal-abierto {
 .indicador-recepcion small {
     display: block;
     color: var(--rec-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .indicador-recepcion strong {
     display: block;
     margin: 4px 0;
     color: var(--rec-texto);
-    font-size: 24px;
+    font-size:var(--ui-fs-24, 24px);
     line-height: 1.1;
 }
 
@@ -1538,7 +1538,7 @@ body.vr-modal-abierto {
 
 .encabezado-bloque-recepciones span {
     color: var(--rec-rojo);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -1551,7 +1551,7 @@ body.vr-modal-abierto {
 .encabezado-bloque-recepciones p {
     margin: 5px 0 0;
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .encabezado-bloque-recepciones.compacto {
@@ -1575,13 +1575,13 @@ body.vr-modal-abierto {
     border-radius: 11px;
     background: var(--rec-fondo);
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     text-align: center;
 }
 
 .estado-proximo-recepciones i {
     color: var(--rec-azul);
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .metricas-colaborador-recepcion {
@@ -1599,12 +1599,12 @@ body.vr-modal-abierto {
 .metricas-colaborador-recepcion span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .metricas-colaborador-recepcion strong {
     color: var(--rec-texto);
-    font-size: 19px;
+    font-size:var(--ui-fs-19, 19px);
 }
 
 
@@ -1663,7 +1663,7 @@ body.asistente-recepcion-abierto {
 .modal-asistente-recepcion-header h2 {
     margin: 0;
     color: #fff;
-    font-size: 23px;
+    font-size:var(--ui-fs-23, 23px);
     font-weight: 800;
 }
 
@@ -1676,7 +1676,7 @@ body.asistente-recepcion-abierto {
     border-radius: 50%;
     background: transparent;
     color: #fff;
-    font-size: 23px;
+    font-size:var(--ui-fs-23, 23px);
     cursor: pointer;
 }
 
@@ -1741,7 +1741,7 @@ body.asistente-recepcion-abierto {
 
     .modal-asistente-recepcion-header h2 {
         overflow: hidden;
-        font-size: 18px;
+        font-size:var(--ui-fs-18, 18px);
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -1830,7 +1830,7 @@ body.asistente-recepcion-abierto {
     background: #fff1f1;
     color: #d71920;
 
-    font-size: 19px;
+    font-size:var(--ui-fs-19, 19px);
 }
 
 .submodal-recepcion-header span {
@@ -1838,7 +1838,7 @@ body.asistente-recepcion-abierto {
 
     color: #d71920;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -1848,7 +1848,7 @@ body.asistente-recepcion-abierto {
 
     color: #202124;
 
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 .submodal-recepcion-cuerpo {
@@ -1860,7 +1860,7 @@ body.asistente-recepcion-abierto {
 
     color: #6b7280;
 
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.6;
 }
 
@@ -1871,7 +1871,7 @@ body.asistente-recepcion-abierto {
 
     color: #202124;
 
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
 }
 
@@ -1885,7 +1885,7 @@ body.asistente-recepcion-abierto {
     border-radius: 9px;
 
     font-family: inherit;
-    font-size: 14px;
+    font-size:var(--ui-fs-14, 14px);
 
     box-sizing: border-box;
 }
@@ -2165,13 +2165,13 @@ body.asistente-recepcion-abierto {
 .recepcion-reciente-contenido time {
     display: block;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .recepcion-reciente-contenido h4 {
     margin: 2px 0;
     color: var(--rec-texto);
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .recepcion-reciente-contenido time {
@@ -2183,7 +2183,7 @@ body.asistente-recepcion-abierto {
     display: block;
     margin-top: 2px;
     color: var(--rec-texto);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .metricas-recepcion-reciente {
@@ -2203,14 +2203,14 @@ body.asistente-recepcion-abierto {
 .metricas-recepcion-reciente span {
     display: block;
     color: var(--rec-secundario);
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
 }
 
 .metricas-recepcion-reciente strong {
     display: block;
     overflow: hidden;
     color: var(--rec-texto);
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -2221,7 +2221,7 @@ body.asistente-recepcion-abierto {
     gap: 7px 14px;
     margin-top: 9px;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .recepcion-reciente-contenido > footer div {
@@ -2318,7 +2318,7 @@ body.asistente-recepcion-abierto {
     display: block;
 
     color: var(--rec-secundario);
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
 }
 
 
@@ -2330,7 +2330,7 @@ body.asistente-recepcion-abierto {
     overflow: hidden;
 
     color: var(--rec-texto);
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.25;
 
     text-overflow: ellipsis;
@@ -2344,7 +2344,7 @@ body.asistente-recepcion-abierto {
     overflow: hidden;
 
     color: var(--rec-secundario);
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2359,7 +2359,7 @@ body.asistente-recepcion-abierto {
 
     border-radius: 999px;
 
-    font-size: 7px;
+    font-size:var(--ui-fs-7, 7px);
     font-weight: 700;
 }
 
@@ -2399,7 +2399,7 @@ body.asistente-recepcion-abierto {
     overflow: hidden;
 
     color: var(--rec-secundario);
-    font-size: 7px;
+    font-size:var(--ui-fs-7, 7px);
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2415,7 +2415,7 @@ body.asistente-recepcion-abierto {
     margin-top: 1px;
 
     color: var(--rec-texto);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2449,7 +2449,7 @@ body.asistente-recepcion-abierto {
     background: #f0f3f6;
 
     color: var(--rec-secundario);
-    font-size: 7px;
+    font-size:var(--ui-fs-7, 7px);
 }
 
 
@@ -2468,7 +2468,7 @@ body.asistente-recepcion-abierto {
 
     border-radius: 8px;
 
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     white-space: nowrap;
 }
 
@@ -2555,14 +2555,14 @@ body.asistente-recepcion-abierto {
 
 
     .recepcion-encabezado-modulo span {
-        font-size: 8px;
+        font-size:var(--ui-fs-8, 8px);
     }
 
 
     .recepcion-encabezado-modulo h2 {
         margin: 3px 0 4px;
 
-        font-size: 18px;
+        font-size:var(--ui-fs-18, 18px);
         line-height: 1.18;
     }
 
@@ -2570,7 +2570,7 @@ body.asistente-recepcion-abierto {
     .recepcion-encabezado-modulo p {
         margin: 0;
 
-        font-size: 10px;
+        font-size:var(--ui-fs-10, 10px);
         line-height: 1.35;
     }
 
@@ -2608,7 +2608,7 @@ body.asistente-recepcion-abierto {
     #btnNuevaRecepcion i {
         margin: 0;
 
-        font-size: 18px;
+        font-size:var(--ui-fs-18, 18px);
     }
 
 
@@ -2659,7 +2659,7 @@ body.asistente-recepcion-abierto {
 
     .recepcion-encabezado span{
 
-        font-size:10px;
+        font-size:var(--ui-fs-10, 10px);
 
     }
 
@@ -2668,7 +2668,7 @@ body.asistente-recepcion-abierto {
         margin-top:4px;
         margin-bottom:6px;
 
-        font-size:30px;
+        font-size:var(--ui-fs-30, 30px);
         line-height:1.1;
 
     }
@@ -2677,7 +2677,7 @@ body.asistente-recepcion-abierto {
 
         margin:0;
 
-        font-size:13px;
+        font-size:var(--ui-fs-13, 13px);
         line-height:1.4;
 
         max-width:260px;
@@ -2718,7 +2718,7 @@ body.asistente-recepcion-abierto {
 
         margin:0;
 
-        font-size:22px;
+        font-size:var(--ui-fs-22, 22px);
 
     }
 
@@ -2753,7 +2753,7 @@ body.asistente-recepcion-abierto {
 
 
 .campo-hora-inicio-recepcion label {
-    font-size: 14px;
+    font-size:var(--ui-fs-14, 14px);
     font-weight: 700;
     color: #202124;
 }
@@ -2771,7 +2771,7 @@ body.asistente-recepcion-abierto {
     background: #f8f9fb;
 
     font-family: inherit;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     font-weight: 700;
     color: #202124;
 
@@ -2794,7 +2794,7 @@ body.asistente-recepcion-abierto {
 
 
 .campo-hora-inicio-recepcion small {
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.45;
     color: #73777f;
 }
@@ -2834,7 +2834,7 @@ body.asistente-recepcion-abierto {
 
     .campo-hora-inicio-recepcion input[type="time"] {
         min-height: 48px;
-        font-size: 16px;
+        font-size:var(--ui-fs-16, 16px);
     }
 
 
@@ -2867,13 +2867,13 @@ body.asistente-recepcion-abierto {
 
 .recepcion-materiales .recepcion-encabezado h2 {
     margin: 0;
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
     line-height: 1.15;
 }
 
 .recepcion-materiales .recepcion-encabezado p {
     margin: 4px 0 0;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.3;
 }
 
@@ -2884,7 +2884,7 @@ body.asistente-recepcion-abierto {
         min-height: 34px;
         padding: 0 14px;
         border-radius: 8px;
-        font-size: 11px;
+        font-size:var(--ui-fs-11, 11px);
     }
 
 }
@@ -2916,7 +2916,7 @@ body.asistente-recepcion-abierto {
 
     .recepcion-materiales .recepcion-encabezado h2 {
         margin: 0;
-        font-size: 20px;
+        font-size:var(--ui-fs-20, 20px);
         line-height: 1.15;
     }
 
@@ -3014,26 +3014,26 @@ body.asistente-recepcion-abierto {
     border-radius: 16px;
     background: #fff4dc;
     color: #a66b00;
-    font-size: 25px;
+    font-size:var(--ui-fs-25, 25px);
 }
 
 .recepcion-en-curso-etiqueta {
     color: var(--rec-rojo);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     text-transform: uppercase;
 }
 
 .recepcion-material-en-curso h3 {
     margin: 5px 0 14px;
-    font-size: 20px;
+    font-size:var(--ui-fs-20, 20px);
 }
 
 .recepcion-material-en-curso > p {
     max-width: 620px;
     margin: 14px auto;
     color: var(--rec-secundario);
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.6;
 }
 
@@ -3050,13 +3050,13 @@ body.asistente-recepcion-abierto {
 }
 
 .recepcion-en-curso-material strong {
-    font-size: 16px;
+    font-size:var(--ui-fs-16, 16px);
 }
 
 .recepcion-en-curso-material span,
 .recepcion-en-curso-datos span {
     color: var(--rec-secundario);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .recepcion-en-curso-datos {
@@ -3086,7 +3086,7 @@ body.asistente-recepcion-abierto {
 
 .alerta-cierre-produccion > i {
     color: #d98b00;
-    font-size: 18px;
+    font-size:var(--ui-fs-18, 18px);
     margin-top: 2px;
 }
 
@@ -3098,12 +3098,12 @@ body.asistente-recepcion-abierto {
 .alerta-cierre-produccion strong {
     margin-bottom: 4px;
     color: #7a5100;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .alerta-cierre-produccion span {
     color: #765f32;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.5;
 }
 
@@ -3133,7 +3133,7 @@ body.asistente-recepcion-abierto {
     padding: 0 54px;
     pointer-events: none;
     color: #5f6368;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 800;
     text-align: center;
 }
@@ -3198,7 +3198,7 @@ body.asistente-recepcion-abierto {
 
     .deslizador-finalizar-texto {
         padding: 0 48px;
-        font-size: 10px;
+        font-size:var(--ui-fs-10, 10px);
     }
 }
 
@@ -3237,7 +3237,7 @@ body.asistente-recepcion-abierto {
     display: block;
     overflow: hidden;
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 800;
     text-overflow: ellipsis;
     text-transform: uppercase;
@@ -3249,7 +3249,7 @@ body.asistente-recepcion-abierto {
     margin-top: 2px;
     overflow: hidden;
     color: var(--rec-texto);
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -3271,7 +3271,7 @@ body.asistente-recepcion-abierto {
 .vr-grafica h3 {
     margin: 0 0 6px;
     color: var(--rec-texto);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .vr-grafica-barras {
@@ -3291,7 +3291,7 @@ body.asistente-recepcion-abierto {
 .vr-grafica-fila > span {
     overflow: hidden;
     color: var(--rec-secundario);
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3313,13 +3313,13 @@ body.asistente-recepcion-abierto {
 
 .vr-grafica-fila > strong {
     color: var(--rec-texto);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     text-align: right;
 }
 
 .vr-grafica-vacia {
     color: var(--rec-secundario);
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .vr-estado.correccion {
@@ -3347,13 +3347,13 @@ body.asistente-recepcion-abierto {
 }
 
 .vr-resultado-listado span {
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 800;
     text-transform: uppercase;
 }
 
 .vr-resultado-listado strong {
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .vr-resultado-listado.correccion {
@@ -3532,7 +3532,7 @@ body.asistente-recepcion-abierto {
     display: -webkit-box;
     margin: 2px 0;
     overflow: hidden;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
@@ -3638,7 +3638,7 @@ body.asistente-recepcion-abierto {
     border: 1px solid #d9dee5;
     border-radius: 9px;
     background: #fff;
-    font: 600 10px "Poppins", sans-serif;
+    font: 600 var(--ui-fs-10, 10px) "Poppins", sans-serif;
     color: #3f3f46;
 }
 
@@ -3663,7 +3663,7 @@ body.asistente-recepcion-abierto {
     gap: 6px;
     margin: 0 0 6px;
     color: #52525b;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
 }
 
@@ -3712,26 +3712,26 @@ body.asistente-recepcion-abierto {
 
 .historico-recepciones-controles > div > span {
     color: #ed1b2f;
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 800;
 }
 
 .historico-recepciones-controles h3 {
     margin-top: 2px;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
 }
 
 .historico-recepciones-controles p {
     margin-top: 3px;
     color: #71717a;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .historico-recepciones-controles label > span {
     display: block;
     margin-bottom: 4px;
     color: #71717a;
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -3742,7 +3742,7 @@ body.asistente-recepcion-abierto {
     border: 1px solid #d9dee5;
     border-radius: 9px;
     background: #fff;
-    font: 600 10px "Poppins", sans-serif;
+    font: 600 var(--ui-fs-10, 10px) "Poppins", sans-serif;
 }
 
 .lista-historico-recepciones {
@@ -3765,7 +3765,7 @@ body.asistente-recepcion-abierto {
     border-radius: 8px;
     background: #fff2cc;
     color: #8a5a00;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     letter-spacing: .4px;
 }
@@ -3778,7 +3778,7 @@ body.asistente-recepcion-abierto {
 .historico-grupo-mes {
     padding: 5px 4px;
     color: #18181b;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 800;
     text-transform: capitalize;
 }
@@ -3789,7 +3789,7 @@ body.asistente-recepcion-abierto {
     gap: 8px;
     margin: 5px 0;
     color: #71717a;
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -3822,21 +3822,21 @@ body.asistente-recepcion-abierto {
 
 .fila-historico-identidad span {
     color: #71717a;
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 700;
 }
 
 .fila-historico-identidad strong {
     margin: 2px 0;
     overflow: hidden;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .fila-historico-identidad small {
     color: #8b929c;
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
 }
 
 .fila-historico-estado {
@@ -3844,7 +3844,7 @@ body.asistente-recepcion-abierto {
     border-radius: 999px;
     background: #fff2cc;
     color: #8a5a00;
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 800;
 }
 
@@ -3866,14 +3866,14 @@ body.asistente-recepcion-abierto {
 
 .fila-historico-metrica span {
     color: #71717a;
-    font-size: 7px;
+    font-size:var(--ui-fs-7, 7px);
     font-weight: 700;
     text-transform: uppercase;
 }
 
 .fila-historico-metrica strong {
     margin-top: 2px;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .historico-recepciones-pie {
@@ -3882,7 +3882,7 @@ body.asistente-recepcion-abierto {
     justify-content: space-between;
     min-height: 42px;
     color: #71717a;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 @media (max-width: 980px) {
@@ -4012,7 +4012,7 @@ body.asistente-recepcion-abierto {
     }
 
     .vr-lista.vista-filas .vr-tarjeta-datos strong {
-        font-size: 11px;
+        font-size:var(--ui-fs-11, 11px);
     }
 }
 

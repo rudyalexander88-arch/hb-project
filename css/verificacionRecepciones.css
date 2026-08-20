@@ -24,7 +24,7 @@
 .vr-eyebrow{
     display:inline-block;
     margin-bottom:6px;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:800;
     letter-spacing:.08em;
     text-transform:uppercase;
@@ -33,7 +33,7 @@
 
 .vr-encabezado h2{
     margin:0;
-    font-size:26px;
+    font-size:var(--ui-fs-26, 26px);
     line-height:1.15;
     color:#222;
 }
@@ -56,14 +56,14 @@
 
 .vr-encabezado-resumen span{
     display:block;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     color:#777;
 }
 
 .vr-encabezado-resumen strong{
     display:block;
     margin-top:4px;
-    font-size:28px;
+    font-size:var(--ui-fs-28, 28px);
     line-height:1;
     color:#222;
 }
@@ -76,7 +76,7 @@
     border-radius:14px;
     background:#fff8e9;
     color:#715419;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .vr-lista{
@@ -110,13 +110,13 @@
     border-radius:999px;
     background:#f2f2f2;
     color:#444;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:800;
 }
 
 .vr-tarjeta h3{
     margin:8px 0 4px;
-    font-size:16px;
+    font-size:var(--ui-fs-16, 16px);
     color:#222;
 }
 
@@ -130,7 +130,7 @@
     min-height:28px;
     padding:5px 10px;
     border-radius:999px;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:800;
     white-space:nowrap;
 }
@@ -156,7 +156,7 @@
 .vr-tarjeta-datos span,
 .vr-grid-resumen span{
     display:block;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     color:#7b7b7b;
 }
 
@@ -164,7 +164,7 @@
 .vr-grid-resumen strong{
     display:block;
     margin-top:4px;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     color:#222;
 }
 
@@ -178,7 +178,7 @@
     justify-content:center;
     gap:8px;
     font-family:inherit;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight:800;
     cursor:pointer;
     transition:.18s ease;
@@ -219,7 +219,7 @@
 }
 
 .vr-vacio i{
-    font-size:30px;
+    font-size:var(--ui-fs-30, 30px);
 }
 
 .vr-vacio.exito i{
@@ -271,7 +271,7 @@ body.vr-modal-abierto{
 }
 
 .vr-modal-header span{
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:800;
     letter-spacing:.08em;
     text-transform:uppercase;
@@ -280,7 +280,7 @@ body.vr-modal-abierto{
 
 .vr-modal-header h2{
     margin:3px 0 0;
-    font-size:20px;
+    font-size:var(--ui-fs-20, 20px);
     color:#222;
 }
 
@@ -321,14 +321,14 @@ body.vr-modal-abierto{
 
 .vr-resumen-material h3{
     margin:0;
-    font-size:18px;
+    font-size:var(--ui-fs-18, 18px);
     color:#222;
 }
 
 .vr-resumen-material p{
     margin:4px 0 0;
     color:#777;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .vr-grid-resumen{
@@ -345,7 +345,7 @@ body.vr-modal-abierto{
 .vr-colaboradores > span{
     display:block;
     margin-bottom:8px;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:700;
     color:#666;
 }
@@ -364,7 +364,7 @@ body.vr-modal-abierto{
     border-radius:999px;
     background:#f2f4f5;
     color:#444;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:700;
 }
 
@@ -392,14 +392,14 @@ body.vr-modal-abierto{
 
 .vr-bloque-titulo h3{
     margin:0;
-    font-size:16px;
+    font-size:var(--ui-fs-16, 16px);
     color:#222;
 }
 
 .vr-bloque-titulo p{
     margin:4px 0 0;
     color:#777;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .vr-grid-form{
@@ -417,7 +417,7 @@ body.vr-modal-abierto{
 
 .vr-grid-form label > span,
 .vr-campo-cantidad > span{
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:700;
     color:#555;
 }
@@ -432,7 +432,7 @@ body.vr-modal-abierto{
     border-radius:11px;
     padding:11px 12px;
     font-family:inherit;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     background:#fff;
     outline:none;
 }
@@ -464,7 +464,7 @@ body.vr-modal-abierto{
 
 .vr-campo-cantidad.automatico strong{
     margin-top:auto;
-    font-size:26px;
+    font-size:var(--ui-fs-26, 26px);
     color:#222;
 }
 
@@ -478,7 +478,7 @@ body.vr-modal-abierto{
 
 .vr-campo-cantidad input{
     margin-top:auto;
-    font-size:22px;
+    font-size:var(--ui-fs-22, 22px);
     font-weight:800;
     text-align:center;
 }
@@ -498,7 +498,7 @@ body.vr-modal-abierto{
     background:#f7f8f9;
     color:#777;
     text-align:center;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .vr-diferencias-grid{
@@ -516,14 +516,14 @@ body.vr-modal-abierto{
 
 .vr-diferencias-grid span{
     display:block;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     color:#777;
 }
 
 .vr-diferencias-grid strong{
     display:block;
     margin-top:4px;
-    font-size:16px;
+    font-size:var(--ui-fs-16, 16px);
     color:#222;
 }
 
@@ -567,7 +567,7 @@ body.vr-modal-abierto{
 }
 
 .vr-diagnostico-contenido > span{
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:800;
     text-transform:uppercase;
     letter-spacing:.06em;
@@ -576,13 +576,13 @@ body.vr-modal-abierto{
 
 .vr-diagnostico-contenido h3{
     margin:3px 0 4px;
-    font-size:18px;
+    font-size:var(--ui-fs-18, 18px);
 }
 
 .vr-diagnostico-contenido p{
     margin:0;
     color:#555;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height:1.5;
 }
 
@@ -601,14 +601,14 @@ body.vr-modal-abierto{
 
 .vr-diagnostico-numeros span{
     display:block;
-    font-size:10px;
+    font-size:var(--ui-fs-10, 10px);
     color:#777;
 }
 
 .vr-diagnostico-numeros strong{
     display:block;
     margin-top:3px;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .vr-seguimiento{
@@ -618,7 +618,7 @@ body.vr-modal-abierto{
     margin-top:10px;
     padding-top:10px;
     border-top:1px solid rgba(0,0,0,.08);
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .vr-acciones{
@@ -657,7 +657,7 @@ body.vr-modal-abierto{
     }
 
     .vr-encabezado h2{
-        font-size:21px;
+        font-size:var(--ui-fs-21, 21px);
     }
 
     .vr-encabezado-resumen{

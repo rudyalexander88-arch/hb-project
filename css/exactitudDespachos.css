@@ -99,14 +99,14 @@
     margin: 0;
 
     color: var(--ex-azul);
-    font-size: 27px;
+    font-size:var(--ui-fs-27, 27px);
 }
 
 .card-exactitud-despachos .titulo-card-exactitud {
     margin: 0 0 9px;
 
     color: #333333;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     font-weight: 600;
     line-height: 1.35;
     text-align: center;
@@ -116,7 +116,7 @@
     margin: 0 0 7px;
 
     color: #1f1f1f;
-    font-size: 32px;
+    font-size:var(--ui-fs-32, 32px);
     font-weight: 700;
     line-height: 1.1;
     text-align: center;
@@ -130,7 +130,7 @@
     overflow: hidden;
 
     color: #5f6368;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 500;
     line-height: 1.45;
     text-align: center;
@@ -158,7 +158,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
     line-height: 1;
 
@@ -272,7 +272,7 @@
     margin-bottom: 5px;
 
     color: var(--ex-texto-secundario);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 500;
 }
 
@@ -282,7 +282,7 @@
     overflow: hidden;
 
     color: var(--ex-texto);
-    font-size: 18px;
+    font-size:var(--ui-fs-18, 18px);
     font-weight: 700;
     line-height: 1.2;
 
@@ -325,7 +325,7 @@
     margin-bottom: 6px;
 
     color: #52575c;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
 }
 
@@ -344,7 +344,7 @@
     color: #333333;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 
     box-sizing: border-box;
     outline: none;
@@ -375,7 +375,7 @@
     background: #fafafa;
     color: #555b60;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 500;
 
     box-sizing: border-box;
@@ -414,7 +414,7 @@
     border-radius: 8px;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
     line-height: 1;
 
@@ -427,7 +427,7 @@
 }
 
 .btn-exactitud i {
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .btn-exactitud.principal {
@@ -501,7 +501,7 @@
     margin-bottom: 9px;
 
     color: #777d82;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .lista-conduces-exactitud {
@@ -550,7 +550,7 @@
     margin-bottom: 3px;
 
     color: #8a9095;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .fila-conduce-exactitud strong {
@@ -559,7 +559,7 @@
     overflow: hidden;
 
     color: #292d31;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 650;
 
     text-overflow: ellipsis;
@@ -587,7 +587,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
     line-height: 1;
 
@@ -677,16 +677,16 @@
 
 .vacio-exactitud i {
     color: var(--ex-rojo);
-    font-size: 26px;
+    font-size:var(--ui-fs-26, 26px);
 }
 
 .vacio-exactitud strong {
     color: #555b60;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .vacio-exactitud span {
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 
@@ -730,7 +730,7 @@
     margin-bottom: 3px;
 
     color: #868c91;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .encabezado-asistente-verificacion strong {
@@ -739,7 +739,7 @@
     overflow: hidden;
 
     color: var(--ex-texto);
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
 
     text-overflow: ellipsis;
@@ -767,7 +767,7 @@
     background: #f0f1f2;
     color: #555b60;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
     white-space: nowrap;
 }
@@ -815,7 +815,7 @@
     color: var(--ex-azul);
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 
     cursor: pointer;
@@ -878,14 +878,14 @@
     margin-bottom: 4px;
 
     color: #80868b;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .kpi-asistente-verificacion strong {
     display: block;
 
     color: var(--ex-texto);
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     font-weight: 700;
 }
 
@@ -903,7 +903,7 @@
     background: #eef6fd;
     color: #315169;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     line-height: 1.45;
 }
 
@@ -1005,7 +1005,7 @@
 
 .identidad-material-verificacion strong {
     color: #25292d;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 700;
 }
 
@@ -1015,7 +1015,7 @@
     overflow: hidden;
 
     color: #555b60;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1025,7 +1025,7 @@
     margin-top: 3px;
 
     color: #8b9196;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .resumen-linea-material {
@@ -1038,7 +1038,7 @@
     min-width: 0;
 
     color: #858b90;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .resumen-linea-material strong {
@@ -1048,7 +1048,7 @@
     overflow: hidden;
 
     color: #2a2e32;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
 
     text-overflow: ellipsis;
@@ -1068,7 +1068,7 @@
     background: #f1f2f3;
     color: #666c71;
 
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
     text-align: center;
     white-space: nowrap;
@@ -1101,7 +1101,7 @@
 
 .cabecera-desplegable-material > i {
     color: #747a7f;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .contenido-material-verificacion {
@@ -1140,7 +1140,7 @@
     margin-bottom: 5px;
 
     color: #5b6166;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 600;
 }
 
@@ -1162,7 +1162,7 @@
     color: #303438;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 
     box-sizing: border-box;
     outline: none;
@@ -1222,12 +1222,12 @@
 
 .detalle-resultado-material span {
     color: #747a7f;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .detalle-resultado-material strong {
     color: #2a2e32;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .acciones-material-verificacion {
@@ -1255,7 +1255,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 
     cursor: pointer;
@@ -1294,13 +1294,13 @@
 
 .acciones-verificacion-masiva strong {
     color: #25282c;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .acciones-verificacion-masiva span {
     margin-top: 3px;
     color: #747a7f;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .btn-guardar-verificacion-masiva {
@@ -1316,7 +1316,7 @@
     color: #fff;
     background: var(--ex-rojo);
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     cursor: pointer;
     box-shadow: 0 5px 13px rgba(237, 27, 47, 0.2);
@@ -1350,19 +1350,19 @@
     border-radius: 50%;
     color: #b96b00;
     background: #fff1d8;
-    font-size: 18px;
+    font-size:var(--ui-fs-18, 18px);
 }
 
 .dialogo-correccion-contenido h3 {
     margin: 0;
     color: #202327;
-    font-size: 18px;
+    font-size:var(--ui-fs-18, 18px);
 }
 
 .dialogo-correccion-contenido p {
     margin: 7px 0 19px;
     color: #666d75;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .dialogo-correccion-acciones {
@@ -1379,7 +1379,7 @@
     color: #fff;
     background: var(--ex-rojo);
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     cursor: pointer;
 }
@@ -1431,7 +1431,7 @@
     margin-bottom: 10px;
 
     color: #9d5600;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 }
 
@@ -1466,7 +1466,7 @@
     background: #ffffff;
     color: #6a4c28;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
 }
 
@@ -1508,7 +1508,7 @@
     margin-bottom: 3px;
 
     color: var(--ex-azul);
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -1518,13 +1518,13 @@
     display: block;
 
     color: #2f3f4d;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 }
 
 .encabezado-correccion-general > i {
     color: var(--ex-azul);
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .campos-correccion-general {
@@ -1541,7 +1541,7 @@
     margin-top: 5px;
 
     color: #6e7881;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     line-height: 1.4;
 }
 
@@ -1559,7 +1559,7 @@
 
 .pie-correccion-general > span {
     color: #596a78;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
 }
 
@@ -1581,7 +1581,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 
     cursor: pointer;
@@ -1723,15 +1723,15 @@
     }
 
     .card-exactitud-despachos .titulo-card-exactitud {
-        font-size: 13px;
+        font-size:var(--ui-fs-13, 13px);
     }
 
     .card-exactitud-despachos #valorExactitudDespachos {
-        font-size: 28px;
+        font-size:var(--ui-fs-28, 28px);
     }
 
     .card-exactitud-despachos .resumen-card-exactitud {
-        font-size: 10px;
+        font-size:var(--ui-fs-10, 10px);
         white-space: normal;
     }
 
@@ -1883,7 +1883,7 @@
     }
 
     .kpi-exactitud strong {
-        font-size: 15px;
+        font-size:var(--ui-fs-15, 15px);
     }
 
     .resumen-linea-material {
@@ -1933,7 +1933,7 @@
 .encabezado-cruce-material span {
     display: block;
     color: #e36a00;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -1942,12 +1942,12 @@
     display: block;
     margin-top: 3px;
     color: #4a4a4a;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .encabezado-cruce-material > i {
     color: #ef7d00;
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .buscador-cruce-material {
@@ -1959,7 +1959,7 @@
     display: block;
     margin-bottom: 5px;
     color: #444;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 }
 
@@ -2063,7 +2063,7 @@
 .datos-material-cruce span {
     display: block;
     color: #777777;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .datos-material-cruce strong {
@@ -2071,7 +2071,7 @@
     margin-top: 3px;
     overflow: hidden;
     color: #252525;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -2091,7 +2091,7 @@
     border-radius: 8px;
     background: #eef6ff;
     color: #40617d;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     line-height: 1.4;
 }
 
@@ -2144,7 +2144,7 @@
     border-radius: 50%;
     background: #e9f7ed;
     color: #22863a;
-    font-size: 34px;
+    font-size:var(--ui-fs-34, 34px);
 }
 
 
@@ -2158,7 +2158,7 @@
     display: inline-block;
     margin-bottom: 5px;
     color: #22863a;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 800;
     letter-spacing: 0.35px;
     text-transform: uppercase;
@@ -2167,14 +2167,14 @@
 .resultado-correccion-encabezado h3 {
     margin: 0;
     color: #202124;
-    font-size: 24px;
+    font-size:var(--ui-fs-24, 24px);
     font-weight: 800;
 }
 
 .resultado-correccion-encabezado p {
     margin: 8px 0 0;
     color: #666;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.55;
 }
 
@@ -2202,7 +2202,7 @@
     display: block;
     margin-bottom: 5px;
     color: #777;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
 }
 
@@ -2210,7 +2210,7 @@
     display: block;
     overflow: hidden;
     color: #242424;
-    font-size: 16px;
+    font-size:var(--ui-fs-16, 16px);
     font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2234,7 +2234,7 @@
 .resultado-correccion-archivo > i {
     flex: 0 0 auto;
     color: #d71920;
-    font-size: 28px;
+    font-size:var(--ui-fs-28, 28px);
 }
 
 .resultado-correccion-archivo div {
@@ -2245,14 +2245,14 @@
     display: block;
     margin-bottom: 3px;
     color: #777;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .resultado-correccion-archivo strong {
     display: block;
     overflow: hidden;
     color: #292929;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2281,7 +2281,7 @@
 }
 
 .resultado-correccion-nota span {
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.5;
 }
 
@@ -2308,7 +2308,7 @@
     border: none;
     border-radius: 8px;
     font-family: inherit;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 800;
     line-height: 1;
     cursor: pointer;
@@ -2320,7 +2320,7 @@
 
 .btn-resultado-correccion i {
     color: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .btn-resultado-correccion:hover {
@@ -2374,11 +2374,11 @@
     .resultado-correccion-icono {
         width: 58px;
         height: 58px;
-        font-size: 29px;
+        font-size:var(--ui-fs-29, 29px);
     }
 
     .resultado-correccion-encabezado h3 {
-        font-size: 20px;
+        font-size:var(--ui-fs-20, 20px);
     }
 
     .resultado-correccion-resumen {

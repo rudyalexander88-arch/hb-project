@@ -27,7 +27,7 @@
     display: inline-block;
     margin-bottom: 5px;
     color: #d71920;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -35,14 +35,18 @@
 
 .inicio-operativo-bienvenida h2 {
     margin: 0 0 6px;
-    font-size: clamp(22px, 3vw, 30px);
+    font-size: clamp(
+        var(--ui-fs-22, 22px),
+        3vw,
+        var(--ui-fs-30, 30px)
+    );
     line-height: 1.2;
 }
 
 .inicio-operativo-bienvenida p {
     margin: 0;
     color: #6b7280;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .inicio-operativo-fecha {
@@ -55,7 +59,7 @@
     background: #ffffff;
     border: 1px solid #eceff2;
     color: #4b5563;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 }
 
@@ -89,7 +93,7 @@
     border-radius: 14px;
     background: #fff1f2;
     color: #d71920;
-    font-size: 21px;
+    font-size:var(--ui-fs-21, 21px);
 }
 
 .inicio-card-horas-extra .inicio-card-icono {
@@ -104,13 +108,13 @@
 
 .inicio-card h3 {
     margin: 0 0 5px;
-    font-size: 19px;
+    font-size:var(--ui-fs-19, 19px);
 }
 
 .inicio-card p {
     margin: 0;
     color: #6b7280;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.55;
 }
 
@@ -123,14 +127,14 @@
 }
 
 .inicio-card-resumen strong {
-    font-size: 26px;
+    font-size:var(--ui-fs-26, 26px);
     color: #111827;
 }
 
 .inicio-card-resumen span,
 .inicio-card-resumen small {
     color: #6b7280;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .inicio-card-resumen small {
@@ -154,7 +158,7 @@
     background: #d71920;
     color: #ffffff;
     font-family: inherit;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight: 700;
     cursor: pointer;
     transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
@@ -184,7 +188,7 @@
 .he-btn.mini {
     min-height: 34px;
     padding: 7px 11px;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .he-btn:disabled {
@@ -228,13 +232,13 @@
 
 .he-seccion-encabezado h3 {
     margin: 0 0 4px;
-    font-size: 20px;
+    font-size:var(--ui-fs-20, 20px);
 }
 
 .he-seccion-encabezado p {
     margin: 0;
     color: #6b7280;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.5;
 }
 
@@ -260,7 +264,7 @@
     align-items: center;
     gap: 8px;
     color: #4b5563;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .he-jornada-fecha i {
@@ -269,7 +273,7 @@
 
 .he-jornada-card h4 {
     margin: 0;
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 .he-jornada-datos {
@@ -277,7 +281,7 @@
     flex-direction: column;
     gap: 7px;
     color: #6b7280;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .he-jornada-datos span {
@@ -321,13 +325,13 @@
 
 .he-mi-jornada h4 {
     margin: 4px 0 6px;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
 }
 
 .he-mi-jornada p {
     margin: 0;
     color: #6b7280;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .he-estado {
@@ -338,7 +342,7 @@
     border-radius: 999px;
     background: #f3f4f6;
     color: #4b5563;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     letter-spacing: .03em;
     text-transform: uppercase;
@@ -347,7 +351,7 @@
 .he-horas-turno {
     white-space: nowrap;
     color: #374151;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 700;
 }
 
@@ -362,7 +366,7 @@
     border-radius: 9px;
     background: #f8fafc;
     color: #6b7280;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .he-mi-jornada-marcajes strong {
@@ -390,12 +394,12 @@
 
 .he-vacio i {
     color: #d71920;
-    font-size: 25px;
+    font-size:var(--ui-fs-25, 25px);
 }
 
 .he-vacio span {
     max-width: 520px;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .he-vacio.error i {
@@ -418,7 +422,7 @@
     flex-direction: column;
     gap: 6px;
     color: #4b5563;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
 }
 
@@ -432,7 +436,7 @@
     background: #ffffff;
     color: #111827;
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     outline: none;
 }
 
@@ -458,12 +462,12 @@
 
 .he-programa-gestion > header span {
     color: #6b7280;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .he-programa-gestion > header h4 {
     margin: 2px 0 0;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
 }
 
 .he-programa-resumen {
@@ -474,7 +478,7 @@
 }
 
 .he-programa-resumen strong {
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .he-tabla-wrap {
@@ -494,13 +498,13 @@
     border-bottom: 1px solid #eef0f3;
     text-align: left;
     vertical-align: middle;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .he-tabla th {
     background: #ffffff;
     color: #6b7280;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
     text-transform: uppercase;
 }
@@ -600,14 +604,14 @@
     height: 52px;
     border-radius: 14px;
     background: #fff0d5;
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
     color: #e31b23;
 }
 
 .inicio-aniversario span {
     display: block;
     margin-bottom: 3px;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: #e31b23;
@@ -615,14 +619,14 @@
 
 .inicio-aniversario h3 {
     margin: 0 0 4px;
-    font-size: 18px;
+    font-size:var(--ui-fs-18, 18px);
     line-height: 1.25;
     color: #161616;
 }
 
 .inicio-aniversario p {
     margin: 0;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.5;
     color: #62666d;
 }
@@ -638,10 +642,10 @@
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        font-size: 18px;
+        font-size:var(--ui-fs-18, 18px);
     }
 
     .inicio-aniversario h3 {
-        font-size: 16px;
+        font-size:var(--ui-fs-16, 16px);
     }
 }

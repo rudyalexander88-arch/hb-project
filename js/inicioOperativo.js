@@ -332,14 +332,24 @@ window.InicioOperativo = {
                         puedeGestionarAsistencia
                             ? `
                                 <article class="inicio-card inicio-card-asistencia">
+                                    ${
+                                        AsistenciaPersonal.puedeGestionar()
+                                            ? `<button type="button" class="inicio-personal-extra" id="btnTrabajoExtraInicio">
+                                                <i class="fa-solid fa-clock"></i> ${AsistenciaPersonal.puedeCrearExtras() ? "Registrar trab. extra" : "Asignar trab. extra"}
+                                               </button>`
+                                            : ""
+                                    }
                                     <div class="inicio-card-encabezado">
                                         <div class="inicio-card-icono"><i class="fa-solid fa-user-check"></i></div>
-                                        <div><span class="inicio-card-etiqueta">Gestión del personal</span><h3>Asistencia</h3></div>
+                                        <div><span class="inicio-card-etiqueta">Centro operativo</span><h3>Gestión del personal</h3></div>
                                     </div>
-                                    <p>Registre asistencia, novedades, vacaciones y amonestaciones.</p>
-                                    <button type="button" class="inicio-card-boton" id="btnAsistenciaInicio">
-                                        <i class="fa-solid fa-arrow-right"></i> Gestionar asistencia
-                                    </button>
+                                    <p>Registre asistencia, vacaciones, beneficios y novedades disciplinarias.</p>
+                                    <div class="inicio-personal-accesos">
+                                        <button type="button" id="btnAsistenciaInicio"><i class="fa-solid fa-calendar-check"></i> Asistencia</button>
+                                        <button type="button" id="btnVacacionesInicio"><i class="fa-solid fa-umbrella-beach"></i> Vacaciones</button>
+                                        <button type="button" id="btnBonoInicio"><i class="fa-solid fa-face-smile"></i> Bono</button>
+                                        <button type="button" id="btnAmonestacionInicio"><i class="fa-solid fa-file-signature"></i> Amonestación</button>
+                                    </div>
                                 </article>`
                             : ""
                     }
@@ -700,8 +710,19 @@ window.InicioOperativo = {
         }
 
 
-        const botonAsistencia = document.getElementById("btnAsistenciaInicio");
-        if (botonAsistencia) botonAsistencia.addEventListener("click", () => AsistenciaPersonal.abrir());
+        const accesosPersonal = [
+            ["btnAsistenciaInicio","ASISTENCIA"],
+            ["btnVacacionesInicio","VACACIONES"],
+            ["btnBonoInicio","BONO"],
+            ["btnAmonestacionInicio","AMONESTACION"]
+        ];
+        accesosPersonal.forEach(([id,tipo]) => {
+            const boton = document.getElementById(id);
+            if (boton) boton.addEventListener("click", () => AsistenciaPersonal.abrir(tipo));
+        });
+
+        const botonTrabajoExtra = document.getElementById("btnTrabajoExtraInicio");
+        if (botonTrabajoExtra) botonTrabajoExtra.addEventListener("click", () => AsistenciaPersonal.abrirTrabajoExtra());
 
 
         const botonEPP =

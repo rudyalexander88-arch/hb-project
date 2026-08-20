@@ -50,7 +50,7 @@
     border:none;
     border-radius:10px;
 	font-family:inherit;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     font-weight:600;
 
     color:#fff;
@@ -89,7 +89,7 @@
     color:#fff;
 
     font-family:inherit;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     font-weight:600;
 
     cursor:pointer;
@@ -182,7 +182,7 @@
 
 .card-resumen span{
 
-    font-size:34px;
+    font-size:var(--ui-fs-34, 34px);
     font-weight:700;
     color:#D71920;
 
@@ -319,7 +319,7 @@
 
 .modal-header h2{
 
-    font-size:28px;
+    font-size:var(--ui-fs-28, 28px);
     font-weight:600;
 
 }
@@ -329,7 +329,7 @@
     background:none;
     border:none;
     color:white;
-    font-size:28px;
+    font-size:var(--ui-fs-28, 28px);
     cursor:pointer;
 
 }
@@ -444,7 +444,7 @@
 
     font-family:Poppins,sans-serif;
 
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 
     transition:.2s;
 
@@ -644,12 +644,12 @@
 
 .contenedor-tarimas h4{
     margin:0 0 2px;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 #contadorTarimas{
     margin:0;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:700;
     color:#28A745;
 }
@@ -671,7 +671,7 @@
     align-items:center;
     justify-content:center;
 
-    font-size:9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight:700;
 }
 
@@ -784,7 +784,7 @@
 }
 
 .item-sugerencia span{
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
     color:#555;
 }
 
@@ -804,13 +804,13 @@
 .tabla-carga th,
 .tabla-carga td{
     padding: 10px;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     vertical-align: middle;
 }
 
 .tabla-carga small{
     color: #555;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 .fila-seleccionada{
     background:#E9F8EF !important;
@@ -879,13 +879,13 @@
 }
 
 .resumen-carga-bloque span{
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     color:#777;
     text-transform:uppercase;
 }
 
 .resumen-carga-bloque strong{
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
     color:#222;
 }
 
@@ -1025,7 +1025,7 @@
     border-radius:0;
 
     text-align:center;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:600;
 }
 
@@ -1122,7 +1122,7 @@
     }
 
     .pasos-compactos .paso{
-        font-size:14px;
+        font-size:var(--ui-fs-14, 14px);
     }
 
 }
@@ -1136,7 +1136,7 @@
     display:block;
     margin-top:3px;
     color:#F59E0B;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     font-weight:700;
 }
 
@@ -1235,11 +1235,11 @@
 
 #tablaAbiertos td,
 #tablaCerrados td{
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .estado-borrador{
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .fecha-conduce{
@@ -1253,7 +1253,7 @@
 
     color:#fff;
 
-    font-size:15px;
+    font-size:var(--ui-fs-15, 15px);
 
     font-weight:700;
 
@@ -1286,7 +1286,7 @@
 
 #btnNuevoConduce i{
 
-    font-size:22px;
+    font-size:var(--ui-fs-22, 22px);
 
 }
 
@@ -1322,12 +1322,12 @@
 
 .dato-finalizar span{
     color:#777;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .dato-finalizar strong{
     color:#222;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .destino-finalizar{
@@ -1370,7 +1370,7 @@
 }
 
 .campo-temperatura span{
-    font-size:16px;
+    font-size:var(--ui-fs-16, 16px);
     font-weight:700;
     color:#1677c8;
 }
@@ -1405,7 +1405,7 @@
     border:1px solid #ddd;
     border-radius:8px;
 
-    font-size:18px;
+    font-size:var(--ui-fs-18, 18px);
     color:#222;
 }
 
@@ -1440,7 +1440,7 @@
     border-radius:9px;
 
     cursor:pointer;
-    font-size:15px;
+    font-size:var(--ui-fs-15, 15px);
 }
 
 .btn-volver-minimal{
@@ -1510,7 +1510,7 @@
 .estado-despacho{
     display:block;
     margin-top:3px;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     font-weight:700;
 }
 
@@ -1565,7 +1565,7 @@
     border-radius:50%;
 
     color:#fff;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
     line-height:1;
 
     cursor:pointer;
@@ -1633,18 +1633,18 @@
 
 .vista-despacho-titulo span{
     color:#777;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .vista-despacho-titulo strong{
-    font-size:22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .estado-vista-despacho{
     padding:7px 13px;
     border-radius:18px;
     color:#fff !important;
-    font-size:12px !important;
+    font-size:var(--ui-fs-12, 12px) !important;
     font-weight:700;
 }
 
@@ -1672,7 +1672,7 @@
 
 .vista-despacho-tarjeta h3{
     margin:0 0 12px;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .vista-dato{
@@ -1684,11 +1684,11 @@
 
 .vista-dato span{
     color:#777;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .vista-dato strong{
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .vista-destino{
@@ -1719,13 +1719,13 @@
 .vista-resumen-numeros span{
     display:block;
     color:#777;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .vista-resumen-numeros strong{
     display:block;
     margin-top:4px;
-    font-size:18px;
+    font-size:var(--ui-fs-18, 18px);
 }
 
 .vista-documentos-sap{
@@ -1921,7 +1921,7 @@
     border-radius:20px;
 
     color:#fff;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight:700;
 
     box-shadow:0 4px 12px rgba(0,0,0,.16);
@@ -2048,7 +2048,7 @@
 
         border-radius: 999px !important;
 
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
         line-height: 1 !important;
         white-space: nowrap !important;
 
@@ -2083,7 +2083,7 @@
 .estado-conduce{
     display:block;
     margin-top:3px;
-    font-size:9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight:700;
 }
 
@@ -2213,7 +2213,7 @@
     border-radius:15px;
 
     color:#fff;
-    font-size:20px;
+    font-size:var(--ui-fs-20, 20px);
     font-weight:800;
 
     background:#E31B23;
@@ -2223,7 +2223,7 @@
 	padding:5px 9px;
     border-radius:15px;
     color:#777;
-    font-size:22px;
+    font-size:var(--ui-fs-22, 22px);
 	
 }
 
@@ -2290,7 +2290,7 @@
     cursor:pointer;
 
     transition:.25s;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .btn-accion:hover{
@@ -2372,7 +2372,7 @@
     border-radius: 50%;
     background: #fff3e8;
     color: #ef6c00;
-    font-size: 24px;
+    font-size:var(--ui-fs-24, 24px);
 }
 
 .modal-confirmacion-friobox__contenido {
@@ -2383,7 +2383,7 @@
 .modal-confirmacion-friobox__contenido h3 {
     margin: 0 0 12px;
     color: #222222;
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
 }
 
 .modal-confirmacion-friobox__contenido p {
@@ -2413,14 +2413,14 @@
     display: block;
     margin-bottom: 6px;
     color: #888888;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
     text-transform: uppercase;
 }
 
 .modal-confirmacion-friobox__resumen strong {
     color: #333333;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     line-height: 1.5;
     word-break: break-word;
 }
@@ -2553,7 +2553,7 @@
 .estado-carga-inspecciones i,
 .estado-vacio-inspecciones i{
     color:#1677C8;
-    font-size:34px;
+    font-size:var(--ui-fs-34, 34px);
 }
 
 .estado-error-inspecciones i{
@@ -2562,7 +2562,7 @@
 
 .estado-vacio-inspecciones strong{
     color:#333;
-    font-size:17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 .resumen-inspecciones{
@@ -2599,14 +2599,14 @@
 
 .tarjeta-resumen-inspeccion span{
     color:#777;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:700;
     text-transform:uppercase;
 }
 
 .tarjeta-resumen-inspeccion strong{
     color:#222;
-    font-size:25px;
+    font-size:var(--ui-fs-25, 25px);
 }
 
 .tarjeta-resumen-inspeccion.total::before{background:#1677C8;}
@@ -2635,7 +2635,7 @@
 
 .filtro-inspecciones label{
     color:#555;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:700;
 }
 
@@ -2648,7 +2648,7 @@
     border-radius:8px;
     background:#fff;
     font-family:inherit;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .filtro-inspecciones input:focus,
@@ -2696,7 +2696,7 @@
 
 .contador-resultados-inspecciones{
     color:#666;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight:600;
     text-align:right;
 }
@@ -2742,14 +2742,14 @@
 
 .cabecera-tarjeta-inspeccion > div:first-child span{
     color:#888;
-    font-size:10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight:700;
     text-transform:uppercase;
 }
 
 .cabecera-tarjeta-inspeccion > div:first-child strong{
     color:#222;
-    font-size:18px;
+    font-size:var(--ui-fs-18, 18px);
 }
 
 .etiquetas-inspeccion{
@@ -2766,7 +2766,7 @@
     min-height:25px;
     padding:4px 9px;
     border-radius:15px;
-    font-size:10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight:700;
 }
 
@@ -2809,14 +2809,14 @@
 
 .datos-tarjeta-inspeccion span{
     color:#888;
-    font-size:10px;
+    font-size:var(--ui-fs-10, 10px);
     text-transform:uppercase;
 }
 
 .datos-tarjeta-inspeccion strong{
     overflow:hidden;
     color:#333;
-    font-size:12px;
+    font-size:var(--ui-fs-12, 12px);
     text-overflow:ellipsis;
     white-space:nowrap;
 }
@@ -2832,7 +2832,7 @@
 
 .pie-tarjeta-inspeccion > span{
     color:#666;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .pie-tarjeta-inspeccion > span i{
@@ -2852,7 +2852,7 @@
     background:#D71920;
     color:#fff;
     font-family:inherit;
-    font-size:11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight:700;
     cursor:pointer;
 }
@@ -2881,7 +2881,7 @@
     color: #2e7d32;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 700;
 
     cursor: pointer;
@@ -3067,7 +3067,7 @@ body.centro-despachos-abierto
 
     color: #1f2937;
 
-    font-size: 28px;
+    font-size:var(--ui-fs-28, 28px);
     font-weight: 700;
 }
 
@@ -3076,7 +3076,7 @@ body.centro-despachos-abierto
 
     color: #6b7280;
 
-    font-size: 14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .centro-despachos__etiqueta {
@@ -3091,7 +3091,7 @@ body.centro-despachos-abierto
     background: #fff4e5;
     color: #ef6c00;
 
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 }
 
@@ -3121,7 +3121,7 @@ body.centro-despachos-abierto
     background: transparent;
     color: #6b7280;
 
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     cursor: pointer;
 
     transition:
@@ -3178,7 +3178,7 @@ body.centro-despachos-abierto
 .campo-filtro-despachos label {
     color: #555555;
 
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
 }
 
@@ -3196,7 +3196,7 @@ body.centro-despachos-abierto
     color: #333333;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 
     transition:
         border-color 0.2s ease,
@@ -3234,7 +3234,7 @@ body.centro-despachos-abierto
     color: #333333;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 
     cursor: pointer;
@@ -3270,7 +3270,7 @@ body.centro-despachos-abierto
 #contadorCentroDespachos {
     color: #666666;
 
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 }
 
@@ -3335,12 +3335,12 @@ body.centro-despachos-abierto
 .estado-carga-centro-despachos i,
 .estado-vacio-centro-despachos i {
     color: #f59e0b;
-    font-size: 34px;
+    font-size:var(--ui-fs-34, 34px);
 }
 
 .estado-vacio-centro-despachos strong {
     color: #333333;
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 .btn-cargar-mas-despachos {
@@ -3360,7 +3360,7 @@ body.centro-despachos-abierto
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 700;
 
     cursor: pointer;
@@ -3397,19 +3397,19 @@ body.centro-despachos-abierto
 
 .registro-temporal-despacho strong {
     color: #222222;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .registro-temporal-despacho span {
     color: #777777;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .registro-temporal-despacho small {
     margin-left: auto;
 
     color: #888888;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .vista-lista-centro-despachos {
@@ -3465,7 +3465,7 @@ body.centro-despachos-abierto
 .encabezado-mes-despachos span {
     color: #9a6a18;
 
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -3473,14 +3473,14 @@ body.centro-despachos-abierto
 .encabezado-mes-despachos strong {
     color: #2b2f33;
 
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     text-transform: capitalize;
 }
 
 .encabezado-mes-despachos small {
     color: #777777;
 
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 600;
 }
 
@@ -3514,7 +3514,7 @@ body.centro-despachos-abierto
 
     color: #777777;
 
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -3527,7 +3527,7 @@ body.centro-despachos-abierto
     border-bottom: 1px solid #eeeeee;
 
     color: #444444;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 
     transition:
         background 0.16s ease,
@@ -3553,7 +3553,7 @@ body.centro-despachos-abierto
 
 .dato-conduce-lista strong {
     color: #222222;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .dato-conduce-lista small,
@@ -3561,7 +3561,7 @@ body.centro-despachos-abierto
     overflow: hidden;
 
     color: #888888;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3589,7 +3589,7 @@ body.centro-despachos-abierto
 
     border-radius: 15px;
 
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
 }
 
@@ -3810,7 +3810,7 @@ body.centro-despachos-abierto
     color: #d71920;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 
     cursor: pointer;
@@ -3864,13 +3864,13 @@ body.centro-despachos-abierto
 @media (max-width: 480px) {
 
     .panel-listado-encabezado h3 {
-        font-size: 14px;
+        font-size:var(--ui-fs-14, 14px);
     }
 
     .btn-mas-conduces {
         min-height: 30px;
         padding: 5px 8px;
-        font-size: 9px;
+        font-size:var(--ui-fs-9, 9px);
     }
 
     .tabla-conduces-scroll {
@@ -3963,7 +3963,7 @@ body.centro-despachos-abierto
     margin: 0;
 
     color: #4f4f4f;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     font-weight: 700;
     line-height: 1.25;
     text-align: left;
@@ -3988,7 +3988,7 @@ body.centro-despachos-abierto
     background: rgba(215, 25, 32, 0.09);
     color: #d71920;
 
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 
@@ -4005,7 +4005,7 @@ body.centro-despachos-abierto
     margin: 0;
 
     color: #d71920;
-    font-size: 30px;
+    font-size:var(--ui-fs-30, 30px);
     font-weight: 800;
     line-height: 1;
     text-align: center;
@@ -4032,7 +4032,7 @@ body.centro-despachos-abierto
 
 .card-resumen-descripcion {
     color: #777777;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 500;
     line-height: 1.25;
 }
@@ -4095,7 +4095,7 @@ body.centro-despachos-abierto
     background: #e31b23;
     color: #ffffff;
 
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight: 800;
     line-height: 1;
 }
@@ -4105,7 +4105,7 @@ body.centro-despachos-abierto
     padding: 0;
 
     color: #666666;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
     line-height: 1.2;
 }
@@ -4456,7 +4456,7 @@ body.centro-despachos-abierto
     margin: 0;
 
     color: #666666;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 600;
     text-align: right;
 }
@@ -4481,7 +4481,7 @@ body.centro-despachos-abierto
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
 
     cursor: pointer;
@@ -4611,7 +4611,7 @@ body.centro-despachos-abierto
     .modulo-header h2 {
         margin: 0 0 3px !important;
 
-        font-size: 20px !important;
+        font-size:var(--ui-fs-20, 20px) !important;
         line-height: 1.15 !important;
     }
 
@@ -4621,7 +4621,7 @@ body.centro-despachos-abierto
     .modulo-header p {
         margin: 0 !important;
 
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
         line-height: 1.2 !important;
     }
 
@@ -4651,7 +4651,7 @@ body.centro-despachos-abierto
 
         border-radius: 8px !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1.1 !important;
 
         white-space: nowrap;
@@ -4736,7 +4736,7 @@ body.centro-despachos-abierto
 
         margin: 0 !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1.1 !important;
     }
 
@@ -4757,7 +4757,7 @@ body.centro-despachos-abierto
 
         border-radius: 7px !important;
 
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
     }
 
 
@@ -4771,7 +4771,7 @@ body.centro-despachos-abierto
 
         margin: 0 !important;
 
-        font-size: 21px !important;
+        font-size:var(--ui-fs-21, 21px) !important;
         line-height: 1 !important;
     }
 
@@ -4800,7 +4800,7 @@ body.centro-despachos-abierto
 
         overflow: hidden;
 
-        font-size: 8px !important;
+        font-size:var(--ui-fs-8, 8px) !important;
         line-height: 1 !important;
 
         text-overflow: ellipsis;
@@ -4825,7 +4825,7 @@ body.centro-despachos-abierto
             3px
             6px !important;
 
-        font-size: 8px !important;
+        font-size:var(--ui-fs-8, 8px) !important;
         line-height: 1 !important;
     }
 
@@ -4833,7 +4833,7 @@ body.centro-despachos-abierto
     #contenidoPrincipal
     .modulo:has(.cards-resumen)
     .cumplimiento-meta small {
-        font-size: 8px !important;
+        font-size:var(--ui-fs-8, 8px) !important;
         line-height: 1 !important;
     }
 
@@ -4902,7 +4902,7 @@ body.centro-despachos-abierto
 
         color: #333333;
 
-        font-size: 14px !important;
+        font-size:var(--ui-fs-14, 14px) !important;
         font-weight: 700;
         line-height: 1.15 !important;
     }
@@ -4928,7 +4928,7 @@ body.centro-despachos-abierto
 
         border-radius: 7px !important;
 
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
     }
 
 
@@ -4948,7 +4948,7 @@ body.centro-despachos-abierto
 
         color: #df1821;
 
-        font-size: 25px !important;
+        font-size:var(--ui-fs-25, 25px) !important;
         font-weight: 800;
         line-height: 1 !important;
 
@@ -4979,7 +4979,7 @@ body.centro-despachos-abierto
 
         color: #d71920;
 
-        font-size: 12px !important;
+        font-size:var(--ui-fs-12, 12px) !important;
         font-weight: 700;
         line-height: 1.15 !important;
 
@@ -5014,7 +5014,7 @@ body.centro-despachos-abierto
 
         color: #555555;
 
-        font-size: 14px !important;
+        font-size:var(--ui-fs-14, 14px) !important;
         font-weight: 700;
         line-height: 1.15 !important;
 
@@ -5039,7 +5039,7 @@ body.centro-despachos-abierto
 
         border-radius: 999px;
 
-        font-size: 14px !important;
+        font-size:var(--ui-fs-14, 14px) !important;
         font-weight: 800;
         line-height: 1 !important;
 
@@ -5131,7 +5131,7 @@ body.centro-despachos-abierto
     .panel > h3 {
         margin: 0 !important;
 
-        font-size: 14px !important;
+        font-size:var(--ui-fs-14, 14px) !important;
         line-height: 1.15 !important;
     }
 
@@ -5145,7 +5145,7 @@ body.centro-despachos-abierto
             4px
             8px !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
     }
 
 }
@@ -5215,7 +5215,7 @@ body.centro-despachos-abierto
         background: #df1821 !important;
         color: #ffffff !important;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1.15 !important;
 
         box-shadow:
@@ -5233,7 +5233,7 @@ body.centro-despachos-abierto
 
         background: #ffffff;
 
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         line-height: 1.2 !important;
     }
 
@@ -5289,14 +5289,14 @@ body.centro-despachos-abierto
     #contenidoPrincipal
     .modulo:has(.cards-resumen)
     .card-resumen-valor {
-        font-size: 19px !important;
+        font-size:var(--ui-fs-19, 19px) !important;
     }
 
 
     #contenidoPrincipal
     .modulo:has(.cards-resumen)
     .card-resumen-descripcion {
-        font-size: 7px !important;
+        font-size:var(--ui-fs-7, 7px) !important;
     }
 
 
@@ -5338,14 +5338,14 @@ body.centro-despachos-abierto
     #contenidoPrincipal
     .modulo:has(.cards-resumen)
     .card-resumen-encabezado h3 {
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
     }
 
 
     #contenidoPrincipal
     .modulo:has(.cards-resumen)
     .card-resumen-valor {
-        font-size: 20px !important;
+        font-size:var(--ui-fs-20, 20px) !important;
     }
 
 
@@ -5358,7 +5358,7 @@ body.centro-despachos-abierto
     #contenidoPrincipal
     .modulo:has(.cards-resumen)
     .cumplimiento-meta span {
-        font-size: 8.5px !important;
+        font-size:var(--ui-fs-8_5, 8.5px) !important;
     }
 
 }
@@ -5410,7 +5410,7 @@ body.centro-despachos-abierto
         border-radius: 8px !important;
 
         font-family: inherit;
-        font-size: 10px !important;
+        font-size:var(--ui-fs-10, 10px) !important;
         font-weight: 700;
         line-height: 1 !important;
 
@@ -5431,7 +5431,7 @@ body.centro-despachos-abierto
 
         margin: 0 !important;
 
-        font-size: 11px !important;
+        font-size:var(--ui-fs-11, 11px) !important;
         line-height: 1 !important;
     }
 
@@ -5486,7 +5486,7 @@ body.centro-despachos-abierto
             0
             10px !important;
 
-        font-size: 9px !important;
+        font-size:var(--ui-fs-9, 9px) !important;
     }
 
 
@@ -5545,7 +5545,7 @@ body.centro-despachos-abierto
 
     color: #f58220;
 
-    font-size: 25px;
+    font-size:var(--ui-fs-25, 25px);
 }
 
 
@@ -5561,7 +5561,7 @@ body.centro-despachos-abierto
 
     color: #d71920;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 800;
 
     text-transform: uppercase;
@@ -5574,7 +5574,7 @@ body.centro-despachos-abierto
 
     color: #242424;
 
-    font-size: 20px;
+    font-size:var(--ui-fs-20, 20px);
     line-height: 1.2;
 }
 
@@ -5589,7 +5589,7 @@ body.centro-despachos-abierto
 
     color: #666666;
 
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.45;
 }
 
@@ -5654,7 +5654,7 @@ body.centro-despachos-abierto
 .aviso-prioridades-conduce__resumen span {
     color: #777777;
 
-    font-size: 8px;
+    font-size:var(--ui-fs-8, 8px);
     font-weight: 700;
     line-height: 1.25;
 }
@@ -5663,7 +5663,7 @@ body.centro-despachos-abierto
 .aviso-prioridades-conduce__resumen strong {
     color: #262626;
 
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
     line-height: 1;
 }
 
@@ -5690,7 +5690,7 @@ body.centro-despachos-abierto
 
     color: #1677c8;
 
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
 }
 
 
@@ -5699,7 +5699,7 @@ body.centro-despachos-abierto
 
     color: #40566a;
 
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.45;
 }
 
@@ -5731,7 +5731,7 @@ body.centro-despachos-abierto
     border-radius: 9px;
 
     font-family: inherit;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 750;
 
     cursor: pointer;
@@ -5803,13 +5803,13 @@ body.centro-despachos-abierto
     color:#fff;
 
     font-family:inherit;
-    font-size:13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight:700;
 }
 
 .barra-finalizar-carga .btn-imprimir-minimal i{
     flex:0 0 auto;
-    font-size:14px;
+    font-size:var(--ui-fs-14, 14px);
 }
 
 .barra-finalizar-carga .btn-imprimir-minimal span{
@@ -5827,7 +5827,7 @@ body.centro-despachos-abierto
         min-width:0;
         flex:1 1 180px;
         padding:0 12px;
-        font-size:12px;
+        font-size:var(--ui-fs-12, 12px);
     }
 
 }

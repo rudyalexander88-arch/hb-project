@@ -35,6 +35,745 @@ const rolSesion =
     "";
 
 
+// ===============================
+// ESCALA TIPOGRÁFICA CONFIGURABLE
+// ===============================
+
+const TipografiaSistema = {
+
+    CLAVE_CONFIGURACION:
+        "UI_Escala_Tipografica",
+
+    CLAVE_LOCAL:
+        "sistema_pt_ui_escala_tipografica",
+
+    ESCALA_PREDETERMINADA:
+        100,
+
+    ESCALA_MINIMA:
+        75,
+
+    ESCALA_MAXIMA:
+        150,
+
+    TAMANOS_BASE_PX: [
+        7,
+        8,
+        8.5,
+        9,
+        10,
+        11,
+        12,
+        13,
+        13.12,
+        13.76,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        23.2,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        32,
+        34,
+        38,
+        41.6
+    ],
+
+    escalaActual:
+        100,
+
+    elementos:
+        new Map(),
+
+    observador:
+        null,
+
+    reajustePendiente:
+        0,
+
+
+    normalizarEscala(
+        valor
+    ) {
+
+        const texto =
+            String(
+                valor === undefined ||
+                valor === null
+                    ? ""
+                    : valor
+            )
+                .trim()
+                .replace(",", ".")
+                .replace("%", "");
+
+
+        let numero;
+
+
+        if (!texto) {
+
+            numero =
+                this.ESCALA_PREDETERMINADA;
+
+        } else {
+
+            numero =
+                Number(texto);
+
+        }
+
+
+        if (!Number.isFinite(numero)) {
+
+            numero =
+                this.ESCALA_PREDETERMINADA;
+
+        }
+
+
+        if (
+            numero > 0 &&
+            numero <= 2
+        ) {
+
+            numero *= 100;
+
+        }
+
+
+        return Math.min(
+            this.ESCALA_MAXIMA,
+            Math.max(
+                this.ESCALA_MINIMA,
+                numero
+            )
+        );
+
+    },
+
+
+    obtenerEscalaGuardada() {
+
+        try {
+
+            return this.normalizarEscala(
+                localStorage.getItem(
+                    this.CLAVE_LOCAL
+                )
+            );
+
+        } catch (error) {
+
+            return this.ESCALA_PREDETERMINADA;
+
+        }
+
+    },
+
+
+    guardarEscala(
+        escala
+    ) {
+
+        try {
+
+            localStorage.setItem(
+                this.CLAVE_LOCAL,
+                String(escala)
+            );
+
+        } catch (error) {
+
+            console.warn(
+                "No fue posible guardar la escala tipográfica localmente.",
+                error
+            );
+
+        }
+
+    },
+
+
+    esElementoTipografico(
+        elemento
+    ) {
+
+        if (
+            !elemento ||
+            elemento.nodeType !== 1
+        ) {
+
+            return false;
+
+        }
+
+
+        const etiqueta =
+            elemento.tagName;
+
+
+        if (
+            [
+                "SCRIPT",
+                "STYLE",
+                "LINK",
+                "META",
+                "HEAD",
+                "HTML",
+                "BR",
+                "HR",
+                "SVG",
+                "PATH",
+                "CANVAS",
+                "OPTION"
+            ].includes(etiqueta) ||
+            elemento.closest("svg")
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            [
+                "INPUT",
+                "SELECT",
+                "TEXTAREA",
+                "BUTTON"
+            ].includes(etiqueta)
+        ) {
+
+            return true;
+
+        }
+
+
+        return Array.from(
+            elemento.childNodes || []
+        ).some(nodo => {
+
+            return nodo.nodeType === 3 &&
+                String(
+                    nodo.textContent || ""
+                ).trim();
+
+        });
+
+    },
+
+
+    restaurarElementos() {
+
+        this.elementos.forEach(
+            (registro, elemento) => {
+
+                if (!elemento.isConnected) {
+
+                    this.elementos.delete(
+                        elemento
+                    );
+
+                    return;
+
+                }
+
+
+                elemento.style.setProperty(
+                    "font-size",
+                    registro.valorInline,
+                    registro.prioridadInline
+                );
+
+                if (!registro.valorInline) {
+
+                    elemento.style.removeProperty(
+                        "font-size"
+                    );
+
+                }
+
+            }
+        );
+
+    },
+
+
+    registrarElementos(
+        raiz = document
+    ) {
+
+        const candidatos = [];
+
+
+        if (
+            raiz.nodeType === 1
+        ) {
+
+            candidatos.push(
+                raiz
+            );
+
+        }
+
+
+        if (
+            typeof raiz.querySelectorAll ===
+                "function"
+        ) {
+
+            candidatos.push(
+                ...raiz.querySelectorAll("*")
+            );
+
+        }
+
+
+        candidatos.forEach(elemento => {
+
+            if (
+                this.elementos.has(elemento) ||
+                !this.esElementoTipografico(elemento)
+            ) {
+
+                return;
+
+            }
+
+
+            const calculado =
+                Number.parseFloat(
+                    window
+                        .getComputedStyle(elemento)
+                        .fontSize
+                );
+
+
+            if (
+                !Number.isFinite(calculado) ||
+                calculado <= 0
+            ) {
+
+                return;
+
+            }
+
+
+            this.elementos.set(
+                elemento,
+                {
+                    base:
+                        calculado,
+                    valorInline:
+                        elemento.style.getPropertyValue(
+                            "font-size"
+                        ),
+                    prioridadInline:
+                        elemento.style.getPropertyPriority(
+                            "font-size"
+                        )
+                }
+            );
+
+        });
+
+
+    },
+
+
+    recalcularBases() {
+
+        this.restaurarElementos();
+
+        this.registrarElementos(
+            document
+        );
+
+
+        this.elementos.forEach(
+            (registro, elemento) => {
+
+                const calculado =
+                    Number.parseFloat(
+                        window
+                            .getComputedStyle(elemento)
+                            .fontSize
+                    );
+
+
+                if (
+                    Number.isFinite(calculado) &&
+                    calculado > 0
+                ) {
+
+                    registro.base =
+                        calculado;
+
+                }
+
+            }
+        );
+
+    },
+
+
+    aplicarElementos() {
+
+        const factor =
+            this.escalaActual / 100;
+
+
+        this.elementos.forEach(
+            (registro, elemento) => {
+
+                if (!elemento.isConnected) {
+
+                    this.elementos.delete(
+                        elemento
+                    );
+
+                    return;
+
+                }
+
+
+                const nuevoTamano =
+                    Math.round(
+                        registro.base *
+                        factor *
+                        1000
+                    ) / 1000;
+
+
+                elemento.style.setProperty(
+                    "font-size",
+                    String(nuevoTamano) + "px",
+                    "important"
+                );
+
+            }
+        );
+
+    },
+
+
+    programarReajuste() {
+
+        if (
+            this.reajustePendiente
+        ) {
+            return;
+        }
+
+
+        this.reajustePendiente =
+            window.requestAnimationFrame(() => {
+
+                this.reajustePendiente =
+                    0;
+
+                this.recalcularBases();
+
+                this.aplicarElementos();
+
+                document.documentElement.dataset.elementosTipograficos =
+                    String(
+                        this.elementos.size
+                    );
+
+            });
+
+    },
+
+
+    iniciarObservacion() {
+
+        if (
+            this.observador ||
+            !document.body
+        ) {
+            return;
+        }
+
+
+        this.observador =
+            new MutationObserver(
+                mutaciones => {
+
+                    const agregoContenido =
+                        mutaciones.some(
+                            mutacion =>
+                                mutacion.addedNodes &&
+                                mutacion.addedNodes.length
+                        );
+
+
+                    if (agregoContenido) {
+
+                        this.programarReajuste();
+
+                    }
+
+                }
+            );
+
+
+        this.observador.observe(
+            document.body,
+            {
+                childList:
+                    true,
+                subtree:
+                    true
+            }
+        );
+
+
+        let temporizadorRedimension =
+            0;
+
+
+        window.addEventListener(
+            "resize",
+            () => {
+
+                window.clearTimeout(
+                    temporizadorRedimension
+                );
+
+
+                temporizadorRedimension =
+                    window.setTimeout(
+                        () => {
+                            this.programarReajuste();
+                        },
+                        180
+                    );
+
+            }
+        );
+
+    },
+
+
+    aplicarVariablesCSS(
+        escala
+    ) {
+
+        const factor =
+            escala / 100;
+
+
+        this.TAMANOS_BASE_PX.forEach(
+            tamanoBase => {
+
+                const nombre =
+                    String(tamanoBase)
+                        .replace(".", "_");
+
+
+                const tamanoCalculado =
+                    Math.round(
+                        tamanoBase *
+                        factor *
+                        1000
+                    ) / 1000;
+
+
+                document.documentElement.style.setProperty(
+                    "--ui-fs-" + nombre,
+                    String(tamanoCalculado) + "px"
+                );
+
+            }
+        );
+
+    },
+
+
+    aplicarEscala(
+        valor,
+        guardar = false
+    ) {
+
+        const escala =
+            this.normalizarEscala(
+                valor
+            );
+
+
+        this.escalaActual =
+            escala;
+
+
+        document.documentElement.style.setProperty(
+            "--ui-font-scale",
+            String(
+                escala / 100
+            )
+        );
+
+
+        this.aplicarVariablesCSS(
+            escala
+        );
+
+
+        document.documentElement.dataset.escalaTipografica =
+            String(escala);
+
+
+        document.documentElement.dataset.estrategiaTipografica =
+            "variables-css";
+
+
+        delete document.documentElement.dataset.elementosTipograficos;
+
+
+        if (guardar) {
+
+            this.guardarEscala(
+                escala
+            );
+
+        }
+
+
+        return escala;
+
+    },
+
+
+    aplicarPreferenciaGuardada() {
+
+        return this.aplicarEscala(
+            this.obtenerEscalaGuardada(),
+            false
+        );
+
+    },
+
+
+    async cargarDesdeConfiguracion() {
+
+        if (
+            !window.API ||
+            typeof window.API.post !==
+                "function"
+        ) {
+
+            return this.aplicarPreferenciaGuardada();
+
+        }
+
+
+        if (
+            window.CargadorSistema &&
+            typeof window.CargadorSistema.mostrar ===
+                "function"
+        ) {
+
+            window.CargadorSistema.mostrar(
+                "Aplicando preferencias",
+                "Configurando la presentación del sistema."
+            );
+
+        }
+
+
+        try {
+
+            const respuesta =
+                await window.API.post({
+                    action:
+                        "listarConfiguracion"
+                });
+
+
+            if (
+                !respuesta ||
+                !respuesta.ok
+            ) {
+
+                throw new Error(
+                    respuesta &&
+                    respuesta.mensaje
+                        ? respuesta.mensaje
+                        : "No fue posible consultar la configuración."
+                );
+
+            }
+
+
+            const configuracion =
+                respuesta.data || {};
+
+
+            const valor =
+                Object.prototype.hasOwnProperty.call(
+                    configuracion,
+                    this.CLAVE_CONFIGURACION
+                )
+                    ? configuracion[
+                        this.CLAVE_CONFIGURACION
+                    ]
+                    : this.ESCALA_PREDETERMINADA;
+
+
+            return this.aplicarEscala(
+                valor,
+                true
+            );
+
+        } catch (error) {
+
+            console.warn(
+                "Se mantuvo la escala tipográfica guardada:",
+                error
+            );
+
+
+            return this.aplicarPreferenciaGuardada();
+
+        } finally {
+
+            if (
+                window.CargadorSistema &&
+                typeof window.CargadorSistema.ocultar ===
+                    "function"
+            ) {
+
+                window.CargadorSistema.ocultar();
+
+            }
+
+        }
+
+    }
+
+};
+
+
+window.TipografiaSistema =
+    TipografiaSistema;
+
+
+TipografiaSistema.aplicarPreferenciaGuardada();
+
+
 [
     "nombreUsuario",
     "nombreUsuarioMenu",
@@ -77,11 +816,13 @@ const rolSesion =
 // INICIALIZAR SISTEMA
 // ===============================
 
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
 
     aplicarPermisosDashboard();
 
     inicializarMenu();
+
+    await TipografiaSistema.cargarDesdeConfiguracion();
 
     if (
         window.InicioOperativo &&

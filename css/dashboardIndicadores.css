@@ -73,14 +73,14 @@
     margin: 0;
 
     color: #d71920;
-    font-size: 27px;
+    font-size:var(--ui-fs-27, 27px);
 }
 
 .card-indicador h3 {
     margin: 0 0 9px;
 
     color: #333333;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
     font-weight: 600;
     line-height: 1.35;
 }
@@ -89,7 +89,7 @@
     margin: 0 0 7px;
 
     color: #1f1f1f;
-    font-size: 32px;
+    font-size:var(--ui-fs-32, 32px);
     font-weight: 700;
     line-height: 1.1;
 }
@@ -99,7 +99,7 @@
     margin: 0 0 5px;
 
     color: #5f6368;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 500;
     line-height: 1.45;
 }
@@ -109,7 +109,7 @@
     margin: 0 0 16px;
 
     color: #8a8f94;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.45;
 }
 
@@ -131,7 +131,7 @@
     color: #ffffff;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 
     cursor: pointer;
@@ -280,7 +280,7 @@
     margin-bottom: 5px;
 
     color: #777777;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 500;
 }
 
@@ -288,7 +288,7 @@
     display: block;
 
     color: #222222;
-    font-size: 22px;
+    font-size:var(--ui-fs-22, 22px);
     font-weight: 700;
 }
 
@@ -327,7 +327,7 @@
     margin-bottom: 6px;
 
     color: #444444;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     font-weight: 600;
 }
 
@@ -346,7 +346,7 @@
     color: #333333;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 
     transition:
         border-color 0.2s ease,
@@ -383,7 +383,7 @@
     color: #d71920;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 
     cursor: pointer;
@@ -462,7 +462,7 @@
 
 .meta-fecha-principal {
     color: #252525;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight: 700;
 }
 
@@ -470,7 +470,7 @@
     overflow: hidden;
 
     color: #929292;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -484,7 +484,7 @@
 .fila-meta-supervisor span,
 .fila-meta-numeros span {
     color: #8a8a8a;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 500;
 }
 
@@ -492,7 +492,7 @@
     overflow: hidden;
 
     color: #333333;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -522,7 +522,7 @@
     display: block;
 
     color: #222222;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
     font-weight: 700;
 }
 
@@ -544,7 +544,7 @@
 
     border-radius: 999px;
 
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
     line-height: 1.25;
     text-align: left;
@@ -599,7 +599,7 @@
     border-radius: 9px;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
 
     cursor: pointer;
@@ -661,14 +661,14 @@
     margin-bottom: 13px;
 
     color: #c1c1c1;
-    font-size: 38px;
+    font-size:var(--ui-fs-38, 38px);
 }
 
 .estado-vacio-metas h3 {
     margin: 0 0 6px;
 
     color: #4a4a4a;
-    font-size: 16px;
+    font-size:var(--ui-fs-16, 16px);
 }
 
 .estado-vacio-metas p {
@@ -676,7 +676,7 @@
     margin: 0;
 
     color: #888888;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1.55;
 }
 
@@ -756,7 +756,7 @@
 
     margin-bottom: 3px;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 500;
     opacity: 0.9;
 }
@@ -764,7 +764,7 @@
 .panel-justificacion-header h3 {
     margin: 0;
 
-    font-size: 20px;
+    font-size:var(--ui-fs-20, 20px);
     font-weight: 700;
 }
 
@@ -820,7 +820,7 @@
     margin-bottom: 4px;
 
     color: #8a8a8a;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .resumen-justificacion-meta strong {
@@ -828,7 +828,7 @@
     overflow: hidden;
 
     color: #2d2d2d;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -848,7 +848,7 @@
     margin-bottom: 7px;
 
     color: #3b3b3b;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 }
 
@@ -868,7 +868,7 @@
     color: #333333;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 
     transition:
         border-color 0.2s ease,
@@ -904,7 +904,7 @@
     margin-top: 5px;
 
     color: #999999;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .ayuda-campo-meta .campo-obligatorio {
@@ -926,7 +926,7 @@
     background: rgba(46, 125, 50, 0.08);
     color: #315c34;
 
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     line-height: 1.5;
 }
 
@@ -956,7 +956,7 @@
     border-radius: 10px;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
 
     cursor: pointer;
@@ -1071,7 +1071,7 @@
 }
 
 .notificacion-sistema-icono {
-    font-size: 19px;
+    font-size:var(--ui-fs-19, 19px);
 }
 
 .notificacion-exito
@@ -1098,7 +1098,7 @@
     margin: 0;
 
     color: #414141;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     line-height: 1.5;
 }
 
@@ -1268,7 +1268,7 @@ body.modal-sistema-abierto {
     }
 
     .panel-justificacion-header h3 {
-        font-size: 18px;
+        font-size:var(--ui-fs-18, 18px);
     }
 
     .resumen-justificacion-meta {
@@ -1306,7 +1306,7 @@ body.modal-sistema-abierto {
     margin-bottom: 6px;
 
     color: #4f4f4f;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 600;
     line-height: 1.45;
 }
@@ -1315,23 +1315,23 @@ body.modal-sistema-abierto {
     margin-bottom: 16px;
 
     color: #737373;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     font-weight: 500;
     line-height: 1.45;
 }
 
 .card-meta-mensual h1 {
-    font-size: 34px;
+    font-size:var(--ui-fs-34, 34px);
 }
 
 @media (max-width: 640px) {
 
     .card-meta-mensual .card-indicador-detalle {
-        font-size: 15px;
+        font-size:var(--ui-fs-15, 15px);
     }
 
     .card-meta-mensual .card-indicador-secundario {
-        font-size: 13px;
+        font-size:var(--ui-fs-13, 13px);
     }
 
 }
@@ -1341,7 +1341,7 @@ body.modal-sistema-abierto {
 .card-indicador .btn-card-indicador i {
     margin: 0;
     color: #ffffff;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
     line-height: 1;
     opacity: 1;
 }
@@ -1450,7 +1450,7 @@ body.modal-sistema-abierto {
 .ocupacion-general-principal > span {
     display: block;
     color: #6f757b;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
     text-transform: uppercase;
 }
@@ -1459,7 +1459,7 @@ body.modal-sistema-abierto {
     display: block;
     margin: 7px 0 14px;
     color: #1d1d1d;
-    font-size: 34px;
+    font-size:var(--ui-fs-34, 34px);
     line-height: 1;
 }
 
@@ -1497,14 +1497,14 @@ body.modal-sistema-abierto {
 .metricas-camara span {
     display: block;
     color: #81868b;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .metricas-ocupacion-general strong {
     display: block;
     margin-top: 4px;
     color: #222222;
-    font-size: 20px;
+    font-size:var(--ui-fs-20, 20px);
 }
 
 .seccion-ocupacion-camaras,
@@ -1524,7 +1524,7 @@ body.modal-sistema-abierto {
 .encabezado-seccion-ocupacion span {
     display: block;
     color: #d71920;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -1532,13 +1532,13 @@ body.modal-sistema-abierto {
 .encabezado-seccion-ocupacion h3 {
     margin: 2px 0 0;
     color: #272727;
-    font-size: 15px;
+    font-size:var(--ui-fs-15, 15px);
 }
 
 .encabezado-seccion-ocupacion p {
     margin: 0;
     color: #777777;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
 }
 
 .btn-actualizar-ocupacion,
@@ -1551,7 +1551,7 @@ body.modal-sistema-abierto {
     padding: 8px 13px;
     border-radius: 9px;
     font-family: inherit;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 700;
     cursor: pointer;
 }
@@ -1604,19 +1604,19 @@ body.modal-sistema-abierto {
 
 .tarjeta-ocupacion-camara header span {
     color: #1976d2;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
     font-weight: 700;
 }
 
 .tarjeta-ocupacion-camara h4 {
     margin: 2px 0 0;
     color: #272727;
-    font-size: 13px;
+    font-size:var(--ui-fs-13, 13px);
 }
 
 .tarjeta-ocupacion-camara header > strong {
     color: #222222;
-    font-size: 17px;
+    font-size:var(--ui-fs-17, 17px);
 }
 
 .tarjeta-ocupacion-camara .barra-camara {
@@ -1650,7 +1650,7 @@ body.modal-sistema-abierto {
     display: block;
     margin-top: 2px;
     color: #252525;
-    font-size: 12px;
+    font-size:var(--ui-fs-12, 12px);
 }
 
 .tarjeta-ocupacion-camara > footer {
@@ -1660,7 +1660,7 @@ body.modal-sistema-abierto {
     gap: 8px;
     margin-top: 11px;
     color: #757575;
-    font-size: 9px;
+    font-size:var(--ui-fs-9, 9px);
 }
 
 .filtros-historico-ocupacion {
@@ -1681,7 +1681,7 @@ body.modal-sistema-abierto {
     display: block;
     margin-bottom: 5px;
     color: #444444;
-    font-size: 10px;
+    font-size:var(--ui-fs-10, 10px);
     font-weight: 600;
 }
 
@@ -1693,7 +1693,7 @@ body.modal-sistema-abierto {
     border-radius: 8px;
     background: #ffffff;
     font-family: inherit;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
 }
 
 .contenedor-grafico-ocupacion {
@@ -1708,7 +1708,7 @@ body.modal-sistema-abierto {
     align-items: center;
     justify-content: center;
     color: #858585;
-    font-size: 11px;
+    font-size:var(--ui-fs-11, 11px);
     text-align: center;
 }
 

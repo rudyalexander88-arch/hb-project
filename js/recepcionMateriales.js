@@ -735,7 +735,7 @@ configurarScrollInterno() {
     const rol = typeof Sistema.normalizarPermiso === "function"
       ? Sistema.normalizarPermiso(sesion.rol)
       : String(sesion.rol || "").trim().toUpperCase();
-    return rol.indexOf("AUXILIAR") === -1;
+    return rol.indexOf("AUXILIAR") === -1 && rol.indexOf("MONTACARGUISTA") === -1;
   },
 
 

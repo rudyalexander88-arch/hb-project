@@ -139,7 +139,7 @@ const DashboardIndicadores = {
         /*
          * AUXILIAR continúa sin tarjetas.
          */
-        if (rol === "AUXILIAR") {
+        if (rol === "AUXILIAR" || rol === "MONTACARGUISTA") {
 
             return false;
 

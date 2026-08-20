@@ -44,6 +44,11 @@ const InspeccionContenedores = {
     temporizadoresGuardadoBASC: {},
 
     guardadoCategoriaEnCurso: {},
+
+    guardadoBASCGlobalEnCurso: null,
+
+    categoriaBASCGuardando: "",
+
     selloLlegada: "",
     
         categoriasBASC: [
@@ -109,6 +114,8 @@ const InspeccionContenedores = {
 		this.guardadosCategoriaBASC = {};
         this.temporizadoresGuardadoBASC = {};
         this.guardadoCategoriaEnCurso = {};
+        this.guardadoBASCGlobalEnCurso = null;
+        this.categoriaBASCGuardando = "";
         this.selloLlegada = "";
 
         modal.classList.remove("oculto");
@@ -2045,7 +2052,11 @@ formatearTamanoContenedor(
             () => {
 
                 this.guardarCategoriaBASC(
-                    categoria
+                    categoria,
+                    {
+                        mostrarCargador: true,
+                        solicitarEvidencia: true
+                    }
                 ).catch(error => {
 
                     console.error(
@@ -2076,7 +2087,10 @@ formatearTamanoContenedor(
     },
 
 
-    async guardarCategoriaBASC(categoria) {
+    async guardarCategoriaBASC(
+        categoria,
+        opciones = {}
+    ) {
 
         if (
             !this.categoriaBASCListaParaGuardar(
@@ -2114,25 +2128,65 @@ formatearTamanoContenedor(
         const inspector =
             this.obtenerInspectorActual();
 
-        const promesa =
-            API.post({
+        const temporizador =
+            this.temporizadoresGuardadoBASC[
+                categoria
+            ];
 
-                action:
-                    "guardarDetalleInspeccion",
+        if (temporizador) {
+            clearTimeout(temporizador);
+            delete this.temporizadoresGuardadoBASC[
+                categoria
+            ];
+        }
 
-                idInspeccion:
-                    this.idInspeccion,
+        const operacionAnterior =
+            this.guardadoBASCGlobalEnCurso;
 
-                detalle:
-                    this.obtenerDetalleCategoriaBASC(
-                        categoria
-                    ),
+        const ejecutarGuardado = async () => {
 
-                usuario:
-                    inspector.nombre
+            let cargadorMostrado = false;
 
-            })
-            .then(respuesta => {
+            try {
+
+                this.categoriaBASCGuardando =
+                    categoria;
+
+                this.actualizarProgresoBASC();
+
+                if (
+                    opciones.mostrarCargador === true &&
+                    window.Sistema &&
+                    typeof Sistema.mostrarCarga ===
+                        "function"
+                ) {
+
+                    cargadorMostrado =
+                        Sistema.mostrarCarga(
+                            "Guardando revisión BASC",
+                            `Estamos guardando la categoría “${categoria}”. No cambie de pantalla.`
+                        );
+
+                }
+
+                const respuesta =
+                    await API.post({
+
+                        action:
+                            "guardarDetalleInspeccion",
+
+                        idInspeccion:
+                            this.idInspeccion,
+
+                        detalle:
+                            this.obtenerDetalleCategoriaBASC(
+                                categoria
+                            ),
+
+                        usuario:
+                            inspector.nombre
+
+                    });
 
                 if (
                     !respuesta ||
@@ -2148,27 +2202,61 @@ formatearTamanoContenedor(
 
                 }
 
-              this.guardadosCategoriaBASC[
+                this.guardadosCategoriaBASC[
                     categoria
                 ] = firmaActual;
 
                 console.log(
-                    "Categoría guardada automáticamente:",
+                    "Categoría BASC guardada:",
                     categoria
                 );
 
-                setTimeout(
-                    () => {
-
-                        this.solicitarEvidenciaLocalCategoria(
-                            categoria
-                        );
-
-                    },
-                    150
-                );
-
                 return true;
+
+            } finally {
+
+                if (
+                    this.categoriaBASCGuardando ===
+                        categoria
+                ) {
+                    this.categoriaBASCGuardando = "";
+                }
+
+                this.actualizarProgresoBASC();
+
+                if (
+                    cargadorMostrado &&
+                    window.Sistema &&
+                    typeof Sistema.ocultarCarga ===
+                        "function"
+                ) {
+                    Sistema.ocultarCarga();
+                }
+
+            }
+
+        };
+
+        const promesa = Promise.resolve(
+            operacionAnterior
+        )
+            .catch(() => false)
+            .then(ejecutarGuardado)
+            .then(resultado => {
+
+                if (
+                    resultado === true &&
+                    opciones.solicitarEvidencia ===
+                        true
+                ) {
+
+                    this.solicitarEvidenciaLocalCategoria(
+                        categoria
+                    );
+
+                }
+
+                return resultado;
 
             })
             .finally(() => {
@@ -2178,11 +2266,22 @@ formatearTamanoContenedor(
                         categoria
                     ];
 
+                if (
+                    this.guardadoBASCGlobalEnCurso ===
+                        promesa
+                ) {
+                    this.guardadoBASCGlobalEnCurso =
+                        null;
+                }
+
             });
 
         this.guardadoCategoriaEnCurso[
             categoria
         ] = promesa;
+
+        this.guardadoBASCGlobalEnCurso =
+            promesa;
 
         return promesa;
 
@@ -2457,8 +2556,26 @@ formatearTamanoContenedor(
                     try {
 
                         await this.guardarCategoriaBASC(
-                            categoriaAnterior
+                            categoriaAnterior,
+                            {
+                                mostrarCargador: true,
+                                solicitarEvidencia: true
+                            }
                         );
+
+                        /*
+                         * Si el guardado acaba de abrir la solicitud de
+                         * evidencia, conservamos visible la categoría que
+                         * realmente fue guardada. El usuario podrá cambiar
+                         * de zona después de responder el modal.
+                         */
+                        if (
+                            document.getElementById(
+                                "modalEvidenciaLocalBASC"
+                            )
+                        ) {
+                            return;
+                        }
 
                     } catch (error) {
 
@@ -2466,6 +2583,22 @@ formatearTamanoContenedor(
                             "No fue posible guardar la categoría anterior:",
                             error
                         );
+
+                        if (
+                            window.Despachos &&
+                            typeof Despachos.notificar ===
+                                "function"
+                        ) {
+
+                            Despachos.notificar(
+                                error.message ||
+                                "No fue posible guardar la categoría. Permanece en esta tarjeta para intentarlo nuevamente.",
+                                "error"
+                            );
+
+                        }
+
+                        return;
 
                     }
 
@@ -2707,6 +2840,20 @@ formatearTamanoContenedor(
 
         if (estadoCategoria) {
 
+            const firmaActual =
+                this.obtenerFirmaCategoriaBASC(
+                    categoria
+                );
+
+            const sincronizada =
+                this.guardadosCategoriaBASC[
+                    categoria
+                ] === firmaActual;
+
+            const guardando =
+                this.categoriaBASCGuardando ===
+                    categoria;
+
             estadoCategoria.classList.remove(
                 "pendiente",
                 "en-proceso",
@@ -2714,15 +2861,23 @@ formatearTamanoContenedor(
             );
 
             estadoCategoria.classList.add(
-                this.obtenerClaseEstadoCategoria(
-                    resumen
-                )
+                resumen.completada &&
+                !sincronizada
+                    ? "en-proceso"
+                    : this.obtenerClaseEstadoCategoria(
+                        resumen
+                    )
             );
 
             estadoCategoria.innerHTML =
-                resumen.completada
+                guardando
+                    ? '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...'
+                    : resumen.completada &&
+                        sincronizada
                     ? '<i class="fa-solid fa-circle-check"></i> Completada'
-                    : '<i class="fa-solid fa-clock"></i> En revisión';
+                    : resumen.completada
+                        ? '<i class="fa-solid fa-cloud-arrow-up"></i> Pendiente de guardar'
+                        : '<i class="fa-solid fa-clock"></i> En revisión';
 
         }
 
@@ -2753,10 +2908,34 @@ formatearTamanoContenedor(
             const categoria = tarjeta.dataset.categoria;
             const puntos = grupos[categoria] || [];
             const resumen = this.obtenerResumenCategoriaBASC(categoria, puntos);
+            const firmaActual =
+                this.obtenerFirmaCategoriaBASC(
+                    categoria
+                );
+            const sincronizada =
+                this.guardadosCategoriaBASC[
+                    categoria
+                ] === firmaActual;
+            const guardando =
+                this.categoriaBASCGuardando ===
+                    categoria;
             tarjeta.classList.remove("pendiente", "en-proceso", "completa");
-            tarjeta.classList.add(this.obtenerClaseEstadoCategoria(resumen));
+            tarjeta.classList.add(
+                resumen.completada &&
+                !sincronizada
+                    ? "en-proceso"
+                    : this.obtenerClaseEstadoCategoria(resumen)
+            );
             const estado = tarjeta.querySelector(".estado-zona-basc");
-            if (estado) estado.innerHTML = resumen.completada ? '<i class="fa-solid fa-check"></i>' : `${resumen.respondidos}/${resumen.total}`;
+            if (estado) {
+                estado.innerHTML = guardando
+                    ? '<i class="fa-solid fa-spinner fa-spin"></i>'
+                    : resumen.completada && sincronizada
+                        ? '<i class="fa-solid fa-check"></i>'
+                        : resumen.completada
+                            ? '<i class="fa-solid fa-cloud-arrow-up"></i>'
+                            : `${resumen.respondidos}/${resumen.total}`;
+            }
         });
 
         this.actualizarEstadoCategoriaActivaBASC();
@@ -3309,7 +3488,8 @@ formatearTamanoContenedor(
                     </h3>
 
                     <p>
-                        ¿Desea registrar la evidencia fotográfica ahora?
+                        ¿Desea registrar ahora la evidencia fotográfica de
+                        <strong>${categoriaNormalizada}</strong>?
                     </p>
 
                     <span>

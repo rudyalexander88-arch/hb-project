@@ -48,6 +48,7 @@ window.InicioOperativo = {
 
         await this.actualizarResumenHorasExtras();
         await this.actualizarDesempenoRecepciones();
+        await this.actualizarAvisosInicio();
 
     },
 
@@ -161,6 +162,11 @@ window.InicioOperativo = {
             Sistema.tienePermiso(
                 "EPP_GESTIONAR"
             );
+
+        const puedeGestionarAsistencia =
+            window.AsistenciaPersonal &&
+            typeof AsistenciaPersonal.puedeGestionar === "function" &&
+            AsistenciaPersonal.puedeGestionar();
 
 
         return `
@@ -322,11 +328,40 @@ window.InicioOperativo = {
                             : ""
                     }
 
+                    ${
+                        puedeGestionarAsistencia
+                            ? `
+                                <article class="inicio-card inicio-card-asistencia">
+                                    <div class="inicio-card-encabezado">
+                                        <div class="inicio-card-icono"><i class="fa-solid fa-user-check"></i></div>
+                                        <div><span class="inicio-card-etiqueta">Gestión del personal</span><h3>Asistencia</h3></div>
+                                    </div>
+                                    <p>Registre asistencia, novedades, vacaciones y amonestaciones.</p>
+                                    <button type="button" class="inicio-card-boton" id="btnAsistenciaInicio">
+                                        <i class="fa-solid fa-arrow-right"></i> Gestionar asistencia
+                                    </button>
+                                </article>`
+                            : ""
+                    }
+
                 </div>
 
             </section>
         `;
 
+    },
+
+
+    async actualizarAvisosInicio() {
+        if (!window.AsistenciaPersonal || typeof AsistenciaPersonal.cargarAvisos !== "function") return;
+        const datos = await AsistenciaPersonal.cargarAvisos();
+        const total = Number(datos && datos.total || 0);
+        const boton = document.getElementById("btnVerAvisosInicio");
+        if (boton && total > 0) boton.innerHTML = `<i class="fa-solid fa-bell"></i> Ver avisos (${total})`;
+        if (total > 0 && !sessionStorage.getItem("avisosAsistenciaMostrados")) {
+            sessionStorage.setItem("avisosAsistenciaMostrados","SI");
+            await AsistenciaPersonal.abrirAvisos();
+        }
     },
 
 
@@ -424,7 +459,7 @@ window.InicioOperativo = {
             .replace(/[\u0300-\u036f]/g, "").toUpperCase();
         if (clave.includes("ANALISTA")) return "OCULTO";
         if (clave.includes("ADMINISTRADOR") || clave.includes("ENCARGADO") || clave.includes("SUPERVISOR")) return "OPERATIVO";
-        if (clave.includes("AUXILIAR")) return "PERSONAL";
+        if (clave.includes("AUXILIAR") || clave.includes("MONTACARGUISTA")) return "PERSONAL";
         return "OCULTO";
     },
 
@@ -657,14 +692,16 @@ window.InicioOperativo = {
 
             botonAvisos.addEventListener(
                 "click",
-                () => {
-                    Sistema.info(
-                        "El Centro de Avisos será conectado en la siguiente etapa."
-                    );
-                }
+                () => window.AsistenciaPersonal
+                    ? AsistenciaPersonal.abrirAvisos()
+                    : Sistema.info("El Centro de Avisos no está disponible.")
             );
 
         }
+
+
+        const botonAsistencia = document.getElementById("btnAsistenciaInicio");
+        if (botonAsistencia) botonAsistencia.addEventListener("click", () => AsistenciaPersonal.abrir());
 
 
         const botonEPP =

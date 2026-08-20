@@ -10,6 +10,8 @@
 window.InicioOperativo = {
 
     cargandoResumen: false,
+    cargandoDesempeno: false,
+    graficoDesempeno: null,
 
 
     async cargar() {
@@ -45,6 +47,7 @@ window.InicioOperativo = {
 
 
         await this.actualizarResumenHorasExtras();
+        await this.actualizarDesempenoRecepciones();
 
     },
 
@@ -216,19 +219,14 @@ window.InicioOperativo = {
                 <div class="inicio-operativo-grid">
 
                     <article class="inicio-card inicio-card-avisos">
-                        <div class="inicio-card-icono">
-                            <i class="fa-solid fa-bullhorn"></i>
+                        <div class="inicio-card-encabezado">
+                            <div class="inicio-card-icono"><i class="fa-solid fa-bullhorn"></i></div>
+                            <div>
+                                <span class="inicio-card-etiqueta">Comunicación</span>
+                                <h3>Avisos</h3>
+                            </div>
                         </div>
-
-                        <div>
-                            <span class="inicio-card-etiqueta">
-                                Comunicación
-                            </span>
-                            <h3>Avisos</h3>
-                            <p>
-                                Los avisos generales y por rol aparecerán en este espacio.
-                            </p>
-                        </div>
+                        <p>Los avisos generales y por rol aparecerán en este espacio.</p>
 
                         <button
                             type="button"
@@ -240,22 +238,23 @@ window.InicioOperativo = {
                         </button>
                     </article>
 
+                    ${this.construirTarjetasDesempenoInicio(rol)}
+
 
                     ${
                         puedeHorasExtras
                             ? `
                                 <article class="inicio-card inicio-card-horas-extra">
-                                    <div class="inicio-card-icono">
-                                        <i class="fa-solid fa-clock"></i>
-                                    </div>
-
-                                    <div>
+                                    <div class="inicio-card-encabezado">
+                                      <div class="inicio-card-icono"><i class="fa-solid fa-clock"></i></div>
+                                      <div>
                                         <span class="inicio-card-etiqueta">
                                             Jornada adicional
                                         </span>
                                         <h3>Horas extras</h3>
-
-                                        <div
+                                      </div>
+                                    </div>
+                                    <div
                                             id="resumenHorasExtrasInicio"
                                             class="inicio-card-resumen"
                                         >
@@ -264,7 +263,6 @@ window.InicioOperativo = {
                                                     resumenHorasExtras
                                                 )
                                             }
-                                        </div>
                                     </div>
 
                                     <button
@@ -290,23 +288,22 @@ window.InicioOperativo = {
                         puedeGestionarEPP
                             ? `
                                 <article class="inicio-card inicio-card-epp">
-                                    <div class="inicio-card-icono">
-                                        <i class="fa-solid fa-helmet-safety"></i>
-                                    </div>
-
-                                    <div>
+                                    <div class="inicio-card-encabezado">
+                                      <div class="inicio-card-icono"><i class="fa-solid fa-helmet-safety"></i></div>
+                                      <div>
                                         <span class="inicio-card-etiqueta">
                                             Seguridad personal
                                         </span>
                                         <h3>EPP</h3>
-                                        <p>
+                                      </div>
+                                    </div>
+                                    <p>
                                             ${
                                                 puedeGestionarEPP
                                                     ? "Consulte solicitudes pendientes y entregas."
                                                     : "Solicite reemplazo y consulte su historial de EPP."
                                             }
-                                        </p>
-                                    </div>
+                                    </p>
 
                                     <button
                                         type="button"
@@ -330,6 +327,265 @@ window.InicioOperativo = {
             </section>
         `;
 
+    },
+
+
+    construirTarjetasDesempenoInicio(rol) {
+        const tipo = this.tipoPanelDesempeno(rol);
+        if (tipo === "OCULTO") return "";
+
+        if (tipo === "PERSONAL") {
+            return `
+                <article class="inicio-card inicio-card-desempeno inicio-card-desempeno-personal">
+                    <div class="inicio-card-encabezado">
+                        <div class="inicio-card-icono"><i class="fa-solid fa-chart-line"></i></div>
+                        <div><span class="inicio-card-etiqueta">Mi rendimiento</span><h3>Desempeño mensual</h3></div>
+                    </div>
+                    <p>Actividad registrada a su nombre en recepciones finalizadas.</p>
+                    <div id="desempenoRecepcionesInicio" class="inicio-desempeno-cargando"><i class="fa-solid fa-spinner fa-spin"></i> Consultando actividad...</div>
+                </article>`;
+        }
+
+        return `
+            <article class="inicio-card inicio-card-supervisores">
+                <div class="inicio-card-encabezado">
+                    <div class="inicio-card-icono"><i class="fa-solid fa-chart-line"></i></div>
+                    <div><span class="inicio-card-etiqueta">Rendimiento operativo</span><h3>Supervisores</h3></div>
+                </div>
+                <p>Despachos completados y exactitud del período.</p>
+                <div id="desempenoRecepcionesInicio" class="inicio-desempeno-cargando"><i class="fa-solid fa-spinner fa-spin"></i> Consultando supervisores...</div>
+            </article>
+            <article class="inicio-card inicio-card-auxiliares">
+                <div class="inicio-card-encabezado">
+                    <div class="inicio-card-icono"><i class="fa-solid fa-users"></i></div>
+                    <div><span class="inicio-card-etiqueta">Rendimiento operativo</span><h3>Colaboradores destacados</h3></div>
+                </div>
+                <p>Auxiliares con mayor actividad en recepciones finalizadas.</p>
+                <div id="desempenoAuxiliaresInicio" class="inicio-desempeno-cargando"><i class="fa-solid fa-spinner fa-spin"></i> Consultando colaboradores...</div>
+            </article>`;
+    },
+
+
+    async actualizarDesempenoRecepciones() {
+
+        if (this.cargandoDesempeno) return;
+
+        const contenedor = document.getElementById("desempenoRecepcionesInicio");
+        if (!contenedor || !window.API || typeof API.post !== "function") return;
+
+        const sesion = Sistema.obtenerSesion() || {};
+        const tipoPanel = this.tipoPanelDesempeno(sesion.rol);
+        if (tipoPanel === "OCULTO") return;
+
+        this.cargandoDesempeno = true;
+        CargadorSistema.mostrar(
+            tipoPanel === "PERSONAL" ? "Cargando su desempeño" : "Cargando desempeño operativo",
+            tipoPanel === "PERSONAL"
+                ? "Consultando las recepciones finalizadas a su nombre."
+                : "Consultando el desempeño de supervisores y colaboradores."
+        );
+
+        try {
+            const respuesta = await API.post(
+                tipoPanel === "PERSONAL"
+                    ? {action:"obtenerDesempenoRecepcionesUsuario"}
+                    : {action:"obtenerPanelDesempenoOperativo",periodo:this.periodoDesempeno || "MES"}
+            );
+
+            if (!respuesta || respuesta.ok !== true) {
+                throw new Error(
+                    respuesta && respuesta.mensaje
+                        ? respuesta.mensaje
+                        : "No fue posible consultar su desempeño."
+                );
+            }
+
+            if (tipoPanel === "PERSONAL") {
+                this.renderDesempenoRecepciones(respuesta.data || {});
+            } else {
+                this.renderPanelDesempenoOperativo(respuesta.data || {});
+            }
+        } catch (error) {
+            contenedor.innerHTML = `
+                <div class="inicio-desempeno-vacio">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span>${this.escapar(error.message || "No fue posible cargar el desempeño.")}</span>
+                </div>`;
+        } finally {
+            this.cargandoDesempeno = false;
+            CargadorSistema.ocultar();
+        }
+
+    },
+
+
+    tipoPanelDesempeno(rol) {
+        const clave = String(rol || "").trim().normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "").toUpperCase();
+        if (clave.includes("ANALISTA")) return "OCULTO";
+        if (clave.includes("ADMINISTRADOR") || clave.includes("ENCARGADO") || clave.includes("SUPERVISOR")) return "OPERATIVO";
+        if (clave.includes("AUXILIAR")) return "PERSONAL";
+        return "OCULTO";
+    },
+
+
+    renderPanelDesempenoOperativo(datos) {
+        const contenedor = document.getElementById("desempenoRecepcionesInicio");
+        const contenedorAuxiliares = document.getElementById("desempenoAuxiliaresInicio");
+        if (!contenedor) return;
+        const supervisores = Array.isArray(datos.supervisores) ? datos.supervisores : [];
+        const auxiliares = Array.isArray(datos.auxiliares) ? datos.auxiliares : [];
+        const gerencia = datos.alcance === "GERENCIA";
+
+        contenedor.innerHTML = `
+            <section class="inicio-rendimiento-supervisores">
+                <div class="inicio-rendimiento-cabecera">
+                    <div><strong>Desempeño de supervisores</strong><span>Despachos completados y exactitud por unidades.</span></div>
+                    <div class="inicio-rendimiento-periodo">
+                        <button type="button" data-periodo="SEMANA" class="${datos.periodo === "SEMANA" ? "activo" : ""}">Semana</button>
+                        <button type="button" data-periodo="MES" class="${datos.periodo !== "SEMANA" ? "activo" : ""}">Mes</button>
+                    </div>
+                </div>
+                ${supervisores.length
+                    ? `<div class="inicio-rendimiento-grafica"><canvas id="graficaSupervisoresInicio"></canvas></div>`
+                    : `<div class="inicio-desempeno-vacio">No hay despachos completados en este período.</div>`}
+            </section>`;
+
+        if (contenedorAuxiliares) {
+            contenedorAuxiliares.innerHTML = gerencia ? `
+                <section class="inicio-rendimiento-auxiliares">
+                    <div class="inicio-rendimiento-cabecera">
+                        <div><strong>Auxiliares destacados</strong><span>Recepciones finalizadas durante el período.</span></div>
+                        <button type="button" id="btnVerTodosAuxiliares" class="inicio-rendimiento-ver-todos">Ver todos</button>
+                    </div>
+                    <div class="inicio-auxiliares-destacados">
+                        ${auxiliares.slice(0,3).map((item, indice) => `
+                            <article><span class="inicio-auxiliar-posicion">#${indice + 1}</span><strong>${this.escapar(item.nombre)}</strong>
+                            <small>${this.formatearNumeroDesempeno(item.tarimas)} tarimas · ${this.formatearNumeroDesempeno(item.unidades)} cajas/cubos · ${this.formatearNumeroDesempeno(item.recepciones)} recepciones</small></article>`).join("") || "<p class='inicio-desempeno-vacio'>Aún no hay actividad registrada.</p>"}
+                    </div>
+                </section>` : `<div class="inicio-desempeno-vacio">La comparación de auxiliares está disponible para Encargados y Administradores.</div>`;
+        }
+
+        contenedor.querySelectorAll("[data-periodo]").forEach(boton => {
+            boton.addEventListener("click", async () => {
+                this.periodoDesempeno = boton.dataset.periodo;
+                await this.actualizarDesempenoRecepciones();
+            });
+        });
+        const verTodos = document.getElementById("btnVerTodosAuxiliares");
+        if (verTodos) verTodos.addEventListener("click", () => this.abrirTodosAuxiliares(auxiliares, datos.periodo));
+        this.graficarSupervisores(supervisores);
+    },
+
+
+    graficarSupervisores(supervisores) {
+        if (this.graficoDesempeno && typeof this.graficoDesempeno.destroy === "function") this.graficoDesempeno.destroy();
+        const lienzo = document.getElementById("graficaSupervisoresInicio");
+        if (!lienzo || typeof Chart === "undefined") return;
+        this.graficoDesempeno = new Chart(lienzo, {
+            data:{labels:supervisores.map(item => item.nombre),datasets:[
+                {type:"bar",label:"Despachos",data:supervisores.map(item => Number(item.despachos || 0)),backgroundColor:"#ed1b2fcc",borderRadius:5,yAxisID:"y"},
+                {type:"line",label:"Exactitud %",data:supervisores.map(item => Number(item.tasaExactitud || 0)),borderColor:"#1976d2",backgroundColor:"#1976d2",tension:.25,pointRadius:3,yAxisID:"y1"}
+            ]},
+            options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{boxWidth:8,font:{size:9}}}},scales:{
+                x:{grid:{display:false},ticks:{font:{size:8}}},
+                y:{beginAtZero:true,position:"left",ticks:{precision:0,font:{size:8}},grid:{color:"#eef0f3"}},
+                y1:{beginAtZero:true,max:100,position:"right",ticks:{callback:v => v + "%",font:{size:8}},grid:{display:false}}
+            }}
+        });
+    },
+
+
+    abrirTodosAuxiliares(auxiliares, periodo) {
+        const anterior = document.getElementById("modalRendimientoAuxiliares");
+        if (anterior) anterior.remove();
+        const modal = document.createElement("div");
+        modal.id = "modalRendimientoAuxiliares";
+        modal.className = "inicio-modal-rendimiento";
+        modal.innerHTML = `<div class="inicio-modal-rendimiento-ventana">
+            <header><div><span>Rendimiento operativo</span><h3>Todos los auxiliares · ${periodo === "SEMANA" ? "Semana" : "Mes"}</h3></div><button type="button" data-cerrar>&times;</button></header>
+            <div class="inicio-modal-rendimiento-lista">
+                ${auxiliares.map((item, indice) => `<article><b>#${indice + 1}</b><div><strong>${this.escapar(item.nombre)}</strong><small>${this.escapar(item.idEmpleado || "")}</small></div><span>${this.formatearNumeroDesempeno(item.tarimas)} tarimas</span><span>${this.formatearNumeroDesempeno(item.unidades)} cajas/cubos</span><span>${this.formatearNumeroDesempeno(item.recepciones)} recepciones</span></article>`).join("") || "<p>No hay auxiliares con actividad en el período.</p>"}
+            </div></div>`;
+        document.body.appendChild(modal);
+        modal.querySelector("[data-cerrar]").addEventListener("click", () => modal.remove());
+        modal.addEventListener("click", evento => { if (evento.target === modal) modal.remove(); });
+    },
+
+
+    renderDesempenoRecepciones(datos) {
+
+        const contenedor = document.getElementById("desempenoRecepcionesInicio");
+        if (!contenedor) return;
+
+        const resumen = datos.resumen || {};
+        const evolucion = Array.isArray(datos.evolucion) ? datos.evolucion : [];
+
+        contenedor.innerHTML = `
+            <div class="inicio-desempeno-metricas">
+                <div><span>Tarimas</span><strong>${this.formatearNumeroDesempeno(resumen.tarimas)}</strong></div>
+                <div><span>Cajas/cubos</span><strong>${this.formatearNumeroDesempeno(resumen.unidades)}</strong></div>
+                <div><span>Recepciones</span><strong>${this.formatearNumeroDesempeno(resumen.recepciones)}</strong></div>
+                <div><span>Posiciones</span><strong>${this.formatearNumeroDesempeno(resumen.posiciones)}</strong></div>
+            </div>
+            <div class="inicio-desempeno-grafica">
+                <canvas id="graficaDesempenoRecepcionesInicio"></canvas>
+            </div>
+            <small class="inicio-desempeno-nota">
+                Las tareas colaborativas se incorporarán cuando el Centro de Avisos registre participantes.
+            </small>`;
+
+        if (this.graficoDesempeno && typeof this.graficoDesempeno.destroy === "function") {
+            this.graficoDesempeno.destroy();
+        }
+
+        const lienzo = document.getElementById("graficaDesempenoRecepcionesInicio");
+        if (!lienzo || typeof Chart === "undefined") return;
+
+        this.graficoDesempeno = new Chart(lienzo, {
+            type:"line",
+            data:{
+                labels:evolucion.map(item => item.etiqueta || item.clave),
+                datasets:[
+                    {
+                        label:"Tarimas",
+                        data:evolucion.map(item => Number(item.tarimas || 0)),
+                        borderColor:"#ed1b2f",
+                        backgroundColor:"#ed1b2f18",
+                        tension:.32,
+                        borderWidth:2,
+                        pointRadius:2,
+                        yAxisID:"y"
+                    },
+                    {
+                        label:"Cajas/cubos",
+                        data:evolucion.map(item => Number(item.unidades || 0)),
+                        borderColor:"#1976d2",
+                        backgroundColor:"#1976d218",
+                        tension:.32,
+                        borderWidth:2,
+                        pointRadius:2,
+                        yAxisID:"y1"
+                    }
+                ]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,font:{size:9}}}},
+                scales:{
+                    x:{grid:{display:false},ticks:{font:{size:8},maxRotation:0}},
+                    y:{beginAtZero:true,position:"left",ticks:{font:{size:8},precision:0},grid:{color:"#eef0f3"}},
+                    y1:{beginAtZero:true,position:"right",ticks:{font:{size:8},precision:0},grid:{display:false}}
+                }
+            }
+        });
+
+    },
+
+
+    formatearNumeroDesempeno(valor) {
+        return Number(valor || 0).toLocaleString("es-DO", {maximumFractionDigits:0});
     },
 
 

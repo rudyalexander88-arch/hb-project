@@ -3624,6 +3624,304 @@ body.asistente-recepcion-abierto {
 }
 
 /* ============================================================
+   HISTÓRICO Y ANALÍTICA DE RECEPCIONES
+   ============================================================ */
+
+.rejilla-inferior-recepciones.solo-actividad {
+    grid-template-columns: 1fr;
+}
+
+.selector-periodo-recepciones {
+    min-width: 92px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #d9dee5;
+    border-radius: 9px;
+    background: #fff;
+    font: 600 10px "Poppins", sans-serif;
+    color: #3f3f46;
+}
+
+.graficas-operativas-recepciones {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    min-height: 0;
+}
+
+.mini-grafica-recepcion {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 11px;
+    background: #fafbfc;
+}
+
+.mini-grafica-recepcion > header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 6px;
+    color: #52525b;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.mini-grafica-recepcion > header i {
+    color: #ed1b2f;
+}
+
+.mini-grafica-recepcion > div {
+    height: 112px;
+}
+
+.modal-contenido.modal-historico-recepciones {
+    width: min(1180px, calc(100vw - 32px));
+    max-width: 1180px;
+    height: min(820px, calc(100dvh - 34px));
+    overflow: hidden;
+}
+
+.modal-historico-recepciones #contenidoModal,
+.historico-recepciones-modal {
+    min-height: 0;
+    height: 100%;
+}
+
+.historico-recepciones-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.historico-recepciones-controles {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.historico-recepciones-controles h3,
+.historico-recepciones-controles p {
+    margin: 0;
+}
+
+.historico-recepciones-controles > div > span {
+    color: #ed1b2f;
+    font-size: 8px;
+    font-weight: 800;
+}
+
+.historico-recepciones-controles h3 {
+    margin-top: 2px;
+    font-size: 15px;
+}
+
+.historico-recepciones-controles p {
+    margin-top: 3px;
+    color: #71717a;
+    font-size: 10px;
+}
+
+.historico-recepciones-controles label > span {
+    display: block;
+    margin-bottom: 4px;
+    color: #71717a;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.historico-recepciones-controles select {
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid #d9dee5;
+    border-radius: 9px;
+    background: #fff;
+    font: 600 10px "Poppins", sans-serif;
+}
+
+.lista-historico-recepciones {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f7f8fa;
+    scrollbar-width: thin;
+}
+
+.historico-grupo-estado {
+    position: sticky;
+    top: -8px;
+    z-index: 3;
+    padding: 8px 11px;
+    margin-bottom: 7px;
+    border-radius: 8px;
+    background: #fff2cc;
+    color: #8a5a00;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .4px;
+}
+
+.historico-grupo-estado.finalizadas {
+    background: #e8f5e9;
+    color: #176b2c;
+}
+
+.historico-grupo-mes {
+    padding: 5px 4px;
+    color: #18181b;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: capitalize;
+}
+
+.historico-separador-semana {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 5px 0;
+    color: #71717a;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.historico-separador-semana::before,
+.historico-separador-semana::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: #cfd4da;
+}
+
+.fila-historico-recepcion {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.7fr) auto repeat(4, minmax(80px, .55fr));
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    margin-bottom: 7px;
+    border: 1px solid #e1e4e8;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.fila-historico-identidad span,
+.fila-historico-identidad strong,
+.fila-historico-identidad small {
+    display: block;
+}
+
+.fila-historico-identidad span {
+    color: #71717a;
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.fila-historico-identidad strong {
+    margin: 2px 0;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fila-historico-identidad small {
+    color: #8b929c;
+    font-size: 8px;
+}
+
+.fila-historico-estado {
+    padding: 5px 7px;
+    border-radius: 999px;
+    background: #fff2cc;
+    color: #8a5a00;
+    font-size: 8px;
+    font-weight: 800;
+}
+
+.fila-historico-estado.finalizadas {
+    background: #e8f5e9;
+    color: #176b2c;
+}
+
+.fila-historico-metrica {
+    padding: 7px;
+    border-radius: 8px;
+    background: #f4f5f7;
+}
+
+.fila-historico-metrica span,
+.fila-historico-metrica strong {
+    display: block;
+}
+
+.fila-historico-metrica span {
+    color: #71717a;
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.fila-historico-metrica strong {
+    margin-top: 2px;
+    font-size: 9px;
+}
+
+.historico-recepciones-pie {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 42px;
+    color: #71717a;
+    font-size: 9px;
+}
+
+@media (max-width: 980px) {
+    .graficas-operativas-recepciones {
+        grid-template-columns: 1fr;
+    }
+
+    .fila-historico-recepcion {
+        grid-template-columns: minmax(180px, 1.5fr) auto repeat(2, minmax(72px, .55fr));
+    }
+
+    .fila-historico-metrica:nth-last-child(-n+2) {
+        display: none;
+    }
+}
+
+@media (max-width: 620px) {
+    .historico-recepciones-controles {
+        align-items: flex-end;
+    }
+
+    .historico-recepciones-controles p {
+        display: none;
+    }
+
+    .fila-historico-recepcion {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .fila-historico-metrica {
+        display: none;
+    }
+
+    .historico-recepciones-pie {
+        gap: 8px;
+    }
+}
+
+/* ============================================================
    RECEPCIONES SIN SCROLL EN EL CONTENEDOR COMPLETO
    Las secciones ocupan toda la altura y cada listado controla
    únicamente su propio desplazamiento.

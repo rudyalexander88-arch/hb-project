@@ -77,6 +77,9 @@ window.ExactitudDespachos = {
     correccionesTemporales:
       {},
 
+    verificacionTemporal:
+      {},
+
     consultando:
       false
 
@@ -2801,6 +2804,10 @@ window.ExactitudDespachos = {
         {};
 
 
+      this.estado.verificacionTemporal =
+        {};
+
+
       this.abrirVistaVerificacion();
 
 
@@ -3099,6 +3106,24 @@ window.ExactitudDespachos = {
         </div>
 
 
+        ${
+          !modoConsulta
+            ? `
+              <div class="acciones-verificacion-masiva">
+                <div>
+                  <strong>Guardar verificación completa</strong>
+                  <span>Las cantidades se conservan localmente hasta realizar este único guardado.</span>
+                </div>
+                <button type="button" id="btnGuardarVerificacionMasiva" class="btn-guardar-verificacion-masiva">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  Guardar todos los cambios
+                </button>
+              </div>
+            `
+            : ""
+        }
+
+
         ${this.renderCorreccionGeneral()}
 
       </section>
@@ -3267,6 +3292,12 @@ window.ExactitudDespachos = {
         linea.ID_Detalle_Verificacion ||
         ""
       );
+
+
+    const temporal =
+      this.estado.verificacionTemporal[
+        idDetalle
+      ] || {};
 
 
     const abierto =
@@ -3502,7 +3533,9 @@ window.ExactitudDespachos = {
                 step="0.01"
                 class="input-cantidad-verificada"
                 value="${
-                  tieneCantidad
+                  Object.prototype.hasOwnProperty.call(temporal, "cantidadVerificada")
+                    ? this.escapar(temporal.cantidadVerificada)
+                    : tieneCantidad
                     ? this.escapar(
                         linea.Cantidad_Verificada
                       )
@@ -3547,7 +3580,9 @@ window.ExactitudDespachos = {
                 step="1"
                 class="input-tarimas-verificadas"
                 value="${this.escapar(
-                  linea.Tarimas_Verificadas
+                  Object.prototype.hasOwnProperty.call(temporal, "tarimasVerificadas")
+                    ? temporal.tarimasVerificadas
+                    : linea.Tarimas_Verificadas
                 )}"
                 ${
                   modoConsulta
@@ -3612,33 +3647,6 @@ window.ExactitudDespachos = {
             </span>
 
           </div>
-
-
-          ${
-            !modoConsulta
-              ? `
-
-                <div class="acciones-material-verificacion">
-
-                  <button
-                    type="button"
-                    class="btn-guardar-linea-verificacion"
-                    data-id-detalle="${this.escapar(
-                      idDetalle
-                    )}"
-                  >
-
-                    <i class="fa-solid fa-floppy-disk"></i>
-
-                    Guardar verificación
-
-                  </button>
-
-                </div>
-
-              `
-              : ""
-          }
 
 
           ${
@@ -4387,6 +4395,11 @@ window.ExactitudDespachos = {
         "btnGuardarCorreccionGeneral"
       );
 
+    const guardarMasivo =
+      document.getElementById(
+        "btnGuardarVerificacionMasiva"
+      );
+
 
     if (volver) {
 
@@ -4440,24 +4453,6 @@ window.ExactitudDespachos = {
 
             this.alternarMaterial(
               cabecera.dataset.idDetalle
-            );
-
-            return;
-
-          }
-
-
-          const guardarLinea =
-            evento.target.closest(
-              ".btn-guardar-linea-verificacion"
-            );
-
-          if (guardarLinea) {
-
-            evento.preventDefault();
-
-            this.guardarLineaDesdeTarjeta(
-              guardarLinea
             );
 
             return;
@@ -4531,6 +4526,20 @@ window.ExactitudDespachos = {
           if (!tarjeta) {
             return;
           }
+
+          if (
+            evento.target.matches(
+              ".input-cantidad-verificada, " +
+              ".input-tarimas-verificadas"
+            )
+          ) {
+
+            this.capturarVerificacionTemporal(
+              tarjeta
+            );
+
+          }
+
 
           if (
             evento.target.matches(
@@ -4670,7 +4679,375 @@ window.ExactitudDespachos = {
     }
 
 
+    if (guardarMasivo) {
+
+      guardarMasivo.onclick =
+        evento => {
+
+          evento.preventDefault();
+          this.guardarVerificacionMasiva();
+
+        };
+
+    }
+
+
     this.actualizarContadorCorrecciones();
+
+  },
+
+
+  capturarVerificacionTemporal(
+    tarjeta
+  ) {
+
+    const idDetalle =
+      tarjeta && tarjeta.dataset
+        ? tarjeta.dataset.idDetalle
+        : "";
+
+
+    if (!idDetalle) {
+      return;
+    }
+
+
+    const cantidad =
+      tarjeta.querySelector(
+        ".input-cantidad-verificada"
+      );
+
+
+    const tarimas =
+      tarjeta.querySelector(
+        ".input-tarimas-verificadas"
+      );
+
+
+    this.estado.verificacionTemporal[
+      idDetalle
+    ] = {
+
+      cantidadVerificada:
+        cantidad ? cantidad.value : "",
+
+      tarimasVerificadas:
+        tarimas ? tarimas.value : ""
+
+    };
+
+  },
+
+
+  async guardarVerificacionMasiva() {
+
+    const lista =
+      document.getElementById(
+        "listaMaterialesVerificacion"
+      );
+
+
+    if (!lista) {
+      return;
+    }
+
+
+    const tarjetas =
+      Array.from(
+        lista.querySelectorAll(
+          ".tarjeta-material-verificacion"
+        )
+      );
+
+
+    const lineas = [];
+    let primeraIncompleta = null;
+
+
+    tarjetas.forEach(
+      tarjeta => {
+
+        this.capturarVerificacionTemporal(
+          tarjeta
+        );
+
+
+        const idDetalle =
+          tarjeta.dataset.idDetalle;
+
+
+        const temporal =
+          this.estado.verificacionTemporal[
+            idDetalle
+          ] || {};
+
+
+        if (
+          String(
+            temporal.cantidadVerificada
+          ).trim() === ""
+        ) {
+
+          if (!primeraIncompleta) {
+            primeraIncompleta = tarjeta;
+          }
+
+          return;
+
+        }
+
+
+        const linea = {
+          idDetalleVerificacion:idDetalle,
+          cantidadVerificada:temporal.cantidadVerificada
+        };
+
+
+        if (
+          String(
+            temporal.tarimasVerificadas
+          ).trim() !== ""
+        ) {
+          linea.tarimasVerificadas =
+            temporal.tarimasVerificadas;
+        }
+
+
+        lineas.push(
+          linea
+        );
+
+      }
+    );
+
+
+    if (primeraIncompleta) {
+
+      const idDetalle =
+        primeraIncompleta.dataset.idDetalle;
+
+      this.estado.materialesAbiertos[idDetalle] = true;
+      lista.innerHTML = this.renderMaterialesVerificacion();
+      this.conectarEventosVerificacion();
+
+      const tarjeta =
+        lista.querySelector(
+          `[data-id-detalle="${idDetalle}"]`
+        );
+
+      if (tarjeta) {
+        tarjeta.scrollIntoView({behavior:"smooth",block:"center"});
+        const input = tarjeta.querySelector(".input-cantidad-verificada");
+        if (input) input.focus();
+      }
+
+      this.notificar(
+        "Debe completar la cantidad verificada de todos los materiales.",
+        "advertencia"
+      );
+
+      return;
+
+    }
+
+
+    const sesion =
+      this.obtenerSesion();
+
+
+    this.mostrarCarga(
+      "Guardando verificación",
+      "Procesando todas las líneas y calculando sus diferencias."
+    );
+
+
+    try {
+
+      const respuesta =
+        await API.post({
+          action:"guardarVerificacionDespachoMasiva",
+          lineas:lineas,
+          analistaNombre:
+            sesion.nombre ||
+            sesion.Nombre ||
+            sesion.nombreCompleto ||
+            "Analista"
+        });
+
+
+      if (!respuesta || respuesta.ok !== true) {
+        throw new Error(
+          respuesta && respuesta.mensaje
+            ? respuesta.mensaje
+            : "No fue posible guardar la verificación."
+        );
+      }
+
+
+      this.estado.verificacionTemporal = {};
+      await this.recargarPaqueteActual();
+
+
+      const existenDiferencias =
+        Boolean(
+          respuesta.data &&
+          respuesta.data.existenDiferencias
+        );
+
+
+      if (!existenDiferencias) {
+
+        this.notificar(
+          "Verificación completada sin diferencias.",
+          "exito"
+        );
+
+        await this.abrirCentro();
+        return;
+
+      }
+
+
+      this.enfocarPrimeraDiferencia();
+      this.preguntarCorreccionDiferencias();
+
+
+    } catch (error) {
+
+      this.notificar(
+        error && error.message
+          ? error.message
+          : "No fue posible guardar la verificación.",
+        "error"
+      );
+
+
+    } finally {
+
+      this.ocultarCarga();
+
+    }
+
+  },
+
+
+  enfocarPrimeraDiferencia() {
+
+    const detalle =
+      Array.isArray(
+        this.estado.paquete &&
+        this.estado.paquete.detalle
+      )
+        ? this.estado.paquete.detalle
+        : [];
+
+
+    const primera =
+      detalle.find(
+        linea => Number(linea.Diferencia || 0) !== 0
+      );
+
+
+    if (!primera) {
+      return;
+    }
+
+
+    const idDetalle =
+      String(
+        primera.ID_Detalle_Verificacion || ""
+      );
+
+
+    this.estado.materialesAbiertos[idDetalle] = true;
+
+
+    const lista =
+      document.getElementById(
+        "listaMaterialesVerificacion"
+      );
+
+
+    if (lista) {
+      lista.innerHTML = this.renderMaterialesVerificacion();
+      this.conectarEventosVerificacion();
+
+      window.setTimeout(() => {
+        const tarjeta = lista.querySelector(`[data-id-detalle="${idDetalle}"]`);
+        if (tarjeta) {
+          tarjeta.classList.add("diferencia-enfocada");
+          tarjeta.scrollIntoView({behavior:"smooth",block:"center"});
+        }
+      }, 80);
+    }
+
+  },
+
+
+  preguntarCorreccionDiferencias() {
+
+    const anterior =
+      document.getElementById(
+        "dialogoCorreccionDiferencias"
+      );
+
+    if (anterior) anterior.remove();
+
+
+    const dialogo =
+      document.createElement("div");
+
+    dialogo.id =
+      "dialogoCorreccionDiferencias";
+
+    dialogo.className =
+      "dialogo-correccion-diferencias";
+
+    dialogo.innerHTML = `
+      <div class="dialogo-correccion-contenido">
+        <div class="dialogo-correccion-icono"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3>Se detectaron diferencias</h3>
+        <p>¿Producción corrigió estas diferencias?</p>
+        <div class="dialogo-correccion-acciones">
+          <button type="button" data-respuesta="NO" class="secundario">No, volver al listado</button>
+          <button type="button" data-respuesta="SI">Sí, registrar corrección</button>
+        </div>
+      </div>`;
+
+
+    const contenidoModal =
+      document.getElementById(
+        "contenidoModal"
+      );
+
+
+    (contenidoModal || document.body)
+      .appendChild(dialogo);
+
+
+    dialogo.onclick =
+      async evento => {
+
+        const boton =
+          evento.target.closest(
+            "[data-respuesta]"
+          );
+
+        if (!boton) return;
+
+        const respuesta =
+          boton.dataset.respuesta;
+
+        dialogo.remove();
+
+        if (respuesta === "NO") {
+          await this.abrirCentro();
+          return;
+        }
+
+        this.enfocarPrimeraDiferencia();
+
+      };
 
   },
 

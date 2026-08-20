@@ -17,7 +17,15 @@ window.RecepcionMateriales = {
     origenTraslado: "Carritos",
     horaInicioIngreso: "",
     resumenAcumulado: null,
-    tieneRegistrosPrevios: false
+    tieneRegistrosPrevios: false,
+    analiticaOperativa: [],
+    frecuenciaAnalitica: "DIA",
+    graficasOperativas: [],
+    historico: [],
+    historicoOffset: 0,
+    historicoLimite: 10,
+    historicoHayMas: false,
+    historicoTotal: 0
   },
 
 
@@ -434,7 +442,14 @@ configurarScrollInterno() {
               "listarRecepcionesRecientes",
             limite:
               6
-          })
+          }),
+
+          this.puedeVerAnaliticaOperativa()
+            ? API.post({
+                action:"obtenerAnaliticaOperativaRecepciones",
+                frecuencia:this.estado.frecuenciaAnalitica
+              })
+            : Promise.resolve({ok:true,data:{serie:[]}})
 
         ]);
 
@@ -445,6 +460,9 @@ configurarScrollInterno() {
 
       const respuestaRecientes =
         resultados[1];
+
+      const respuestaAnalitica =
+        resultados[2];
 
 
       if (
@@ -492,8 +510,17 @@ configurarScrollInterno() {
           ? respuestaRecientes.data
           : [];
 
+      this.estado.analiticaOperativa =
+        respuestaAnalitica &&
+        respuestaAnalitica.ok === true &&
+        respuestaAnalitica.data &&
+        Array.isArray(respuestaAnalitica.data.serie)
+          ? respuestaAnalitica.data.serie
+          : [];
+
 
       this.renderRecepcionesAbiertas();
+      this.renderGraficasOperativas();
 
     } catch (error) {
 
@@ -621,7 +648,7 @@ configurarScrollInterno() {
 
         </section>
 
-        <div class="rejilla-inferior-recepciones">
+        <div class="rejilla-inferior-recepciones ${this.puedeVerAnaliticaOperativa() ? "" : "solo-actividad"}">
 
           <section class="bloque-centro-recepciones">
             <header class="encabezado-bloque-recepciones compacto">
@@ -647,37 +674,31 @@ configurarScrollInterno() {
             ${this.renderActividadReciente()}
           </section>
 
-          <section class="bloque-centro-recepciones">
+          ${this.puedeVerAnaliticaOperativa() ? `
+          <section class="bloque-centro-recepciones bloque-analitica-recepciones">
             <header class="encabezado-bloque-recepciones compacto">
               <div>
-                <span>Mi rendimiento</span>
-                <h3>Desempe\u00f1o del colaborador</h3>
+                <span>Comportamiento operativo</span>
+                <h3>Indicadores de recepci\u00f3n</h3>
                 <p>
-                  Los indicadores personales se conectar\u00e1n con
-                  las recepciones finalizadas del usuario.
+                  Evoluci\u00f3n de recepciones finalizadas por per\u00edodo.
                 </p>
               </div>
+
+              <select id="frecuenciaAnaliticaRecepciones" class="selector-periodo-recepciones">
+                <option value="DIA" ${this.estado.frecuenciaAnalitica === "DIA" ? "selected" : ""}>D\u00eda</option>
+                <option value="SEMANA" ${this.estado.frecuenciaAnalitica === "SEMANA" ? "selected" : ""}>Semana</option>
+                <option value="MES" ${this.estado.frecuenciaAnalitica === "MES" ? "selected" : ""}>Mes</option>
+              </select>
             </header>
 
-            <div class="metricas-colaborador-recepcion">
-              <div>
-                <span>Abiertas</span>
-                <strong>${lista.length}</strong>
-              </div>
-              <div>
-                <span>Tarimas</span>
-                <strong>
-                  ${this.formatearNumero(totalTarimas)}
-                </strong>
-              </div>
-              <div>
-                <span>Posiciones</span>
-                <strong>
-                  ${this.formatearNumero(totalPosiciones)}
-                </strong>
-              </div>
+            <div class="graficas-operativas-recepciones">
+              ${this.renderLienzoAnalitica("Tarimas recibidas", "graficaTarimasRecepciones", "fa-layer-group")}
+              ${this.renderLienzoAnalitica("Cajas y cubos recibidos", "graficaUnidadesRecepciones", "fa-boxes-stacked")}
+              ${this.renderLienzoAnalitica("Posiciones ocupadas", "graficaPosicionesRecepciones", "fa-warehouse")}
             </div>
           </section>
+          ` : ""}
 
         </div>
 
@@ -698,14 +719,276 @@ configurarScrollInterno() {
       document.getElementById("btnHistoricoRecepciones");
 
     if (historico) {
-      historico.onclick = () => {
-        this.notificar(
-          "La consulta hist\u00f3rica se conectar\u00e1 en la siguiente etapa.",
-          "advertencia"
-        );
-      };
+      historico.onclick = () => this.abrirHistoricoRecepciones();
     }
 
+    const frecuencia = document.getElementById("frecuenciaAnaliticaRecepciones");
+    if (frecuencia) {
+      frecuencia.onchange = () => this.cargarAnaliticaOperativa(frecuencia.value);
+    }
+
+  },
+
+
+  puedeVerAnaliticaOperativa() {
+    const sesion = Sistema.obtenerSesion() || {};
+    const rol = typeof Sistema.normalizarPermiso === "function"
+      ? Sistema.normalizarPermiso(sesion.rol)
+      : String(sesion.rol || "").trim().toUpperCase();
+    return rol.indexOf("AUXILIAR") === -1;
+  },
+
+
+  renderLienzoAnalitica(titulo, id, icono) {
+    return `
+      <article class="mini-grafica-recepcion">
+        <header>
+          <i class="fa-solid ${icono}"></i>
+          <span>${this.escapar(titulo)}</span>
+        </header>
+        <div><canvas id="${id}"></canvas></div>
+      </article>`;
+  },
+
+
+  async cargarAnaliticaOperativa(frecuencia) {
+    this.estado.frecuenciaAnalitica = frecuencia || "DIA";
+    this.mostrarCarga(
+      "Actualizando indicadores",
+      "Consultando la actividad de recepciones finalizadas."
+    );
+    try {
+      const respuesta = await API.post({
+        action:"obtenerAnaliticaOperativaRecepciones",
+        frecuencia:this.estado.frecuenciaAnalitica
+      });
+      if (!respuesta || respuesta.ok !== true) {
+        throw new Error(respuesta && respuesta.mensaje ? respuesta.mensaje : "No fue posible cargar los indicadores.");
+      }
+      this.estado.analiticaOperativa = respuesta.data && Array.isArray(respuesta.data.serie)
+        ? respuesta.data.serie
+        : [];
+      this.renderGraficasOperativas();
+    } catch (error) {
+      this.notificar(error.message, "error");
+    } finally {
+      this.ocultarCarga();
+    }
+  },
+
+
+  renderGraficasOperativas() {
+    if (!this.puedeVerAnaliticaOperativa() || typeof Chart === "undefined") return;
+
+    (this.estado.graficasOperativas || []).forEach(grafica => {
+      if (grafica && typeof grafica.destroy === "function") grafica.destroy();
+    });
+    this.estado.graficasOperativas = [];
+
+    const serie = Array.isArray(this.estado.analiticaOperativa)
+      ? this.estado.analiticaOperativa
+      : [];
+    const etiquetas = serie.map(item => item.etiqueta || item.clave);
+    const configuraciones = [
+      {id:"graficaTarimasRecepciones", campo:"tarimas", color:"#d71920"},
+      {id:"graficaUnidadesRecepciones", campo:"unidades", color:"#1976d2"},
+      {id:"graficaPosicionesRecepciones", campo:"posiciones", color:"#218838"}
+    ];
+
+    configuraciones.forEach(config => {
+      const lienzo = document.getElementById(config.id);
+      if (!lienzo) return;
+      const grafica = new Chart(lienzo, {
+        type:"line",
+        data:{
+          labels:etiquetas,
+          datasets:[{
+            data:serie.map(item => Number(item[config.campo] || 0)),
+            borderColor:config.color,
+            backgroundColor:config.color + "18",
+            fill:true,
+            tension:.32,
+            borderWidth:2,
+            pointRadius:2,
+            pointHoverRadius:4
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{
+            x:{grid:{display:false},ticks:{font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:6}},
+            y:{beginAtZero:true,grid:{color:"#eef0f3"},ticks:{font:{size:8},precision:0,maxTicksLimit:4}}
+          }
+        }
+      });
+      this.estado.graficasOperativas.push(grafica);
+    });
+  },
+
+
+  abrirHistoricoRecepciones() {
+    this.estado.historico = [];
+    this.estado.historicoOffset = 0;
+    this.estado.historicoHayMas = false;
+
+    const contenido = `
+      <section class="historico-recepciones-modal">
+        <header class="historico-recepciones-controles">
+          <div>
+            <span>CONSULTA OPERATIVA</span>
+            <h3>Histórico de recepciones</h3>
+            <p>Las abiertas aparecen primero y las finalizadas se organizan por fecha.</p>
+          </div>
+          <label>
+            <span>Mostrar</span>
+            <select id="limiteHistoricoRecepciones">
+              <option value="10">10 recepciones</option>
+              <option value="30">30 recepciones</option>
+            </select>
+          </label>
+        </header>
+        <div id="listaHistoricoRecepciones" class="lista-historico-recepciones">
+          <div class="estado-proximo-recepciones"><i class="fa-solid fa-spinner fa-spin"></i><span>Cargando histórico...</span></div>
+        </div>
+        <footer class="historico-recepciones-pie">
+          <span id="resumenHistoricoRecepciones"></span>
+          <button type="button" id="btnCargarMasHistoricoRecepciones" class="btn-recepcion secundario" hidden>
+            <i class="fa-solid fa-plus"></i> Cargar más
+          </button>
+        </footer>
+      </section>`;
+
+    Sistema.abrirModal("Histórico de recepciones", contenido, {clase:"modal-historico-recepciones"});
+
+    const cerrarModal = document.getElementById("cerrarModal");
+    if (cerrarModal && cerrarModal.dataset.limpiezaHistoricoRecepciones !== "true") {
+      cerrarModal.dataset.limpiezaHistoricoRecepciones = "true";
+      cerrarModal.addEventListener("click", () => {
+        const modalContenido = document.querySelector("#modalSistema .modal-contenido");
+        if (modalContenido) modalContenido.classList.remove("modal-historico-recepciones");
+      });
+    }
+
+    const selector = document.getElementById("limiteHistoricoRecepciones");
+    const cargarMas = document.getElementById("btnCargarMasHistoricoRecepciones");
+    if (selector) {
+      selector.value = String(this.estado.historicoLimite);
+      selector.onchange = () => {
+        this.estado.historicoLimite = Number(selector.value);
+        this.estado.historico = [];
+        this.estado.historicoOffset = 0;
+        this.cargarHistoricoRecepciones(false);
+      };
+    }
+    if (cargarMas) cargarMas.onclick = () => this.cargarHistoricoRecepciones(true);
+    this.cargarHistoricoRecepciones(false);
+  },
+
+
+  async cargarHistoricoRecepciones(anexar) {
+    this.mostrarCarga("Cargando histórico", "Consultando recepciones registradas.");
+    try {
+      const respuesta = await API.post({
+        action:"obtenerHistoricoRecepciones",
+        offset:anexar ? this.estado.historicoOffset : 0,
+        limite:this.estado.historicoLimite
+      });
+      if (!respuesta || respuesta.ok !== true) {
+        throw new Error(respuesta && respuesta.mensaje ? respuesta.mensaje : "No fue posible consultar el histórico.");
+      }
+      const datos = respuesta.data || {};
+      const nuevos = Array.isArray(datos.registros) ? datos.registros : [];
+      this.estado.historico = anexar ? this.estado.historico.concat(nuevos) : nuevos;
+      this.estado.historicoOffset = Number(datos.offset || 0) + nuevos.length;
+      this.estado.historicoHayMas = datos.hayMas === true;
+      this.estado.historicoTotal = Number(datos.total || 0);
+      this.renderHistoricoRecepciones();
+    } catch (error) {
+      this.notificar(error.message, "error");
+    } finally {
+      this.ocultarCarga();
+    }
+  },
+
+
+  renderHistoricoRecepciones() {
+    const lista = document.getElementById("listaHistoricoRecepciones");
+    const boton = document.getElementById("btnCargarMasHistoricoRecepciones");
+    const resumen = document.getElementById("resumenHistoricoRecepciones");
+    if (!lista) return;
+
+    const registros = this.estado.historico || [];
+    let grupoEstado = "";
+    let grupoMes = "";
+    let grupoSemana = "";
+    let html = "";
+
+    registros.forEach(item => {
+      if (item.grupoEstado !== grupoEstado) {
+        grupoEstado = item.grupoEstado;
+        grupoMes = "";
+        grupoSemana = "";
+        html += `<div class="historico-grupo-estado ${grupoEstado.toLowerCase()}">${this.escapar(grupoEstado)}</div>`;
+      }
+
+      const fecha = item.fecha ? new Date(item.fecha + "T00:00:00") : null;
+      const mes = fecha && !isNaN(fecha.getTime())
+        ? fecha.toLocaleDateString("es-DO", {month:"long",year:"numeric"})
+        : "Sin fecha";
+      const semana = fecha && !isNaN(fecha.getTime()) ? this.claveSemanaRecepcion(fecha) : "sin-semana";
+
+      if (mes !== grupoMes) {
+        grupoMes = mes;
+        grupoSemana = "";
+        html += `<div class="historico-grupo-mes">${this.escapar(mes)}</div>`;
+      }
+      if (semana !== grupoSemana) {
+        grupoSemana = semana;
+        html += `<div class="historico-separador-semana"><span>${this.escapar(this.etiquetaSemanaRecepcion(fecha))}</span></div>`;
+      }
+
+      html += this.renderFilaHistoricoRecepcion(item);
+    });
+
+    lista.innerHTML = html || `<div class="estado-proximo-recepciones"><i class="fa-solid fa-box-archive"></i><span>No existen recepciones para mostrar.</span></div>`;
+    if (boton) boton.hidden = !this.estado.historicoHayMas;
+    if (resumen) resumen.textContent = `Mostrando ${registros.length} de ${this.estado.historicoTotal} recepciones`;
+  },
+
+
+  renderFilaHistoricoRecepcion(item) {
+    return `
+      <article class="fila-historico-recepcion">
+        <div class="fila-historico-identidad">
+          <span>${this.escapar(item.idRecepcion || "-")}</span>
+          <strong>${this.escapar(item.detalle || item.material || "Recepción")}</strong>
+          <small>${this.escapar(this.formatearFechaLegible(item.fecha))} · ${this.escapar(item.usuarioNombre || "Sin responsable")}</small>
+        </div>
+        <span class="fila-historico-estado ${String(item.grupoEstado || "").toLowerCase()}">${this.escapar(item.estado)}</span>
+        <div class="fila-historico-metrica"><span>Tarimas</span><strong>${this.formatearNumero(item.totalTarimas)}</strong></div>
+        <div class="fila-historico-metrica"><span>Cajas/cubos</span><strong>${this.formatearNumero(item.totalUnidades)}</strong></div>
+        <div class="fila-historico-metrica"><span>Posiciones</span><strong>${this.formatearNumero(item.totalPosiciones)}</strong></div>
+        <div class="fila-historico-metrica"><span>Duración</span><strong>${this.formatearNumero(item.duracionMinutos)} min</strong></div>
+      </article>`;
+  },
+
+
+  claveSemanaRecepcion(fecha) {
+    const lunes = new Date(fecha);
+    lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+    return `${lunes.getFullYear()}-${lunes.getMonth()}-${lunes.getDate()}`;
+  },
+
+
+  etiquetaSemanaRecepcion(fecha) {
+    if (!fecha || isNaN(fecha.getTime())) return "Semana sin fecha";
+    const lunes = new Date(fecha);
+    lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    return `Semana ${lunes.toLocaleDateString("es-DO", {day:"2-digit",month:"short"})} - ${domingo.toLocaleDateString("es-DO", {day:"2-digit",month:"short"})}`;
   },
 
 

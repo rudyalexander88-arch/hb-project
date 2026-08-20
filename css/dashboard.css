@@ -1890,3 +1890,339 @@ body {
         padding: 0 10px;
     }
 }
+
+/* ==========================================================
+   JERARQUÍA DEL MENÚ Y TARJETAS COMPACTAS DE INICIO
+   ========================================================== */
+
+.sidebar li.menu-categoria-inicio {
+    position: relative;
+    margin-top: 9px;
+    padding-top: 13px;
+}
+
+.sidebar li.menu-categoria-inicio::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 10px;
+    right: 10px;
+    height: 1px;
+    background: #e6e8eb;
+}
+
+.sidebar li.menu-acceso-rapido {
+    position: relative;
+    width: calc(100% - 20px);
+    min-height: 38px;
+    margin: 2px 0 3px 20px;
+    padding-left: 25px;
+    border-radius: 9px;
+    font-size: 10px;
+}
+
+.sidebar li.menu-acceso-rapido::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: -7px;
+    width: 10px;
+    height: 19px;
+    border-left: 1px solid #cfd3d8;
+    border-bottom: 1px solid #cfd3d8;
+    border-radius: 0 0 0 7px;
+}
+
+.sidebar li.menu-acceso-rapido i {
+    font-size: 10px;
+}
+
+.inicio-operativo-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+}
+
+.inicio-card,
+.inicio-card-desempeno,
+.inicio-card-supervisores,
+.inicio-card-auxiliares {
+    grid-column: span 1;
+    min-width: 0;
+}
+
+.inicio-card-encabezado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.inicio-card-encabezado .inicio-card-icono {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.inicio-card-encabezado > div:last-child {
+    min-width: 0;
+}
+
+.inicio-card-encabezado h3,
+.inicio-card-encabezado .inicio-card-etiqueta {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.inicio-card > p {
+    margin-top: 8px;
+}
+
+.inicio-card-supervisores .inicio-rendimiento-supervisores,
+.inicio-card-auxiliares .inicio-rendimiento-auxiliares {
+    padding-top: 4px;
+}
+
+.inicio-card-auxiliares .inicio-rendimiento-auxiliares {
+    margin-top: 0;
+    border-top: 0;
+}
+
+.inicio-card-supervisores .inicio-rendimiento-grafica {
+    height: 170px;
+}
+
+.inicio-card-auxiliares .inicio-auxiliares-destacados {
+    grid-template-columns: 1fr;
+}
+
+.inicio-card-auxiliares .inicio-auxiliares-destacados article {
+    padding-top: 11px;
+    padding-bottom: 11px;
+}
+
+.inicio-modal-rendimiento-lista article {
+    min-height: 48px;
+    padding: 12px 10px;
+    font-size: 11px;
+}
+
+.inicio-modal-rendimiento-lista article strong {
+    font-size: 11px;
+}
+
+.inicio-modal-rendimiento-lista article small {
+    font-size: 9px;
+}
+
+.inicio-modal-rendimiento-lista article > b {
+    font-size: 11px;
+}
+
+@media (max-width: 1050px) {
+    .inicio-operativo-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inicio-card-desempeno-personal {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 700px) {
+    .inicio-operativo-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .inicio-card,
+    .inicio-card-desempeno,
+    .inicio-card-supervisores,
+    .inicio-card-auxiliares {
+        grid-column: 1 / -1;
+    }
+
+    .sidebar li.menu-acceso-rapido {
+        width: calc(100% - 28px);
+        margin-left: 28px;
+        font-size: 12px;
+    }
+}
+
+/* ==========================================================
+   DESEMPEÑO PERSONAL EN INICIO
+   ========================================================== */
+
+.inicio-card-desempeno {
+    grid-column: span 2;
+}
+
+.inicio-desempeno-cargando,
+.inicio-desempeno-vacio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 80px;
+    color: #71717a;
+    font-size: 10px;
+}
+
+.inicio-desempeno-metricas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0 8px;
+}
+
+.inicio-desempeno-metricas > div {
+    padding: 9px;
+    border-radius: 9px;
+    background: #f4f5f7;
+}
+
+.inicio-desempeno-metricas span,
+.inicio-desempeno-metricas strong {
+    display: block;
+}
+
+.inicio-desempeno-metricas span {
+    color: #71717a;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.inicio-desempeno-metricas strong {
+    margin-top: 3px;
+    color: #18181b;
+    font-size: 15px;
+}
+
+.inicio-desempeno-grafica {
+    height: 150px;
+    min-height: 150px;
+}
+
+.inicio-desempeno-nota {
+    display: block;
+    margin-top: 6px;
+    color: #8b929c;
+    font-size: 8px;
+}
+
+.inicio-rendimiento-supervisores,
+.inicio-rendimiento-auxiliares { padding-top: 10px; }
+.inicio-rendimiento-auxiliares { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+.inicio-rendimiento-cabecera { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.inicio-rendimiento-cabecera strong,
+.inicio-rendimiento-cabecera span { display:block; }
+.inicio-rendimiento-cabecera strong { font-size:12px; color:#18181b; }
+.inicio-rendimiento-cabecera span { margin-top:2px; color:#71717a; font-size:9px; }
+.inicio-rendimiento-periodo { display:flex; gap:4px; padding:3px; border-radius:9px; background:#f1f2f4; }
+.inicio-rendimiento-periodo button,
+.inicio-rendimiento-ver-todos { border:0; border-radius:7px; padding:7px 10px; font-size:9px; font-weight:800; cursor:pointer; }
+.inicio-rendimiento-periodo button { color:#60646c; background:transparent; }
+.inicio-rendimiento-periodo button.activo { color:#ed1b2f; background:#fff; box-shadow:0 1px 4px #00000015; }
+.inicio-rendimiento-ver-todos { color:#fff; background:#ed1b2f; }
+.inicio-rendimiento-grafica { height:175px; margin-top:8px; }
+.inicio-auxiliares-destacados { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:9px; }
+.inicio-auxiliares-destacados article { position:relative; padding:10px 10px 10px 36px; border:1px solid #e5e7eb; border-radius:10px; background:#fafafa; }
+.inicio-auxiliares-destacados strong,
+.inicio-auxiliares-destacados small { display:block; }
+.inicio-auxiliares-destacados strong { font-size:10px; }
+.inicio-auxiliares-destacados small { margin-top:4px; color:#71717a; font-size:8px; line-height:1.4; }
+.inicio-auxiliar-posicion { position:absolute; left:9px; top:10px; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; color:#ed1b2f; background:#fdebed; font-size:8px; font-weight:900; }
+.inicio-modal-rendimiento { position:fixed; inset:0; z-index:10020; display:grid; place-items:center; padding:18px; background:#111827aa; }
+.inicio-modal-rendimiento-ventana { width:min(850px,100%); max-height:min(720px,90vh); display:flex; flex-direction:column; overflow:hidden; border-radius:16px; background:#fff; box-shadow:0 22px 60px #0005; }
+.inicio-modal-rendimiento-ventana header { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #e5e7eb; }
+.inicio-modal-rendimiento-ventana header span { color:#ed1b2f; font-size:8px; font-weight:900; text-transform:uppercase; }
+.inicio-modal-rendimiento-ventana header h3 { margin:3px 0 0; font-size:17px; }
+.inicio-modal-rendimiento-ventana header button { border:0; border-radius:50%; width:32px; height:32px; font-size:22px; cursor:pointer; }
+.inicio-modal-rendimiento-lista { overflow-y:auto; padding:10px 16px 16px; }
+.inicio-modal-rendimiento-lista article { display:grid; grid-template-columns:28px minmax(180px,1fr) repeat(3,minmax(90px,auto)); align-items:center; gap:10px; padding:10px; border-bottom:1px solid #eceef1; font-size:9px; }
+.inicio-modal-rendimiento-lista article > b { color:#ed1b2f; }
+.inicio-modal-rendimiento-lista article strong,
+.inicio-modal-rendimiento-lista article small { display:block; }
+.inicio-modal-rendimiento-lista article small { margin-top:2px; color:#8b929c; }
+
+@media (max-width: 900px) {
+    .inicio-card-desempeno {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 560px) {
+    .inicio-desempeno-metricas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inicio-desempeno-grafica {
+        height: 135px;
+        min-height: 135px;
+    }
+
+    .inicio-rendimiento-cabecera { align-items:flex-start; }
+    .inicio-auxiliares-destacados { grid-template-columns:1fr; }
+    .inicio-modal-rendimiento-lista article { grid-template-columns:24px 1fr; }
+    .inicio-modal-rendimiento-lista article > span { grid-column:2; }
+}
+
+/* Ajustes finales de precedencia para la composición de Inicio. */
+@media (min-width: 1051px) {
+    .inicio-operativo-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .inicio-card-desempeno,
+    .inicio-card-supervisores,
+    .inicio-card-auxiliares {
+        grid-column: span 1;
+    }
+}
+
+.inicio-card-auxiliares .inicio-rendimiento-auxiliares {
+    margin-top: 0;
+    padding-top: 4px;
+    border-top: 0;
+}
+
+.inicio-card-auxiliares .inicio-auxiliares-destacados {
+    grid-template-columns: 1fr;
+}
+
+.inicio-modal-rendimiento-lista article {
+    min-height: 48px;
+    padding: 12px 10px;
+    font-size: 11px;
+}
+
+.inicio-modal-rendimiento-lista article strong,
+.inicio-modal-rendimiento-lista article > b {
+    font-size: 11px;
+}
+
+.inicio-modal-rendimiento-lista article small {
+    font-size: 9px;
+}
+
+@media (max-width: 1050px) and (min-width: 701px) {
+    .inicio-operativo-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inicio-card-desempeno,
+    .inicio-card-supervisores,
+    .inicio-card-auxiliares {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 700px) {
+    .inicio-operativo-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .inicio-card,
+    .inicio-card-desempeno,
+    .inicio-card-supervisores,
+    .inicio-card-auxiliares {
+        grid-column: 1 / -1;
+    }
+}

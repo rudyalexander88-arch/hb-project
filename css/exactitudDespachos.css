@@ -944,7 +944,13 @@
 }
 
 .tarjeta-material-verificacion.diferencia {
-    border-left-color: var(--ex-naranja);
+    border-color: #ef9aa3;
+    border-left-color: var(--ex-rojo);
+    background: #fff7f8;
+}
+
+.tarjeta-material-verificacion.diferencia-enfocada {
+    box-shadow: 0 0 0 3px rgba(237, 27, 47, 0.16), 0 8px 22px rgba(237, 27, 47, 0.12);
 }
 
 .tarjeta-material-verificacion.parcial {
@@ -1258,6 +1264,142 @@
         transform 0.18s ease,
         filter 0.18s ease,
         box-shadow 0.18s ease;
+}
+
+/* ============================================================
+   GUARDADO ÚNICO DE LA VERIFICACIÓN
+   ============================================================ */
+
+.acciones-verificacion-masiva {
+    position: sticky;
+    bottom: 0;
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid #e3e6ea;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 -5px 18px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(8px);
+}
+
+.acciones-verificacion-masiva strong,
+.acciones-verificacion-masiva span {
+    display: block;
+}
+
+.acciones-verificacion-masiva strong {
+    color: #25282c;
+    font-size: 11px;
+}
+
+.acciones-verificacion-masiva span {
+    margin-top: 3px;
+    color: #747a7f;
+    font-size: 9px;
+}
+
+.btn-guardar-verificacion-masiva {
+    min-width: 205px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    background: var(--ex-rojo);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 5px 13px rgba(237, 27, 47, 0.2);
+}
+
+.dialogo-correccion-diferencias {
+    position: fixed;
+    inset: 0;
+    z-index: 12050;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(20, 24, 28, 0.58);
+}
+
+.dialogo-correccion-contenido {
+    width: min(460px, 100%);
+    padding: 25px;
+    border-radius: 15px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+}
+
+.dialogo-correccion-icono {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 11px;
+    border-radius: 50%;
+    color: #b96b00;
+    background: #fff1d8;
+    font-size: 18px;
+}
+
+.dialogo-correccion-contenido h3 {
+    margin: 0;
+    color: #202327;
+    font-size: 18px;
+}
+
+.dialogo-correccion-contenido p {
+    margin: 7px 0 19px;
+    color: #666d75;
+    font-size: 11px;
+}
+
+.dialogo-correccion-acciones {
+    display: flex;
+    justify-content: center;
+    gap: 9px;
+}
+
+.dialogo-correccion-acciones button {
+    min-height: 39px;
+    padding: 0 15px;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    background: var(--ex-rojo);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.dialogo-correccion-acciones button.secundario {
+    color: #383d42;
+    background: #eef0f2;
+}
+
+@media (max-width: 620px) {
+    .acciones-verificacion-masiva,
+    .dialogo-correccion-acciones {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-guardar-verificacion-masiva {
+        width: 100%;
+        min-width: 0;
+    }
 }
 
 .btn-guardar-linea-verificacion:hover {

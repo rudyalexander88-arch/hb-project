@@ -3277,8 +3277,7 @@ formatearTamanoContenedor(
         input.accept =
             "image/jpeg,image/png,image/webp,image/*";
 
-        input.capture =
-            "environment";
+        // Sin capture obligatorio: Android/iOS permiten cámara o galería.
 
         input.style.display =
             "none";
@@ -3602,20 +3601,44 @@ formatearTamanoContenedor(
         });
     },
 
+    async comprimirEvidenciaInspeccion(archivo) {
+        if (!archivo || !String(archivo.type || "").startsWith("image/") || Number(archivo.size || 0) <= 350000) return archivo;
+        return new Promise(resolve => {
+            const imagen = new Image();
+            const url = URL.createObjectURL(archivo);
+            imagen.onload = () => {
+                const limite = 1800;
+                const escala = Math.min(1, limite / Math.max(imagen.width, imagen.height));
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.max(1, Math.round(imagen.width * escala));
+                canvas.height = Math.max(1, Math.round(imagen.height * escala));
+                canvas.getContext("2d").drawImage(imagen, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                    URL.revokeObjectURL(url);
+                    if (!blob || blob.size >= archivo.size) return resolve(archivo);
+                    resolve(new File([blob], String(archivo.name || "evidencia.jpg").replace(/\.[^.]+$/, ".jpg"), {type:"image/jpeg",lastModified:Date.now()}));
+                }, "image/jpeg", 0.78);
+            };
+            imagen.onerror = () => { URL.revokeObjectURL(url); resolve(archivo); };
+            imagen.src = url;
+        });
+    },
+
     async subirEvidenciaInspeccion(categoria, archivo) {
         const idInspeccion = String(this.idInspeccion || "").trim();
         if (!idInspeccion) throw new Error("No existe una inspección activa.");
         const codigoZona = this.obtenerCodigoZonaBASC(categoria);
         const inspector = this.obtenerInspectorActual();
+        const archivoOptimizado = await this.comprimirEvidenciaInspeccion(archivo);
         const respuesta = await API.post({
             action: "subirEvidenciaInspeccion",
             idInspeccion,
             codigoZona,
             zonaInspeccion: categoria,
-            nombreOriginal: archivo.name || "",
-            tipoArchivo: archivo.type || "application/octet-stream",
-            tamanoBytes: Number(archivo.size || 0),
-            archivoBase64: await this.leerArchivoComoBase64(archivo),
+            nombreOriginal: archivoOptimizado.name || "",
+            tipoArchivo: archivoOptimizado.type || "application/octet-stream",
+            tamanoBytes: Number(archivoOptimizado.size || 0),
+            archivoBase64: await this.leerArchivoComoBase64(archivoOptimizado),
             usuario: inspector.nombre,
             observacion: ""
         });
@@ -3867,7 +3890,6 @@ formatearTamanoContenedor(
                                     <input
                                         type="file"
                                         accept="image/*"
-                                        capture="environment"
                                         data-categoria="${categoria}"
                                         multiple
                                         ${
@@ -4243,6 +4265,15 @@ formatearTamanoContenedor(
 
                             <button
                                 type="button"
+                                class="btn-descargar-evidencia-local"
+                                data-categoria="${categoriaNormalizada}"
+                                title="Guardar una copia en el dispositivo"
+                            >
+                                <i class="fa-solid fa-download"></i>
+                            </button>
+
+                            <button
+                                type="button"
                                 class="btn-subir-evidencia-local"
                                 data-categoria="${categoriaNormalizada}"
                             >
@@ -4332,6 +4363,21 @@ formatearTamanoContenedor(
 
 
       configurarEventosPasoEvidencias() {
+
+        document.querySelectorAll(".btn-descargar-evidencia-local").forEach(boton => {
+            boton.addEventListener("click", () => {
+                const evidencia = this.obtenerEvidenciaLocalCategoria(boton.dataset.categoria);
+                if (!evidencia || !evidencia.archivo) return;
+                const enlace = document.createElement("a");
+                const url = URL.createObjectURL(evidencia.archivo);
+                enlace.href = url;
+                enlace.download = evidencia.nombreArchivo || "evidencia-inspeccion.jpg";
+                document.body.appendChild(enlace);
+                enlace.click();
+                enlace.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+        });
         
         document
             .querySelectorAll(
@@ -4371,10 +4417,11 @@ formatearTamanoContenedor(
 
                         try {
 
-                            await this.subirArchivosEvidenciaCategoria(
-                                categoria,
-                                archivos
-                            );
+                            for (const archivo of archivos) {
+                                // Primero se protege en IndexedDB. Si la red falla permanece recuperable.
+                                await this.guardarEvidenciaLocal(categoria, archivo);
+                                await this.subirEvidenciaLocalCategoria(categoria);
+                            }
 
                         } catch (error) {
 

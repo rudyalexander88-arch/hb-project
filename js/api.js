@@ -190,118 +190,56 @@ const API = {
     async post(
         datos
     ) {
+        const solicitud = this.prepararSolicitud(datos);
+        const accion = String(solicitud.action || solicitud.accion || "");
+        // Solo se reintentan consultas y escrituras idempotentes. Nunca crear,
+        // finalizar, subir archivos ni enviar correos: podrían duplicarse.
+        const reintentoSeguro = /^(listar|obtener|consultar|buscar|ping)/i.test(accion) || accion === "guardarDetalleInspeccion";
+        const intentos = reintentoSeguro ? 2 : 1;
 
-        try {
-
-            const solicitud =
-                this.prepararSolicitud(
-                    datos
-                );
-
-
-            const respuesta =
-                await fetch(
-                    API_URL,
-                    {
-                        method:
-                            "POST",
-
-                        body:
-                            JSON.stringify(
-                                solicitud
-                            )
-                    }
-                );
-
-
-            const texto =
-                await respuesta.text();
-
-
-            if (
-                !respuesta.ok
-            ) {
-
-                console.error(
-                    "Respuesta HTTP:",
-                    respuesta.status,
-                    texto
-                );
-
-
-                return {
-                    ok:
-                        false,
-
-                    mensaje:
-                        "El servidor respondió con error " +
-                        respuesta.status
-                };
-
-            }
-
-
-            let resultado;
-
-
+        for (let intento = 1; intento <= intentos; intento++) {
+            let temporizador;
             try {
+                if (typeof navigator !== "undefined" && navigator.onLine === false) {
+                    return {ok:false,codigo:"SIN_CONEXION",mensaje:"El dispositivo no tiene conexión a internet. Sus cambios locales permanecen guardados."};
+                }
 
-                resultado =
-                    JSON.parse(
-                        texto
-                    );
+                const controlador = typeof AbortController !== "undefined" ? new AbortController() : null;
+                if (controlador) temporizador = setTimeout(() => controlador.abort(), 45000);
+                const opciones = {method:"POST",body:JSON.stringify(solicitud)};
+                if (controlador) opciones.signal = controlador.signal;
+                const respuesta = await fetch(API_URL, opciones);
+                clearTimeout(temporizador);
+                const texto = await respuesta.text();
 
-            } catch (errorJSON) {
+                if (!respuesta.ok) {
+                    console.error("Respuesta HTTP:",respuesta.status,texto);
+                    if (intento < intentos && [408,429,500,502,503,504].includes(respuesta.status)) {
+                        await new Promise(resolve => setTimeout(resolve, 1200 * intento));
+                        continue;
+                    }
+                    return {ok:false,codigo:"HTTP_" + respuesta.status,mensaje:"El servidor respondió con error " + respuesta.status};
+                }
 
-                console.error(
-                    "Respuesta no JSON:",
-                    texto
-                );
+                let resultado;
+                try {
+                    resultado = JSON.parse(texto);
+                } catch(errorJSON) {
+                    console.error("Respuesta no JSON:",texto);
+                    return {ok:false,codigo:"RESPUESTA_INVALIDA",mensaje:"El servidor no devolvió una respuesta válida."};
+                }
 
-
-                return {
-                    ok:
-                        false,
-
-                    mensaje:
-                        "El servidor no devolvió una respuesta válida."
-                };
-
+                if (resultado && resultado.codigo === "SESION_INVALIDADA") this.cerrarPorSesionInvalidada(resultado.mensaje);
+                return resultado;
+            } catch(error) {
+                clearTimeout(temporizador);
+                console.error("Error API, acción " + accion + ", intento " + intento + ":",error);
+                if (intento < intentos) {
+                    await new Promise(resolve => setTimeout(resolve, 1500 * intento));
+                    continue;
+                }
+                return {ok:false,codigo:error && error.name === "AbortError" ? "TIEMPO_AGOTADO" : "ERROR_CONEXION",mensaje:error && error.name === "AbortError" ? "El servidor tardó demasiado en responder. Intente nuevamente." : "Error al conectar con el servidor. Verifique la conexión e intente nuevamente."};
             }
-
-
-            if (
-                resultado &&
-                resultado.codigo ===
-                    "SESION_INVALIDADA"
-            ) {
-
-                this.cerrarPorSesionInvalidada(
-                    resultado.mensaje
-                );
-
-            }
-
-
-            return resultado;
-
-
-        } catch (error) {
-
-            console.error(
-                "Error API:",
-                error
-            );
-
-
-            return {
-                ok:
-                    false,
-
-                mensaje:
-                    "Error al conectar con el servidor."
-            };
-
         }
 
     }

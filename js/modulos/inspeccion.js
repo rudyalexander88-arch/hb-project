@@ -29,6 +29,8 @@ const InspeccionContenedores = {
 
 	cargandoEvidenciasLocales: false,
 
+    cargaGlobalEvidenciasEnCurso: false,
+
 	modalEvidenciaLocalAbierto: false,
 
     nombreBaseDatosEvidencias: "SistemaLogisticoPT_EvidenciasBASC",
@@ -50,6 +52,48 @@ const InspeccionContenedores = {
     categoriaBASCGuardando: "",
 
     selloLlegada: "",
+
+    claveBorradorInspeccionLocal(idInspeccion) {
+        const id = String(idInspeccion || this.idInspeccion || "").trim();
+        return id ? "bon_inspeccion_basc_borrador_" + id : "";
+    },
+
+    guardarBorradorInspeccionLocal() {
+        const clave = this.claveBorradorInspeccionLocal();
+        if (!clave) return;
+        try {
+            localStorage.setItem(clave, JSON.stringify({
+                idInspeccion:String(this.idInspeccion || ""),
+                selloLlegada:String(this.selloLlegada || "").trim(),
+                respuestas:this.respuestasBASC || {},
+                actualizado:new Date().toISOString()
+            }));
+        } catch(error) {
+            console.warn("No fue posible conservar el borrador BASC en el dispositivo:",error);
+        }
+    },
+
+    recuperarBorradorInspeccionLocal() {
+        const clave = this.claveBorradorInspeccionLocal();
+        if (!clave) return;
+        try {
+            const borrador = JSON.parse(localStorage.getItem(clave) || "null");
+            if (!borrador || String(borrador.idInspeccion || "") !== String(this.idInspeccion || "")) return;
+            if (String(borrador.selloLlegada || "").trim()) this.selloLlegada = String(borrador.selloLlegada).trim();
+            if (borrador.respuestas && typeof borrador.respuestas === "object") {
+                Object.keys(borrador.respuestas).forEach(codigo => {
+                    if (borrador.respuestas[codigo] && borrador.respuestas[codigo].estado) this.respuestasBASC[codigo] = Object.assign({}, this.respuestasBASC[codigo] || {}, borrador.respuestas[codigo]);
+                });
+            }
+        } catch(error) {
+            console.warn("No fue posible recuperar el borrador BASC:",error);
+        }
+    },
+
+    eliminarBorradorInspeccionLocal() {
+        const clave = this.claveBorradorInspeccionLocal();
+        if (clave) localStorage.removeItem(clave);
+    },
     
         categoriasBASC: [
         { nombre: "Afuera y debajo", codigo: "Z01", icono: "fa-truck-ramp-box", orden: 1 },
@@ -108,6 +152,7 @@ const InspeccionContenedores = {
         this.evidenciasLocalesPorCategoria = {};
 		this.evidenciasLocalesCargadasPara = "";
 		this.cargandoEvidenciasLocales = false;
+		this.cargaGlobalEvidenciasEnCurso = false;
 		this.modalEvidenciaLocalAbierto = false;
         this.categoriaActivaBASC = "";
         this.configuracion = {};
@@ -850,6 +895,7 @@ formatearTamanoContenedor(
 
             }
 
+            this.recuperarBorradorInspeccionLocal();
             this.pasoActual = 2;
             this.mostrarPasoBASC();
 
@@ -1024,6 +1070,8 @@ formatearTamanoContenedor(
         this.cargarRespuestasGuardadasBASC(
             detalle
         );
+
+        this.recuperarBorradorInspeccionLocal();
 
         await this.cargarEvidenciasGuardadas();
 
@@ -1890,6 +1938,8 @@ formatearTamanoContenedor(
                             inputNumeroSello.value || ""
                         ).trim();
 
+                    this.guardarBorradorInspeccionLocal();
+
                 }
             );
 
@@ -1901,6 +1951,8 @@ formatearTamanoContenedor(
                         String(
                             inputNumeroSello.value || ""
                         ).trim();
+
+                    this.guardarBorradorInspeccionLocal();
 
                 }
             );
@@ -2024,66 +2076,14 @@ formatearTamanoContenedor(
     programarGuardadoCategoriaBASC(
         categoria
     ) {
-
-        if (
-            !this.idInspeccion ||
-            !categoria
-        ) {
-            return;
+        if (!this.idInspeccion || !categoria) return;
+        if (this.temporizadoresGuardadoBASC[categoria]) {
+            clearTimeout(this.temporizadoresGuardadoBASC[categoria]);
+            delete this.temporizadoresGuardadoBASC[categoria];
         }
-
-        if (
-            this.temporizadoresGuardadoBASC[
-                categoria
-            ]
-        ) {
-
-            clearTimeout(
-                this.temporizadoresGuardadoBASC[
-                    categoria
-                ]
-            );
-
-        }
-
-        this.temporizadoresGuardadoBASC[
-            categoria
-        ] = setTimeout(
-            () => {
-
-                this.guardarCategoriaBASC(
-                    categoria,
-                    {
-                        mostrarCargador: true,
-                        solicitarEvidencia: true
-                    }
-                ).catch(error => {
-
-                    console.error(
-                        "Error en guardado automático de categoría:",
-                        error
-                    );
-
-                    if (
-                        window.Despachos &&
-                        typeof Despachos.notificar ===
-                            "function"
-                    ) {
-
-                        Despachos.notificar(
-                            error.message ||
-                            "No fue posible guardar automáticamente la categoría.",
-                            "error"
-                        );
-
-                    }
-
-                });
-
-            },
-            500
-        );
-
+        // El avance queda protegido localmente. Se sincroniza una sola vez
+        // al cambiar de zona o al pasar al módulo de evidencias.
+        this.guardarBorradorInspeccionLocal();
     },
 
 
@@ -2205,6 +2205,8 @@ formatearTamanoContenedor(
                 this.guardadosCategoriaBASC[
                     categoria
                 ] = firmaActual;
+
+                this.guardarBorradorInspeccionLocal();
 
                 console.log(
                     "Categoría BASC guardada:",
@@ -2751,7 +2753,6 @@ formatearTamanoContenedor(
 
 
     configurarEventosPuntosBASC() {
-
         document.querySelectorAll('.punto-basc input[type="radio"]').forEach(input => {
             input.addEventListener("change", evento => {
                 const punto = evento.target.closest(".punto-basc");
@@ -2762,45 +2763,34 @@ formatearTamanoContenedor(
                 punto.querySelectorAll(".opcion-resultado-basc").forEach(opcion => opcion.classList.remove("seleccionada"));
                 evento.target.closest(".opcion-resultado-basc").classList.add("seleccionada");
                 const contenedorObservacion = document.getElementById(`contenedorObservacionBASC_${codigo}`);
-                if (contenedorObservacion) {
-                    contenedorObservacion.classList.toggle("visible", respuesta.estado === "No cumple");
-                }
+                if (contenedorObservacion) contenedorObservacion.classList.toggle("visible", respuesta.estado === "No cumple");
                 if (respuesta.estado !== "No cumple") {
                     respuesta.observacion = "";
-                    const textarea = document.getElementById(`observacionBASC_${codigo}`);
-                    if (textarea) textarea.value = "";
+                    const campo = document.getElementById(`observacionBASC_${codigo}`);
+                    if (campo) campo.value = "";
                 }
                 punto.classList.remove("punto-basc-error");
                 this.actualizarProgresoBASC();
-
-                this.programarGuardadoCategoriaBASC(
-                    this.categoriaActivaBASC
-                );
+                this.guardarBorradorInspeccionLocal();
+                // Un hallazgo primero necesita observación: esperar a que termine de escribir.
+                if (respuesta.estado !== "No cumple") this.programarGuardadoCategoriaBASC(this.categoriaActivaBASC);
             });
         });
 
         document.querySelectorAll('.campo-observacion-basc textarea').forEach(textarea => {
             textarea.addEventListener("input", evento => {
                 const codigo = evento.target.id.replace("observacionBASC_", "");
-                const respuesta = this.obtenerRespuestaBASC(codigo);
-                respuesta.observacion = evento.target.value;
+                this.obtenerRespuestaBASC(codigo).observacion = evento.target.value;
                 const punto = evento.target.closest(".punto-basc");
-
-                if (
-                    punto &&
-                    evento.target.value.trim()
-                ) {
-                    punto.classList.remove(
-                        "punto-basc-error"
-                    );
-                }
-
-                this.programarGuardadoCategoriaBASC(
-                    this.categoriaActivaBASC
-                );
+                if (punto && evento.target.value.trim()) punto.classList.remove("punto-basc-error");
+                // Cada pulsación se conserva en el dispositivo, nunca en el servidor.
+                this.guardarBorradorInspeccionLocal();
+            });
+            textarea.addEventListener("blur", () => {
+                this.guardarBorradorInspeccionLocal();
+                this.programarGuardadoCategoriaBASC(this.categoriaActivaBASC);
             });
         });
-
     },
 
 
@@ -3264,7 +3254,8 @@ formatearTamanoContenedor(
 
 
     crearSelectorEvidenciaLocal(
-        categoria
+        categoria,
+        origen = "GALERIA"
     ) {
 
         const input =
@@ -3277,7 +3268,8 @@ formatearTamanoContenedor(
         input.accept =
             "image/jpeg,image/png,image/webp,image/*";
 
-        // Sin capture obligatorio: Android/iOS permiten cámara o galería.
+        // Dos accesos explícitos evitan que Android limite el selector a galería.
+        if (origen === "CAMARA") input.setAttribute("capture", "environment");
 
         input.style.display =
             "none";
@@ -3306,6 +3298,8 @@ formatearTamanoContenedor(
                         categoria,
                         archivo
                     );
+
+                    if (this.pasoActual === 3) this.mostrarPasoEvidencias();
 
                     if (
                         window.Despachos &&
@@ -3513,7 +3507,16 @@ formatearTamanoContenedor(
                         class="btn-evidencia-local-principal"
                     >
                         <i class="fa-solid fa-camera"></i>
-                        Registrar evidencia
+                        Tomar fotografía
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btnGaleriaEvidenciaLocal"
+                        class="btn-evidencia-local-secundario"
+                    >
+                        <i class="fa-solid fa-images"></i>
+                        Elegir de galería
                     </button>
 
                 </div>
@@ -3557,12 +3560,21 @@ formatearTamanoContenedor(
                     this.cerrarModalEvidenciaLocal();
 
                     this.crearSelectorEvidenciaLocal(
-                        categoriaNormalizada
+                        categoriaNormalizada,
+                        "CAMARA"
                     );
 
                 }
             );
 
+        }
+
+        const botonGaleria = document.getElementById("btnGaleriaEvidenciaLocal");
+        if (botonGaleria) {
+            botonGaleria.addEventListener("click", () => {
+                this.cerrarModalEvidenciaLocal();
+                this.crearSelectorEvidenciaLocal(categoriaNormalizada, "GALERIA");
+            });
         }
 
     },
@@ -3649,17 +3661,17 @@ formatearTamanoContenedor(
     async subirArchivosEvidenciaCategoria(categoria, archivos) {
         if (!archivos.length) return;
         this.evidenciasCargando[categoria] = true;
-        this.mostrarPasoEvidencias();
+        if (!this.cargaGlobalEvidenciasEnCurso) this.mostrarPasoEvidencias();
         try {
             for (const archivo of archivos) {
                 const evidencia = await this.subirEvidenciaInspeccion(categoria, archivo);
                 if (!this.evidenciasPorCategoria[categoria]) this.evidenciasPorCategoria[categoria] = [];
                 this.evidenciasPorCategoria[categoria].push(evidencia);
             }
-            if (window.Despachos?.notificar) Despachos.notificar("Evidencia guardada correctamente.", "exito");
+            if (!this.cargaGlobalEvidenciasEnCurso && window.Despachos?.notificar) Despachos.notificar("Evidencia guardada correctamente.", "exito");
         } finally {
             delete this.evidenciasCargando[categoria];
-            this.mostrarPasoEvidencias();
+            if (!this.cargaGlobalEvidenciasEnCurso) this.mostrarPasoEvidencias();
         }
     },
 
@@ -3692,6 +3704,10 @@ formatearTamanoContenedor(
         String(
             this.idInspeccion || ""
         ).trim();
+
+    if (idInspeccionActual && !String(this.selloLlegada || "").trim()) {
+        this.recuperarBorradorInspeccionLocal();
+    }
 
     if (
         idInspeccionActual &&
@@ -3885,33 +3901,14 @@ formatearTamanoContenedor(
                                     ${descripcionEvidencia}
                                 </p>
 
-                                <label class="boton-cargar-evidencia">
-
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        data-categoria="${categoria}"
-                                        multiple
-                                        ${
-                                            this.evidenciasCargando[
-                                                categoria
-                                            ]
-                                                ? "disabled"
-                                                : ""
-                                        }
-                                    >
-
-                                    <i class="fa-solid fa-camera"></i>
-
-                                    <span>
-                                        ${
-                                            archivos.length > 0
-                                                ? "Agregar más fotos"
-                                                : "Tomar o seleccionar foto"
-                                        }
-                                    </span>
-
-                                </label>
+                                <div class="opciones-origen-evidencia-basc" style="display:flex;gap:8px;flex-wrap:wrap">
+                                    <button type="button" class="boton-cargar-evidencia btn-origen-evidencia-basc" data-categoria="${categoria}" data-origen="CAMARA" ${this.evidenciasCargando[categoria] ? "disabled" : ""}>
+                                        <i class="fa-solid fa-camera"></i><span>Cámara</span>
+                                    </button>
+                                    <button type="button" class="boton-cargar-evidencia btn-origen-evidencia-basc" data-categoria="${categoria}" data-origen="GALERIA" ${this.evidenciasCargando[categoria] ? "disabled" : ""}>
+                                        <i class="fa-solid fa-images"></i><span>Galería</span>
+                                    </button>
+                                </div>
 
                                 <div
                                     class="lista-evidencias-categoria"
@@ -3941,6 +3938,16 @@ formatearTamanoContenedor(
                 >
                     <i class="fa-solid fa-arrow-left"></i>
                     Volver
+                </button>
+
+                <button
+                    type="button"
+                    id="btnGuardarTodasEvidenciasBASC"
+                    class="btn-iniciar-inspeccion"
+                    ${Object.keys(this.evidenciasLocalesPorCategoria || {}).length ? "" : "disabled"}
+                >
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    Guardar todas las evidencias
                 </button>
 
                 <button
@@ -4272,15 +4279,6 @@ formatearTamanoContenedor(
                                 <i class="fa-solid fa-download"></i>
                             </button>
 
-                            <button
-                                type="button"
-                                class="btn-subir-evidencia-local"
-                                data-categoria="${categoriaNormalizada}"
-                            >
-                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                                Subir
-                            </button>
-
                         </div>
 
                     </div>
@@ -4363,6 +4361,13 @@ formatearTamanoContenedor(
 
 
       configurarEventosPasoEvidencias() {
+
+        document.querySelectorAll(".btn-origen-evidencia-basc").forEach(boton => {
+            boton.addEventListener("click", () => this.crearSelectorEvidenciaLocal(boton.dataset.categoria, boton.dataset.origen));
+        });
+
+        const guardarTodas = document.getElementById("btnGuardarTodasEvidenciasBASC");
+        if (guardarTodas) guardarTodas.addEventListener("click", () => this.guardarTodasEvidenciasLocalesBASC(guardarTodas));
 
         document.querySelectorAll(".btn-descargar-evidencia-local").forEach(boton => {
             boton.addEventListener("click", () => {
@@ -4812,6 +4817,41 @@ formatearTamanoContenedor(
 );
         }
 
+    },
+
+    async guardarTodasEvidenciasLocalesBASC(boton) {
+        const categorias = Object.keys(this.evidenciasLocalesPorCategoria || {}).filter(categoria => {
+            const evidencia = this.evidenciasLocalesPorCategoria[categoria];
+            return Boolean(evidencia && evidencia.archivo);
+        });
+        if (!categorias.length) {
+            if (window.Despachos && typeof Despachos.notificar === "function") Despachos.notificar("No hay evidencias locales pendientes de guardar.", "advertencia");
+            return;
+        }
+
+        const textoOriginal = boton ? boton.innerHTML : "";
+        const modal = document.getElementById("contenidoModal");
+        this.cargaGlobalEvidenciasEnCurso = true;
+        if (modal) modal.querySelectorAll("button").forEach(elemento => elemento.disabled = true);
+        if (window.CargadorSistema && typeof CargadorSistema.mostrar === "function") CargadorSistema.mostrar("Guardando evidencias", "Enviando las fotografías una a una. Mantenga abierta esta pantalla.");
+
+        let completadas = 0;
+        try {
+            for (const categoria of categorias) {
+                if (boton) boton.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${completadas + 1}/${categorias.length}`;
+                await this.subirEvidenciaLocalCategoria(categoria);
+                completadas++;
+            }
+            if (window.Despachos && typeof Despachos.notificar === "function") Despachos.notificar(completadas + " evidencias guardadas correctamente.", "exito");
+        } catch(error) {
+            console.error("No fue posible completar la cola de evidencias:",error);
+            if (window.Despachos && typeof Despachos.notificar === "function") Despachos.notificar(error.message + " Las fotografías pendientes permanecen guardadas en el dispositivo.", "error");
+        } finally {
+            this.cargaGlobalEvidenciasEnCurso = false;
+            if (window.CargadorSistema && typeof CargadorSistema.ocultar === "function") CargadorSistema.ocultar();
+            if (boton && document.body.contains(boton)) boton.innerHTML = textoOriginal;
+            this.mostrarPasoEvidencias();
+        }
     },
 
        validarEvidenciasPorCategoria() {
@@ -5538,6 +5578,10 @@ formatearTamanoContenedor(
     boton
 ) {
 
+    if (!String(this.selloLlegada || "").trim()) {
+        this.recuperarBorradorInspeccionLocal();
+    }
+
     const observaciones =
         String(
             document
@@ -5647,6 +5691,9 @@ formatearTamanoContenedor(
             );
 
         }
+
+        // Conservar precinto y respuestas hasta confirmar el cierre real.
+        this.eliminarBorradorInspeccionLocal();
 
         this.mostrarInspeccionFinalizada(
             respuesta.data || {}

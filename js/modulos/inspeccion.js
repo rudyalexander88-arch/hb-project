@@ -4275,6 +4275,7 @@ formatearTamanoContenedor(
                                 class="btn-descargar-evidencia-local"
                                 data-categoria="${categoriaNormalizada}"
                                 title="Guardar una copia en el dispositivo"
+                                aria-label="Descargar evidencia pendiente"
                             >
                                 <i class="fa-solid fa-download"></i>
                             </button>

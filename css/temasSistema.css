@@ -1105,3 +1105,84 @@ html[data-tema="gris"] .inicio-aniversario h3 {
 html[data-tema="gris"] .inicio-aniversario p {
     color: #536071 !important;
 }
+
+/* Despachos: paneles, tablas y fichas móviles legibles en modo oscuro. */
+html[data-tema="oscuro"] #contenidoPrincipal .paneles > .panel,
+html[data-tema="oscuro"] #contenidoPrincipal .panel-listado-conduces,
+html[data-tema="oscuro"] #contenidoPrincipal .panel-abiertos {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie-elevada) !important;
+    color: var(--bon-texto) !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .panel-listado-encabezado,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .tabla-responsive,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .tabla-conduces-scroll,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles table,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles table tbody {
+    background: transparent !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles table tbody tr {
+    border-color: var(--bon-borde-suave) !important;
+    background: var(--bon-superficie-elevada) !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles table tbody td {
+    border-color: var(--bon-borde-suave) !important;
+    background: transparent !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles :is(h3, td strong, td b) {
+    color: var(--bon-texto) !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles td small,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .fecha-conduce {
+    color: var(--bon-texto-tenue) !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles thead th {
+    background: #cb1838 !important;
+    color: #fff !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .btn-mas-conduces {
+    border-color: rgba(245, 95, 119, .5) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: #ff8091 !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-conduce.borrador,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-borrador {
+    color: #ffb04d !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-conduce.despachado,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-despacho.despachado {
+    color: #71b4ff !important;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-conduce.completado,
+html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-despacho.completado {
+    color: #72d58e !important;
+}
+
+@media (max-width: 768px) {
+    html[data-tema="oscuro"] #contenidoPrincipal #tablaAbiertos > tr,
+    html[data-tema="oscuro"] #contenidoPrincipal #tablaDespachados > tr {
+        border-color: var(--bon-borde) !important;
+        background: var(--bon-superficie-suave) !important;
+        box-shadow: 0 3px 9px rgba(0, 0, 0, .16);
+    }
+
+    html[data-tema="oscuro"] #contenidoPrincipal #tablaAbiertos > tr.borrador,
+    html[data-tema="oscuro"] #contenidoPrincipal #tablaAbiertos > tr.despachado {
+        border-left-color: #f7941d !important;
+    }
+
+    html[data-tema="oscuro"] #contenidoPrincipal #tablaDespachados > tr.completado {
+        border-left-color: #35b45d !important;
+    }
+}

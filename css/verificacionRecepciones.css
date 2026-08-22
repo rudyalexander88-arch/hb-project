@@ -723,3 +723,525 @@ body.vr-modal-abierto{
     }
 
 }
+
+/* ============================================================
+   CENTRO DE VERIFICACION COMPACTO
+   Prioriza las recepciones y conserva desplazamiento interno.
+   ============================================================ */
+
+html body .contenido > #contenidoPrincipal:has(> .vr-centro) {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    scrollbar-gutter: auto;
+}
+
+#contenidoPrincipal > .vr-centro {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    gap: 8px;
+    padding: 2px 0 8px;
+    overflow: hidden;
+}
+
+.vr-centro > .vr-encabezado {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 0;
+    padding: 11px 15px;
+    border-radius: 13px;
+}
+
+.vr-encabezado-texto {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vr-encabezado-texto .vr-eyebrow {
+    margin-bottom: 3px;
+    font-size: var(--ui-fs-9, 9px);
+}
+
+.vr-encabezado-texto h2 {
+    font-size: clamp(18px, 1.75vw, 24px);
+}
+
+.vr-encabezado-texto p {
+    max-width: 100%;
+    margin-top: 4px;
+    overflow: hidden;
+    font-size: var(--ui-fs-11, 11px);
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vr-encabezado-acciones {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.vr-encabezado-acciones > .vr-btn {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: var(--ui-fs-11, 11px);
+    white-space: nowrap;
+}
+
+.vr-selector-vista {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    height: 36px;
+    padding: 3px;
+    border-radius: 9px;
+}
+
+.vr-selector-vista .vr-btn-vista {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0;
+}
+
+.vr-encabezado-acciones > .vr-encabezado-resumen {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: auto;
+    height: 36px;
+    min-width: 84px;
+    padding: 0 9px;
+    border-radius: 9px;
+    box-sizing: border-box;
+}
+
+.vr-encabezado-acciones > .vr-encabezado-resumen span {
+    font-size: var(--ui-fs-8, 8px);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.vr-encabezado-acciones > .vr-encabezado-resumen strong {
+    margin: 0;
+    font-size: var(--ui-fs-17, 17px);
+    line-height: 1;
+}
+
+.vr-centro > .vr-ayuda {
+    flex: 0 0 auto;
+    min-height: 31px;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 9px;
+    font-size: var(--ui-fs-10, 10px);
+    line-height: 1.3;
+}
+
+.vr-centro > .vr-resumen-analitico {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.32fr);
+    gap: 7px;
+    min-width: 0;
+    align-items: stretch;
+}
+
+.vr-resumen-analitico:empty {
+    display: none;
+}
+
+.vr-resumen-analitico > .vr-indicadores {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.vr-indicadores > .vr-indicador {
+    display: flex;
+    min-width: 0;
+    min-height: 35px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 7px;
+    border: 1px solid #e3e6ea;
+    border-left-width: 3px;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.vr-indicadores > .vr-indicador.amarillo { border-left-color: #f4b400; }
+.vr-indicadores > .vr-indicador.rojo { border-left-color: #e21b2d; }
+.vr-indicadores > .vr-indicador.verde { border-left-color: #27964a; }
+.vr-indicadores > .vr-indicador.azul { border-left-color: #2878d4; }
+
+.vr-indicador > span {
+    overflow: hidden;
+    font-size: var(--ui-fs-8, 8px);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vr-indicador > strong {
+    overflow: hidden;
+    font-size: var(--ui-fs-13, 13px);
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vr-resumen-analitico > .vr-graficas {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.vr-graficas > .vr-grafica {
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.vr-grafica > h3 {
+    margin: 0 0 5px;
+    overflow: hidden;
+    font-size: var(--ui-fs-9, 9px);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vr-grafica-barras {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.vr-grafica-fila {
+    display: grid;
+    grid-template-columns: minmax(0, .9fr) minmax(24px, 1fr) auto;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.vr-grafica-fila > span,
+.vr-grafica-fila > strong {
+    overflow: hidden;
+    font-size: var(--ui-fs-8, 8px);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vr-grafica-fila > div {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #eceff1;
+}
+
+.vr-grafica-fila > div > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #d71938;
+}
+
+.vr-centro > .vr-registros-panel {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 160px;
+    overflow: hidden;
+    border: 1px solid #e0e4e8;
+    border-radius: 11px;
+    background: #f5f6f7;
+}
+
+.vr-registros-panel > .vr-lista {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    align-content: start;
+    gap: 8px;
+    padding: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.vr-registros-panel > .vr-paginacion {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 0 8px 6px;
+}
+
+.vr-registros-panel > .vr-paginacion:has(> button[hidden]),
+.vr-registros-panel > .vr-paginacion:empty {
+    display: none;
+}
+
+.vr-registros-panel > .vr-paginacion .vr-btn,
+.vr-registros-panel .vr-lista > .vr-paginacion .vr-btn {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: var(--ui-fs-11, 11px);
+}
+
+@media (min-width: 1200px) {
+    .vr-centro > .vr-resumen-analitico {
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+    }
+
+    .vr-resumen-analitico > .vr-indicadores {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: minmax(0, 1fr);
+    }
+
+    .vr-indicadores > .vr-indicador {
+        min-height: 58px;
+    }
+}
+
+@media (max-width: 920px) {
+    .vr-centro > .vr-encabezado {
+        flex-wrap: wrap;
+    }
+
+    .vr-encabezado-texto {
+        flex-basis: 100%;
+    }
+
+    .vr-encabezado-acciones {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 640px) {
+    #contenidoPrincipal > .vr-centro {
+        gap: 7px;
+        padding: 0 0 5px;
+    }
+
+    .vr-centro > .vr-encabezado {
+        gap: 8px;
+        padding: 10px 11px;
+        border-radius: 11px;
+    }
+
+    .vr-encabezado-texto .vr-eyebrow {
+        margin-bottom: 2px;
+        font-size: var(--ui-fs-8, 8px);
+    }
+
+    .vr-encabezado-texto h2 {
+        overflow: hidden;
+        font-size: clamp(15px, 4.35vw, 20px);
+        line-height: 1.18;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vr-encabezado-texto p {
+        display: none;
+    }
+
+    .vr-encabezado-acciones {
+        gap: 5px;
+        justify-content: space-between;
+    }
+
+    .vr-encabezado-acciones > .vr-btn,
+    .vr-encabezado-acciones > .vr-encabezado-resumen,
+    .vr-selector-vista {
+        height: 34px;
+        min-height: 34px;
+    }
+
+    .vr-encabezado-acciones > .vr-btn {
+        padding: 0 8px;
+    }
+
+    .vr-encabezado-acciones .vr-btn-reporte > span {
+        display: none;
+    }
+
+    .vr-selector-vista .vr-btn-vista {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+        min-height: 27px;
+    }
+
+    .vr-encabezado-acciones > .vr-encabezado-resumen {
+        min-width: 66px;
+        gap: 4px;
+        padding: 0 6px;
+    }
+
+    .vr-encabezado-acciones > .vr-encabezado-resumen span {
+        font-size: var(--ui-fs-7, 7px);
+    }
+
+    .vr-encabezado-acciones > .vr-encabezado-resumen strong {
+        font-size: var(--ui-fs-15, 15px);
+    }
+
+    .vr-centro > .vr-ayuda {
+        min-height: 29px;
+        padding: 5px 8px;
+    }
+
+    .vr-centro > .vr-ayuda > span {
+        font-size: 0;
+    }
+
+    .vr-centro > .vr-ayuda > span::after {
+        content: "Desviaciones: conteo físico comparado con SAP.";
+        font-size: var(--ui-fs-9, 9px);
+        line-height: 1.2;
+    }
+
+    .vr-centro > .vr-resumen-analitico {
+        display: block;
+    }
+
+    .vr-resumen-analitico > .vr-indicadores {
+        gap: 4px;
+    }
+
+    .vr-indicadores > .vr-indicador {
+        min-height: 34px;
+        padding: 4px 6px;
+    }
+
+    .vr-resumen-analitico > .vr-graficas {
+        display: none;
+    }
+
+    .vr-centro > .vr-registros-panel {
+        min-height: 185px;
+    }
+
+    .vr-registros-panel > .vr-lista {
+        gap: 7px;
+        padding: 6px;
+    }
+
+    .vr-registros-panel .vr-tarjeta {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 370px) {
+    .vr-encabezado-acciones > .vr-btn {
+        gap: 4px;
+        padding: 0 6px;
+        font-size: var(--ui-fs-10, 10px);
+    }
+
+    .vr-encabezado-acciones > .vr-encabezado-resumen span {
+        display: none;
+    }
+
+    .vr-encabezado-acciones > .vr-encabezado-resumen {
+        min-width: 36px;
+    }
+}
+
+/* ============================================================
+   VERIFICACION EN MOVILES: UN SOLO DESPLAZAMIENTO PRINCIPAL
+   La lista mantiene sus grupos actuales y el botón Cargar más.
+   En escritorio continúa el scroll independiente del listado.
+   ============================================================ */
+
+@media (max-width: 768px) {
+    html body .contenido > #contenidoPrincipal:has(> .vr-centro) {
+        display: block !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overscroll-behavior-y: contain;
+        scrollbar-gutter: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #contenidoPrincipal > .vr-centro {
+        display: flex;
+        width: 100%;
+        height: auto;
+        min-height: min-content;
+        max-height: none;
+        flex: none;
+        overflow: visible;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+
+    .vr-centro > .vr-encabezado,
+    .vr-centro > .vr-ayuda,
+    .vr-centro > .vr-resumen-analitico {
+        flex: 0 0 auto;
+    }
+
+    .vr-centro > .vr-registros-panel {
+        display: flex;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        flex: 0 0 auto;
+        overflow: visible;
+    }
+
+    .vr-registros-panel > .vr-lista {
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        flex: 0 0 auto;
+        overflow: visible;
+        overscroll-behavior: auto;
+        scrollbar-gutter: auto;
+    }
+
+    .vr-registros-panel > .vr-paginacion,
+    .vr-registros-panel > .vr-lista > .vr-paginacion {
+        position: static;
+        width: 100%;
+        min-height: 0;
+        flex: 0 0 auto;
+        padding: 8px 8px 12px;
+        background: transparent;
+    }
+
+    .vr-registros-panel > .vr-paginacion > .vr-btn,
+    .vr-registros-panel > .vr-lista > .vr-paginacion > .vr-btn {
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+    }
+
+    .vr-registros-panel > .vr-paginacion:has(> button[hidden]),
+    .vr-registros-panel > .vr-paginacion:empty {
+        display: none;
+    }
+}

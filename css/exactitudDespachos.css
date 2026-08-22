@@ -2452,3 +2452,124 @@
     }
 
 }
+
+/* Indicadores semaforizados y paneles operativos contraíbles. */
+.centro-exactitud > .exactitud-seccion {
+    min-width: 0;
+    margin-bottom: 10px;
+}
+
+.exactitud-seccion-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 12px;
+    border: 1px solid #e2e6e9;
+    border-radius: 9px;
+    background: #f6f7f8;
+    color: var(--ex-texto, #25313d);
+    font: 700 11px Poppins, sans-serif;
+    text-align: left;
+    cursor: pointer;
+}
+
+.exactitud-seccion-control > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.exactitud-seccion-control > span > i {
+    color: #d11f3c;
+}
+
+.exactitud-seccion-flecha {
+    flex: 0 0 auto;
+    transition: transform .2s ease;
+}
+
+.exactitud-seccion.contraida .exactitud-seccion-flecha {
+    transform: rotate(-90deg);
+}
+
+.exactitud-seccion.contraida > .exactitud-seccion-cuerpo {
+    display: none !important;
+}
+
+.exactitud-seccion > .exactitud-kpis {
+    gap: 8px;
+    margin: 7px 0 0;
+}
+
+.exactitud-seccion > .exactitud-filtros {
+    margin: 7px 0 0;
+    padding: 11px;
+}
+
+.centro-exactitud .kpi-exactitud {
+    min-width: 0;
+    min-height: 58px;
+    padding: 9px 11px;
+    border-left-width: 4px;
+    border-left-color: var(--ex-kpi-color, #7d91a6) !important;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--ex-kpi-color, #7d91a6) 7%, #fff),
+        #fff 58%
+    );
+    transition: border-color .2s ease, background .2s ease;
+}
+
+.centro-exactitud .kpi-exactitud > span {
+    display: block;
+    overflow: hidden;
+    font-size: 9px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.centro-exactitud .kpi-exactitud > strong {
+    display: block;
+    overflow: hidden;
+    margin-top: 3px;
+    font-size: 15px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (min-width: 1200px) {
+    .exactitud-seccion > .exactitud-kpis {
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 901px) and (max-width: 1199px) {
+    .exactitud-seccion > .exactitud-kpis {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .exactitud-seccion > .exactitud-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .exactitud-seccion-control {
+        min-height: 35px;
+        padding: 7px 10px;
+    }
+
+    .centro-exactitud .kpi-exactitud {
+        min-height: 50px;
+        padding: 7px 9px;
+    }
+
+    .centro-exactitud .kpi-exactitud > strong {
+        font-size: 14px;
+    }
+}

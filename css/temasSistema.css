@@ -1,0 +1,1107 @@
+/* ============================================================
+   TEMASSISTEMA.CSS
+   Sistema Logístico PT - Helados BON
+   Apariencia local: claro, gris, oscuro y automático.
+   Cargar siempre después de los demás estilos del dashboard.
+   ============================================================ */
+
+:root {
+    --bon-tema-rojo: #d71920;
+    --bon-tema-rojo-vivo: #ed1b2f;
+    --bon-tema-amarillo: #f59e0b;
+    --bon-tema-verde: #269447;
+}
+
+html[data-tema="claro"] {
+    color-scheme: only light;
+}
+
+html[data-tema="gris"] {
+    color-scheme: only light;
+    --bon-fondo-general: #d3d8de;
+    --bon-fondo-lateral: #dce0e5;
+    --bon-superficie: #e3e6ea;
+    --bon-superficie-elevada: #edf0f2;
+    --bon-superficie-suave: #dce1e6;
+    --bon-superficie-campo: #f0f2f4;
+    --bon-texto: #202631;
+    --bon-texto-secundario: #475365;
+    --bon-texto-tenue: #556170;
+    --bon-borde: #c0c8d1;
+    --bon-borde-suave: #cbd2da;
+    --bon-sombra: rgba(36, 46, 60, .12);
+    --bon-icono-fondo: rgba(215, 25, 32, .09);
+    --bon-overlay: rgba(27, 34, 45, .56);
+    --bon-bienvenida: linear-gradient(135deg, #edf0f2 0%, #e4e2df 100%);
+
+    /* Recepciones define su propia paleta; se adapta sin editar su CSS. */
+    --rec-texto: var(--bon-texto);
+    --rec-secundario: var(--bon-texto-secundario);
+    --rec-borde: var(--bon-borde);
+    --rec-fondo: var(--bon-superficie-suave);
+}
+
+html[data-tema="oscuro"] {
+    color-scheme: dark;
+    --bon-fondo-general: #11161d;
+    --bon-fondo-lateral: #191f27;
+    --bon-superficie: #202731;
+    --bon-superficie-elevada: #29313c;
+    --bon-superficie-suave: #343d49;
+    --bon-superficie-campo: #262f39;
+    --bon-texto: #f5f7fa;
+    --bon-texto-secundario: #d5dce5;
+    --bon-texto-tenue: #aeb9c7;
+    --bon-borde: #46515f;
+    --bon-borde-suave: #3b4652;
+    --bon-sombra: rgba(0, 0, 0, .28);
+    --bon-icono-fondo: rgba(237, 27, 47, .16);
+    --bon-overlay: rgba(5, 10, 17, .76);
+    --bon-bienvenida: linear-gradient(135deg, #29313c 0%, #31313a 100%);
+
+    /* Evita fondos blancos y textos oscuros heredados de Recepciones. */
+    --rec-texto: var(--bon-texto);
+    --rec-secundario: var(--bon-texto-tenue);
+    --rec-borde: var(--bon-borde);
+    --rec-fondo: var(--bon-superficie-suave);
+}
+
+/* ------------------------------------------------------------
+   Selector de apariencia en Mi perfil: disponible en todo tema.
+   ------------------------------------------------------------ */
+
+.perfil-seccion-apariencia .perfil-seccion-titulo > i {
+    background: #f2e9ff;
+    color: #8050c4;
+}
+
+.perfil-temas-opciones {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.perfil-tema-opcion {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 9px;
+    padding: 10px;
+    border: 1px solid #e0e4e9;
+    border-radius: 12px;
+    background: #fff;
+    color: #202632;
+    font-family: Poppins, sans-serif;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.perfil-tema-opcion:hover {
+    border-color: #e998a0;
+    transform: translateY(-1px);
+}
+
+.perfil-tema-opcion.activo {
+    border-color: var(--bon-tema-rojo-vivo);
+    box-shadow: 0 0 0 2px rgba(237, 27, 47, .1);
+}
+
+.perfil-tema-muestra {
+    display: grid;
+    grid-template-columns: 25% 1fr 1fr;
+    gap: 5px;
+    height: 45px;
+    padding: 7px;
+    overflow: hidden;
+    border: 1px solid rgba(31, 41, 55, .09);
+    border-radius: 8px;
+    background: #f2f3f5;
+}
+
+.perfil-tema-muestra > span {
+    border-radius: 4px;
+    background: #fff;
+}
+
+.perfil-tema-muestra > span:first-child {
+    background: #d71920;
+    opacity: .82;
+}
+
+.perfil-tema-muestra-gris {
+    background: #dfe3e8;
+}
+
+.perfil-tema-muestra-gris > span:not(:first-child) {
+    background: #f0f1f3;
+}
+
+.perfil-tema-muestra-oscuro {
+    background: #121a26;
+}
+
+.perfil-tema-muestra-oscuro > span:not(:first-child) {
+    background: #263446;
+}
+
+.perfil-tema-muestra-automatico {
+    background: linear-gradient(115deg, #f2f3f5 0%, #f2f3f5 49%, #172130 50%, #172130 100%);
+}
+
+.perfil-tema-muestra-automatico > span:last-child {
+    background: #324055;
+}
+
+.perfil-tema-informacion {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.perfil-tema-informacion strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--ui-fs-10, 10px);
+    line-height: 1.35;
+}
+
+.perfil-tema-informacion strong i {
+    color: var(--bon-tema-rojo);
+}
+
+.perfil-tema-informacion small {
+    color: #737b86;
+    font-size: var(--ui-fs-8, 8px);
+    line-height: 1.35;
+}
+
+.perfil-tema-seleccionado {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    color: var(--bon-tema-rojo-vivo);
+    font-size: var(--ui-fs-14, 14px);
+    opacity: 0;
+    transform: scale(.75);
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.perfil-tema-opcion.activo .perfil-tema-seleccionado {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.perfil-tema-ayuda {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 11px 0 0;
+    color: #737b86;
+    font-size: var(--ui-fs-9, 9px);
+    line-height: 1.45;
+}
+
+.perfil-tema-ayuda i {
+    color: #2474c4;
+}
+
+/* ------------------------------------------------------------
+   Superficies generales: únicamente gris y oscuro.
+   ------------------------------------------------------------ */
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) body,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .contenido {
+    background-color: var(--bon-fondo-general) !important;
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar,
+html:is([data-tema="gris"], [data-tema="oscuro"]) #sidebarPrincipal,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .barra-movil {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-fondo-lateral) !important;
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li:not(.active):not(:hover),
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li:not(.active):not(:hover) i,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .marca-movil strong,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .usuario-movil strong {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .marca-movil span,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .usuario-movil span {
+    color: var(--bon-texto-tenue) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li.menu-categoria-inicio::before,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li.menu-acceso-rapido::before {
+    border-color: var(--bon-borde) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) #contenidoPrincipal,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .modal-contenido,
+html:is([data-tema="gris"], [data-tema="oscuro"]) #contenidoModal,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .tarjeta-carga-sistema,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .inicio-modal-rendimiento-ventana {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie) !important;
+    color: var(--bon-texto) !important;
+    box-shadow: 0 10px 25px var(--bon-sombra);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .modal,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .inicio-modal-rendimiento {
+    background-color: var(--bon-overlay);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .modal-header {
+    background: linear-gradient(90deg, #d71920, #f59e0b) !important;
+    color: #fff !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .modal-header :is(h1, h2, h3, h4, button, i) {
+    color: #fff !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .card, .card-indicador, .card-resumen, .inicio-card, .perfil-seccion,
+    .perfil-acceso-escritorio, .tarjeta-inspeccion, .tarjeta-recepcion-abierta,
+    .recepcion-paso, .recepcion-encabezado, .recepcion-resumen-superior,
+    .barra-recepcion-actual, .centro-recepciones, .centro-exactitud,
+    .vr-encabezado, .vr-tarjeta, .vr-lista, .vr-centro,
+    .panel-grafico-metas, .cumplimiento-prioridades,
+    .ap-colaborador, .ap-jornada, .ap-jornada-resumen,
+    .ap-form-bloque, .ap-turno-extra, .ap-listado-simple,
+    .ap-selector-extra button, .ap-avisos article,
+    .he-jornada-card, .he-mi-jornada,
+    .inicio-auxiliares-destacados article,
+    .inicio-desempeno-personal-fila,
+    .inicio-rendimiento-supervisores, .inicio-rendimiento-auxiliares,
+    .indicador-recepcion, .bloque-centro-recepciones,
+    .tarjeta-recepcion-reciente, .mini-grafica-recepcion,
+    .fila-historico-recepcion, .recepcion-vacia,
+    .error-modulo-recepcion, .avance-acumulado-recepcion,
+    .material-seleccionado-recepcion, .resultado-material-recepcion,
+    .opcion-origen-recepcion, .submodal-recepcion-contenido
+) {
+    border-color: var(--bon-borde) !important;
+    background-color: var(--bon-superficie-elevada) !important;
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-operativo-bienvenida, .perfil-usuario-intro
+) {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-bienvenida) !important;
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-operativo-fecha, .inicio-rendimiento-periodo,
+    .ap-resumen, .ap-no-requeridos, .ap-carga-regular,
+    .ap-carga-extra, .ap-inventario-bloque,
+    .inicio-desempeno-metricas > div,
+    .vr-tarjeta-datos > div, .perfil-campo-bloqueado input,
+    .perfil-btn-secundario,
+    .tarjeta-recepcion-datos > div,
+    .tarjeta-recepcion-datos.ampliada > div,
+    .metricas-recepcion-reciente > div,
+    .metricas-avance-recepcion > div,
+    .fila-historico-metrica,
+    .resumen-distribucion-recepcion,
+    .estandar-material-recepcion,
+    .ultimo-ingreso-recepcion,
+    .ayuda-busqueda-recepcion,
+    .selector-periodo-recepciones
+) {
+    border-color: var(--bon-borde-suave) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-card-icono, .perfil-usuario-avatar,
+    .perfil-seccion-titulo > i, .perfil-acceso-escritorio-icono,
+    .ap-avatar
+) {
+    background-color: var(--bon-icono-fondo) !important;
+}
+
+/* ------------------------------------------------------------
+   Texto: conservar jerarquía y colores semánticos existentes.
+   ------------------------------------------------------------ */
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    #contenidoPrincipal, #contenidoModal, .modal-contenido,
+    .inicio-card, .perfil-usuario, .ap-modulo,
+    .vr-centro, .recepcion-materiales, .asistente-inspeccion,
+    .centro-prioridades, .centro-exactitud
+) :is(h1, h2, h3, h4, h5, th, legend) {
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-card, .perfil-usuario, .ap-modulo,
+    .vr-centro, .recepcion-materiales, .asistente-inspeccion,
+    .centro-prioridades, .centro-exactitud,
+    .tarjeta-carga-sistema, .inicio-modal-rendimiento-ventana
+) :is(p, small, label > span) {
+    color: var(--bon-texto-secundario);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-rendimiento-cabecera strong,
+    .inicio-auxiliares-destacados strong,
+    .inicio-desempeno-personal-fila > strong,
+    .perfil-usuario-intro h3,
+    .perfil-seccion-titulo h4,
+    .ap-identidad strong,
+    .ap-jornada > header b,
+    .ap-listado-simple strong,
+    .tarjeta-carga-sistema h3,
+    .inicio-operativo-bienvenida h2,
+    .inicio-desempeno-metricas strong,
+    .encabezado-bloque-recepciones h3,
+    .tarjeta-recepcion-abierta header h3,
+    .tarjeta-recepcion-reciente strong,
+    .indicador-recepcion strong,
+    .recepcion-encabezado h2,
+    .fila-historico-identidad strong,
+    .fila-historico-metrica strong
+) {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-rendimiento-cabecera span,
+    .inicio-auxiliares-destacados small,
+    .ap-identidad small, .ap-jornada-meta,
+    .perfil-acceso-escritorio-datos > span,
+    .inicio-operativo-bienvenida p,
+    .inicio-desempeno-personal-fila > span,
+    .inicio-desempeno-metricas span,
+    .inicio-desempeno-nota,
+    .indicador-recepcion > span,
+    .indicador-recepcion > p,
+    .encabezado-bloque-recepciones p,
+    .tarjeta-recepcion-abierta header small,
+    .tarjeta-recepcion-abierta header span:first-child,
+    .tarjeta-recepcion-datos span,
+    .metricas-recepcion-reciente span,
+    .fila-historico-identidad small,
+    .fila-historico-metrica span
+) {
+    color: var(--bon-texto-tenue) !important;
+}
+
+/* ------------------------------------------------------------
+   Formularios, tablas, cabeceras y desplazamiento.
+   ------------------------------------------------------------ */
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    #contenidoPrincipal, #contenidoModal,
+    .modal-contenido, .inicio-modal-rendimiento-ventana
+) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    border-color: var(--bon-borde) !important;
+    background-color: var(--bon-superficie-campo) !important;
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(input, textarea)::placeholder {
+    color: var(--bon-texto-tenue) !important;
+    opacity: .86;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(input, select, textarea):disabled,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .perfil-campo-bloqueado input {
+    background-color: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto-tenue) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(table, tbody, tr, td) {
+    border-color: var(--bon-borde-suave) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(td, tbody th) {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .inicio-modal-rendimiento-lista article,
+    .ap-listado-simple article, .ap-listado-grupo,
+    .ap-detalle-jornada, .ap-pendiente
+) {
+    border-color: var(--bon-borde-suave) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .perfil-acciones, .ap-acciones
+) {
+    background: linear-gradient(180deg, transparent, var(--bon-superficie) 28%) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .sidebar, #contenidoPrincipal, #contenidoModal,
+    .inicio-modal-rendimiento-lista, .tabla-responsive
+) {
+    scrollbar-color: var(--bon-texto-tenue) transparent;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) :is(
+    .sidebar, #contenidoPrincipal, #contenidoModal,
+    .inicio-modal-rendimiento-lista, .tabla-responsive
+)::-webkit-scrollbar-thumb {
+    background: var(--bon-texto-tenue);
+}
+
+/* ------------------------------------------------------------
+   Identidad BON y controles que deben mantener su contraste.
+   ------------------------------------------------------------ */
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li.active,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li.active *,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li:hover,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar li:hover *,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .btn-menu-movil,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .perfil-btn-guardar,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .ap-marcacion-btn {
+    color: #fff !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .perfil-tema-opcion {
+    border-color: var(--bon-borde);
+    background: var(--bon-superficie-campo);
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .perfil-tema-opcion.activo {
+    border-color: var(--bon-tema-rojo-vivo);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .perfil-tema-informacion small,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .perfil-tema-ayuda {
+    color: var(--bon-texto-tenue);
+}
+
+/* ------------------------------------------------------------
+   Contraste reforzado: cargadores, inicio y recepción.
+   ------------------------------------------------------------ */
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .overlay-carga-sistema {
+    background: var(--bon-overlay) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .tarjeta-carga-sistema {
+    border-top-color: var(--bon-tema-rojo) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .tarjeta-carga-sistema h3 {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .tarjeta-carga-sistema p {
+    color: var(--bon-texto-secundario) !important;
+}
+
+/* Los indicadores generales conservan valores y detalles legibles. */
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card-indicador h1,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card-indicador h3,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card > h1,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card > h3,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card-resumen-encabezado h3 {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card-indicador-detalle,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card-indicador-secundario,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .card-resumen-descripcion,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .cumplimiento-meta small,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .mini-grafica-recepcion > header,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .mini-grafica-recepcion > header span {
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .btn-card-indicador {
+    border-color: var(--bon-borde) !important;
+    background-color: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto) !important;
+}
+
+/* Chart.js dibuja sus etiquetas dentro del canvas: se realzan sin JavaScript. */
+html[data-tema="oscuro"] .mini-grafica-recepcion canvas,
+html[data-tema="oscuro"] .graficas-operativas-recepciones canvas,
+html[data-tema="oscuro"] .inicio-rendimiento-grafica canvas,
+html[data-tema="oscuro"] .inicio-desempeno-grafica canvas {
+    filter: brightness(1.75) saturate(.86);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .spinner-bon {
+    border-left-color: var(--bon-borde-suave);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .inicio-operativo-bienvenida > div > p {
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .inicio-desempeno-personal-fila {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie-campo) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .inicio-desempeno-personal-fila > span {
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .inicio-desempeno-personal-fila > strong {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .recepcion-materiales,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .recepcion-panel,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .recepciones-abiertas-grid,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .rejilla-inferior-recepciones,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .lista-recepciones-recientes {
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-recepciones {
+    background: var(--bon-superficie) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .bloque-centro-recepciones {
+    background: var(--bon-superficie-elevada) !important;
+}
+
+/* Recupera las franjas semánticas que identifican cada indicador. */
+html:is([data-tema="gris"], [data-tema="oscuro"]) .indicador-recepcion {
+    border-left-width: 4px !important;
+    border-left-style: solid !important;
+    border-left-color: var(--rec-rojo) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .indicador-recepcion.verde {
+    border-left-color: var(--rec-verde) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .indicador-recepcion.azul {
+    border-left-color: var(--rec-azul) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .indicador-recepcion.naranja {
+    border-left-color: var(--rec-amarillo) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .bloque-centro-recepciones .tarjeta-recepcion-abierta,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .bloque-centro-recepciones .tarjeta-recepcion-reciente,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .bloque-centro-recepciones .mini-grafica-recepcion {
+    background: var(--bon-superficie-campo) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .tarjeta-recepcion-datos.ampliada > div,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metricas-recepcion-reciente > div,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metricas-avance-recepcion > div {
+    background: var(--bon-superficie-suave) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .tarjeta-recepcion-datos strong,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metricas-recepcion-reciente strong,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metricas-avance-recepcion strong {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .btn-recepcion.secundario {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .recepcion-materiales .recepcion-panel::-webkit-scrollbar-track {
+    background: var(--bon-superficie) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .recepcion-materiales .recepcion-panel::-webkit-scrollbar-thumb {
+    border-color: var(--bon-superficie) !important;
+    background: var(--bon-texto-tenue) !important;
+}
+
+html[data-tema="oscuro"] .estado-recepcion-abierta {
+    background: rgba(245, 158, 11, .18) !important;
+    color: #ffd27a !important;
+}
+
+html[data-tema="oscuro"] .recepcion-reciente-icono {
+    background-color: rgba(38, 148, 71, .17) !important;
+}
+
+html[data-tema="oscuro"] .perfil-alerta-seguridad {
+    background: rgba(245, 158, 11, .12);
+    color: #fbbf70;
+}
+
+html[data-tema="oscuro"] .perfil-seccion-seguridad {
+    border-color: rgba(245, 158, 11, .34) !important;
+}
+
+html[data-tema="oscuro"] .inicio-rendimiento-periodo button.activo {
+    background: var(--bon-superficie-elevada) !important;
+    color: #ff6974 !important;
+}
+
+html[data-tema="oscuro"] .inicio-desempeno-horas-rojas > strong {
+    color: #ff7480 !important;
+}
+
+html[data-tema="oscuro"] .inicio-desempeno-horas-normales > strong {
+    color: #7db9fb !important;
+}
+
+html[data-tema="oscuro"] .inicio-card-boton.secundario,
+html[data-tema="oscuro"] .ap-accion-secundaria,
+html[data-tema="oscuro"] .ap-secundario {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+/* ------------------------------------------------------------
+   Adaptación para tabletas y teléfonos.
+   ------------------------------------------------------------ */
+
+@media (max-width: 760px) {
+    .perfil-temas-opciones {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    html:is([data-tema="gris"], [data-tema="oscuro"]) #sidebarPrincipal,
+    html:is([data-tema="gris"], [data-tema="oscuro"]) .sidebar {
+        background: var(--bon-fondo-lateral) !important;
+    }
+
+    /* Recepciones: cuatro indicadores visibles en dos filas compactas. */
+    #contenidoPrincipal .recepcion-materiales .indicadores-recepciones {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    #contenidoPrincipal .recepcion-materiales .indicador-recepcion {
+        min-width: 0 !important;
+        min-height: 76px !important;
+        padding: 9px 9px 8px 11px !important;
+        overflow: hidden;
+        border-radius: 9px !important;
+    }
+
+    #contenidoPrincipal .recepcion-materiales .indicador-recepcion > span,
+    #contenidoPrincipal .recepcion-materiales .indicador-recepcion > small {
+        display: block !important;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: var(--ui-fs-9, 9px) !important;
+        line-height: 1.3 !important;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #contenidoPrincipal .recepcion-materiales .indicador-recepcion > strong {
+        margin: 3px 0 !important;
+        font-size: var(--ui-fs-20, 20px) !important;
+        line-height: 1.05 !important;
+    }
+
+    /* Despachos: abiertos y movilizado arriba; meta debajo a todo ancho. */
+    #contenidoPrincipal .modulo:has(.cards-resumen) .cards-resumen {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        margin-bottom: 10px !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen {
+        width: auto !important;
+        min-width: 0 !important;
+        min-height: 78px !important;
+        height: auto !important;
+        max-height: none !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-rows: auto auto auto !important;
+        grid-template-areas:
+            "encabezado encabezado"
+            "valor valor"
+            "pie pie" !important;
+        gap: 3px 6px !important;
+        padding: 9px 10px !important;
+        overflow: hidden;
+        border-radius: 10px !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen:nth-child(1) {
+        order: 1;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen:nth-child(3) {
+        order: 2;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-meta-despachos {
+        order: 3;
+        grid-column: 1 / -1;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-areas:
+            "encabezado encabezado"
+            "valor pie" !important;
+        grid-template-rows: auto auto !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen-encabezado {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 5px !important;
+        min-width: 0;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen-encabezado h3 {
+        min-width: 0;
+        margin: 0 !important;
+        overflow: hidden;
+        font-size: var(--ui-fs-10, 10px) !important;
+        line-height: 1.2 !important;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen-icono {
+        width: 25px !important;
+        height: 25px !important;
+        flex: 0 0 25px !important;
+        border-radius: 7px !important;
+        font-size: var(--ui-fs-11, 11px) !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen-valor {
+        justify-self: start !important;
+        margin: 0 !important;
+        font-size: var(--ui-fs-21, 21px) !important;
+        line-height: 1 !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen-pie {
+        min-width: 0 !important;
+        min-height: 13px !important;
+        margin: 0 !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen-descripcion {
+        max-width: 100%;
+        overflow: hidden;
+        font-size: var(--ui-fs-9, 9px) !important;
+        line-height: 1.2 !important;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Sustituye las descripciones largas sin modificar JavaScript ni HTML. */
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen:nth-child(1) .card-resumen-descripcion,
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen:nth-child(3) .card-resumen-descripcion {
+        font-size: 0 !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen:nth-child(1) .card-resumen-descripcion::after {
+        content: "En proceso";
+        font-size: var(--ui-fs-9, 9px);
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .card-resumen:nth-child(3) .card-resumen-descripcion::after {
+        content: "Movilizado";
+        font-size: var(--ui-fs-9, 9px);
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .cumplimiento-meta {
+        width: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .cumplimiento-meta span {
+        min-width: 0 !important;
+        padding: 4px 7px !important;
+        font-size: var(--ui-fs-9, 9px) !important;
+    }
+
+    #contenidoPrincipal .modulo:has(.cards-resumen) .cumplimiento-meta small {
+        font-size: var(--ui-fs-10, 10px) !important;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 390px) {
+    .perfil-tema-opcion {
+        padding: 8px;
+    }
+
+    .perfil-tema-muestra {
+        height: 39px;
+    }
+
+    .perfil-tema-informacion small {
+        font-size: var(--ui-fs-7, 7px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .perfil-tema-opcion,
+    .perfil-tema-seleccionado {
+        transition: none;
+    }
+}
+
+/* ============================================================
+   VERIFICACION DE RECEPCIONES: TEMAS GRIS Y OSCURO
+   Mantiene la jerarquía visual sin alterar el tema claro.
+   ============================================================ */
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro {
+    background: transparent !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro :is(
+    .vr-encabezado,
+    .vr-indicador,
+    .vr-grafica,
+    .vr-tarjeta,
+    .vr-vacio
+) {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie-elevada) !important;
+    color: var(--bon-texto) !important;
+    box-shadow: none;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro :is(
+    .vr-registros-panel,
+    .vr-lista
+) {
+    border-color: var(--bon-borde-suave) !important;
+    background: var(--bon-superficie) !important;
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro :is(
+    .vr-encabezado-resumen,
+    .vr-selector-vista,
+    .vr-btn.secundario,
+    .vr-codigo,
+    .vr-tarjeta-datos > div,
+    .vr-grid-resumen > div
+) {
+    border-color: var(--bon-borde-suave) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro :is(
+    .vr-encabezado-texto h2,
+    .vr-encabezado-resumen strong,
+    .vr-indicador > strong,
+    .vr-grafica > h3,
+    .vr-grafica-fila > strong,
+    .vr-tarjeta h3,
+    .vr-tarjeta-datos strong,
+    .vr-grid-resumen strong,
+    .vr-vacio strong
+) {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro :is(
+    .vr-encabezado-texto p,
+    .vr-encabezado-resumen span,
+    .vr-indicador > span,
+    .vr-grafica-fila > span,
+    .vr-grafica-vacia,
+    .vr-tarjeta small,
+    .vr-tarjeta-datos span,
+    .vr-grid-resumen span
+) {
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-indicador.amarillo {
+    border-left-color: #f4b400 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-indicador.rojo {
+    border-left-color: #ed4759 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-indicador.verde {
+    border-left-color: #39ad60 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-indicador.azul {
+    border-left-color: #4a95ec !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-grafica-fila > div {
+    background: var(--bon-borde-suave) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-grafica-fila > div > i {
+    background: #e23c59 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-btn-vista {
+    background: transparent !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-btn-vista.activo {
+    background: var(--bon-superficie-elevada) !important;
+    color: var(--bon-tema-rojo-vivo) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-ayuda {
+    border: 1px solid rgba(217, 157, 51, .34) !important;
+    background: rgba(206, 145, 42, .12) !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-ayuda > i {
+    color: #438eea !important;
+}
+
+html[data-tema="oscuro"] .vr-centro .vr-ayuda > span {
+    color: #efd19a !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-estado.pendiente {
+    background: rgba(241, 174, 37, .18) !important;
+    color: #e6a621 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-estado.correccion {
+    background: rgba(226, 53, 73, .17) !important;
+    color: #f07482 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-estado.completada {
+    background: rgba(55, 161, 87, .18) !important;
+    color: #5fc27b !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-resultado-listado {
+    border-color: var(--bon-borde-suave) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-resultado-listado.correccion :is(span, strong) {
+    color: #f07482 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-btn.principal,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-centro .vr-btn.principal :is(i, span) {
+    color: #fff !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-registros-panel > .vr-paginacion,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-lista > .vr-paginacion {
+    background: var(--bon-superficie) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-registros-panel > .vr-lista::-webkit-scrollbar {
+    width: 7px;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .vr-registros-panel > .vr-lista::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--bon-borde);
+}
+
+/* Centro de Exactitud: contraste temático y semáforos operativos. */
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-seccion-control,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-filtros,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .grafico-exactitud-card {
+    border-color: var(--bon-borde-suave) !important;
+    background: var(--bon-superficie-elevada) !important;
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .kpi-exactitud {
+    border-color: var(--bon-borde-suave) !important;
+    border-left-color: var(--ex-kpi-color, #7d91a6) !important;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--ex-kpi-color, #7d91a6) 12%, var(--bon-superficie-elevada)),
+        var(--bon-superficie-elevada) 64%
+    ) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .kpi-exactitud > span,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-filtros label,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .grafico-exactitud-card p {
+    color: var(--bon-texto-secundario) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .kpi-exactitud > strong,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-seccion-control > span,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .grafico-exactitud-card h3,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-listado-encabezado h3 {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-filtros :is(input, select) {
+    border-color: var(--bon-borde) !important;
+    background: var(--bon-superficie-suave) !important;
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-seccion-control > span > i {
+    color: #ef5870 !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .centro-exactitud .exactitud-seccion-flecha {
+    color: var(--bon-texto-secundario) !important;
+}
+
+/* El aniversario conserva su identidad cálida con contraste legible. */
+html[data-tema="oscuro"] .inicio-aniversario {
+    border-color: #70583a !important;
+    background: linear-gradient(135deg, #27313d 0%, #353027 100%) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+
+html[data-tema="oscuro"] .inicio-aniversario-icono {
+    background: rgba(241, 191, 108, .16) !important;
+    color: #ff6378 !important;
+}
+
+html[data-tema="oscuro"] .inicio-aniversario span {
+    color: #ff6378 !important;
+}
+
+html[data-tema="oscuro"] .inicio-aniversario h3 {
+    color: #f7f8fa !important;
+}
+
+html[data-tema="oscuro"] .inicio-aniversario p {
+    color: #d8dfe7 !important;
+}
+
+html[data-tema="gris"] .inicio-aniversario h3 {
+    color: #222b35 !important;
+}
+
+html[data-tema="gris"] .inicio-aniversario p {
+    color: #536071 !important;
+}

@@ -2157,6 +2157,189 @@ body {
     }
 }
 
+/* Cabeceras uniformes para todas las ventanas flotantes del sistema. */
+:root {
+    --bon-modal-titulo-tamano: clamp(13px, 2.2vw, 22px);
+    --bon-modal-boton-cierre: 34px;
+}
+
+.modal-contenido > .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 54px;
+    padding: 11px clamp(12px, 2vw, 24px);
+}
+
+.modal-contenido > .modal-header :is(h1, h2, h3, h4, .modal-titulo, #tituloModal) {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: var(--bon-modal-titulo-tamano) !important;
+    font-weight: 800;
+    line-height: 1.18;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-contenido > .modal-header > button {
+    display: grid;
+    place-items: center;
+    flex: 0 0 var(--bon-modal-boton-cierre);
+    width: var(--bon-modal-boton-cierre);
+    height: var(--bon-modal-boton-cierre);
+    min-width: var(--bon-modal-boton-cierre);
+    padding: 0;
+    line-height: 1;
+}
+
+@media (max-width: 768px) {
+    :root {
+        --bon-modal-titulo-tamano: clamp(12.5px, 3.55vw, 19px);
+        --bon-modal-boton-cierre: 30px;
+    }
+
+    .modal-contenido > .modal-header {
+        min-height: 48px;
+        gap: 8px;
+        padding: 9px 11px;
+    }
+}
+
+@media (max-width: 390px) {
+    :root {
+        --bon-modal-titulo-tamano: clamp(11.5px, 3.45vw, 14px);
+    }
+}
+
+/* ============================================================
+   INICIO OPERATIVO: MONITORES DE ANCHO INTERMEDIO
+   Considera el espacio real que deja disponible el menú lateral.
+   Conserva la distribución existente de teléfonos y pantallas amplias.
+   ============================================================ */
+
+@media (min-width: 701px) and (max-width: 1350px) {
+    #contenidoPrincipal .inicio-operativo-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card {
+        min-width: 0;
+        grid-column: span 1;
+        overflow: hidden;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-avisos {
+        order: 10;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-supervisores,
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-desempeno-personal {
+        order: 20;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-auxiliares {
+        order: 30;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-asistencia {
+        order: 40;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-epp {
+        order: 50;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-horas-extra {
+        order: 60;
+    }
+
+    #contenidoPrincipal .inicio-card .inicio-card-encabezado,
+    #contenidoPrincipal .inicio-card .inicio-rendimiento-cabecera {
+        min-width: 0;
+    }
+
+    #contenidoPrincipal .inicio-card .inicio-card-encabezado h3 {
+        overflow-wrap: anywhere;
+        line-height: 1.2;
+    }
+
+    #contenidoPrincipal .inicio-card-supervisores .inicio-rendimiento-grafica {
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    #contenidoPrincipal .inicio-card-auxiliares .inicio-auxiliares-destacados,
+    #contenidoPrincipal .inicio-card-auxiliares .inicio-auxiliares-destacados article {
+        min-width: 0;
+    }
+
+    #contenidoPrincipal .inicio-card-asistencia .inicio-personal-extra {
+        position: static;
+        width: max-content;
+        max-width: 100%;
+        align-self: flex-end;
+        margin: 0;
+        white-space: normal;
+    }
+
+    #contenidoPrincipal .inicio-card-asistencia .inicio-personal-accesos {
+        display: grid;
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    #contenidoPrincipal .inicio-card-asistencia .inicio-personal-accesos button {
+        min-width: 0;
+        padding: 0 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@supports (container-type: inline-size) {
+    @media (min-width: 701px) {
+        #contenidoPrincipal:has(.inicio-operativo-grid) {
+            container-name: inicio-operativo-bon;
+            container-type: inline-size;
+        }
+
+        @container inicio-operativo-bon (max-width: 1110px) {
+            #contenidoPrincipal .inicio-operativo-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 14px;
+            }
+
+            #contenidoPrincipal .inicio-operativo-grid > .inicio-card {
+                grid-column: span 1;
+                min-width: 0;
+            }
+
+            #contenidoPrincipal .inicio-card-asistencia .inicio-personal-accesos {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @container inicio-operativo-bon (max-width: 610px) {
+            #contenidoPrincipal .inicio-operativo-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            #contenidoPrincipal .inicio-operativo-grid > .inicio-card {
+                grid-column: 1 / -1;
+            }
+        }
+    }
+}
+
 /* ============================================================
    DESPLAZAMIENTO INTERNO DE LOS MÓDULOS PRINCIPALES
 

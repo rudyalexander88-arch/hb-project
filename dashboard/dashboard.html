@@ -7,6 +7,102 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f5f5f5" id="metaTemaSistema">
+
+    <script>
+    (function () {
+        "use strict";
+
+        var opciones = ["claro", "gris", "oscuro", "automatico"];
+        var consulta = typeof window.matchMedia === "function"
+            ? window.matchMedia("(prefers-color-scheme: dark)")
+            : null;
+
+        function claveUsuario() {
+            try {
+                var sesion = JSON.parse(
+                    localStorage.getItem("sesion") ||
+                    sessionStorage.getItem("sesion") ||
+                    "null"
+                );
+                var usuario = sesion && (
+                    sesion.idEmpleado || sesion.IDEmpleado ||
+                    sesion.empleadoId || sesion.usuario || ""
+                );
+                return "bon_tema_visual" + (usuario ? "_" + String(usuario) : "");
+            } catch (error) {
+                return "bon_tema_visual";
+            }
+        }
+
+        function obtener() {
+            try {
+                var valor = String(localStorage.getItem(claveUsuario()) || "claro").toLowerCase();
+                return opciones.indexOf(valor) >= 0 ? valor : "claro";
+            } catch (error) {
+                return "claro";
+            }
+        }
+
+        function aplicar(preferencia, guardar) {
+            preferencia = String(preferencia || "claro").toLowerCase();
+            if (opciones.indexOf(preferencia) < 0) preferencia = "claro";
+
+            var efectivo = preferencia === "automatico"
+                ? (consulta && consulta.matches ? "oscuro" : "claro")
+                : preferencia;
+            var raiz = document.documentElement;
+
+            raiz.dataset.tema = efectivo;
+            raiz.dataset.temaPreferencia = preferencia;
+            raiz.style.colorScheme = efectivo === "oscuro" ? "dark" : "only light";
+
+            if (guardar) {
+                try {
+                    localStorage.setItem(claveUsuario(), preferencia);
+                } catch (error) {
+                    console.warn("No fue posible guardar la preferencia visual.", error);
+                }
+            }
+
+            var meta = document.getElementById("metaTemaSistema");
+            if (meta) {
+                meta.setAttribute("content", efectivo === "oscuro"
+                    ? "#111827"
+                    : efectivo === "gris" ? "#e5e8ec" : "#f5f5f5");
+            }
+
+            if (typeof window.CustomEvent === "function") {
+                window.dispatchEvent(new CustomEvent("bon:tema-cambiado", {
+                    detail: {preferencia: preferencia, tema: efectivo}
+                }));
+            }
+
+            return efectivo;
+        }
+
+        window.TemaSistema = {
+            obtener: obtener,
+            aplicar: function (preferencia) { return aplicar(preferencia, true); },
+            efectivo: function () { return document.documentElement.dataset.tema || "claro"; }
+        };
+
+        if (consulta) {
+            var actualizarAutomatico = function () {
+                if (obtener() === "automatico") aplicar("automatico", false);
+            };
+            if (typeof consulta.addEventListener === "function") {
+                consulta.addEventListener("change", actualizarAutomatico);
+            } else if (typeof consulta.addListener === "function") {
+                consulta.addListener(actualizarAutomatico);
+            }
+        }
+
+        aplicar(obtener(), false);
+    })();
+    </script>
+
     <title>Dashboard | Sistema Logístico PT</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,6 +122,7 @@
 	<link rel="stylesheet" href="../css/verificacionRecepciones.css?v=20260820-12">
 	<link rel="stylesheet" href="../css/inicioHorasExtras.css?v=20260820-12">	
 	<link rel="stylesheet" href="../css/asistenciaPersonal.css?v=20260820-12">
+	<link rel="stylesheet" href="../css/temasSistema.css?v=20260822-1">
 	<link rel="icon" type="image/png" href="../img/icon.png">
 	
 

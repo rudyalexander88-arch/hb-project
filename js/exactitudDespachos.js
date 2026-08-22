@@ -80,6 +80,11 @@ window.ExactitudDespachos = {
     verificacionTemporal:
       {},
 
+    seccionesCentro: {
+      indicadores: true,
+      filtros: false
+    },
+
     consultando:
       false
 
@@ -725,19 +730,69 @@ window.ExactitudDespachos = {
       this.estado.filtros ||
       {};
 
+    const secciones =
+      this.estado.seccionesCentro ||
+      {
+        indicadores: true,
+        filtros: false
+      };
+
 
     return `
 
       <section class="centro-exactitud">
 
-        <div class="exactitud-kpis">
+        <section class="exactitud-seccion exactitud-seccion-indicadores ${
+          secciones.indicadores ? "" : "contraida"
+        }">
+
+          <button
+            type="button"
+            id="btnAlternarIndicadoresExactitud"
+            class="exactitud-seccion-control"
+            aria-controls="panelIndicadoresExactitud"
+            aria-expanded="${secciones.indicadores ? "true" : "false"}"
+          >
+            <span>
+              <i class="fa-solid fa-chart-column"></i>
+              Indicadores de exactitud
+            </span>
+            <i class="fa-solid fa-chevron-down exactitud-seccion-flecha"></i>
+          </button>
+
+        <div
+          id="panelIndicadoresExactitud"
+          class="exactitud-kpis exactitud-seccion-cuerpo"
+        >
 
           ${this.renderKPIsCentro()}
 
         </div>
 
+        </section>
 
-        <div class="exactitud-filtros">
+        <section class="exactitud-seccion exactitud-seccion-filtros ${
+          secciones.filtros ? "" : "contraida"
+        }">
+
+          <button
+            type="button"
+            id="btnAlternarFiltrosExactitud"
+            class="exactitud-seccion-control"
+            aria-controls="panelFiltrosExactitud"
+            aria-expanded="${secciones.filtros ? "true" : "false"}"
+          >
+            <span>
+              <i class="fa-solid fa-sliders"></i>
+              Filtros de consulta
+            </span>
+            <i class="fa-solid fa-chevron-down exactitud-seccion-flecha"></i>
+          </button>
+
+        <div
+          id="panelFiltrosExactitud"
+          class="exactitud-filtros exactitud-seccion-cuerpo"
+        >
 
           <div class="campo-exactitud">
 
@@ -1026,6 +1081,7 @@ window.ExactitudDespachos = {
 
         </div>
 
+        </section>
 
         <div class="exactitud-graficos">
 
@@ -1088,6 +1144,41 @@ window.ExactitudDespachos = {
       this.estado.resumen ||
       {};
 
+    const numero = valor => {
+      const convertido = Number(valor);
+      return Number.isFinite(convertido)
+        ? Math.max(0, convertido)
+        : 0;
+    };
+
+    const limitar = valor =>
+      Math.max(0, Math.min(1, numero(valor)));
+
+    const proporcion = (valor, total) => {
+      const base = numero(total);
+      return base > 0
+        ? limitar(numero(valor) / base)
+        : 0;
+    };
+
+    const colorVerde = valor =>
+      `hsl(${Math.round(42 + limitar(valor) * 91)} 64% 41%)`;
+
+    const colorRojo = valor =>
+      `hsl(${Math.round(43 - limitar(valor) * 40)} 83% 48%)`;
+
+    const traspasados = numero(resumen.bultosTraspasados);
+    const desviados = numero(resumen.bultosDesviados);
+    const corregidos = numero(resumen.bultosCorregidos);
+    const pendientes = numero(resumen.bultosPendientes);
+    const valorDesviaciones = numero(resumen.valorDesviaciones);
+    const valorPendiente = numero(resumen.valorPendiente);
+    const tasaExactitud = limitar(numero(resumen.tasaExactitud) / 100);
+    const tasaError = limitar(numero(resumen.tasaError) / 100);
+    const colorNeutral = "#7d91a6";
+    const colorAzul = "#4982bb";
+    const colorAmarillo = "#e5ab18";
+
 
     const indicadores = [
 
@@ -1098,7 +1189,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearPorcentaje(
             resumen.tasaExactitud
-          )
+          ),
+
+        color:
+          traspasados > 0
+            ? colorVerde(tasaExactitud)
+            : colorNeutral,
+
+        tipo:
+          "exactitud"
       },
 
       {
@@ -1108,7 +1207,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearPorcentaje(
             resumen.tasaError
-          )
+          ),
+
+        color:
+          tasaError > 0
+            ? colorRojo(tasaError)
+            : colorAmarillo,
+
+        tipo:
+          "error"
       },
 
       {
@@ -1118,7 +1225,13 @@ window.ExactitudDespachos = {
         valor:
           this.formatearNumero(
             resumen.bultosTraspasados
-          )
+          ),
+
+        color:
+          colorAzul,
+
+        tipo:
+          "traspasados"
       },
 
       {
@@ -1128,7 +1241,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearNumero(
             resumen.bultosDesviados
-          )
+          ),
+
+        color:
+          desviados > 0
+            ? colorRojo(proporcion(desviados, traspasados))
+            : colorNeutral,
+
+        tipo:
+          "desviados"
       },
 
       {
@@ -1138,7 +1259,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearNumero(
             resumen.bultosCorregidos
-          )
+          ),
+
+        color:
+          desviados > 0
+            ? colorVerde(proporcion(corregidos, desviados))
+            : colorNeutral,
+
+        tipo:
+          "corregidos"
       },
 
       {
@@ -1148,7 +1277,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearNumero(
             resumen.bultosPendientes
-          )
+          ),
+
+        color:
+          desviados > 0 && pendientes > 0
+            ? colorRojo(proporcion(pendientes, desviados))
+            : colorNeutral,
+
+        tipo:
+          "pendientes"
       },
 
       {
@@ -1158,7 +1295,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearMoneda(
             resumen.valorDesviaciones
-          )
+          ),
+
+        color:
+          valorDesviaciones > 0
+            ? colorRojo(proporcion(desviados, traspasados))
+            : colorNeutral,
+
+        tipo:
+          "valor-desviaciones"
       },
 
       {
@@ -1168,7 +1313,15 @@ window.ExactitudDespachos = {
         valor:
           this.formatearMoneda(
             resumen.valorPendiente
-          )
+          ),
+
+        color:
+          valorPendiente > 0
+            ? colorRojo(proporcion(valorPendiente, valorDesviaciones))
+            : colorNeutral,
+
+        tipo:
+          "valor-pendiente"
       }
 
     ];
@@ -1178,7 +1331,10 @@ window.ExactitudDespachos = {
       .map(
         item => `
 
-          <article class="kpi-exactitud">
+          <article
+            class="kpi-exactitud kpi-exactitud-${item.tipo}"
+            style="--ex-kpi-color:${item.color}"
+          >
 
             <span>
               ${item.etiqueta}
@@ -1658,6 +1814,18 @@ window.ExactitudDespachos = {
    */
   conectarEventosCentro() {
 
+    const alternarIndicadores =
+      document.getElementById(
+        "btnAlternarIndicadoresExactitud"
+      );
+
+
+    const alternarFiltros =
+      document.getElementById(
+        "btnAlternarFiltrosExactitud"
+      );
+
+
     const consultar =
       document.getElementById(
         "btnConsultarExactitud"
@@ -1686,6 +1854,39 @@ window.ExactitudDespachos = {
       document.getElementById(
         "listaConducesExactitud"
       );
+
+    if (alternarIndicadores) {
+
+      alternarIndicadores.onclick =
+        evento => {
+
+          evento.preventDefault();
+
+          this.alternarSeccionCentro(
+            "indicadores",
+            alternarIndicadores
+          );
+
+        };
+
+    }
+
+
+    if (alternarFiltros) {
+
+      alternarFiltros.onclick =
+        evento => {
+
+          evento.preventDefault();
+
+          this.alternarSeccionCentro(
+            "filtros",
+            alternarFiltros
+          );
+
+        };
+
+    }
 
 
     if (consultar) {
@@ -1785,6 +1986,53 @@ window.ExactitudDespachos = {
 
 
     this.restaurarFiltrosCentro();
+
+  },
+
+
+  alternarSeccionCentro(nombre, boton) {
+
+    if (!this.estado.seccionesCentro) {
+      this.estado.seccionesCentro = {
+        indicadores: true,
+        filtros: false
+      };
+    }
+
+    const abierto =
+      !Boolean(this.estado.seccionesCentro[nombre]);
+
+    this.estado.seccionesCentro[nombre] =
+      abierto;
+
+    const seccion =
+      boton &&
+      boton.closest(".exactitud-seccion");
+
+    if (seccion) {
+      seccion.classList.toggle(
+        "contraida",
+        !abierto
+      );
+    }
+
+    if (boton) {
+      boton.setAttribute(
+        "aria-expanded",
+        abierto ? "true" : "false"
+      );
+    }
+
+    if (nombre === "indicadores" && abierto) {
+      window.requestAnimationFrame(() => {
+        if (this.graficoExactitud && typeof this.graficoExactitud.resize === "function") {
+          this.graficoExactitud.resize();
+        }
+        if (this.graficoDesviaciones && typeof this.graficoDesviaciones.resize === "function") {
+          this.graficoDesviaciones.resize();
+        }
+      });
+    }
 
   },
 

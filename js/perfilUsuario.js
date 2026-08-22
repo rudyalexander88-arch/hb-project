@@ -155,6 +155,25 @@ window.PerfilUsuario = {
           </div>
         </section>
 
+        <section class="perfil-seccion perfil-seccion-apariencia">
+          <div class="perfil-seccion-titulo">
+            <i class="fa-solid fa-palette"></i>
+            <div>
+              <h4>Apariencia</h4>
+              <p>Elija cómo desea visualizar el sistema en este dispositivo.</p>
+            </div>
+          </div>
+
+          <div class="perfil-temas-opciones" role="group" aria-label="Tema visual del sistema">
+            ${this.construirOpcionesTemas()}
+          </div>
+
+          <p class="perfil-tema-ayuda">
+            <i class="fa-solid fa-circle-info"></i>
+            La selección se aplica inmediatamente y se conserva en este navegador.
+          </p>
+        </section>
+
         <section class="perfil-seccion perfil-seccion-seguridad">
           <div class="perfil-seccion-titulo">
             <i class="fa-solid fa-lock"></i>
@@ -200,6 +219,18 @@ window.PerfilUsuario = {
     const telefono = document.getElementById("perfilTelefono");
     const cancelar = document.getElementById("btnCancelarPerfil");
     const editar = document.getElementById("btnEditarDatosPersonales");
+
+    document.querySelectorAll("[data-perfil-tema]").forEach(boton => {
+      boton.addEventListener("click", () => {
+        if (!window.TemaSistema || typeof TemaSistema.aplicar !== "function") {
+          this.notificar("No fue posible cambiar la apariencia del sistema.", "error");
+          return;
+        }
+
+        TemaSistema.aplicar(boton.dataset.perfilTema);
+        this.actualizarSeleccionTema();
+      });
+    });
 
     [
       "perfilPasswordActual",
@@ -276,6 +307,47 @@ window.PerfilUsuario = {
     });
 
     actualizarHijos();
+    this.actualizarSeleccionTema();
+  },
+
+  construirOpcionesTemas() {
+    const seleccion = window.TemaSistema && typeof TemaSistema.obtener === "function"
+      ? TemaSistema.obtener()
+      : "claro";
+    const opciones = [
+      {valor:"claro",nombre:"Claro",icono:"fa-sun",detalle:"Original BON"},
+      {valor:"gris",nombre:"Gris",icono:"fa-cloud",detalle:"Suave y relajado"},
+      {valor:"oscuro",nombre:"Oscuro",icono:"fa-moon",detalle:"Menor luminosidad"},
+      {valor:"automatico",nombre:"Automático",icono:"fa-circle-half-stroke",detalle:"Según el dispositivo"}
+    ];
+
+    return opciones.map(opcion => `
+      <button type="button"
+        class="perfil-tema-opcion ${seleccion === opcion.valor ? "activo" : ""}"
+        data-perfil-tema="${opcion.valor}"
+        aria-pressed="${seleccion === opcion.valor ? "true" : "false"}">
+        <span class="perfil-tema-muestra perfil-tema-muestra-${opcion.valor}" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span class="perfil-tema-informacion">
+          <strong><i class="fa-solid ${opcion.icono}"></i> ${opcion.nombre}</strong>
+          <small>${opcion.detalle}</small>
+        </span>
+        <i class="fa-solid fa-circle-check perfil-tema-seleccionado" aria-hidden="true"></i>
+      </button>
+    `).join("");
+  },
+
+  actualizarSeleccionTema() {
+    const seleccion = window.TemaSistema && typeof TemaSistema.obtener === "function"
+      ? TemaSistema.obtener()
+      : "claro";
+
+    document.querySelectorAll("[data-perfil-tema]").forEach(boton => {
+      const activo = boton.dataset.perfilTema === seleccion;
+      boton.classList.toggle("activo", activo);
+      boton.setAttribute("aria-pressed", activo ? "true" : "false");
+    });
   },
 
   async guardar() {

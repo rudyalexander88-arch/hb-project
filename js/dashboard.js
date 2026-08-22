@@ -1072,6 +1072,33 @@ function inicializarMenu() {
             "click",
             () => {
 
+                /*
+                 * Limpiar el conduce solo corresponde a los modales
+                 * abiertos desde Despachos. En Inicio, Recepciones y
+                 * los demás módulos debe conservarse la vista actual.
+                 */
+                const menuDespachos =
+                    document.getElementById(
+                        "menuDespachos"
+                    );
+
+                const limpiarConduce = Boolean(
+                    menuDespachos &&
+                    menuDespachos.classList.contains(
+                        "active"
+                    )
+                );
+
+                if (
+                    typeof Sistema !== "undefined" &&
+                    typeof Sistema.cerrarModal === "function"
+                ) {
+                    Sistema.cerrarModal(
+                        limpiarConduce
+                    );
+                    return;
+                }
+
                 const modal =
                     document.getElementById(
                         "modalSistema"
@@ -1081,31 +1108,22 @@ function inicializarMenu() {
                     modal.classList.add(
                         "oculto"
                     );
+                    modal.setAttribute(
+                        "aria-hidden",
+                        "true"
+                    );
                 }
+
+                document.body.classList.remove(
+                    "modal-sistema-abierto"
+                );
 
                 if (
-                    typeof Conduce !==
-                        "undefined"
+                    limpiarConduce &&
+                    typeof Conduce !== "undefined" &&
+                    typeof Conduce.limpiar === "function"
                 ) {
                     Conduce.limpiar();
-                }
-
-                const tituloModal =
-                    document.getElementById(
-                        "tituloModal"
-                    );
-
-                const contenidoModal =
-                    document.getElementById(
-                        "contenidoModal"
-                    );
-
-                if (tituloModal) {
-                    tituloModal.textContent = "";
-                }
-
-                if (contenidoModal) {
-                    contenidoModal.innerHTML = "";
                 }
 
             }

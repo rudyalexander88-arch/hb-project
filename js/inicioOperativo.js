@@ -43,6 +43,14 @@ window.InicioOperativo = {
             );
 
 
+        if (
+            window.AsistenciaPersonal &&
+            typeof AsistenciaPersonal.instalarAccesoMarcacion === "function"
+        ) {
+            AsistenciaPersonal.instalarAccesoMarcacion();
+        }
+
+
         this.conectarEventos();
 
 
@@ -193,11 +201,14 @@ window.InicioOperativo = {
                         </p>
                     </div>
 
-                    <div class="inicio-operativo-fecha">
-                        <i class="fa-regular fa-calendar"></i>
-                        <span>
-                            ${this.formatearFechaActual()}
-                        </span>
+                    <div class="inicio-operativo-acciones-bienvenida">
+                        <div class="inicio-operativo-fecha">
+                            <i class="fa-regular fa-calendar"></i>
+                            <span>
+                                ${this.formatearFechaActual()}
+                            </span>
+                        </div>
+                        <div id="inicioAccesoMarcacion"></div>
                     </div>
 
                 </header>
@@ -386,7 +397,7 @@ window.InicioOperativo = {
                         <div class="inicio-card-icono"><i class="fa-solid fa-chart-line"></i></div>
                         <div><span class="inicio-card-etiqueta">Mi rendimiento</span><h3>Desempeño mensual</h3></div>
                     </div>
-                    <p>Actividad registrada a su nombre en recepciones finalizadas.</p>
+                    <p>Resumen mensual de sus recepciones, tareas y horas adicionales.</p>
                     <div id="desempenoRecepcionesInicio" class="inicio-desempeno-cargando"><i class="fa-solid fa-spinner fa-spin"></i> Consultando actividad...</div>
                 </article>`;
         }
@@ -563,68 +574,34 @@ window.InicioOperativo = {
         const contenedor = document.getElementById("desempenoRecepcionesInicio");
         if (!contenedor) return;
 
-        const resumen = datos.resumen || {};
-        const evolucion = Array.isArray(datos.evolucion) ? datos.evolucion : [];
-
-        contenedor.innerHTML = `
-            <div class="inicio-desempeno-metricas">
-                <div><span>Tarimas</span><strong>${this.formatearNumeroDesempeno(resumen.tarimas)}</strong></div>
-                <div><span>Cajas/cubos</span><strong>${this.formatearNumeroDesempeno(resumen.unidades)}</strong></div>
-                <div><span>Recepciones</span><strong>${this.formatearNumeroDesempeno(resumen.recepciones)}</strong></div>
-                <div><span>Posiciones</span><strong>${this.formatearNumeroDesempeno(resumen.posiciones)}</strong></div>
-            </div>
-            <div class="inicio-desempeno-grafica">
-                <canvas id="graficaDesempenoRecepcionesInicio"></canvas>
-            </div>
-            <small class="inicio-desempeno-nota">
-                Las tareas colaborativas se incorporarán cuando el Centro de Avisos registre participantes.
-            </small>`;
-
         if (this.graficoDesempeno && typeof this.graficoDesempeno.destroy === "function") {
             this.graficoDesempeno.destroy();
+            this.graficoDesempeno = null;
         }
 
-        const lienzo = document.getElementById("graficaDesempenoRecepcionesInicio");
-        if (!lienzo || typeof Chart === "undefined") return;
+        const resumen = datos.resumen || {};
+        const formatearHoras = valor => Number(valor || 0)
+            .toLocaleString("es-DO", {maximumFractionDigits:2}) + " h";
 
-        this.graficoDesempeno = new Chart(lienzo, {
-            type:"line",
-            data:{
-                labels:evolucion.map(item => item.etiqueta || item.clave),
-                datasets:[
-                    {
-                        label:"Tarimas",
-                        data:evolucion.map(item => Number(item.tarimas || 0)),
-                        borderColor:"#ed1b2f",
-                        backgroundColor:"#ed1b2f18",
-                        tension:.32,
-                        borderWidth:2,
-                        pointRadius:2,
-                        yAxisID:"y"
-                    },
-                    {
-                        label:"Cajas/cubos",
-                        data:evolucion.map(item => Number(item.unidades || 0)),
-                        borderColor:"#1976d2",
-                        backgroundColor:"#1976d218",
-                        tension:.32,
-                        borderWidth:2,
-                        pointRadius:2,
-                        yAxisID:"y1"
-                    }
-                ]
-            },
-            options:{
-                responsive:true,
-                maintainAspectRatio:false,
-                plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,font:{size:9}}}},
-                scales:{
-                    x:{grid:{display:false},ticks:{font:{size:8},maxRotation:0}},
-                    y:{beginAtZero:true,position:"left",ticks:{font:{size:8},precision:0},grid:{color:"#eef0f3"}},
-                    y1:{beginAtZero:true,position:"right",ticks:{font:{size:8},precision:0},grid:{display:false}}
-                }
-            }
-        });
+        contenedor.innerHTML = `
+            <div class="inicio-desempeno-personal-filas">
+                <div class="inicio-desempeno-personal-fila">
+                    <span><i class="fa-solid fa-pallet"></i> Tarimas completadas</span>
+                    <strong>${this.formatearNumeroDesempeno(resumen.tarimas)}</strong>
+                </div>
+                <div class="inicio-desempeno-personal-fila">
+                    <span><i class="fa-solid fa-list-check"></i> Tareas adicionales</span>
+                    <strong>${this.formatearNumeroDesempeno(resumen.tareasAdicionales)}</strong>
+                </div>
+                <div class="inicio-desempeno-personal-fila inicio-desempeno-horas-rojas">
+                    <span><i class="fa-regular fa-clock"></i> Horas extras rojas</span>
+                    <strong>${formatearHoras(resumen.horasExtrasRojas)}</strong>
+                </div>
+                <div class="inicio-desempeno-personal-fila inicio-desempeno-horas-normales">
+                    <span><i class="fa-regular fa-clock"></i> Horas extras normales</span>
+                    <strong>${formatearHoras(resumen.horasExtrasNormales)}</strong>
+                </div>
+            </div>`;
 
     },
 

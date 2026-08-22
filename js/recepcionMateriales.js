@@ -1926,20 +1926,112 @@ configurarScrollInterno() {
 
       } else {
 
-        this.estado.materialSeleccionado = null;
         this.estado.resumenAcumulado = null;
+
+        /*
+         * Una recepción puede tener su material guardado en el
+         * encabezado aunque todavía no posea líneas de detalle.
+         * Continuarla no debe pedir nuevamente el producto ni crear
+         * otra recepción: se recupera su ficha y se solicita únicamente
+         * el origen y la hora del nuevo ingreso.
+         */
+        const recepcion =
+          this.estado.recepcionActual || {};
+
+        const codigoMaterial = String(
+          recepcion.material ||
+          recepcion.Material ||
+          ""
+        ).trim();
 
         const titulo =
           document.getElementById(
             "tituloAsistenteRecepcion"
           );
 
+        if (codigoMaterial) {
+
+          const respuestaMaterial = await API.post({
+            action: "buscarMaterialesRecepcionMateriales",
+            busqueda: codigoMaterial,
+            limite: 20
+          });
+
+          if (!respuestaMaterial || respuestaMaterial.ok !== true) {
+            throw new Error(
+              respuestaMaterial && respuestaMaterial.mensaje
+                ? respuestaMaterial.mensaje
+                : "No fue posible recuperar el material de la recepción."
+            );
+          }
+
+          const materiales =
+            Array.isArray(respuestaMaterial.data)
+              ? respuestaMaterial.data
+              : Array.isArray(
+                  respuestaMaterial.data &&
+                  respuestaMaterial.data.materiales
+                )
+                ? respuestaMaterial.data.materiales
+                : [];
+
+          const materialExistente = materiales.find(item =>
+            String(
+              item.id ||
+              item.material ||
+              item.ID_Material ||
+              ""
+            ).trim() === codigoMaterial
+          );
+
+          if (!materialExistente) {
+            throw new Error(
+              "El material " +
+              codigoMaterial +
+              " de esta recepción no está disponible en el catálogo."
+            );
+          }
+
+          this.estado.materialSeleccionado = {
+            ...materialExistente,
+            id:
+              materialExistente.id ||
+              materialExistente.material ||
+              codigoMaterial,
+            material:
+              materialExistente.material ||
+              materialExistente.id ||
+              codigoMaterial,
+            descripcion:
+              materialExistente.descripcion ||
+              recepcion.detalle ||
+              recepcion.Detalle ||
+              ""
+          };
+
+          if (titulo) {
+            titulo.textContent =
+              this.estado.materialSeleccionado.descripcion ||
+              ("Recepción · " + recepcion.idRecepcion);
+          }
+
+          this.estado.distribucion = {};
+          this.estado.horaInicioIngreso = "";
+
+          this.mostrarOrigenNuevoIngreso();
+
+          return;
+        }
+
+        this.estado.materialSeleccionado = null;
+
         if (titulo) {
           titulo.textContent =
             "Recepci\u00f3n \u00b7 " +
-            this.estado.recepcionActual.idRecepcion;
+            recepcion.idRecepcion;
         }
 
+        /* Compatibilidad con encabezados antiguos sin material. */
         this.renderSeleccionMaterial();
 
       }

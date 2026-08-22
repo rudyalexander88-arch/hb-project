@@ -158,18 +158,23 @@ window.InicioOperativo = {
             );
 
 
+        const rolNormalizadoEPP =
+            String(rol || "").trim().normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toUpperCase();
+
         const puedeSolicitarEPP =
             Sistema.esAdministrador() ||
-            Sistema.tienePermiso(
-                "EPP_SOLICITAR"
-            );
+            Sistema.tienePermiso("EPP_SOLICITAR") ||
+            rolNormalizadoEPP === "AUXILIAR" ||
+            rolNormalizadoEPP === "MONTACARGUISTA";
 
 
         const puedeGestionarEPP =
             Sistema.esAdministrador() ||
-            Sistema.tienePermiso(
-                "EPP_GESTIONAR"
-            );
+            Sistema.tienePermiso("EPP_GESTIONAR") ||
+            rolNormalizadoEPP.includes("SUPERVISOR") ||
+            rolNormalizadoEPP.includes("ENCARGADO");
 
         const puedeGestionarAsistencia =
             window.AsistenciaPersonal &&
@@ -713,9 +718,16 @@ window.InicioOperativo = {
             botonEPP.addEventListener(
                 "click",
                 () => {
-                    Sistema.info(
-                        "El asistente de EPP será conectado en la siguiente etapa."
-                    );
+                    if (
+                        window.GestionEPP &&
+                        typeof GestionEPP.abrir === "function"
+                    ) {
+                        GestionEPP.abrir();
+                    } else {
+                        Sistema.error(
+                            "No fue posible cargar el asistente de EPP."
+                        );
+                    }
                 }
             );
 

@@ -5,12 +5,81 @@ window.addEventListener("load", () => {
 
     setTimeout(() => {
 
-        logo.style.top = "140px";
-        logo.style.left = "50%";
-        logo.style.transform = "translateX(-50%) scale(.75)";
+        const posicionInicial =
+            logo && typeof logo.getBoundingClientRect === "function"
+                ? logo.getBoundingClientRect()
+                : null;
 
-        login.classList.remove("hidden");
-        login.classList.add("show");
+        if (logo) {
+            logo.removeAttribute("style");
+            logo.style.transition = "none";
+        }
+
+        document.body.classList.add("login-listo");
+
+        if (login) {
+            login.classList.remove("hidden");
+            login.classList.add("show");
+        }
+
+        if (logo) {
+
+            const posicionFinal =
+                typeof logo.getBoundingClientRect === "function"
+                    ? logo.getBoundingClientRect()
+                    : null;
+
+            if (
+                posicionInicial &&
+                posicionFinal &&
+                typeof logo.animate === "function"
+            ) {
+
+                const desplazamientoY =
+                    posicionInicial.top +
+                    posicionInicial.height / 2 -
+                    posicionFinal.top -
+                    posicionFinal.height / 2;
+
+                const escalaInicial =
+                    posicionFinal.width > 0
+                        ? posicionInicial.width / posicionFinal.width
+                        : 1;
+
+                const animacion = logo.animate(
+                    [
+                        {
+                            transform:
+                                "translateY(" +
+                                desplazamientoY +
+                                "px) scale(" +
+                                escalaInicial +
+                                ")",
+                            transformOrigin: "center center"
+                        },
+                        {
+                            transform: "translateY(0px) scale(1)",
+                            transformOrigin: "center center"
+                        }
+                    ],
+                    {
+                        duration: 1300,
+                        easing: "cubic-bezier(0.22, 0.68, 0, 1)",
+                        fill: "both"
+                    }
+                );
+
+                if (animacion) {
+                    animacion.onfinish = () => {
+                        logo.style.removeProperty("transition");
+                    };
+                }
+
+            } else {
+                logo.style.removeProperty("transition");
+            }
+
+        }
 
     }, 2200);
 
@@ -45,6 +114,116 @@ window.addEventListener("load", () => {
     // ===============================
     // UTILIDADES DE SESIÓN
     // ===============================
+
+    function mostrarCargadorLogin(titulo, descripcion) {
+
+        const capa =
+            document.getElementById("loginCargador");
+
+        const elementoTitulo =
+            document.getElementById("loginCargadorTitulo");
+
+        const elementoDescripcion =
+            document.getElementById("loginCargadorDescripcion");
+
+        if (elementoTitulo) {
+            elementoTitulo.textContent =
+                titulo || "Iniciando sesión";
+        }
+
+        if (elementoDescripcion) {
+            elementoDescripcion.textContent =
+                descripcion || "Estamos validando tus credenciales.";
+        }
+
+        if (capa) {
+            capa.hidden = false;
+            document.body.classList.add("login-emergente-abierto");
+        }
+
+    }
+
+
+    function ocultarCargadorLogin() {
+
+        const capa =
+            document.getElementById("loginCargador");
+
+        if (capa) {
+            capa.hidden = true;
+        }
+
+        if (
+            document.getElementById("loginDialogoSesion")?.hidden !== false
+        ) {
+            document.body.classList.remove("login-emergente-abierto");
+        }
+
+    }
+
+
+    function confirmarReemplazoSesion() {
+
+        return new Promise((resolver) => {
+
+            const capa =
+                document.getElementById("loginDialogoSesion");
+
+            const botonCancelar =
+                document.getElementById("loginCancelarSesion");
+
+            const botonConfirmar =
+                document.getElementById("loginConfirmarSesion");
+
+            if (!capa || !botonCancelar || !botonConfirmar) {
+                resolver(false);
+                return;
+            }
+
+            let completado = false;
+
+            const cerrar = (aceptado) => {
+
+                if (completado) {
+                    return;
+                }
+
+                completado = true;
+                capa.hidden = true;
+
+                botonCancelar.removeEventListener("click", cancelar);
+                botonConfirmar.removeEventListener("click", confirmar);
+                document.removeEventListener("keydown", manejarTecla);
+
+                if (document.getElementById("loginCargador")?.hidden !== false) {
+                    document.body.classList.remove("login-emergente-abierto");
+                }
+
+                resolver(aceptado);
+
+            };
+
+            const cancelar = () => cerrar(false);
+            const confirmar = () => cerrar(true);
+
+            const manejarTecla = (evento) => {
+                if (evento.key === "Escape") {
+                    cancelar();
+                }
+            };
+
+            capa.hidden = false;
+            document.body.classList.add("login-emergente-abierto");
+
+            botonCancelar.addEventListener("click", cancelar);
+            botonConfirmar.addEventListener("click", confirmar);
+            document.addEventListener("keydown", manejarTecla);
+
+            window.setTimeout(() => botonConfirmar.focus(), 30);
+
+        });
+
+    }
 
     function obtenerDispositivo() {
 
@@ -181,15 +360,18 @@ window.addEventListener("load", () => {
     ) {
 
         const respuesta =
-            window.confirm(
-                "Este usuario ya tiene una sesión activa en otro dispositivo.\n\n" +
-                "¿Desea cerrar la sesión anterior e iniciar aquí?"
-            );
+            await confirmarReemplazoSesion();
 
 
         if (!respuesta) {
             return null;
         }
+
+
+        mostrarCargadorLogin(
+            "Cerrando sesión anterior",
+            "Estamos liberando tu cuenta para ingresar desde este dispositivo."
+        );
 
 
         const peticion =
@@ -217,7 +399,17 @@ window.addEventListener("load", () => {
             );
 
 
-        return await peticion.json();
+        const resultado =
+            await peticion.json();
+
+        if (resultado && resultado.ok) {
+            mostrarCargadorLogin(
+                "Iniciando sesión",
+                "Tu sesión anterior fue cerrada correctamente."
+            );
+        }
+
+        return resultado;
 
     }
 
@@ -268,6 +460,8 @@ window.addEventListener("load", () => {
             const dispositivo =
                 obtenerDispositivo();
 
+            let redirigiendo = false;
+
 
             if (boton) {
                 boton.disabled = true;
@@ -277,6 +471,11 @@ window.addEventListener("load", () => {
             mensaje.style.color = "#666";
             mensaje.textContent =
                 "Validando credenciales...";
+
+            mostrarCargadorLogin(
+                "Iniciando sesión",
+                "Estamos validando tus credenciales."
+            );
 
 
             try {
@@ -318,6 +517,8 @@ window.addEventListener("load", () => {
                     )
                 ) {
 
+                    ocultarCargadorLogin();
+
                     mensaje.style.color = "#e31b23";
                     mensaje.textContent =
                         "Existe otra sesión activa. Confirme si desea reemplazarla.";
@@ -350,6 +551,11 @@ window.addEventListener("load", () => {
 
                 if (data.ok) {
 
+                    mostrarCargadorLogin(
+                        "Iniciando sesión",
+                        "Bienvenido, " + data.nombre + "."
+                    );
+
                     guardarSesion(
                         data,
                         recordar,
@@ -360,6 +566,8 @@ window.addEventListener("load", () => {
                     mensaje.style.color = "green";
                     mensaje.textContent =
                         "Bienvenido " + data.nombre;
+
+                    redirigiendo = true;
 
 
                     window.setTimeout(
@@ -374,6 +582,8 @@ window.addEventListener("load", () => {
 
                 } else {
 
+                    ocultarCargadorLogin();
+
                     mensaje.style.color = "red";
                     mensaje.textContent =
                         data.mensaje ||
@@ -384,6 +594,8 @@ window.addEventListener("load", () => {
 
             } catch (error) {
 
+                ocultarCargadorLogin();
+
                 mensaje.style.color = "red";
                 mensaje.textContent =
                     "Error al conectar con el servidor.";
@@ -393,7 +605,11 @@ window.addEventListener("load", () => {
 
             } finally {
 
-                if (boton) {
+                if (!redirigiendo) {
+                    ocultarCargadorLogin();
+                }
+
+                if (boton && !redirigiendo) {
                     boton.disabled = false;
                 }
 

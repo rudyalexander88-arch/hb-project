@@ -14,15 +14,13 @@
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="css/style.css">
-	
-	<link rel="stylesheet" href="./css/responsive.css?v=1.0.1">
+    <link rel="stylesheet" href="css/style.css?v=20260822-login-1">
 	
 	<link rel="icon" type="image/jpeg" href="img/icon.png">
 
 </head>
 
-<body>
+<body class="pagina-login">
 
 <!-- Fondo -->
 <div class="background-pattern"></div>
@@ -42,19 +40,17 @@
 
         <ul>
 
-            <li><a href="#">Inicio</a></li>
+            <li><a href="#" aria-label="Acerca del Sistema Logístico PT">Acerca de</a></li>
 
-            <li><a href="#">Acerca</a></li>
-
-            <li><a href="#">Manual</a></li>
-
-            <li><a href="#">Contacto</a></li>
+            <li><a href="#" aria-label="Información de contacto">Contacto</a></li>
 
         </ul>
 
     </nav>
 
 </header>
+
+<main class="login-contenedor-principal" id="loginContenedorPrincipal">
 
 <!-- Pantalla Inicial -->
 
@@ -140,6 +136,8 @@
 
 </section>
 
+</main>
+
 <!-- Footer -->
 
 <footer>
@@ -148,9 +146,65 @@
 
 </footer>
 
+<!-- Confirmación personalizada de sesión activa -->
+
+<div class="login-capa-emergente" id="loginDialogoSesion" hidden>
+
+    <section class="login-dialogo" role="dialog" aria-modal="true"
+        aria-labelledby="loginDialogoTitulo" aria-describedby="loginDialogoDescripcion">
+
+        <div class="login-dialogo-icono" aria-hidden="true">
+            <i class="fa-solid fa-user-shield"></i>
+        </div>
+
+        <span class="login-dialogo-etiqueta">SEGURIDAD DE LA CUENTA</span>
+
+        <h2 id="loginDialogoTitulo">Ya tienes una sesión abierta</h2>
+
+        <p id="loginDialogoDescripcion">
+            Tu cuenta está activa en otro dispositivo. Puedes cerrar esa sesión
+            e ingresar desde este equipo.
+        </p>
+
+        <div class="login-dialogo-acciones">
+
+            <button type="button" id="loginCancelarSesion"
+                class="login-dialogo-boton login-dialogo-boton-secundario">
+                Cancelar
+            </button>
+
+            <button type="button" id="loginConfirmarSesion"
+                class="login-dialogo-boton login-dialogo-boton-primario">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                Continuar aquí
+            </button>
+
+        </div>
+
+    </section>
+
+</div>
+
+<!-- Cargador exclusivo de la pantalla de ingreso -->
+
+<div class="login-capa-emergente login-capa-cargador" id="loginCargador" hidden
+    aria-live="polite" aria-busy="true">
+
+    <section class="login-cargador-tarjeta">
+
+        <span class="login-cargador-anillo" aria-hidden="true"></span>
+
+        <h2 id="loginCargadorTitulo">Iniciando sesión</h2>
+
+        <p id="loginCargadorDescripcion">Estamos validando tus credenciales.</p>
+
+    </section>
+
+</div>
+
 <!-- JavaScript -->
 
-<script src="js/app.js"></script>
+<script src="js/app.js?v=20260822-login-1"></script>
 
 </body>
 </html>

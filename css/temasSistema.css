@@ -66,6 +66,35 @@ html[data-tema="oscuro"] {
     --rec-fondo: var(--bon-superficie-suave);
 }
 
+/* Gestión de EPP: hereda la paleta elegida sin editar el módulo base. */
+html[data-tema="oscuro"] .epp-modulo,
+html[data-tema="oscuro"] .epp-contenido,
+html[data-tema="oscuro"] .epp-tabs,
+html[data-tema="oscuro"] .epp-toolbar,
+html[data-tema="oscuro"] .epp-solicitud,
+html[data-tema="oscuro"] .epp-formulario,
+html[data-tema="oscuro"] .epp-stock,
+html[data-tema="oscuro"] .epp-compra-item,
+html[data-tema="oscuro"] .epp-kpis article {
+    color: var(--bon-texto);
+}
+
+html[data-tema="oscuro"] .epp-toolbar input,
+html[data-tema="oscuro"] .epp-toolbar select,
+html[data-tema="oscuro"] .epp-grid-form input,
+html[data-tema="oscuro"] .epp-grid-form select,
+html[data-tema="oscuro"] .epp-grid-form textarea,
+html[data-tema="oscuro"] .epp-compra-item input,
+html[data-tema="oscuro"] .epp-compra-item select {
+    background: var(--bon-superficie-campo);
+    color: var(--bon-texto);
+    border-color: var(--bon-borde);
+}
+
+html[data-tema="gris"] .epp-contenido {
+    background: var(--bon-fondo-general);
+}
+
 /* ------------------------------------------------------------
    Selector de apariencia en Mi perfil: disponible en todo tema.
    ------------------------------------------------------------ */

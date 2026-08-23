@@ -1215,3 +1215,36 @@ html[data-tema="oscuro"] #contenidoPrincipal .paneles .estado-despacho.completad
         border-left-color: #35b45d !important;
     }
 }
+
+/* Exactitud conserva el mismo contraste visual que los demás indicadores. */
+html[data-tema="oscuro"] #tarjetasDashboard #cardExactitudDespachos > .titulo-card-exactitud,
+html[data-tema="oscuro"] #tarjetasDashboard #cardExactitudDespachos > #valorExactitudDespachos {
+    color: var(--bon-texto, #eef3f8) !important;
+}
+
+html[data-tema="oscuro"] #tarjetasDashboard #cardExactitudDespachos > .resumen-card-exactitud {
+    color: var(--bon-texto-secundario, #c4cfdd) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-rapidos {
+    border-color: var(--bon-borde-suave);
+    background: var(--bon-superficie-elevada);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-rapidos > span,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-fechas label {
+    color: var(--bon-texto-secundario);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-opciones button,
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-fechas input {
+    border-color: var(--bon-borde);
+    background: var(--bon-superficie-suave);
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-opciones button.activo {
+    border-color: #bd3850;
+    background: rgba(213, 30, 58, .18);
+    color: #ff8295;
+}

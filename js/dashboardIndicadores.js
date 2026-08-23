@@ -49,7 +49,10 @@ const DashboardIndicadores = {
         mes: "",
         supervisor: "TODOS",
         resultado: "TODOS",
-        estadoJustificacion: "TODOS"
+        estadoJustificacion: "TODOS",
+        fechaDesde: "",
+        fechaHasta: "",
+        periodoRapido: "ESTE_MES"
     },
 
     cargandoMetas: false,
@@ -247,6 +250,19 @@ const DashboardIndicadores = {
 
 
     compactarResumenExactitud() {
+
+        const botonVerificacion =
+            document.getElementById("btnAbrirCentroExactitud");
+
+        if (botonVerificacion) {
+            const icono = botonVerificacion.querySelector("i");
+            botonVerificacion.replaceChildren();
+            if (icono) botonVerificacion.appendChild(icono);
+            botonVerificacion.appendChild(
+                document.createTextNode(" Asistente verificación")
+            );
+            botonVerificacion.title = "Asistente de verificación de despachos";
+        }
 
         const resumen =
             document.querySelector(
@@ -2191,6 +2207,25 @@ const DashboardIndicadores = {
                 </div>
 
 
+                <div class="metas-periodos-rapidos">
+                    <span>Períodos rápidos</span>
+                    <div class="metas-periodos-opciones">
+                        <button type="button" data-periodo-meta="ESTA_SEMANA">Esta semana</button>
+                        <button type="button" data-periodo-meta="ESTE_MES">Este mes</button>
+                        <button type="button" data-periodo-meta="MES_ANTERIOR">Mes anterior</button>
+                        <button type="button" data-periodo-meta="ULTIMOS_30">Últimos 30 días</button>
+                    </div>
+                    <div class="metas-periodos-fechas">
+                        <label for="filtroFechaDesdeMetas">Fecha desde
+                            <input type="date" id="filtroFechaDesdeMetas" value="${Sistema.escaparAtributo(this.filtrosMetas.fechaDesde || "")}">
+                        </label>
+                        <label for="filtroFechaHastaMetas">Fecha hasta
+                            <input type="date" id="filtroFechaHastaMetas" value="${Sistema.escaparAtributo(this.filtrosMetas.fechaHasta || "")}">
+                        </label>
+                    </div>
+                </div>
+
+
                 <div class="filtros-historico-metas">
 
                     <div class="campo-filtro-meta">
@@ -2345,6 +2380,31 @@ const DashboardIndicadores = {
                 "btnActualizarHistoricoMetas"
             );
 
+        const filtroDesde = document.getElementById("filtroFechaDesdeMetas");
+        const filtroHasta = document.getElementById("filtroFechaHastaMetas");
+
+        document.querySelectorAll("[data-periodo-meta]").forEach(boton => {
+            boton.classList.toggle(
+                "activo",
+                boton.dataset.periodoMeta === this.filtrosMetas.periodoRapido
+            );
+            boton.addEventListener("click", async () => {
+                await this.aplicarPeriodoRapidoMetas(boton.dataset.periodoMeta);
+            });
+        });
+
+        [filtroDesde, filtroHasta].filter(Boolean).forEach(campo => {
+            campo.addEventListener("change", async () => {
+                this.filtrosMetas.fechaDesde = filtroDesde ? filtroDesde.value : "";
+                this.filtrosMetas.fechaHasta = filtroHasta ? filtroHasta.value : "";
+                this.filtrosMetas.periodoRapido = "PERSONALIZADO";
+                document.querySelectorAll("[data-periodo-meta]").forEach(boton => {
+                    boton.classList.remove("activo");
+                });
+                await this.actualizarRangoHistoricoMetas();
+            });
+        });
+
 
         if (filtroMes) {
 
@@ -2355,6 +2415,15 @@ const DashboardIndicadores = {
                     this.filtrosMetas.mes =
                         event.target.value ||
                         Sistema.obtenerMesActual();
+
+                    this.filtrosMetas.fechaDesde = "";
+                    this.filtrosMetas.fechaHasta = "";
+                    this.filtrosMetas.periodoRapido = "PERSONALIZADO";
+                    if (filtroDesde) filtroDesde.value = "";
+                    if (filtroHasta) filtroHasta.value = "";
+                    document.querySelectorAll("[data-periodo-meta]").forEach(boton => {
+                        boton.classList.remove("activo");
+                    });
 
                     await this.recargarHistoricoMes();
 
@@ -2431,6 +2500,122 @@ const DashboardIndicadores = {
 
         this.rellenarFiltroSupervisores();
 
+    },
+
+
+    formatearFechaFiltroMetas(fecha) {
+        const valor = fecha instanceof Date ? fecha : new Date(fecha);
+        if (Number.isNaN(valor.getTime())) return "";
+        return [
+            valor.getFullYear(),
+            String(valor.getMonth() + 1).padStart(2, "0"),
+            String(valor.getDate()).padStart(2, "0")
+        ].join("-");
+    },
+
+
+    normalizarFechaMeta(valor) {
+        if (valor instanceof Date) return this.formatearFechaFiltroMetas(valor);
+        const texto = String(valor || "").trim();
+        let coincidencia = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (coincidencia) {
+            return `${coincidencia[1]}-${coincidencia[2].padStart(2, "0")}-${coincidencia[3].padStart(2, "0")}`;
+        }
+        coincidencia = texto.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (coincidencia) {
+            return `${coincidencia[3]}-${coincidencia[2].padStart(2, "0")}-${coincidencia[1].padStart(2, "0")}`;
+        }
+        const fecha = new Date(texto);
+        return Number.isNaN(fecha.getTime()) ? "" : this.formatearFechaFiltroMetas(fecha);
+    },
+
+
+    async aplicarPeriodoRapidoMetas(periodo) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        let desde = new Date(hoy);
+        let hasta = new Date(hoy);
+
+        if (periodo === "ESTA_SEMANA") {
+            desde.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+            hasta = new Date(desde);
+            hasta.setDate(desde.getDate() + 6);
+        } else if (periodo === "ESTE_MES") {
+            desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+        } else if (periodo === "MES_ANTERIOR") {
+            desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+            hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+        } else if (periodo === "ULTIMOS_30") {
+            desde.setDate(hoy.getDate() - 29);
+        }
+
+        this.filtrosMetas.periodoRapido = periodo;
+        this.filtrosMetas.fechaDesde = this.formatearFechaFiltroMetas(desde);
+        this.filtrosMetas.fechaHasta = this.formatearFechaFiltroMetas(hasta);
+
+        const filtroDesde = document.getElementById("filtroFechaDesdeMetas");
+        const filtroHasta = document.getElementById("filtroFechaHastaMetas");
+        if (filtroDesde) filtroDesde.value = this.filtrosMetas.fechaDesde;
+        if (filtroHasta) filtroHasta.value = this.filtrosMetas.fechaHasta;
+
+        document.querySelectorAll("[data-periodo-meta]").forEach(boton => {
+            boton.classList.toggle("activo", boton.dataset.periodoMeta === periodo);
+        });
+
+        await this.actualizarRangoHistoricoMetas();
+    },
+
+
+    async actualizarRangoHistoricoMetas() {
+        const desde = this.filtrosMetas.fechaDesde;
+        const hasta = this.filtrosMetas.fechaHasta;
+
+        if (desde && hasta && desde > hasta) {
+            Sistema.error("La fecha inicial no puede ser posterior a la fecha final.");
+            return;
+        }
+
+        const meses = [];
+        if (desde && hasta) {
+            const cursor = new Date(Number(desde.slice(0, 4)), Number(desde.slice(5, 7)) - 1, 1);
+            const fin = new Date(Number(hasta.slice(0, 4)), Number(hasta.slice(5, 7)) - 1, 1);
+            while (cursor <= fin && meses.length < 24) {
+                meses.push(this.formatearFechaFiltroMetas(cursor).slice(0, 7));
+                cursor.setMonth(cursor.getMonth() + 1);
+            }
+        } else if (desde || hasta) {
+            meses.push((desde || hasta).slice(0, 7));
+        }
+
+        const mesActual = this.filtrosMetas.mes || Sistema.obtenerMesActual();
+        if (!meses.length || (meses.length === 1 && meses[0] === mesActual)) {
+            this.aplicarFiltrosHistorico();
+            return;
+        }
+
+        Sistema.mostrarCarga("Actualizando histórico", "Consultando las metas del período seleccionado.");
+        try {
+            const registros = [];
+            for (const mes of meses) {
+                const respuesta = await API.post({accion: "listarMetasDiarias", mes});
+                if (!this.respuestaExitosa(respuesta)) {
+                    throw new Error(this.obtenerMensajeRespuesta(respuesta, "No fue posible consultar las metas del período."));
+                }
+                if (Array.isArray(respuesta.metas)) registros.push(...respuesta.metas);
+            }
+            this.metasCache = registros;
+            this.filtrosMetas.mes = meses[meses.length - 1];
+            const filtroMes = document.getElementById("filtroMesMetas");
+            if (filtroMes) filtroMes.value = this.filtrosMetas.mes;
+            this.rellenarFiltroSupervisores();
+            this.aplicarFiltrosHistorico();
+        } catch (error) {
+            console.error("Error al consultar las metas del período:", error);
+            Sistema.error(error.message || "No fue posible actualizar el histórico.");
+        } finally {
+            Sistema.ocultarCarga();
+        }
     },
 
 
@@ -2597,6 +2782,9 @@ const DashboardIndicadores = {
             this.filtrosMetas.estadoJustificacion ||
             "TODOS";
 
+        const fechaDesde = this.filtrosMetas.fechaDesde || "";
+        const fechaHasta = this.filtrosMetas.fechaHasta || "";
+
         return this.metasCache.filter(meta => {
 
             const cumpleSupervisor =
@@ -2617,10 +2805,17 @@ const DashboardIndicadores = {
                     meta.estadoJustificacion || ""
                 ) === estado;
 
+            const fechaMeta = this.normalizarFechaMeta(
+                meta.fecha || meta.fechaMeta || meta.Fecha || ""
+            );
+            const cumpleFecha = (!fechaDesde || (fechaMeta && fechaMeta >= fechaDesde)) &&
+                (!fechaHasta || (fechaMeta && fechaMeta <= fechaHasta));
+
             return (
                 cumpleSupervisor &&
                 cumpleResultado &&
-                cumpleEstado
+                cumpleEstado &&
+                cumpleFecha
             );
 
         });

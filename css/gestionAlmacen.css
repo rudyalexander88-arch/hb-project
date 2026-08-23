@@ -278,5 +278,53 @@ html[data-tema="oscuro"] .gal-shell .gal-tabs>button{border-color:#435063;backgr
 html[data-tema="oscuro"] .gal-shell .gal-tabs>button.activo{border-color:#c71935;background:#d51e3a}
 html[data-tema="oscuro"] .gal-shell .gal-mapa-general.gal-mapa-coordenadas{border-color:#435063;background:rgb(20 29 42 / 62%)}
 html[data-tema="oscuro"] .gal-mapa-leyenda-temperatura{color:#c4cfdd}
+/* En teléfonos se simplifica únicamente el contenido del plano, sin tocar escritorio. */
+@media(max-width:760px){
+ .gal-shell>#galVista.gal-vista>.gal-mapa-herramientas>.gal-leyenda{
+  display:grid;
+  grid-template-columns:repeat(3,max-content);
+  align-items:center;
+  justify-content:start;
+  gap:5px 9px;
+ }
+ .gal-shell>#galVista.gal-vista>.gal-mapa-herramientas>.gal-leyenda>span{
+  gap:4px;
+  font-size:clamp(8px,2.25vw,10px);
+  line-height:1.15;
+  white-space:nowrap;
+ }
+ .gal-shell>#galVista.gal-vista>.gal-mapa-herramientas>.gal-leyenda>span>i{
+  width:9px;
+  height:9px;
+  flex:0 0 9px;
+ }
+ .gal-shell .gal-mapa-general.gal-mapa-coordenadas>.gal-mapa-camara>.gal-mapa-codigo,
+ .gal-shell .gal-mapa-general.gal-mapa-coordenadas>.gal-mapa-camara>small{
+  display:none!important;
+ }
+ .gal-shell .gal-mapa-general.gal-mapa-coordenadas>.gal-mapa-camara{
+  gap:2px;
+  padding:4px 3px;
+ }
+ .gal-shell .gal-mapa-general.gal-mapa-coordenadas>.gal-mapa-camara>strong{
+  font-size:clamp(10px,2.8vw,13px);
+  line-height:1.12;
+ }
+ .gal-shell .gal-mapa-general.gal-mapa-coordenadas>.gal-mapa-camara>.gal-mapa-temperatura{
+  font-size:clamp(8px,2.2vw,10px);
+  line-height:1.15;
+ }
+ .gal-shell .gal-mapa-detalle-camara{
+  gap:5px;
+  margin-top:2px;
+  padding-top:8px;
+ }
+ .gal-shell .gal-detalle-encabezado h3{
+  margin:2px 0 0;
+ }
+ .gal-shell .gal-detalle-pestanas{
+  padding-top:1px;
+ }
+}
 @media(max-width:600px){.gal-shell .gal-tabs{padding-left:2px}.gal-shell .gal-tabs>button{min-height:37px;padding:9px 13px 9px 10px}.gal-shell .gal-tabs>button.activo{min-height:41px}.gal-shell .gal-mapa-general.gal-mapa-coordenadas{grid-template-columns:repeat(var(--gal-mapa-columnas),minmax(0,1fr));grid-template-rows:repeat(var(--gal-mapa-filas),minmax(62px,auto));min-width:470px;min-height:330px;gap:3px;padding:6px}.gal-shell .gal-mapa-general.gal-mapa-coordenadas>.gal-mapa-camara{gap:3px;padding:7px 4px}}
 .gal-contenedor-principal{min-height:0;overflow:auto!important}.gal-shell{display:flex;flex-direction:column;gap:14px;padding:16px;color:var(--color-texto,#19222d)}.gal-header,.gal-subheader{display:flex;align-items:center;justify-content:space-between;gap:12px}.gal-header>div>span{font-size:10px;font-weight:800;color:#d51e3a;letter-spacing:.08em}.gal-header h2,.gal-subheader h3{margin:3px 0;font-size:clamp(17px,2vw,24px)}.gal-header p,.gal-subheader p{margin:0;color:#788291;font-size:12px}.gal-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:5px}.gal-tabs button{display:flex;align-items:center;gap:7px;padding:10px 12px;border:0;border-radius:9px;background:#edf0f3;color:#536071;font:600 11px Poppins,sans-serif;white-space:nowrap}.gal-tabs button.activo,.gal-btn.gal-pri{background:#d51e3a;color:white}.gal-vista{display:flex;flex-direction:column;gap:15px;min-height:0}.gal-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.gal-kpis article,.gal-camara,.gal-posicion{padding:13px;border:1px solid #dde3e9;border-left:4px solid #d51e3a;border-radius:12px;background:var(--gal-tarjeta,#fff)}.gal-kpis article>span,.gal-kpis article>small{display:block;color:#738092;font-size:10px}.gal-kpis article strong{display:block;margin:5px 0;color:#103b73;font-size:20px}.gal-kpis article:nth-child(2){border-left-color:#1976d2}.gal-kpis article:nth-child(3){border-left-color:#2e963f}.gal-kpis article:nth-child(4){border-left-color:#e7b33e}.gal-kpis .gal-critico{border-left-color:#d51e3a}.gal-kpis .gal-alerta{border-left-color:#efad14}.gal-camaras,.gal-posiciones{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px}.gal-camara>div,.gal-posicion>header,.gal-detalle{display:flex;align-items:center;justify-content:space-between;gap:8px}.gal-camara p,.gal-posicion p{margin:7px 0;color:#6b7584;font-size:11px}.gal-camara footer{margin-top:8px;color:#536071;font-size:10px}.gal-progreso{height:7px;overflow:hidden;border-radius:8px;background:#e8ecf0}.gal-progreso>i{display:block;height:100%;background:linear-gradient(90deg,#26934b,#e8ad25,#d51e3a)}.gal-acciones,.gal-inline{display:flex;flex-wrap:wrap;gap:8px}.gal-btn{min-height:36px;padding:0 12px;border:0;border-radius:8px;font:600 11px Poppins,sans-serif;cursor:pointer}.gal-sec{background:#edf0f3;color:#263544}.gal-inline button,.gal-detalle button{padding:6px 9px;border:0;border-radius:7px;background:#edf0f3;color:#294264;cursor:pointer}.gal-leyenda{display:flex;flex-wrap:wrap;gap:10px;font-size:10px}.gal-leyenda span{display:flex;align-items:center;gap:5px}.gal-leyenda i{width:11px;height:11px;border-radius:3px}.gal-mapa-general{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:5px;padding:7px;border:1px solid #dae1e8;border-radius:12px}.gal-mapa-general button{display:flex;min-height:100px;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(10,35,64,.2);border-radius:5px;background:rgba(37,107,168,var(--gal-frio));color:#fff;cursor:pointer}.gal-mapa-general button strong{font-size:15px}.gal-mapa-general button span,.gal-mapa-general button small{font-size:10px}.gal-tramo{margin-top:11px;padding:10px;border:1px solid #dbe1e8;border-radius:10px;overflow-x:auto}.gal-tramo h4{margin:0 0 8px;text-align:center;font-size:12px}.gal-tramo-grid{display:grid;grid-template-columns:repeat(var(--gal-columnas),minmax(60px,1fr));gap:3px}.gal-tramo-grid button{display:flex;min-height:42px;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(30,50,70,.15);border-radius:4px;font-size:10px;cursor:pointer}.gal-tramo-grid button small{font-size:9px}.disponible{background:#dff1e5!important;color:#1b652c!important}.pt{background:#d5e7fb!important;color:#15528d!important}.reproceso{background:#ffe0bf!important;color:#8c4700!important}.desarrollo{background:#fff0bd!important;color:#775800!important}.decomiso{background:#ffd5d9!important;color:#8b2032!important}.inhabilitada{background:#d9dce1!important;color:#69717a!important}.gal-tabla{display:flex;flex-direction:column;gap:5px}.gal-tabla article{display:grid;grid-template-columns:1fr 1.5fr .8fr 1fr;align-items:center;gap:8px;padding:10px;border:1px solid #e0e5eb;border-radius:9px;font-size:10px}.gal-tabla article small{color:#74808f}.gal-form{display:flex;flex-direction:column;gap:12px;padding:17px}.gal-form label{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:700}.gal-form input,.gal-form select{min-height:38px;padding:0 9px;border:1px solid #d7dfe7;border-radius:8px;background:var(--gal-tarjeta,#fff);font:500 11px Poppins,sans-serif}.gal-grid-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.gal-preview{padding:11px;border-radius:8px;background:#edf5ff;color:#174774;font-size:12px}.gal-detalle{padding:8px 0;border-top:1px solid #e7ebef;font-size:10px}.gal-detalle b{color:#0d4986}.gal-vacio{padding:24px;text-align:center;color:#74808f;font-size:12px}html[data-tema="oscuro"] .gal-shell{--gal-tarjeta:#202b3a;color:#e9eef6}html[data-tema="oscuro"] .gal-kpis article,html[data-tema="oscuro"] .gal-camara,html[data-tema="oscuro"] .gal-posicion,html[data-tema="oscuro"] .gal-tramo,html[data-tema="oscuro"] .gal-tabla article{border-color:#435063}html[data-tema="oscuro"] .gal-tabs button,html[data-tema="oscuro"] .gal-sec,html[data-tema="oscuro"] .gal-inline button{background:#283547;color:#e8edf5}html[data-tema="oscuro"] .gal-tabs button.activo{background:#d51e3a}html[data-tema="oscuro"] .gal-kpis article strong{color:#fff}@media(max-width:800px){.gal-shell{padding:10px}.gal-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-tabla article{grid-template-columns:1fr 1fr}.gal-camaras,.gal-posiciones{grid-template-columns:1fr}.gal-header p{font-size:10px}}@media(max-width:480px){.gal-tabs button{padding:9px}.gal-tabs button span{font-size:9px}.gal-grid-form{grid-template-columns:1fr}.gal-leyenda{gap:7px;font-size:9px}.gal-mapa-general{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-header h2{font-size:18px}.gal-kpis article{padding:9px}.gal-kpis article strong{font-size:17px}}@media print{body *{visibility:hidden}.gal-mapa-general,.gal-mapa-general *,.gal-tramo,.gal-tramo *,.gal-subheader,.gal-subheader *{visibility:visible}.gal-tabs,.gal-acciones,.gal-btn{display:none!important}}

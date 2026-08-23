@@ -2157,6 +2157,45 @@ body {
     }
 }
 
+/* Prioriza los accesos operativos antes de los indicadores de rendimiento. */
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-avisos { order: 10; }
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-asistencia { order: 20; }
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-epp { order: 30; }
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-horas-extra { order: 35; }
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-supervisores,
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-desempeno-personal { order: 40; }
+#contenidoPrincipal .inicio-operativo-grid > .inicio-card-auxiliares { order: 50; }
+
+@media (min-width: 1351px) {
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        align-items: stretch;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) > .inicio-card-avisos,
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) > .inicio-card-asistencia,
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) > .inicio-card-epp {
+        grid-column: span 2;
+        min-height: 170px;
+        height: auto;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) > .inicio-card-supervisores,
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) > .inicio-card-auxiliares {
+        grid-column: span 3;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid:has(> .inicio-card-supervisores):has(> .inicio-card-auxiliares) > .inicio-card-horas-extra {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 700px) {
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card {
+        grid-column: 1 / -1;
+    }
+}
+
 /* Cabeceras uniformes para todas las ventanas flotantes del sistema. */
 :root {
     --bon-modal-titulo-tamano: clamp(13px, 2.2vw, 22px);
@@ -2239,19 +2278,19 @@ body {
 
     #contenidoPrincipal .inicio-operativo-grid > .inicio-card-supervisores,
     #contenidoPrincipal .inicio-operativo-grid > .inicio-card-desempeno-personal {
-        order: 20;
-    }
-
-    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-auxiliares {
-        order: 30;
-    }
-
-    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-asistencia {
         order: 40;
     }
 
-    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-epp {
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-auxiliares {
         order: 50;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-asistencia {
+        order: 20;
+    }
+
+    #contenidoPrincipal .inicio-operativo-grid > .inicio-card-epp {
+        order: 30;
     }
 
     #contenidoPrincipal .inicio-operativo-grid > .inicio-card-horas-extra {

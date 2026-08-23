@@ -954,6 +954,20 @@ function inicializarMenu() {
     }
 
 
+    const menuInventario = document.getElementById("menuInventario");
+
+    if (menuInventario) {
+        menuInventario.addEventListener("click", () => {
+            if (!puedeAbrirModulo("INVENTARIO", "No tiene acceso a Gestión del almacén.")) return;
+            activarMenu("menuInventario");
+            if (window.GestionAlmacen && typeof window.GestionAlmacen.cargar === "function") {
+                window.GestionAlmacen.cargar();
+            } else {
+                Sistema.error("El módulo de Gestión del almacén no está disponible.");
+            }
+        });
+    }
+
     const menuDespachos =
         document.getElementById(
             "menuDespachos"

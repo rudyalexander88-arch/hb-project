@@ -16,6 +16,16 @@ const Sistema = {
             return false;
         }
 
+        const elementoActivo = document.activeElement;
+
+        if (
+            elementoActivo &&
+            elementoActivo !== document.body &&
+            !modal.contains(elementoActivo)
+        ) {
+            this.elementoEnfocadoAntesDelModal = elementoActivo;
+        }
+
         tituloModal.textContent = String(titulo || "");
 
         if (
@@ -72,9 +82,31 @@ const Sistema = {
             return;
         }
 
+        const elementoActivo = document.activeElement;
+
+        if (
+            elementoActivo &&
+            modal.contains(elementoActivo) &&
+            typeof elementoActivo.blur === "function"
+        ) {
+            elementoActivo.blur();
+        }
+
         modal.classList.add("oculto");
         modal.setAttribute("aria-hidden", "true");
         document.body.classList.remove("modal-sistema-abierto");
+
+        const elementoAnterior = this.elementoEnfocadoAntesDelModal;
+
+        this.elementoEnfocadoAntesDelModal = null;
+
+        if (
+            elementoAnterior &&
+            document.contains(elementoAnterior) &&
+            typeof elementoAnterior.focus === "function"
+        ) {
+            elementoAnterior.focus({ preventScroll: true });
+        }
 
         const modalContenido = modal.querySelector(".modal-contenido");
 

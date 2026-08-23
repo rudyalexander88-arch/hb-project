@@ -983,17 +983,11 @@ if (!preservarEstado) {
 
             <div class="centro-despachos__encabezado">
 
-                <div>
+                <div class="centro-despachos__fila-superior">
 
                     <span class="centro-despachos__etiqueta">
                         Gestión y consulta
-                    </span>                
-
-                    <p>
-                        Consulte, continúe y administre los conduces registrados en el sistema.
-                    </p>
-
-                </div>
+                    </span>
 
                 <div class="centro-despachos__controles-vista">
 
@@ -1017,9 +1011,44 @@ if (!preservarEstado) {
 
                 </div>
 
+                </div>
+
+                <p class="centro-despachos__descripcion">
+                    Consulte y administre los conduces registrados.
+                </p>
+
             </div>
 
-            <div class="centro-despachos__filtros">
+            <section
+                id="tarjetaFiltrosCentroDespachos"
+                class="centro-despachos__tarjeta-filtros"
+            >
+
+            <button
+                type="button"
+                id="btnAlternarFiltrosCentroDespachos"
+                class="centro-despachos__alternar-filtros"
+                aria-expanded="false"
+                aria-controls="panelFiltrosCentroDespachos"
+            >
+                <span class="centro-despachos__titulo-filtros">
+                    <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                    Filtros
+                </span>
+                <span
+                    class="centro-despachos__linea-filtros"
+                    aria-hidden="true"
+                ></span>
+                <i
+                    class="fa-solid fa-chevron-down centro-despachos__flecha-filtros"
+                    aria-hidden="true"
+                ></i>
+            </button>
+
+            <div
+                id="panelFiltrosCentroDespachos"
+                class="centro-despachos__filtros"
+            >
 
                 <div class="campo-filtro-despachos">
 
@@ -1142,6 +1171,11 @@ if (!preservarEstado) {
                 </button>
 
             </div>
+
+            </section>
+
+            <section class="centro-despachos__registros">
+
             <div class="centro-despachos__resumen">
 
 				<div class="centro-despachos__resumen-acciones">
@@ -1181,7 +1215,9 @@ if (!preservarEstado) {
 
                 </div>
 
-            </div>            
+            </div>
+
+            </section>
 
         </section>
     `;
@@ -2280,10 +2316,50 @@ configurarEventosCentroDespachos() {
             "btnLimpiarFiltrosCentroDespachos"
         );
 
+    const tarjetaFiltros =
+        document.getElementById(
+            "tarjetaFiltrosCentroDespachos"
+        );
+
+    const btnAlternarFiltros =
+        document.getElementById(
+            "btnAlternarFiltrosCentroDespachos"
+        );
+
+    const panelFiltros =
+        document.getElementById(
+            "panelFiltrosCentroDespachos"
+        );
+
     const lista =
         document.getElementById(
             "listaCentroDespachos"
         );
+
+    if (btnAlternarFiltros && tarjetaFiltros && panelFiltros) {
+
+        const pantallaCompacta =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(max-width: 768px)").matches;
+
+        panelFiltros.inert = pantallaCompacta;
+
+        btnAlternarFiltros.onclick = () => {
+
+            const abierto = tarjetaFiltros.classList.toggle(
+                "centro-despachos__tarjeta-filtros--abierta"
+            );
+
+            btnAlternarFiltros.setAttribute(
+                "aria-expanded",
+                String(abierto)
+            );
+
+            panelFiltros.inert = !abierto;
+
+        };
+
+    }
 
     /*
      * Generamos los años sin depender de los primeros
@@ -7038,14 +7114,6 @@ async modalAgregarTarima() {
                     <input type="number" id="cantidadTarimas" min="1" max="18" value="1">
                 </div>
 
-                <div class="campo campo-full">
-                    <label>Cámara de origen</label>
-                    <select id="camaraOrigenTarima" disabled>
-                        <option value="">Seleccione primero un material...</option>
-                    </select>
-                    <small id="disponibilidadCamaraTarima"></small>
-                </div>
-
             </div>
 
             <div class="acciones-modal">
@@ -7112,26 +7180,6 @@ async modalAgregarTarima() {
                 inputMaterial.value = material.id;
                 lista.innerHTML = "";
 
-                const selector = document.getElementById("camaraOrigenTarima");
-                const ayuda = document.getElementById("disponibilidadCamaraTarima");
-                selector.disabled = true;
-                ayuda.textContent = "Consultando disponibilidad por cámara...";
-                API.post({action:"obtenerDisponibilidadMaterialCamara",material:material.id})
-                    .then(respuesta => {
-                        if (!respuesta || respuesta.ok === false) throw new Error(respuesta && respuesta.mensaje || "No fue posible consultar las cámaras.");
-                        const datos = respuesta.data || {};
-                        selector.dataset.accionSinExistencia = datos.accionSinExistencia || "BLOQUEAR";
-                        selector.innerHTML = '<option value="">Seleccione cámara...</option>' +
-                            (datos.camaras || []).map(camara =>
-                                `<option value="${camara.idCamara}" data-codigo="${camara.codigo}" data-tarimas="${camara.tarimas}">${camara.codigo} · ${camara.nombre} · ${camara.tarimas} tarimas</option>`
-                            ).join("");
-                        selector.disabled = false;
-                        ayuda.textContent = "Seleccione la cámara desde donde se tomará la tarima.";
-                    }).catch(error => {
-                        ayuda.textContent = error.message;
-                        Despachos.notificar(error.message, "error");
-                    });
-
             };
 
             lista.appendChild(item);
@@ -7149,8 +7197,6 @@ async modalAgregarTarima() {
         const idMaterial = inputMaterial.value;
         const fechaProduccion = document.getElementById("fechaProduccionTarima").value;
         const cantidadTarimas = Number(document.getElementById("cantidadTarimas").value);
-		const selectorCamara = document.getElementById("camaraOrigenTarima");
-		const opcionCamara = selectorCamara.options[selectorCamara.selectedIndex];
 		const destino = Number(Conduce.encabezado.cantidadDestinos) === 2
 								? document.getElementById("destinoTarima").value
 								: Conduce.encabezado.destino1;
@@ -7180,24 +7226,6 @@ async modalAgregarTarima() {
             return;
         }
 
-        if (!selectorCamara.value) {
-            Despachos.notificar("Debe seleccionar la cámara de origen.", "error");
-            return;
-        }
-
-        const disponibles = Number(opcionCamara.dataset.tarimas || 0);
-        const comprometidas = Conduce.detalle.filter(linea =>
-            linea.material === idMaterial && linea.idCamara === selectorCamara.value
-        ).length;
-
-        if (cantidadTarimas + comprometidas > disponibles) {
-            if (String(selectorCamara.dataset.accionSinExistencia || "").toUpperCase() !== "AUTORIZAR_CON_OBSERVACION") {
-                Despachos.notificar("No hay suficientes tarimas registradas en la cámara seleccionada.", "error");
-                return;
-            }
-            Despachos.notificar("La cámara registra menos tarimas de las solicitadas; revise el traslado pendiente.", "advertencia");
-        }
-
         if ((Conduce.detalle.length + cantidadTarimas) > 18) {
             Despachos.notificar("No puede exceder las 18 posiciones del contenedor.", "error");
             return;
@@ -7206,11 +7234,7 @@ async modalAgregarTarima() {
         const material = materiales.find(m => m.id === idMaterial);
 
         for (let i = 0; i < cantidadTarimas; i++) {
-            Despachos.agregarLinea(material, fechaProduccion, destino, "Tarima", {
-                idCamara: selectorCamara.value,
-                codigoCamara: opcionCamara.dataset.codigo || "",
-                observacionCamara: cantidadTarimas + comprometidas > disponibles ? "Existencia insuficiente autorizada" : ""
-            });
+            Despachos.agregarLinea(material, fechaProduccion, destino);
         }
 		
 		const guardado = await Despachos.guardarCambios({
@@ -7537,8 +7561,7 @@ async agregarLinea(
     material,
     fechaProduccion,
     destino,
-    tipo = "Tarima",
-    origenCamara = {}
+    tipo = "Tarima"
 ) {
 
     const idLinea =
@@ -7569,10 +7592,6 @@ async agregarLinea(
         idLinea: idLinea,
 
         tipo: tipo,
-
-        idCamara: origenCamara.idCamara || "",
-        codigoCamara: origenCamara.codigoCamara || "",
-        observacionCamara: origenCamara.observacionCamara || "",
 
         destino: destino,
 

@@ -92,7 +92,63 @@ window.AsistenciaPersonal={
  AP.enviarListadoJornada=async function(id){if(!window.confirm("¿Desea enviar el listado a los correos configurados?"))return;this.cargar("Enviando listado","Preparando y enviando el listado de horas extraordinarias.");try{const r=await API.post({action:"enviarListadoJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible enviar el listado.");Sistema.exito(r.mensaje);await this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
  AP.completarJornada=async function(id){if(!window.confirm("¿Desea marcar esta jornada como completada?"))return;this.cargar("Completando jornada","Actualizando el estado del trabajo extraordinario.");try{const r=await API.post({action:"completarJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible completar la jornada.");Sistema.exito(r.mensaje);await this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
 
- AP.obtenerUbicacionActual=function(){return new Promise((resolve,reject)=>{if(!window.isSecureContext){reject(new Error("La marcación GPS requiere abrir el sistema mediante HTTPS o localhost."));return;}if(!navigator.geolocation){reject(new Error("Este dispositivo no dispone de ubicación GPS."));return;}navigator.geolocation.getCurrentPosition(p=>resolve({latitud:p.coords.latitude,longitud:p.coords.longitude,precision:p.coords.accuracy}),e=>reject(new Error(e.code===1?"Autorice el acceso a la ubicación para registrar su jornada.":"No fue posible obtener una ubicación GPS precisa.")),{enableHighAccuracy:true,timeout:20000,maximumAge:0});});};
+ AP.obtenerUbicacionActual=function(){
+  return new Promise((resolve,reject)=>{
+   if(!window.isSecureContext){
+    reject(new Error("La marcación GPS requiere abrir el sistema mediante HTTPS o localhost."));
+    return;
+   }
+
+   if(!navigator.geolocation){
+    reject(new Error("Este dispositivo no dispone de ubicación GPS. Verifique que la ubicación esté activada y que el navegador tenga autorización para utilizarla."));
+    return;
+   }
+
+   const informarErrorUbicacion=async error=>{
+    const codigo=Number(error&&error.code||0);
+    let estadoPermiso="";
+
+    // Algunos dispositivos informan GPS apagado como permiso denegado.
+    // Consultar el permiso permite distinguirlo cuando el navegador lo admite.
+    if(navigator.permissions&&typeof navigator.permissions.query==="function"){
+     try{
+      const permiso=await navigator.permissions.query({name:"geolocation"});
+      estadoPermiso=String(permiso&&permiso.state||"").toLowerCase();
+     }catch(ignorar){
+      // La consulta de permisos no está disponible en todos los navegadores.
+     }
+    }
+
+    let mensaje;
+
+    if(codigo===1&&estadoPermiso==="granted"){
+     mensaje="Active la ubicación o el GPS de su dispositivo para registrar su jornada.";
+    }else if(codigo===1&&estadoPermiso==="denied"){
+     mensaje="Autorice el acceso a la ubicación en los permisos del navegador para registrar su jornada.";
+    }else if(codigo===1){
+     mensaje="Asegúrese de que la ubicación esté activada y de que el navegador tenga autorización para utilizarla.";
+    }else if(codigo===2){
+     mensaje="No se pudo obtener su ubicación. Active el GPS de su dispositivo y compruebe que tenga señal.";
+    }else if(codigo===3){
+     mensaje="La ubicación tardó demasiado. Verifique que el GPS esté activado, que tenga señal e intente nuevamente.";
+    }else{
+     mensaje="No fue posible obtener su ubicación. Verifique que el GPS esté activado y que el navegador tenga autorización para utilizarlo.";
+    }
+
+    reject(new Error(mensaje));
+   };
+
+   navigator.geolocation.getCurrentPosition(
+    posicion=>resolve({
+     latitud:posicion.coords.latitude,
+     longitud:posicion.coords.longitude,
+     precision:posicion.coords.accuracy
+    }),
+    informarErrorUbicacion,
+    {enableHighAccuracy:true,timeout:20000,maximumAge:0}
+   );
+  });
+ };
 
  AP.abrirMarcacionPersonal=async function(){
   this.instalarEstilosAvanzados();

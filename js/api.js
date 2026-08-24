@@ -133,6 +133,11 @@ const API = {
     _consultasEnCurso: new Map(),
     _versionesPendientes: null,
     _versionesEnCurso: null,
+    _versionesConfirmadas: null,
+    _errorValidacionCiclo: null,
+    _avisoConexionCiclo: false,
+    _seguimientoNavegacionInstalado: false,
+    _recuperacionEstilosInstalada: false,
     _solicitudesRedActivas: 0,
     _colaSolicitudesRed: [],
     _maximoSolicitudesSimultaneas: 2,
@@ -264,10 +269,103 @@ const API = {
         ].includes(codigo) || /^HTTP_(404|408|429|500|502|503|504)$/.test(codigo);
     },
 
+    _invalidarCicloVersiones() {
+        this._versionesConfirmadas = null;
+        this._errorValidacionCiclo = null;
+        this._avisoConexionCiclo = false;
+    },
+
+    _instalarSeguimientoNavegacion() {
+        if (this._seguimientoNavegacionInstalado || typeof document === "undefined") return;
+        this._seguimientoNavegacionInstalado = true;
+
+        document.addEventListener("click", evento => {
+            const elemento = evento.target;
+            if (!elemento || typeof elemento.closest !== "function") return;
+
+            if (elemento.closest("#sidebarPrincipal li, #sidebarPrincipal a, .sidebar li, .menu-lateral li, [data-modulo]")) {
+                this._invalidarCicloVersiones();
+            }
+        }, true);
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") this._invalidarCicloVersiones();
+        });
+
+        window.addEventListener("online", () => this._invalidarCicloVersiones());
+    },
+
+    _instalarRecuperacionEstilos() {
+        if (this._recuperacionEstilosInstalada || typeof document === "undefined") return;
+        this._recuperacionEstilosInstalada = true;
+
+        const recuperar = enlace => {
+            if (!enlace || enlace.tagName !== "LINK" || enlace.dataset.bonReintento === "1") return;
+            if (!String(enlace.rel || "").toLowerCase().includes("stylesheet") || enlace.sheet) return;
+
+            let direccion;
+            try { direccion = new URL(enlace.href, window.location.href); }
+            catch (error) { return; }
+
+            if (direccion.origin !== window.location.origin || enlace.dataset.bonRecuperando === "1") return;
+            this._reintentarEstiloLocal(enlace, 0);
+        };
+
+        document.addEventListener("error", evento => recuperar(evento.target), true);
+
+        const revisar = () => {
+            document.querySelectorAll('link[rel~="stylesheet"]').forEach(recuperar);
+        };
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", revisar, {once: true});
+        } else {
+            revisar();
+        }
+
+        window.addEventListener("load", () => window.setTimeout(revisar, 300), {once: true});
+    },
+
+    _reintentarEstiloLocal(enlace, intento) {
+        if (!enlace || enlace.sheet || intento >= 3) {
+            if (enlace) delete enlace.dataset.bonRecuperando;
+            return;
+        }
+
+        enlace.dataset.bonRecuperando = "1";
+        const espera = [500, 1500, 3000][intento];
+
+        window.setTimeout(() => {
+            if (enlace.sheet || !enlace.parentNode) {
+                delete enlace.dataset.bonRecuperando;
+                return;
+            }
+
+            const reemplazo = enlace.cloneNode(false);
+            const direccion = new URL(enlace.href, window.location.href);
+            direccion.searchParams.set("_bon_recuperar", Date.now() + "-" + intento);
+            reemplazo.href = direccion.toString();
+            reemplazo.dataset.bonReintento = "1";
+            reemplazo.onload = () => {
+                delete reemplazo.dataset.bonReintento;
+                delete reemplazo.dataset.bonRecuperando;
+                if (enlace.parentNode) enlace.parentNode.removeChild(enlace);
+            };
+            reemplazo.onerror = () => {
+                if (reemplazo.parentNode) reemplazo.parentNode.removeChild(reemplazo);
+                this._reintentarEstiloLocal(enlace, intento + 1);
+            };
+            enlace.parentNode.insertBefore(reemplazo, enlace.nextSibling);
+        }, espera);
+    },
+
 
     async _solicitarVersiones(modulos) {
         const requeridos = [...new Set((modulos || []).map(m => String(m).toUpperCase()).filter(Boolean))];
         if (!requeridos.length) return {};
+
+        if (this._versionesConfirmadas) return this._versionesConfirmadas;
+        if (this._errorValidacionCiclo) throw this._errorValidacionCiclo;
 
         if (this._versionesEnCurso) {
             return this._versionesEnCurso;
@@ -298,8 +396,16 @@ const API = {
                         throw error;
                     }
 
-                    return resultado.data && resultado.data.versiones ||
+                    const versiones = resultado.data && resultado.data.versiones ||
                         resultado.versiones || {};
+                    this._versionesConfirmadas = versiones;
+                    this._errorValidacionCiclo = null;
+                    return versiones;
+                }).catch(error => {
+                    if (this._errorTemporalValidacion(error)) {
+                        this._errorValidacionCiclo = error;
+                    }
+                    throw error;
                 });
 
                 this._versionesEnCurso = consulta;
@@ -332,6 +438,8 @@ const API = {
         const forzar = solicitud.__forzarActualizacion === true || solicitud.forzarActualizacion === true;
         const clave = cacheable ? this._claveConsulta(solicitud) : "";
 
+        if (forzar) this._invalidarCicloVersiones();
+
         if (cacheable && clave && !forzar) {
             const guardado = this._leerCache(clave);
             if (guardado) {
@@ -349,11 +457,14 @@ const API = {
                     }
 
                     if (this._errorTemporalValidacion(error)) {
-                        console.warn(
-                            "Google no respondió temporalmente; se utilizará la información guardada:",
-                            accion,
-                            error.codigo
-                        );
+                        if (!this._avisoConexionCiclo) {
+                            console.warn(
+                                "Google no respondió temporalmente; se utilizará la información guardada:",
+                                accion,
+                                error.codigo
+                            );
+                            this._avisoConexionCiclo = true;
+                        }
 
                         return guardado.resultado;
                     }
@@ -367,6 +478,9 @@ const API = {
         const ejecucion = this._enviarRed(solicitud).then(resultado => {
             if (cacheable && clave) this._guardarCache(clave, resultado);
             if (!cacheable && resultado && resultado.ok !== false) {
+                if (accion !== "obtenerVersionesModulos" && accion !== "verificarSesionUsuario") {
+                    this._invalidarCicloVersiones();
+                }
                 if (resultado.__invalidarCacheCompleta) this.limpiarCacheConsultas();
                 else if (resultado.__versionesModulos) this.limpiarCacheConsultas(Object.keys(resultado.__versionesModulos));
             }
@@ -392,13 +506,14 @@ const API = {
         // Crear, finalizar, enviar correos y subir archivos nunca se repiten.
         const reintentoSeguro =
             /^(listar|obtener|consultar|buscar|ping)/i.test(accion) ||
+            accion === "verificarSesionUsuario" ||
             accion === "guardarDetalleInspeccion";
 
         // Las versiones tienen respaldo local: repetirlas multiplicaría las
         // conexiones justo cuando Apps Script está temporalmente inestable.
         const intentos = accion === "obtenerVersionesModulos"
             ? 1
-            : reintentoSeguro ? 3 : 1;
+            : reintentoSeguro ? 2 : 1;
 
         const erroresReintentables = [
             404,
@@ -466,11 +581,11 @@ const API = {
 
                 if (!respuesta.ok) {
 
-                    console.error(
-                        "Respuesta HTTP:",
-                        respuesta.status,
-                        String(texto || "").slice(0, 350)
-                    );
+                    if (erroresReintentables.includes(respuesta.status)) {
+                        console.warn("Respuesta temporal del servidor:", respuesta.status, accion);
+                    } else {
+                        console.error("Respuesta HTTP:", respuesta.status, String(texto || "").slice(0, 180));
+                    }
 
                     if (
                         intento < intentos &&
@@ -592,3 +707,5 @@ const API = {
 
 
 window.API = API;
+API._instalarSeguimientoNavegacion();
+API._instalarRecuperacionEstilos();

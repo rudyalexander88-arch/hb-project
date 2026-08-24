@@ -857,16 +857,12 @@ configurarScrollInterno() {
     const contenido = `
       <section class="historico-recepciones-modal">
         <header class="historico-recepciones-controles">
-          <div>
-            <span>CONSULTA OPERATIVA</span>
-            <h3>Histórico de recepciones</h3>
-            <p>Las abiertas aparecen primero y las finalizadas se organizan por fecha.</p>
-          </div>
-          <label>
-            <span>Mostrar</span>
+          <span class="historico-recepciones-identidad">CONSULTA OPERATIVA</span>
+          <label class="historico-recepciones-limite">
+            <span>Mostrar:</span>
             <select id="limiteHistoricoRecepciones">
-              <option value="10">10 recepciones</option>
-              <option value="30">30 recepciones</option>
+              <option value="10">10 recep.</option>
+              <option value="30">30 recep.</option>
             </select>
           </label>
         </header>

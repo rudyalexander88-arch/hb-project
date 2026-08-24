@@ -31,7 +31,26 @@ window.AsistenciaPersonal={
  async guardarAsignacionesTurno(boton){const bloque=boton.closest(".ap-turno-asignacion"),jornada=boton.closest(".ap-jornada"),asignaciones=[...bloque.querySelectorAll(".ap-detalle-jornada")].map(fila=>({idDetalleJornada:fila.dataset.detalle,empleadoId:fila.querySelector(".ap-persona-extra").value,trabajoCorrido:fila.querySelector(".ap-corrido").checked?"SI":"NO"})).filter(item=>item.empleadoId);if(!asignaciones.length){Sistema.info("Seleccione al menos un colaborador para guardar el turno.");return;}const claves=asignaciones.map(item=>item.idDetalleJornada+"::"+item.empleadoId);if(new Set(claves).size!==claves.length){Sistema.info("Un colaborador no puede repetirse en la misma línea.");return;}this.cargar("Guardando turno","Registrando todos los colaboradores seleccionados.");try{const r=await API.post({action:"asignarPersonalJornadaLote",idJornada:jornada.dataset.jornada,asignaciones});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible guardar las asignaciones.");Sistema.exito(r.mensaje);await this.abrirAsignarJornada();}catch(error){Sistema.error(error.message);await this.abrirAsignarJornada();}finally{this.ocultar();}},
  async asignarDesdeFila(b){const fila=b.closest(".ap-detalle-jornada"),j=b.closest(".ap-jornada"),empleadoId=fila.querySelector(".ap-persona-extra").value;if(!empleadoId){Sistema.info("Seleccione un candidato antes de asignarlo.");return;}this.cargar("Asignando colaborador","Validando turno, línea y tipo de horas.");try{const r=await API.post({action:"asignarPersonalJornada",idJornada:j.dataset.jornada,idDetalleJornada:b.dataset.apAsignar,empleadoId:empleadoId,trabajoCorrido:fila.querySelector(".ap-corrido").checked?"SI":"NO"});if(!r||!r.ok)throw new Error(r.mensaje);Sistema.exito(r.mensaje);await this.abrirAsignarJornada();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
  listaSimple(lista,a,b,c,d){return `<div class="ap-listado-simple">${lista.slice(0,30).map(x=>`<article><strong>${this.e(x[a])}</strong><span>${this.e(x[b])} · ${this.e(x[c])}</span><em>${this.e(x[d])}</em></article>`).join("")||"<div class='ap-vacio'>No hay registros.</div>"}</div>`;},
- async cargarAvisos(){try{const r=await API.post({action:"obtenerAvisosAsistenciaUsuario"});return r&&r.ok?r.data:{avisos:[],total:0};}catch(e){return{avisos:[],total:0};}},
+ async cargarAvisos(){
+  try{
+   const r=await API.post({action:"obtenerAvisosAsistenciaUsuario"});
+   if(!r||!r.ok)return{avisos:[],total:0};
+
+   const datos=r.data||{};
+   const sesion=Sistema.obtenerSesion()||{};
+   const rol=this.n(sesion.rol);
+   const recibeSolicitudesEPP=["ANALISTA","SUPERVISOR","ENCARGADO","ADMINISTRADOR"].some(nombre=>rol.includes(nombre));
+
+   if(recibeSolicitudesEPP)return datos;
+
+   const avisos=(datos.avisos||[]).filter(aviso=>{
+    const tipo=this.n(aviso.Tipo);
+    return tipo!=="EPP SOLICITUD"&&tipo!=="EPP AUTORIZACION";
+   });
+
+   return Object.assign({},datos,{avisos,total:avisos.length});
+  }catch(e){return{avisos:[],total:0};}
+ },
  async abrirAvisos(){this.cargar("Cargando avisos","Consultando sus comunicaciones pendientes.");try{const d=await this.cargarAvisos(),avisos=d.avisos||[];this.modal("Mis avisos",`<section class="ap-avisos">${avisos.map(a=>`<article><i class="fa-solid fa-bell"></i><div><strong>${this.e(a.Titulo)}</strong><p>${this.e(a.Mensaje)}</p><small>${this.e(a.Fecha_Creacion)}</small></div>${this.n(a.Tipo)==="RECEPCION VACIA"?`<button data-ap-aprobar-recepcion="${this.e(a.Referencia_ID)}">Aprobar eliminación</button>`:`<button data-ap-leer="${this.e(a.ID_Aviso)}">Marcar leído</button>`}</article>`).join("")||"<div class='ap-vacio'>No tiene avisos pendientes.</div>"}</section>`);document.querySelectorAll("[data-ap-leer]").forEach(b=>b.onclick=async()=>{await API.post({action:"marcarAvisoAsistenciaLeido",idAviso:b.dataset.apLeer});b.closest("article").remove();});document.querySelectorAll("[data-ap-aprobar-recepcion]").forEach(b=>b.onclick=async()=>{if(!window.confirm("¿Autoriza eliminar esta recepción vacía y sin registros?"))return;this.cargar("Validando recepción","Confirmando que continúa vacía antes de eliminarla.");try{const r=await API.post({action:"aprobarEliminacionRecepcionVacia",idRecepcion:b.dataset.apAprobarRecepcion});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible eliminar la recepción.");Sistema.exito(r.mensaje);await this.abrirAvisos();}catch(error){Sistema.error(error.message);}finally{this.ocultar();}});}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
  modal(t,h,o){Sistema.abrirModal(t,h,Object.assign({clase:"modal-asistencia-personal"},o||{}));},base64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]||"");r.onerror=rej;r.readAsDataURL(f);});},cargar(t,m){if(window.CargadorSistema)CargadorSistema.mostrar(t,m);},ocultar(){if(window.CargadorSistema)CargadorSistema.ocultar();},hoy(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;},n(v){return String(v||"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();},e(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 };
@@ -75,11 +94,94 @@ window.AsistenciaPersonal={
 
  AP.obtenerUbicacionActual=function(){return new Promise((resolve,reject)=>{if(!window.isSecureContext){reject(new Error("La marcación GPS requiere abrir el sistema mediante HTTPS o localhost."));return;}if(!navigator.geolocation){reject(new Error("Este dispositivo no dispone de ubicación GPS."));return;}navigator.geolocation.getCurrentPosition(p=>resolve({latitud:p.coords.latitude,longitud:p.coords.longitude,precision:p.coords.accuracy}),e=>reject(new Error(e.code===1?"Autorice el acceso a la ubicación para registrar su jornada.":"No fue posible obtener una ubicación GPS precisa.")),{enableHighAccuracy:true,timeout:20000,maximumAge:0});});};
 
- AP.abrirMarcacionPersonal=async function(){this.instalarEstilosAvanzados();this.cargar("Consultando jornada","Verificando su asistencia y asignaciones extraordinarias.");try{const r=await API.post({action:"obtenerMarcacionPersonalActual"});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible consultar su jornada.");const d=r.data;if(!d.gpsActivo)throw new Error("La marcación GPS no está habilitada en Configuracion.");const extra=d.tipo==="HORAS_EXTRAS",texto=d.finalizada?"Jornada finalizada":d.iniciada?"Terminar jornada":extra?"Registrar horas extras":"Registrar asistencia";this.modal("Registro de jornada",`<section class="ap-modulo"><div class="ap-form-bloque"><h3><i class="fa-solid fa-location-dot"></i> ${extra?"Jornada extraordinaria":"Asistencia del turno"}</h3><p>Fecha: ${this.e(d.fecha)} · Turno: ${this.e(d.turno)}</p>${extra?(d.asignaciones||[]).map(a=>`<p>${this.e(a.Linea_Trabajo)} · ${this.e(a.Turno_Trabajado)}</p>`).join(""):""}<p>El sistema validará su ubicación y utilizará la hora oficial del servidor.</p><div class="ap-acciones">${d.finalizada?`<strong>${texto}</strong>`:`<button id="apRegistrarMarcacion"><i class="fa-solid fa-location-crosshairs"></i> ${texto}</button>`}</div></div></section>`);const b=document.getElementById("apRegistrarMarcacion");if(b)b.onclick=()=>this.registrarMarcacionPersonal(d);}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
+ AP.abrirMarcacionPersonal=async function(){
+  this.instalarEstilosAvanzados();
+  this.cargar("Consultando jornada","Verificando su asistencia y asignaciones extraordinarias.");
+
+  try{
+   const r=await API.post({action:"obtenerMarcacionPersonalActual"});
+   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible consultar su jornada.");
+
+   const d=r.data;
+   if(!d.gpsActivo)throw new Error("La marcación GPS no está habilitada en Configuracion.");
+
+   const extra=d.tipo==="HORAS_EXTRAS";
+   const texto=d.finalizada?"Jornada finalizada":d.iniciada?"Terminar jornada":extra?"Registrar horas extras":"Registrar asistencia";
+   const instruccion=d.iniciada?"Deslice para terminar la jornada":"Deslice para registrarse";
+
+   this.modal("Registro de jornada",`<section class="ap-modulo ap-marcacion-modulo"><div class="ap-form-bloque ap-marcacion-tarjeta"><span class="ap-marcacion-etiqueta">CONTROL DE ASISTENCIA</span><h3 class="ap-marcacion-titulo"><i class="fa-solid fa-location-dot"></i> ${extra?"Jornada extraordinaria":"Asistencia del turno"}</h3><p class="ap-marcacion-meta"><span>Fecha: <strong>${this.e(d.fecha)}</strong></span><span>Turno: <strong>${this.e(d.turno)}</strong></span></p>${extra?(d.asignaciones||[]).map(a=>`<p class="ap-marcacion-asignacion">${this.e(a.Linea_Trabajo)} · ${this.e(a.Turno_Trabajado)}</p>`).join(""):""}<p class="ap-marcacion-explicacion"><i class="fa-solid fa-shield-halved"></i> ${d.finalizada?"La entrada y la salida de esta jornada ya fueron registradas correctamente.":"El sistema validará su ubicación y utilizará la hora oficial del servidor."}</p><div class="ap-acciones ap-marcacion-acciones">${d.finalizada?`<div class="ap-marcacion-finalizada" role="status"><span class="ap-marcacion-finalizada-icono"><i class="fa-solid fa-check"></i></span><span><strong>${texto}</strong><small>Registro completado correctamente</small></span></div>`:`<div id="apMarcacionDeslizador" class="ap-marcacion-deslizador"><span class="ap-marcacion-deslizador-texto">${instruccion}</span><span id="apMarcacionIcono" class="ap-marcacion-deslizador-icono" aria-hidden="true"><i class="fa-solid fa-location-crosshairs"></i></span><input id="apRegistrarMarcacion" class="ap-marcacion-deslizador-rango" type="range" min="0" max="100" step="1" value="0" aria-label="${instruccion}" aria-valuetext="Deslice hacia la derecha para confirmar"></div>`}</div></div></section>`);
+
+   const control=document.getElementById("apRegistrarMarcacion");
+   if(!control)return;
+
+   const carril=document.getElementById("apMarcacionDeslizador");
+   const icono=document.getElementById("apMarcacionIcono");
+   let confirmado=false;
+
+   const actualizar=()=>{
+    const valor=Math.max(0,Math.min(100,Number(control.value)||0));
+    const recorrido=Math.max(0,carril.clientWidth-icono.offsetWidth-10);
+    icono.style.transform="translateX("+Math.round(recorrido*valor/100)+"px)";
+    carril.style.setProperty("--ap-marcacion-avance",valor+"%");
+    control.setAttribute("aria-valuetext",valor>=96?"Registro confirmado":valor+"% completado");
+
+    if(valor<96||confirmado)return;
+
+    confirmado=true;
+    control.disabled=true;
+    carril.classList.add("ap-marcacion-confirmada");
+
+    Promise.resolve(this.registrarMarcacionPersonal(d)).finally(()=>{
+     if(!document.body.contains(control))return;
+     confirmado=false;
+     control.disabled=false;
+     reiniciar();
+    });
+   };
+
+   const reiniciar=()=>{
+    control.value="0";
+    carril.classList.remove("ap-marcacion-confirmada");
+    actualizar();
+   };
+
+   control.addEventListener("input",actualizar);
+   control.addEventListener("change",()=>{if(!confirmado)reiniciar();});
+   control.addEventListener("pointerup",()=>{
+    if(!confirmado&&Number(control.value)<96)window.requestAnimationFrame(reiniciar);
+   });
+  }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
+ };
 
  AP.registrarMarcacionPersonal=async function(d){this.cargar("Validando ubicación","Consultando GPS y registrando la hora oficial del servidor.");try{const ubicacion=await this.obtenerUbicacionActual(),r=await API.post(Object.assign({action:"registrarMarcacionPersonal",tipoMarcacion:d.tipo,movimiento:d.iniciada?"SALIDA":"ENTRADA",idAsignacion:d.idAsignacion},ubicacion));if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible registrar la jornada.");Sistema.exito(r.mensaje+" Hora: "+r.data.hora);await this.abrirMarcacionPersonal();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
 
- AP.instalarAccesoMarcacion=function(){const destino=document.getElementById("inicioAccesoMarcacion"),anterior=document.getElementById("apAccesoMarcacion");if(anterior&&(!destino||!destino.contains(anterior)))anterior.remove();if(!destino||document.getElementById("apAccesoMarcacion"))return;const sesion=window.Sistema&&Sistema.obtenerSesion?Sistema.obtenerSesion():null,rol=this.n(sesion&&sesion.rol);if(!sesion||!(rol.includes("AUXILIAR")||rol.includes("MONTACARGUISTA")||rol.includes("ANALISTA")))return;this.instalarEstilosAvanzados();const div=document.createElement("div");div.id="apAccesoMarcacion";div.className="ap-marcacion-acceso-inicio";div.innerHTML='<button type="button" class="ap-marcacion-btn"><i class="fa-solid fa-location-dot"></i> Registrar jornada</button>';div.querySelector("button").onclick=()=>this.abrirMarcacionPersonal();destino.appendChild(div);};
+ AP.instalarAccesoMarcacion=function(){
+  const destino=document.getElementById("inicioAccesoMarcacion");
+  const accesoAnterior=document.getElementById("apAccesoMarcacion");
+  const sesion=window.Sistema&&Sistema.obtenerSesion?Sistema.obtenerSesion():null;
+  const rol=this.n(sesion&&sesion.rol);
+  const permitido=!!sesion&&(rol.includes("AUXILIAR")||rol.includes("MONTACARGUISTA")||rol.includes("ANALISTA"));
+
+  // La marcación pertenece exclusivamente a Inicio, debajo de la fecha.
+  // Nunca debe insertarse en document.body ni quedar flotando sobre otros módulos.
+  if(!destino||!permitido){
+   if(accesoAnterior)accesoAnterior.remove();
+   return;
+  }
+
+  if(accesoAnterior&&destino.contains(accesoAnterior))return;
+  if(accesoAnterior)accesoAnterior.remove();
+
+  this.instalarEstilosAvanzados();
+
+  const acceso=document.createElement("div");
+  acceso.id="apAccesoMarcacion";
+  acceso.className="ap-marcacion-acceso ap-marcacion-acceso-inicio";
+  acceso.style.cssText="position:static;inset:auto;z-index:auto;display:flex;width:100%;margin:8px 0 0;";
+  acceso.innerHTML='<button type="button" class="ap-marcacion-btn" style="width:100%;min-height:38px;box-shadow:none;"><i class="fa-solid fa-location-dot"></i> Registrar jornada</button>';
+  acceso.querySelector("button").onclick=()=>this.abrirMarcacionPersonal();
+  destino.appendChild(acceso);
+ };
 
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(()=>AP.instalarAccesoMarcacion(),700));else setTimeout(()=>AP.instalarAccesoMarcacion(),700);
 })(window.AsistenciaPersonal);

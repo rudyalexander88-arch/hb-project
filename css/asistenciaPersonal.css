@@ -6,3 +6,271 @@
 @media(max-width:560px){.ap-filtros,.ap-colaborador,.ap-detalle-jornada{grid-template-columns:1fr}.ap-identidad,.ap-comentario{grid-column:auto}.ap-acciones button{width:100%}.ap-listado-simple article{grid-template-columns:1fr}.ap-no-requeridos{align-items:flex-start;flex-direction:column}}
 .inicio-card-asistencia{position:relative}.inicio-personal-extra{position:absolute;right:18px;top:18px;min-height:32px;padding:0 10px;border:1px solid #ffd0d5;border-radius:8px;background:#fff5f6;color:#d7192d;font:800 var(--ui-fs-8, 8px) Poppins,sans-serif;cursor:pointer}.inicio-personal-accesos{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:auto}.inicio-personal-accesos button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 7px;border:1px solid #e1e4e8;border-radius:8px;background:#f5f6f8;color:#34393f;font:800 var(--ui-fs-8, 8px) Poppins,sans-serif;cursor:pointer}.inicio-personal-accesos button:hover{border-color:#ed1b2f;background:#ed1b2f;color:#fff}
 @media(max-width:560px){.inicio-personal-accesos{grid-template-columns:1fr 1fr}.inicio-personal-extra{position:static;width:100%;margin-bottom:10px}}
+
+/* ============================================================
+   MARCACIÓN PERSONAL · CONFIRMACIÓN DESLIZABLE
+   No altera los formularios existentes de asistencia u horas extras.
+   ============================================================ */
+.ap-marcacion-modulo {
+    padding: clamp(12px, 2.4vw, 24px);
+}
+
+.ap-marcacion-tarjeta {
+    width: min(100%, 620px);
+    margin: 0 auto;
+    padding: clamp(16px, 3vw, 26px);
+    border: 1px solid #dce3eb;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.ap-marcacion-etiqueta {
+    display: block;
+    margin-bottom: 6px;
+    color: #d71945;
+    font-size: clamp(10px, 1.2vw, 11px);
+    font-weight: 700;
+    letter-spacing: .075em;
+}
+
+.ap-marcacion-titulo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 14px;
+    color: #16283c;
+    font-size: clamp(17px, 3.6vw, 22px);
+    line-height: 1.2;
+}
+
+.ap-marcacion-titulo > i {
+    color: #d71945;
+}
+
+.ap-marcacion-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin: 0 0 12px;
+    color: #526174;
+    font-size: 13px;
+}
+
+.ap-marcacion-asignacion {
+    margin: 5px 0;
+    color: #526174;
+    font-size: 13px;
+}
+
+.ap-marcacion-explicacion {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 14px 0 20px;
+    color: #68768a;
+    font-size: clamp(12px, 2.4vw, 13px);
+    line-height: 1.55;
+}
+
+.ap-marcacion-explicacion > i {
+    margin-top: 4px;
+    color: #25845b;
+}
+
+.ap-marcacion-acciones {
+    display: block;
+    width: 100%;
+    margin: 0;
+}
+
+.ap-marcacion-deslizador {
+    --ap-marcacion-avance: 0%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 58px;
+    overflow: hidden;
+    border: 1px solid #d7dfe8;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(211, 30, 71, .12) 0%, rgba(211, 30, 71, .12) var(--ap-marcacion-avance), #f2f5f8 var(--ap-marcacion-avance), #f2f5f8 100%);
+    box-sizing: border-box;
+    touch-action: none;
+}
+
+.ap-marcacion-deslizador-texto {
+    width: 100%;
+    padding: 0 52px;
+    color: #4d5c6d;
+    font-size: clamp(11px, 2.7vw, 13px);
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+    box-sizing: border-box;
+}
+
+.ap-marcacion-deslizador-icono {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 2;
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #ed294f, #be1740);
+    color: #fff;
+    font-size: 20px;
+    box-shadow: 0 3px 9px rgba(190, 23, 64, .25);
+    pointer-events: none;
+    transition: transform .08s linear, background .2s ease;
+}
+
+.ap-marcacion-deslizador-rango {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: grab;
+    touch-action: none;
+}
+
+.ap-marcacion-deslizador-rango:active {
+    cursor: grabbing;
+}
+
+.ap-marcacion-confirmada .ap-marcacion-deslizador-icono {
+    background: #23964f;
+}
+
+.ap-marcacion-finalizada {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 70px;
+    padding: 11px 14px;
+    border: 1px solid #b9dec3;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f0faf2, #e5f5e9);
+    color: #20753b;
+    box-sizing: border-box;
+}
+
+.ap-marcacion-finalizada-icono {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    border-radius: 50%;
+    background: #23964f;
+    color: #fff;
+    font-size: 16px;
+}
+
+.ap-marcacion-finalizada > span:last-child {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.ap-marcacion-finalizada strong {
+    color: #1e7139;
+    font-size: clamp(13px, 2.8vw, 15px);
+    line-height: 1.25;
+}
+
+.ap-marcacion-finalizada small {
+    color: #527761;
+    font-size: clamp(10px, 2.1vw, 11px);
+    line-height: 1.35;
+}
+
+[data-tema="oscuro"] .ap-marcacion-tarjeta,
+[data-theme="dark"] .ap-marcacion-tarjeta,
+.tema-oscuro .ap-marcacion-tarjeta {
+    border-color: #405063;
+    background: #202b39;
+}
+
+[data-tema="oscuro"] .ap-marcacion-titulo,
+[data-theme="dark"] .ap-marcacion-titulo,
+.tema-oscuro .ap-marcacion-titulo {
+    color: #edf2f8;
+}
+
+[data-tema="oscuro"] .ap-marcacion-meta,
+[data-tema="oscuro"] .ap-marcacion-asignacion,
+[data-tema="oscuro"] .ap-marcacion-explicacion,
+[data-theme="dark"] .ap-marcacion-meta,
+[data-theme="dark"] .ap-marcacion-asignacion,
+[data-theme="dark"] .ap-marcacion-explicacion,
+.tema-oscuro .ap-marcacion-meta,
+.tema-oscuro .ap-marcacion-asignacion,
+.tema-oscuro .ap-marcacion-explicacion {
+    color: #c6d0de;
+}
+
+[data-tema="oscuro"] .ap-marcacion-deslizador,
+[data-theme="dark"] .ap-marcacion-deslizador,
+.tema-oscuro .ap-marcacion-deslizador {
+    border-color: #46566a;
+    background: linear-gradient(90deg, rgba(211, 30, 71, .25) 0%, rgba(211, 30, 71, .25) var(--ap-marcacion-avance), #293748 var(--ap-marcacion-avance), #293748 100%);
+}
+
+[data-tema="oscuro"] .ap-marcacion-deslizador-texto,
+[data-theme="dark"] .ap-marcacion-deslizador-texto,
+.tema-oscuro .ap-marcacion-deslizador-texto {
+    color: #e6edf6;
+}
+
+[data-tema="oscuro"] .ap-marcacion-finalizada,
+[data-theme="dark"] .ap-marcacion-finalizada,
+.tema-oscuro .ap-marcacion-finalizada {
+    border-color: #316e4d;
+    background: linear-gradient(135deg, #20372d, #244134);
+}
+
+[data-tema="oscuro"] .ap-marcacion-finalizada strong,
+[data-theme="dark"] .ap-marcacion-finalizada strong,
+.tema-oscuro .ap-marcacion-finalizada strong {
+    color: #e9fff0;
+}
+
+[data-tema="oscuro"] .ap-marcacion-finalizada small,
+[data-theme="dark"] .ap-marcacion-finalizada small,
+.tema-oscuro .ap-marcacion-finalizada small {
+    color: #b5d9c0;
+}
+
+@media (max-width: 420px) {
+    .ap-marcacion-modulo {
+        padding: 10px;
+    }
+
+    .ap-marcacion-tarjeta {
+        padding: 15px 13px;
+    }
+
+    .ap-marcacion-deslizador {
+        height: 54px;
+    }
+
+    .ap-marcacion-deslizador-icono {
+        width: 42px;
+        height: 42px;
+        font-size: 18px;
+    }
+
+    .ap-marcacion-deslizador-texto {
+        padding: 0 42px;
+    }
+}

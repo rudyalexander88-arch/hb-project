@@ -78,9 +78,13 @@
 }
 
 .ap-marcacion-acciones {
+    position: static;
     display: block;
     width: 100%;
     margin: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 .ap-marcacion-deslizador {

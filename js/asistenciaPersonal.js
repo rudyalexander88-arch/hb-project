@@ -104,37 +104,15 @@ window.AsistenciaPersonal={
     return;
    }
 
-   const informarErrorUbicacion=async error=>{
+   const informarErrorUbicacion=error=>{
     const codigo=Number(error&&error.code||0);
-    let estadoPermiso="";
+    const instrucciones="Active la ubicación o el GPS de su dispositivo y verifique que el navegador tenga autorización para utilizarlo.";
+    const mensaje=codigo===3
+     ?"La ubicación tardó demasiado. "+instrucciones
+     :instrucciones;
 
-    // Algunos dispositivos informan GPS apagado como permiso denegado.
-    // Consultar el permiso permite distinguirlo cuando el navegador lo admite.
-    if(navigator.permissions&&typeof navigator.permissions.query==="function"){
-     try{
-      const permiso=await navigator.permissions.query({name:"geolocation"});
-      estadoPermiso=String(permiso&&permiso.state||"").toLowerCase();
-     }catch(ignorar){
-      // La consulta de permisos no está disponible en todos los navegadores.
-     }
-    }
-
-    let mensaje;
-
-    if(codigo===1&&estadoPermiso==="granted"){
-     mensaje="Active la ubicación o el GPS de su dispositivo para registrar su jornada.";
-    }else if(codigo===1&&estadoPermiso==="denied"){
-     mensaje="Autorice el acceso a la ubicación en los permisos del navegador para registrar su jornada.";
-    }else if(codigo===1){
-     mensaje="Asegúrese de que la ubicación esté activada y de que el navegador tenga autorización para utilizarla.";
-    }else if(codigo===2){
-     mensaje="No se pudo obtener su ubicación. Active el GPS de su dispositivo y compruebe que tenga señal.";
-    }else if(codigo===3){
-     mensaje="La ubicación tardó demasiado. Verifique que el GPS esté activado, que tenga señal e intente nuevamente.";
-    }else{
-     mensaje="No fue posible obtener su ubicación. Verifique que el GPS esté activado y que el navegador tenga autorización para utilizarlo.";
-    }
-
+    // En Android un GPS apagado puede reportarse como permiso denegado;
+    // por eso ambos casos incluyen siempre las dos comprobaciones necesarias.
     reject(new Error(mensaje));
    };
 
@@ -181,18 +159,6 @@ window.AsistenciaPersonal={
     carril.style.setProperty("--ap-marcacion-avance",valor+"%");
     control.setAttribute("aria-valuetext",valor>=96?"Registro confirmado":valor+"% completado");
 
-    if(valor<96||confirmado)return;
-
-    confirmado=true;
-    control.disabled=true;
-    carril.classList.add("ap-marcacion-confirmada");
-
-    Promise.resolve(this.registrarMarcacionPersonal(d)).finally(()=>{
-     if(!document.body.contains(control))return;
-     confirmado=false;
-     control.disabled=false;
-     reiniciar();
-    });
    };
 
    const reiniciar=()=>{
@@ -201,15 +167,61 @@ window.AsistenciaPersonal={
     actualizar();
    };
 
+   const confirmar=()=>{
+    if(confirmado||this.marcacionEnCurso)return;
+    if(Number(control.value)<96){reiniciar();return;}
+
+    confirmado=true;
+    control.disabled=true;
+    carril.classList.add("ap-marcacion-confirmada");
+
+    Promise.resolve(this.registrarMarcacionPersonal(d)).finally(()=>{
+     if(!document.body.contains(control))return;
+     control.value="0";
+     carril.classList.remove("ap-marcacion-confirmada");
+     actualizar();
+     control.disabled=false;
+     confirmado=false;
+    });
+   };
+
+   // input solo actualiza el aspecto; change confirma una única vez
+   // cuando el usuario termina de arrastrar o completa el control.
    control.addEventListener("input",actualizar);
-   control.addEventListener("change",()=>{if(!confirmado)reiniciar();});
+   control.addEventListener("change",confirmar);
    control.addEventListener("pointerup",()=>{
     if(!confirmado&&Number(control.value)<96)window.requestAnimationFrame(reiniciar);
    });
   }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
  };
 
- AP.registrarMarcacionPersonal=async function(d){this.cargar("Validando ubicación","Consultando GPS y registrando la hora oficial del servidor.");try{const ubicacion=await this.obtenerUbicacionActual(),r=await API.post(Object.assign({action:"registrarMarcacionPersonal",tipoMarcacion:d.tipo,movimiento:d.iniciada?"SALIDA":"ENTRADA",idAsignacion:d.idAsignacion},ubicacion));if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible registrar la jornada.");Sistema.exito(r.mensaje+" Hora: "+r.data.hora);await this.abrirMarcacionPersonal();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
+ AP.registrarMarcacionPersonal=async function(d){
+  if(this.marcacionEnCurso)return;
+  this.marcacionEnCurso=true;
+  this.cargar("Validando ubicación","Consultando GPS y registrando la hora oficial del servidor.");
+
+  try{
+   const ubicacion=await this.obtenerUbicacionActual();
+   const respuesta=await API.post(Object.assign({
+    action:"registrarMarcacionPersonal",
+    tipoMarcacion:d.tipo,
+    movimiento:d.iniciada?"SALIDA":"ENTRADA",
+    idAsignacion:d.idAsignacion
+   },ubicacion));
+
+   if(!respuesta||!respuesta.ok){
+    throw new Error(respuesta&&respuesta.mensaje||"No fue posible registrar la jornada.");
+   }
+
+   Sistema.exito(respuesta.mensaje+" Hora: "+respuesta.data.hora);
+   await this.abrirMarcacionPersonal();
+  }catch(error){
+   Sistema.error(error.message);
+  }finally{
+   this.marcacionEnCurso=false;
+   this.ocultar();
+  }
+ };
 
  AP.instalarAccesoMarcacion=function(){
   const destino=document.getElementById("inicioAccesoMarcacion");

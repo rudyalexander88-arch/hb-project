@@ -1230,7 +1230,7 @@ window.VerificacionRecepciones = {
           : "Por verificar";
 
     return `
-      <article class="vr-tarjeta">
+      <article class="vr-tarjeta vr-tarjeta-${claseEstado}">
 
         <div class="vr-tarjeta-cabecera">
 
@@ -1245,8 +1245,7 @@ window.VerificacionRecepciones = {
                 estadoVista === "PENDIENTE_CORRECCION"
                   ? `
                       <span class="vr-desviacion-tarjeta">
-                        ${this.formatearConSigno(item.desviacionPendiente)}
-                        · ${this.formatearMoneda(item.valorPendiente)}
+                        ${this.formatearMoneda(item.valorPendiente)}
                       </span>
                     `
                   : ""
@@ -1260,6 +1259,11 @@ window.VerificacionRecepciones = {
             <small class="vr-id-recepcion">
               ${this.escapar(item.idRecepcion || "-")}
             </small>
+
+            <div class="vr-fila-resumen">
+              <span>${this.formatearNumero(item.totalTarimas)} tarimas</span>
+              <span>${this.formatearNumero(item.totalUnidades)} unidades</span>
+            </div>
           </div>
 
           <span class="vr-estado ${claseEstado}">

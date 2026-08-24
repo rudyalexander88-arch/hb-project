@@ -60,3 +60,630 @@ html[data-tema="oscuro"] .epp-btn.peligro{background:#4a252d;color:#ffd8dd;borde
 @media(max-width:900px){.epp-compra-item{grid-template-columns:22px minmax(110px,1fr) minmax(100px,auto)}.epp-compra-item input[type=number]{grid-column:2}.epp-compra-item select{grid-column:3}}
 @media(max-width:600px){.epp-inventario-grid{grid-template-columns:1fr}.epp-familia-cabecera{grid-template-columns:36px minmax(0,1fr) auto 12px;gap:7px;padding:9px}.epp-familia-icono{width:36px;height:36px}.epp-familia-tallas{grid-template-columns:repeat(2,minmax(0,1fr));padding:7px}.epp-talla-stock{padding:7px}.epp-talla-cantidad>small{font-size:7px}.epp-compra-item{grid-template-columns:22px minmax(0,1fr);gap:7px}.epp-compra-item .epp-compra-identidad{grid-column:2}.epp-compra-item .epp-compra-existencia,.epp-compra-item input[type=number],.epp-compra-item select{grid-column:2;width:100%}.epp-familia-resumen{font-size:7px}}
 @media(max-width:360px){.epp-familia-tallas{grid-template-columns:1fr}}
+
+/* ============================================================
+   GESTIÓN EPP · IDENTIDAD VISUAL BON
+   Pestañas superpuestas, acciones compactas y separadores.
+   ============================================================ */
+.modal-gestion-epp .epp-modulo {
+    color: var(--bon-texto, #243040);
+    font-family: Poppins, sans-serif;
+}
+
+.modal-gestion-epp .epp-tabs {
+    position: relative;
+    display: flex;
+    min-height: 48px;
+    align-items: flex-end;
+    gap: 0;
+    padding: 8px 12px 0;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--bon-borde, #d8dfe7);
+    background: var(--bon-superficie-elevada, #ffffff);
+    scrollbar-width: thin;
+}
+
+.modal-gestion-epp .epp-tabs button {
+    position: relative;
+    min-height: 36px;
+    margin-right: -1px;
+    padding: 0 12px;
+    border: 1px solid var(--bon-borde, #d8dfe7);
+    border-bottom-color: transparent;
+    border-radius: 9px 9px 0 0;
+    background: var(--bon-superficie-suave, #eef1f4);
+    color: var(--bon-texto-secundario, #546173);
+    font-size: var(--ui-fs-11, 11px);
+    font-weight: 700;
+}
+
+.modal-gestion-epp .epp-tabs button.activo {
+    z-index: 2;
+    border-color: #ce1d45;
+    background: #ce1d45;
+    color: #ffffff;
+}
+
+.modal-gestion-epp .epp-contenido {
+    padding: 12px 14px;
+    background: var(--bon-superficie, #f8f9fa);
+}
+
+.modal-gestion-epp .epp-toolbar {
+    margin: 0 0 12px;
+    padding: 4px 0 11px;
+    border: 0;
+    border-bottom: 1px solid var(--bon-borde, #d8dfe7);
+    border-radius: 0;
+    background: transparent;
+}
+
+.modal-gestion-epp .epp-toolbar > div:first-child {
+    min-width: 0;
+}
+
+.modal-gestion-epp .epp-toolbar > div:first-child > span {
+    margin-bottom: 3px;
+    font-size: var(--ui-fs-9, 9px);
+    letter-spacing: .07em;
+}
+
+.modal-gestion-epp .epp-toolbar h3 {
+    margin: 0;
+    color: var(--bon-texto, #192536);
+    font-size: clamp(14px, 1.35vw, 18px);
+    line-height: 1.25;
+}
+
+.modal-gestion-epp .epp-btn,
+.modal-gestion-epp .epp-volver,
+.modal-gestion-epp .epp-cargar-mas button {
+    box-sizing: border-box;
+    min-height: 35px;
+    padding: 0 11px;
+    border: 1px solid var(--bon-borde, #d5dde6);
+    border-radius: 8px;
+    background: var(--bon-superficie-suave, #eef2f5);
+    color: var(--bon-texto, #324257);
+    font: 700 var(--ui-fs-10, 10px) Poppins, sans-serif;
+}
+
+.modal-gestion-epp .epp-btn.primario {
+    border-color: #ce1d45;
+    background: #ce1d45;
+    color: #ffffff;
+}
+
+.modal-gestion-epp .epp-btn.verde {
+    border-color: #248a48;
+    background: #248a48;
+    color: #ffffff;
+}
+
+.modal-gestion-epp .epp-btn.peligro {
+    border-color: rgba(206, 29, 69, .38);
+    background: var(--bon-superficie-elevada, #ffffff);
+    color: #cf2445;
+}
+
+.modal-gestion-epp .epp-listado,
+.modal-gestion-epp .epp-inventario-grid,
+.modal-gestion-epp .epp-compra-lista,
+.modal-gestion-epp .epp-reporte-lista {
+    min-width: 0;
+    padding-top: 2px;
+}
+
+.modal-gestion-epp .epp-solicitud {
+    min-width: 0;
+    gap: 9px;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.modal-gestion-epp .epp-solicitud-info,
+.modal-gestion-epp .epp-solicitud-superior > div {
+    min-width: 0;
+}
+
+.modal-gestion-epp .epp-solicitud h4 {
+    overflow: hidden;
+    color: var(--bon-texto, #202327);
+    font-size: var(--ui-fs-12, 12px);
+    text-overflow: ellipsis;
+}
+
+.modal-gestion-epp .epp-acciones-tarjeta {
+    padding-left: 9px;
+    border-left: 1px solid var(--bon-borde, #d8dfe7);
+}
+
+.modal-gestion-epp .epp-formulario header,
+.modal-gestion-epp .epp-form-acciones,
+.modal-gestion-epp .epp-cargar-mas {
+    border-color: var(--bon-borde, #d8dfe7);
+}
+
+.modal-gestion-epp .epp-formulario header {
+    padding-bottom: 11px;
+    border-bottom: 1px solid var(--bon-borde, #d8dfe7);
+}
+
+@media (max-width: 760px) {
+    .modal-gestion-epp .epp-tabs {
+        display: grid;
+        min-height: 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px 4px;
+        padding: 8px 8px 6px;
+        overflow: visible;
+    }
+
+    .modal-gestion-epp .epp-tabs button {
+        min-width: 0;
+        min-height: 34px;
+        margin: 0;
+        gap: 4px;
+        padding: 0 5px;
+        overflow: hidden;
+        border-bottom-color: var(--bon-borde, #d8dfe7);
+        border-radius: 7px 7px 3px 3px;
+        font-size: clamp(8px, 2.45vw, 10px);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .modal-gestion-epp .epp-tabs button.activo {
+        border-bottom-color: #ce1d45;
+    }
+}
+
+@media (max-width: 600px) {
+    .modal-gestion-epp .epp-contenido {
+        padding: 9px;
+    }
+
+    .modal-gestion-epp .epp-toolbar {
+        gap: 9px;
+        padding-bottom: 9px;
+    }
+
+    .modal-gestion-epp .epp-toolbar h3 {
+        max-width: 100%;
+        font-size: var(--ui-fs-15, 15px);
+        line-height: 1.25;
+    }
+
+    .modal-gestion-epp .epp-solicitud {
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 8px;
+        padding: 9px;
+    }
+
+    .modal-gestion-epp .epp-solicitud-superior {
+        gap: 4px;
+    }
+
+    .modal-gestion-epp .epp-meta {
+        gap: 4px 8px;
+        line-height: 1.4;
+    }
+
+    .modal-gestion-epp .epp-acciones-tarjeta {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding: 8px 0 0;
+        border-top: 1px solid var(--bon-borde, #d8dfe7);
+        border-left: 0;
+    }
+
+    .modal-gestion-epp .epp-acciones-tarjeta .epp-btn {
+        width: 100%;
+        min-height: 34px;
+        padding: 0 6px;
+    }
+}
+
+@media (max-width: 350px) {
+    .modal-gestion-epp .epp-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+/* ============================================================
+   CONFIRMACIÓN PERSONALIZADA DE ENTREGA EPP
+   Pegar al final de gestionEPP.css
+   ============================================================ */
+
+.epp-confirmacion-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25000;
+
+  display: grid;
+  place-items: center;
+
+  padding: 18px;
+
+  background: rgba(12, 17, 25, 0.64);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.epp-confirmacion-dialogo {
+  position: relative;
+
+  width: min(430px, 100%);
+  overflow: hidden;
+
+  border: 1px solid #dfe5eb;
+  border-radius: 15px;
+
+  background: #ffffff;
+  color: #182331;
+
+  box-shadow: 0 22px 65px rgba(0, 0, 0, 0.26);
+
+  animation: eppConfirmacionAparecer 0.18s ease-out;
+}
+
+.epp-confirmacion-dialogo::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+
+  height: 4px;
+
+  background: linear-gradient(
+    90deg,
+    #d0193b 0%,
+    #ec5a19 65%,
+    #f5a000 100%
+  );
+
+  content: "";
+}
+
+.epp-confirmacion-encabezado {
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 19px 18px 14px;
+
+  border-bottom: 1px solid #e7ebef;
+}
+
+.epp-confirmacion-icono {
+  display: grid;
+  place-items: center;
+
+  flex: 0 0 42px;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 11px;
+
+  background: #fcecef;
+  color: #d0193b;
+
+  font-size: 17px;
+}
+
+.epp-confirmacion-encabezado > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.epp-confirmacion-encabezado small {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #d0193b;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.65px;
+}
+
+.epp-confirmacion-encabezado h3 {
+  margin: 0;
+
+  color: #182331;
+
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.epp-confirmacion-cerrar {
+  display: grid;
+  place-items: center;
+
+  width: 31px;
+  height: 31px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #f1f3f5;
+  color: #566171;
+
+  cursor: pointer;
+}
+
+.epp-confirmacion-cerrar:hover {
+  background: #fdecef;
+  color: #d0193b;
+}
+
+.epp-confirmacion-contenido {
+  padding: 15px 18px 4px;
+}
+
+.epp-confirmacion-contenido > p:first-child {
+  margin: 0 0 13px;
+
+  color: #465162;
+
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.epp-confirmacion-detalle {
+  display: grid;
+  gap: 11px;
+
+  padding: 13px;
+
+  border: 1px solid #e5eaf0;
+  border-radius: 10px;
+
+  background: #f7f8fa;
+}
+
+.epp-confirmacion-detalle div {
+  display: grid;
+  gap: 3px;
+}
+
+.epp-confirmacion-detalle span {
+  color: #748091;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.epp-confirmacion-detalle strong {
+  color: #1d2938;
+
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.epp-confirmacion-advertencia {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin: 12px 0 0;
+
+  color: #637083;
+
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.epp-confirmacion-advertencia i {
+  color: #1f6fbd;
+}
+
+.epp-confirmacion-acciones {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 9px;
+
+  padding: 15px 18px 17px;
+}
+
+.epp-confirmacion-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  min-height: 37px;
+
+  padding: 0 13px;
+
+  border: 1px solid transparent;
+  border-radius: 8px;
+
+  font: 700 11px Poppins, sans-serif;
+
+  cursor: pointer;
+}
+
+.epp-confirmacion-btn.secundario {
+  border-color: #dce3ea;
+
+  background: #f4f6f8;
+  color: #465264;
+}
+
+.epp-confirmacion-btn.secundario:hover {
+  background: #e9edf1;
+}
+
+.epp-confirmacion-btn.primario {
+  border-color: #c91e38;
+
+  background: #c91e38;
+  color: #ffffff;
+}
+
+.epp-confirmacion-btn.primario:hover {
+  background: #b71831;
+}
+
+@keyframes eppConfirmacionAparecer {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Tema oscuro */
+
+html[data-tema="oscuro"] .epp-confirmacion-dialogo {
+  border-color: #354356;
+
+  background: #1b2532;
+  color: #eef3f8;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-encabezado {
+  border-bottom-color: #354356;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-icono {
+  background: rgba(208, 25, 59, 0.16);
+  color: #ff5b78;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-encabezado small {
+  color: #ff647f;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-encabezado h3 {
+  color: #f2f5fa;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-cerrar {
+  background: #263344;
+  color: #d5deea;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-contenido > p:first-child {
+  color: #d3dbe6;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-detalle {
+  border-color: #354356;
+
+  background: #222e3d;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-detalle span {
+  color: #a9b7c8;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-detalle strong {
+  color: #f1f5fb;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-advertencia {
+  color: #b7c5d5;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-advertencia i {
+  color: #76b7f1;
+}
+
+html[data-tema="oscuro"] .epp-confirmacion-btn.secundario {
+  border-color: #435165;
+
+  background: #263344;
+  color: #e3eaf2;
+}
+
+/* Pantallas pequeñas */
+
+@media (max-width: 480px) {
+  .epp-confirmacion-overlay {
+    padding: 14px;
+  }
+
+  .epp-confirmacion-encabezado {
+    padding: 17px 14px 13px;
+  }
+
+  .epp-confirmacion-contenido {
+    padding: 13px 14px 4px;
+  }
+
+  .epp-confirmacion-acciones {
+    display: grid;
+
+    grid-template-columns: 1fr 1.25fr;
+
+    padding: 14px;
+  }
+
+  .epp-confirmacion-btn {
+    width: 100%;
+
+    padding-inline: 8px;
+
+    font-size: 10px;
+  }
+}
+
+/* ============================================================
+   SOLICITUDES EPP: ORGANIZACIÓN DE BOTONES
+   Rechazar y compromiso arriba; entregar abajo.
+   ============================================================ */
+
+.epp-acciones-tarjeta:has([data-entregar]) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+
+  width: 190px;
+
+  align-items: stretch;
+}
+
+.epp-acciones-tarjeta [data-rechazar] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.epp-acciones-tarjeta [data-compromiso] {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.epp-acciones-tarjeta [data-entregar] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+
+  width: 100%;
+}
+
+.epp-acciones-tarjeta:has([data-entregar]) button {
+  width: 100%;
+  min-height: 32px;
+
+  justify-content: center;
+}
+
+/* Adaptación para teléfonos. */
+
+@media (max-width: 600px) {
+  .epp-acciones-tarjeta:has([data-entregar]) {
+    width: 100%;
+  }
+}

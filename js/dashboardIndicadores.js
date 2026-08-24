@@ -35,6 +35,8 @@ const DashboardIndicadores = {
 
     metasCache: [],
 
+    mesesHistoricoCargados: [],
+
     causasCache: [],
 
     ocupacionCache: null,
@@ -43,10 +45,15 @@ const DashboardIndicadores = {
 
     graficoOcupacionCamaras: null,
 
+    graficoHistoricoMetas: null,
+
     cargandoOcupacion: false,
 
     filtrosMetas: {
         mes: "",
+        fechaDesde: "",
+        fechaHasta: "",
+        periodoRapido: "MES",
         supervisor: "TODOS",
         resultado: "TODOS",
         estadoJustificacion: "TODOS"
@@ -2131,6 +2138,30 @@ const DashboardIndicadores = {
             this.filtrosMetas.mes ||
             Sistema.obtenerMesActual();
 
+        const partesMes = this.filtrosMetas.mes.split("-");
+        const primerDia = new Date(
+            Number(partesMes[0]),
+            Number(partesMes[1]) - 1,
+            1
+        );
+        const ultimoDia = new Date(
+            Number(partesMes[0]),
+            Number(partesMes[1]),
+            0
+        );
+
+        this.filtrosMetas.fechaDesde =
+            this.formatearFechaLocalMetas(primerDia);
+        this.filtrosMetas.fechaHasta =
+            this.formatearFechaLocalMetas(ultimoDia);
+        this.filtrosMetas.periodoRapido = "MES";
+        this.mesesHistoricoCargados = [this.filtrosMetas.mes];
+
+        if (this.graficoHistoricoMetas) {
+            this.graficoHistoricoMetas.destroy();
+            this.graficoHistoricoMetas = null;
+        }
+
         const contenido =
             this.construirVistaHistorico();
 
@@ -2155,10 +2186,23 @@ const DashboardIndicadores = {
             this.filtrosMetas.mes ||
             Sistema.obtenerMesActual();
 
+        const seccionesAbiertas =
+            window.matchMedia("(min-width: 761px)").matches
+                ? "open"
+                : "";
+
         return `
             <div class="historico-metas">
 
-                <div class="historico-metas-resumen">
+                <details class="historico-metas-seccion" ${seccionesAbiertas}>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-chart-column"></i>
+                        <span>Indicadores de cumplimiento</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha"></i>
+                    </summary>
+
+                <div class="historico-metas-resumen historico-metas-seccion-cuerpo">
 
                     <div class="resumen-meta-item">
                         <span>Meta acumulada</span>
@@ -2190,10 +2234,74 @@ const DashboardIndicadores = {
 
                 </div>
 
+                </details>
 
-                <div class="filtros-historico-metas">
+
+                <details class="historico-metas-seccion" ${seccionesAbiertas}>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span>Períodos rápidos</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha"></i>
+                    </summary>
+
+                    <div class="historico-metas-periodos historico-metas-seccion-cuerpo">
+                        <button type="button" data-periodo-meta="SEMANA">
+                            Esta semana
+                        </button>
+
+                        <button type="button" data-periodo-meta="MES" class="activo">
+                            Este mes
+                        </button>
+
+                        <button type="button" data-periodo-meta="MES_ANTERIOR">
+                            Mes anterior
+                        </button>
+
+                        <button type="button" data-periodo-meta="ULTIMOS_30">
+                            Últimos 30 días
+                        </button>
+                    </div>
+                </details>
+
+
+                <details class="historico-metas-seccion" ${seccionesAbiertas}>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Filtros de consulta</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha"></i>
+                    </summary>
+
+
+                <div class="filtros-historico-metas historico-metas-seccion-cuerpo">
 
                     <div class="campo-filtro-meta">
+                        <label for="filtroFechaDesdeMetas">
+                            Fecha desde
+                        </label>
+
+                        <input
+                            type="date"
+                            id="filtroFechaDesdeMetas"
+                            value="${Sistema.escaparAtributo(this.filtrosMetas.fechaDesde)}"
+                        >
+                    </div>
+
+
+                    <div class="campo-filtro-meta">
+                        <label for="filtroFechaHastaMetas">
+                            Fecha hasta
+                        </label>
+
+                        <input
+                            type="date"
+                            id="filtroFechaHastaMetas"
+                            value="${Sistema.escaparAtributo(this.filtrosMetas.fechaHasta)}"
+                        >
+                    </div>
+
+                    <div class="campo-filtro-meta campo-filtro-mes-metas">
 
                         <label for="filtroMesMetas">
                             Mes
@@ -2285,17 +2393,45 @@ const DashboardIndicadores = {
 
                         <button
                             type="button"
-                            id="btnActualizarHistoricoMetas"
-                            class="btn-secundario-meta"
-                            title="Consultar nuevamente el servidor"
+                            id="btnConsultarHistoricoMetas"
+                            class="btn-consultar-rango-meta"
                         >
-                            <i class="fa-solid fa-rotate"></i>
-                            Actualizar
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            Consultar
                         </button>
+
+                       <button
+							type="button"
+							id="btnActualizarHistoricoMetas"
+							class="btn-secundario-meta"
+							title="Actualizar información"
+							aria-label="Actualizar información"
+						>
+							<i class="fa-solid fa-rotate" aria-hidden="true"></i>
+						</button>
 
                     </div>
 
                 </div>
+
+                </details>
+
+
+                <details class="historico-metas-seccion historico-metas-seccion-grafica" open>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Gráfica de cumplimiento</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha"></i>
+                    </summary>
+
+                    <div class="historico-metas-grafica historico-metas-seccion-cuerpo">
+                        <canvas
+                            id="graficoHistoricoMetas"
+                            aria-label="Gráfica de metas y despachos realizados"
+                        ></canvas>
+                    </div>
+                </details>
 
 
                 <div
@@ -2345,6 +2481,11 @@ const DashboardIndicadores = {
                 "btnActualizarHistoricoMetas"
             );
 
+        const botonConsultar =
+            document.getElementById(
+                "btnConsultarHistoricoMetas"
+            );
+
 
         if (filtroMes) {
 
@@ -2355,6 +2496,17 @@ const DashboardIndicadores = {
                     this.filtrosMetas.mes =
                         event.target.value ||
                         Sistema.obtenerMesActual();
+
+                    const partes = this.filtrosMetas.mes.split("-");
+                    const desde = new Date(Number(partes[0]), Number(partes[1]) - 1, 1);
+                    const hasta = new Date(Number(partes[0]), Number(partes[1]), 0);
+
+                    this.filtrosMetas.fechaDesde =
+                        this.formatearFechaLocalMetas(desde);
+                    this.filtrosMetas.fechaHasta =
+                        this.formatearFechaLocalMetas(hasta);
+
+                    this.sincronizarControlesPeriodoMetas();
 
                     await this.recargarHistoricoMes();
 
@@ -2429,8 +2581,239 @@ const DashboardIndicadores = {
         }
 
 
+        if (botonConsultar) {
+            botonConsultar.addEventListener(
+                "click",
+                async () => {
+                    const desde = document.getElementById("filtroFechaDesdeMetas");
+                    const hasta = document.getElementById("filtroFechaHastaMetas");
+
+                    this.filtrosMetas.fechaDesde = desde ? desde.value : "";
+                    this.filtrosMetas.fechaHasta = hasta ? hasta.value : "";
+                    this.filtrosMetas.periodoRapido = "PERSONALIZADO";
+
+                    this.marcarPeriodoRapidoMetas();
+
+                    await this.consultarRangoHistoricoMetas();
+                }
+            );
+        }
+
+
+        document.querySelectorAll("[data-periodo-meta]").forEach(boton => {
+            boton.addEventListener(
+                "click",
+                async () => {
+                    await this.aplicarPeriodoRapidoMetas(
+                        boton.dataset.periodoMeta
+                    );
+                }
+            );
+        });
+
+
+        const seccionGrafica = document.querySelector(
+            ".historico-metas-seccion-grafica"
+        );
+
+        if (seccionGrafica) {
+            seccionGrafica.addEventListener("toggle", () => {
+                if (
+                    seccionGrafica.open &&
+                    this.graficoHistoricoMetas
+                ) {
+                    requestAnimationFrame(() => {
+                        this.graficoHistoricoMetas.resize();
+                    });
+                }
+            });
+        }
+
+
         this.rellenarFiltroSupervisores();
 
+    },
+
+
+    formatearFechaLocalMetas(fecha) {
+        if (!(fecha instanceof Date) || isNaN(fecha.getTime())) {
+            return "";
+        }
+
+        return [
+            fecha.getFullYear(),
+            String(fecha.getMonth() + 1).padStart(2, "0"),
+            String(fecha.getDate()).padStart(2, "0")
+        ].join("-");
+    },
+
+
+    obtenerFechaMetaComparable(valor) {
+        if (valor instanceof Date) {
+            return this.formatearFechaLocalMetas(valor);
+        }
+
+        const texto = String(valor || "").trim();
+        const coincidenciaISO = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+        if (coincidenciaISO) {
+            return coincidenciaISO[0];
+        }
+
+        const coincidenciaLocal = texto.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+
+        if (coincidenciaLocal) {
+            return [
+                coincidenciaLocal[3],
+                coincidenciaLocal[2].padStart(2, "0"),
+                coincidenciaLocal[1].padStart(2, "0")
+            ].join("-");
+        }
+
+        const fecha = new Date(texto);
+
+        return isNaN(fecha.getTime())
+            ? ""
+            : this.formatearFechaLocalMetas(fecha);
+    },
+
+
+    sincronizarControlesPeriodoMetas() {
+        const desde = document.getElementById("filtroFechaDesdeMetas");
+        const hasta = document.getElementById("filtroFechaHastaMetas");
+        const mes = document.getElementById("filtroMesMetas");
+
+        if (desde) desde.value = this.filtrosMetas.fechaDesde || "";
+        if (hasta) hasta.value = this.filtrosMetas.fechaHasta || "";
+        if (mes) mes.value = this.filtrosMetas.mes || Sistema.obtenerMesActual();
+
+        this.marcarPeriodoRapidoMetas();
+    },
+
+
+    marcarPeriodoRapidoMetas() {
+        document.querySelectorAll("[data-periodo-meta]").forEach(boton => {
+            boton.classList.toggle(
+                "activo",
+                boton.dataset.periodoMeta === this.filtrosMetas.periodoRapido
+            );
+        });
+    },
+
+
+    async aplicarPeriodoRapidoMetas(periodo) {
+        const hoy = new Date();
+        const desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        let hasta = new Date(desde);
+
+        if (periodo === "SEMANA") {
+            desde.setDate(desde.getDate() - ((desde.getDay() + 6) % 7));
+            hasta = new Date(desde);
+            hasta.setDate(hasta.getDate() + 6);
+        } else if (periodo === "MES_ANTERIOR") {
+            desde.setMonth(desde.getMonth() - 1, 1);
+            hasta = new Date(desde.getFullYear(), desde.getMonth() + 1, 0);
+        } else if (periodo === "ULTIMOS_30") {
+            desde.setDate(desde.getDate() - 29);
+        } else {
+            desde.setDate(1);
+            hasta = new Date(desde.getFullYear(), desde.getMonth() + 1, 0);
+        }
+
+        this.filtrosMetas.periodoRapido = periodo;
+        this.filtrosMetas.fechaDesde = this.formatearFechaLocalMetas(desde);
+        this.filtrosMetas.fechaHasta = this.formatearFechaLocalMetas(hasta);
+        this.filtrosMetas.mes = this.filtrosMetas.fechaHasta.slice(0, 7);
+
+        this.sincronizarControlesPeriodoMetas();
+
+        await this.consultarRangoHistoricoMetas();
+    },
+
+
+    async consultarRangoHistoricoMetas() {
+        const desde = this.filtrosMetas.fechaDesde;
+        const hasta = this.filtrosMetas.fechaHasta;
+
+        if (!desde || !hasta) {
+            Sistema.error("Seleccione las fechas inicial y final.");
+            return;
+        }
+
+        if (desde > hasta) {
+            Sistema.error("La fecha inicial no puede ser posterior a la fecha final.");
+            return;
+        }
+
+        const cursor = new Date(Number(desde.slice(0, 4)), Number(desde.slice(5, 7)) - 1, 1);
+        const limite = new Date(Number(hasta.slice(0, 4)), Number(hasta.slice(5, 7)) - 1, 1);
+        const meses = [];
+
+        while (cursor <= limite && meses.length < 12) {
+            meses.push(this.formatearFechaLocalMetas(cursor).slice(0, 7));
+            cursor.setMonth(cursor.getMonth() + 1);
+        }
+
+        if (cursor <= limite) {
+            Sistema.error("Seleccione un rango de hasta doce meses.");
+            return;
+        }
+
+        if (
+            meses.length === 1 &&
+            this.mesesHistoricoCargados.length === 1 &&
+            this.mesesHistoricoCargados[0] === meses[0] &&
+            this.metasCache.length
+        ) {
+            this.rellenarFiltroSupervisores();
+            this.aplicarFiltrosHistorico();
+            return;
+        }
+
+        Sistema.mostrarCarga(
+            "Consultando histórico",
+            "Actualizando las metas del período seleccionado."
+        );
+
+        try {
+            const registros = [];
+
+            for (const mes of meses) {
+                const resultado = await API.post({
+                    accion: "listarMetasDiarias",
+                    mes: mes
+                });
+
+                if (!this.respuestaExitosa(resultado)) {
+                    throw new Error(
+                        this.obtenerMensajeRespuesta(
+                            resultado,
+                            "No fue posible consultar el histórico."
+                        )
+                    );
+                }
+
+                if (Array.isArray(resultado.metas)) {
+                    registros.push(...resultado.metas);
+                }
+            }
+
+            this.metasCache = Array.from(
+                new Map(
+                    registros.map(meta => [String(meta.idMeta), meta])
+                ).values()
+            );
+
+            this.mesesHistoricoCargados = meses.slice();
+
+            this.rellenarFiltroSupervisores();
+            this.aplicarFiltrosHistorico();
+        } catch (error) {
+            console.error("Error al consultar rango de metas:", error);
+            Sistema.error(error.message || "No fue posible consultar el histórico.");
+        } finally {
+            Sistema.ocultarCarga();
+        }
     },
 
 
@@ -2467,6 +2850,8 @@ const DashboardIndicadores = {
                 Array.isArray(respuesta.metas)
                     ? respuesta.metas
                     : [];
+
+            this.mesesHistoricoCargados = [mes];
 
             this.rellenarFiltroSupervisores();
             this.aplicarFiltrosHistorico();
@@ -2580,6 +2965,10 @@ const DashboardIndicadores = {
             metasFiltradas
         );
 
+        this.renderizarGraficoHistoricoMetas(
+            metasFiltradas
+        );
+
     },
 
 
@@ -2597,7 +2986,18 @@ const DashboardIndicadores = {
             this.filtrosMetas.estadoJustificacion ||
             "TODOS";
 
+        const fechaDesde = this.filtrosMetas.fechaDesde || "";
+        const fechaHasta = this.filtrosMetas.fechaHasta || "";
+
         return this.metasCache.filter(meta => {
+
+            const fechaMeta = this.obtenerFechaMetaComparable(
+                meta.fechaISO || meta.fechaIso || meta.fecha
+            );
+
+            const cumplePeriodo =
+                (!fechaDesde || !fechaMeta || fechaMeta >= fechaDesde) &&
+                (!fechaHasta || !fechaMeta || fechaMeta <= fechaHasta);
 
             const cumpleSupervisor =
                 supervisor === "TODOS" ||
@@ -2618,6 +3018,7 @@ const DashboardIndicadores = {
                 ) === estado;
 
             return (
+                cumplePeriodo &&
                 cumpleSupervisor &&
                 cumpleResultado &&
                 cumpleEstado
@@ -2625,6 +3026,101 @@ const DashboardIndicadores = {
 
         });
 
+    },
+
+
+    renderizarGraficoHistoricoMetas(metas) {
+        const canvas = document.getElementById("graficoHistoricoMetas");
+
+        if (!canvas || typeof Chart === "undefined") {
+            return;
+        }
+
+        if (this.graficoHistoricoMetas) {
+            this.graficoHistoricoMetas.destroy();
+            this.graficoHistoricoMetas = null;
+        }
+
+        const ordenadas = (Array.isArray(metas) ? metas.slice() : []).sort(
+            (a, b) => this.obtenerFechaMetaComparable(a.fecha).localeCompare(
+                this.obtenerFechaMetaComparable(b.fecha)
+            )
+        );
+
+        const temaOscuro =
+            document.documentElement.dataset.tema === "oscuro";
+
+        const colorTexto = temaOscuro ? "#bdcada" : "#657184";
+        const colorCuadricula = temaOscuro
+            ? "rgba(196, 209, 224, .14)"
+            : "rgba(89, 105, 124, .12)";
+
+        this.graficoHistoricoMetas = new Chart(
+            canvas.getContext("2d"),
+            {
+                type: "bar",
+                data: {
+                    labels: ordenadas.map(meta => {
+                        const fecha = this.obtenerFechaMetaComparable(meta.fecha);
+                        return fecha ? fecha.slice(8, 10) + "/" + fecha.slice(5, 7) : meta.fecha;
+                    }),
+                    datasets: [
+                        {
+                            label: "Meta",
+                            data: ordenadas.map(meta =>
+                                Sistema.convertirNumero(meta.metaDespachos)
+                            ),
+                            backgroundColor: "rgba(50, 125, 188, .78)",
+                            borderRadius: 4,
+                            maxBarThickness: 25
+                        },
+                        {
+                            label: "Realizados",
+                            data: ordenadas.map(meta =>
+                                Sistema.convertirNumero(meta.despachosRealizados)
+                            ),
+                            backgroundColor: "rgba(209, 31, 60, .86)",
+                            borderRadius: 4,
+                            maxBarThickness: 25
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                color: colorTexto,
+                                boxWidth: 10,
+                                font: { size: 10 }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: colorTexto,
+                                maxRotation: 0,
+                                autoSkip: true,
+                                font: { size: 9 }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: colorCuadricula },
+                            ticks: {
+                                color: colorTexto,
+                                precision: 0,
+                                font: { size: 9 }
+                            }
+                        }
+                    }
+                }
+            }
+        );
     },
 
 
@@ -2801,7 +3297,7 @@ const DashboardIndicadores = {
             meta.estadoJustificacion ===
                 "JUSTIFICADA"
                 ? "fa-pen-to-square"
-                : "fa-comment-dots";
+                : "fa-scale-balanced";
 
         const puedeJustificar =
             meta.puedeJustificar === true ||
@@ -2911,9 +3407,11 @@ const DashboardIndicadores = {
                                             : "justificar"
                                     }"
                                     data-id-meta="${Sistema.escaparAtributo(meta.idMeta)}"
+                                    title="${Sistema.escaparAtributo(textoBoton)}"
+                                    aria-label="${Sistema.escaparAtributo(textoBoton)}"
                                 >
                                     <i class="fa-solid ${iconoBoton}"></i>
-                                    ${textoBoton}
+                                    <span class="texto-accion-meta">${textoBoton}</span>
                                 </button>
                             `
                             : `
@@ -2922,9 +3420,11 @@ const DashboardIndicadores = {
                                     class="btn-accion-meta btn-detalle-meta"
                                     data-accion-meta="detalle"
                                     data-id-meta="${Sistema.escaparAtributo(meta.idMeta)}"
+                                    title="Ver detalle"
+                                    aria-label="Ver detalle"
                                 >
                                     <i class="fa-solid fa-eye"></i>
-                                    Ver detalle
+                                    <span class="texto-accion-meta">Ver detalle</span>
                                 </button>
                             `
                     }

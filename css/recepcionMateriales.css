@@ -4111,3 +4111,207 @@ body.asistente-recepcion-abierto {
         max-height: 420px;
     }
 }
+
+/* ============================================================
+   IDENTIDAD CORPORATIVA DEL ENCABEZADO DE RECEPCIONES
+   ============================================================ */
+.recepcion-materiales .recepcion-encabezado-identidad {
+    min-width: 0;
+}
+
+.recepcion-materiales .recepcion-encabezado-etiqueta {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--rec-rojo, #d71920);
+    font-size: var(--ui-fs-9, 9px);
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.recepcion-materiales .recepcion-encabezado-identidad h2 {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+}
+
+.recepcion-materiales .recepcion-encabezado-identidad h2 > i {
+    flex: 0 0 auto;
+    color: var(--rec-rojo, #d71920);
+    font-size: .82em;
+}
+
+.recepcion-materiales .recepcion-encabezado-identidad h2 > span {
+    min-width: 0;
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    text-transform: none;
+}
+
+@media (max-width: 768px) {
+    #contenidoPrincipal:has(.recepcion-materiales) {
+        border-radius: 14px !important;
+    }
+
+    .recepcion-materiales .recepcion-encabezado {
+        min-height: 56px;
+        padding: 7px 10px;
+        border-radius: 13px !important;
+    }
+
+    .recepcion-materiales .recepcion-encabezado-identidad h2 {
+        gap: 6px;
+        font-size: var(--ui-fs-18, 18px);
+        line-height: 1.15;
+    }
+
+    .recepcion-materiales .recepcion-encabezado-etiqueta {
+        font-size: var(--ui-fs-8, 8px);
+    }
+}
+
+/* ============================================================
+   RECEPCIÓN COMPARTIDA Y CONTRASTE DEL ASISTENTE
+   ============================================================ */
+
+.recepcion-participante-principal {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 15px;
+    border: 1px solid var(--rec-borde, #e1e5ea);
+    border-radius: 12px;
+    background: var(--rec-fondo, #f7f8fa);
+}
+
+.recepcion-participante-principal > i {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 10px;
+    background: rgba(215, 25, 32, .11);
+    color: var(--rec-rojo, #d71920);
+}
+
+.recepcion-participante-principal strong,
+.recepcion-participante-principal span {
+    display: block;
+}
+
+.recepcion-participante-principal span,
+.recepcion-participantes-ayuda {
+    color: var(--rec-secundario, #6b7280);
+    font-size: var(--ui-fs-11, 11px);
+}
+
+.recepcion-participantes-ayuda {
+    margin: 14px 0 12px;
+}
+
+.recepcion-participantes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+}
+
+.recepcion-participantes-grid label {
+    display: grid;
+    gap: 5px;
+    color: var(--rec-texto, #202124);
+    font-size: var(--ui-fs-11, 11px);
+    font-weight: 700;
+}
+
+.recepcion-participante-select {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--rec-borde, #dbe1e8);
+    border-radius: 9px;
+    background: #fff;
+    color: var(--rec-texto, #202124);
+    font: inherit;
+}
+
+html[data-tema="oscuro"] #contenidoPrincipal:has(.recepcion-materiales),
+html[data-tema="oscuro"] .recepcion-materiales,
+html[data-tema="oscuro"] .recepcion-materiales .recepcion-panel,
+html[data-tema="oscuro"] .recepcion-materiales .recepcion-panel > .centro-recepciones {
+    background: var(--bon-superficie, #202731) !important;
+    color: var(--bon-texto, #f5f7fa);
+}
+
+html[data-tema="oscuro"] .modal-asistente-recepcion-contenido,
+html[data-tema="oscuro"] .modal-asistente-recepcion-cuerpo {
+    background: var(--bon-superficie, #202731) !important;
+}
+
+html[data-tema="oscuro"] .modal-asistente-recepcion-cuerpo .recepcion-paso,
+html[data-tema="oscuro"] .modal-asistente-recepcion-cuerpo .barra-recepcion-actual,
+html[data-tema="oscuro"] .campo-hora-inicio-recepcion,
+html[data-tema="oscuro"] .recepcion-participante-principal {
+    border-color: var(--bon-borde, #46515f) !important;
+    background: var(--bon-superficie-elevada, #29313c) !important;
+    color: var(--bon-texto, #f5f7fa) !important;
+}
+
+html[data-tema="oscuro"] .opcion-origen-recepcion {
+    border: 2px solid var(--bon-borde, #46515f) !important;
+    background: var(--bon-superficie-campo, #262f39) !important;
+    color: var(--bon-texto, #f5f7fa) !important;
+}
+
+html[data-tema="oscuro"] .opcion-origen-recepcion.activo {
+    border-color: #f34a5b !important;
+    background: rgba(237, 27, 47, .20) !important;
+    box-shadow: 0 0 0 2px rgba(237, 27, 47, .17);
+}
+
+html[data-tema="oscuro"] .opcion-origen-recepcion.activo :is(i, strong) {
+    color: #fff !important;
+}
+
+html[data-tema="oscuro"] .campo-hora-inicio-recepcion label,
+html[data-tema="oscuro"] .recepcion-participantes-grid label,
+html[data-tema="oscuro"] .recepcion-participante-principal strong {
+    color: var(--bon-texto, #f5f7fa) !important;
+}
+
+html[data-tema="oscuro"] .campo-hora-inicio-recepcion small,
+html[data-tema="oscuro"] .opcion-origen-recepcion span,
+html[data-tema="oscuro"] .recepcion-participante-principal span {
+    color: var(--bon-texto-secundario, #d5dce5) !important;
+}
+
+html[data-tema="oscuro"] .campo-hora-inicio-recepcion input[type="time"],
+html[data-tema="oscuro"] .recepcion-participante-select {
+    border-color: var(--bon-borde, #46515f) !important;
+    background: var(--bon-superficie-campo, #262f39) !important;
+    color: var(--bon-texto, #f5f7fa) !important;
+    color-scheme: dark;
+}
+
+html[data-tema="oscuro"] .campo-hora-inicio-recepcion input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    cursor: pointer;
+    filter: brightness(0) invert(1);
+}
+
+html[data-tema="oscuro"] .campo-hora-inicio-recepcion input[type="time"]:focus,
+html[data-tema="oscuro"] .recepcion-participante-select:focus {
+    border-color: #f34a5b !important;
+    box-shadow: 0 0 0 3px rgba(243, 74, 91, .18);
+}
+
+@media (max-width: 560px) {
+    .recepcion-participantes-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .recepcion-participantes-paso .recepcion-acciones-finales > button {
+        width: 100%;
+    }
+}

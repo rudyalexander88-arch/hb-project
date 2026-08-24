@@ -427,6 +427,57 @@ window.InicioOperativo = {
     },
 
 
+    obtenerDesempenoRecepcionesGuardado(solicitud) {
+
+        if (
+            !window.API ||
+            typeof API.prepararSolicitud !== "function" ||
+            typeof API._claveConsulta !== "function" ||
+            typeof API._leerCache !== "function"
+        ) {
+            return null;
+        }
+
+
+        try {
+
+            const solicitudPreparada =
+                API.prepararSolicitud(solicitud);
+
+            const clave =
+                API._claveConsulta(solicitudPreparada);
+
+            if (!clave) {
+                return null;
+            }
+
+            const guardado =
+                API._leerCache(clave);
+
+            if (
+                !guardado ||
+                !guardado.resultado ||
+                guardado.resultado.ok !== true
+            ) {
+                return null;
+            }
+
+            return guardado.resultado;
+
+        } catch (error) {
+
+            console.warn(
+                "No fue posible recuperar el desempeño guardado:",
+                error
+            );
+
+            return null;
+
+        }
+
+    },
+
+
     async actualizarDesempenoRecepciones() {
 
         if (this.cargandoDesempeno) return;
@@ -438,20 +489,40 @@ window.InicioOperativo = {
         const tipoPanel = this.tipoPanelDesempeno(sesion.rol);
         if (tipoPanel === "OCULTO") return;
 
-        this.cargandoDesempeno = true;
-        CargadorSistema.mostrar(
-            tipoPanel === "PERSONAL" ? "Cargando su desempeño" : "Cargando desempeño operativo",
+        const solicitud =
             tipoPanel === "PERSONAL"
-                ? "Consultando las recepciones finalizadas a su nombre."
-                : "Consultando el desempeño de supervisores y colaboradores."
-        );
+                ? {action:"obtenerDesempenoRecepcionesUsuario"}
+                : {action:"obtenerPanelDesempenoOperativo",periodo:this.periodoDesempeno || "MES"};
+
+        const respuestaGuardada =
+            this.obtenerDesempenoRecepcionesGuardado(solicitud);
+
+        const mostrarCargador =
+            !respuestaGuardada;
+
+        this.cargandoDesempeno = true;
+
+        if (respuestaGuardada) {
+
+            if (tipoPanel === "PERSONAL") {
+                this.renderDesempenoRecepciones(respuestaGuardada.data || {});
+            } else {
+                this.renderPanelDesempenoOperativo(respuestaGuardada.data || {});
+            }
+
+        } else {
+
+            CargadorSistema.mostrar(
+                tipoPanel === "PERSONAL" ? "Cargando su desempeño" : "Cargando desempeño operativo",
+                tipoPanel === "PERSONAL"
+                    ? "Consultando las recepciones finalizadas a su nombre."
+                    : "Consultando el desempeño de supervisores y colaboradores."
+            );
+
+        }
 
         try {
-            const respuesta = await API.post(
-                tipoPanel === "PERSONAL"
-                    ? {action:"obtenerDesempenoRecepcionesUsuario"}
-                    : {action:"obtenerPanelDesempenoOperativo",periodo:this.periodoDesempeno || "MES"}
-            );
+            const respuesta = await API.post(solicitud);
 
             if (!respuesta || respuesta.ok !== true) {
                 throw new Error(
@@ -467,14 +538,31 @@ window.InicioOperativo = {
                 this.renderPanelDesempenoOperativo(respuesta.data || {});
             }
         } catch (error) {
-            contenedor.innerHTML = `
-                <div class="inicio-desempeno-vacio">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <span>${this.escapar(error.message || "No fue posible cargar el desempeño.")}</span>
-                </div>`;
+
+            if (respuestaGuardada) {
+
+                console.warn(
+                    "No fue posible actualizar el desempeño; se conserva la información guardada:",
+                    error
+                );
+
+            } else {
+
+                contenedor.innerHTML = `
+                    <div class="inicio-desempeno-vacio">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span>${this.escapar(error.message || "No fue posible cargar el desempeño.")}</span>
+                    </div>`;
+
+            }
+
         } finally {
             this.cargandoDesempeno = false;
-            CargadorSistema.ocultar();
+
+            if (mostrarCargador) {
+                CargadorSistema.ocultar();
+            }
+
         }
 
     },

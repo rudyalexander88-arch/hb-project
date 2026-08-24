@@ -31,9 +31,10 @@ window.GestionEPP={
  },
  renderSolicitudes(){const c=document.getElementById("eppContenido");if(!c)return;const p=this.datos.permisos||{};
   c.innerHTML=`<header class="epp-toolbar"><div><span>${p.gestionar?"GESTIÓN OPERATIVA":"SEGURIDAD PERSONAL"}</span><h3>${p.gestionar?"Solicitudes de colaboradores":"Mis solicitudes"}</h3></div>
-  <div class="epp-toolbar-acciones"><input id="eppBuscar" type="search" placeholder="Buscar..."><select id="eppFiltroEstado">
+  <div class="epp-toolbar-acciones"><button type="button" id="eppAlternarFiltros" class="epp-alternar-filtros" aria-expanded="false" aria-controls="eppPanelFiltros"><span><i class="fa-solid fa-sliders"></i>Filtros</span><i class="fa-solid fa-chevron-down"></i></button>
+  <div id="eppPanelFiltros" class="epp-panel-filtros"><input id="eppBuscar" type="search" placeholder="Buscar..."><select id="eppFiltroEstado">
   <option value="TODAS">Todos los estados</option><option value="PENDIENTE">Pendientes</option><option value="PENDIENTE_AUTORIZACION">Por autorizar</option>
-  <option value="COMPROMETIDA">Con compromiso</option><option value="ENTREGADA">Entregadas</option><option value="RECHAZADA">Rechazadas</option></select>
+  <option value="COMPROMETIDA">Con compromiso</option><option value="ENTREGADA">Entregadas</option><option value="RECHAZADA">Rechazadas</option></select></div>
   ${p.solicitar?`<button id="eppNuevaSolicitud" class="epp-btn primario"><i class="fa-solid fa-plus"></i>Nueva solicitud</button>`:""}</div></header>
   <div class="epp-listado">${this.solicitudes.length?this.solicitudes.map(r=>this.tarjetaSolicitud(r)).join(""):`<div class="epp-vacio"><i class="fa-solid fa-shield-halved"></i><strong>No hay solicitudes</strong></div>`}</div>
   ${this.hayMas?`<div class="epp-cargar-mas"><button id="eppCargarMas" class="epp-btn secundario"><i class="fa-solid fa-plus"></i>Cargar ${this.limite} más</button></div>`:""}`;
@@ -54,6 +55,7 @@ window.GestionEPP={
   ${activa?`<button data-compromiso="${r.ID_Solicitud}" class="epp-btn secundario">Compromiso</button><button data-rechazar="${r.ID_Solicitud}" class="epp-btn peligro">Rechazar</button>`:""}</div>`:""}</article>`;
  },
  eventosSolicitudes(){document.getElementById("eppNuevaSolicitud")?.addEventListener("click",()=>this.formSolicitud());
+  document.getElementById("eppAlternarFiltros")?.addEventListener("click",e=>{const b=e.currentTarget,p=document.getElementById("eppPanelFiltros"),a=b.getAttribute("aria-expanded")!=="true";b.setAttribute("aria-expanded",String(a));p?.classList.toggle("epp-panel-filtros-abierto",a);});
   document.getElementById("eppCargarMas")?.addEventListener("click",()=>{this.pagina++;this.cargarSolicitudes(false);});
   document.getElementById("eppFiltroEstado")?.addEventListener("change",()=>this.cargarSolicitudes(true));
   let t;document.getElementById("eppBuscar")?.addEventListener("input",()=>{clearTimeout(t);t=setTimeout(()=>this.cargarSolicitudes(true),350);});
@@ -96,7 +98,199 @@ window.GestionEPP={
   const foto=(this.datos.reglas?.evidenciaObligatoria||[]).some(v=>this.clave(v)===this.clave(tipo));if(!tipo||!talla||!motivo)return Sistema.error("Complete tipo, talla y motivo.");if(foto&&!this.evidencia)return Sistema.error("Debe tomar la fotografía.");
   await this.ejecutar(b,"Enviando solicitud","Registrando su solicitud.",{action:"crearSolicitudEPP",tipoEPP:tipo,talla:talla,motivoSolicitud:motivo,comentario:document.getElementById("eppComentario").value,
    justificacionAutorizacion:document.getElementById("eppJustificacion").value,evidenciaBase64:this.evidencia||"",evidenciaMime:"image/jpeg"},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
- async entregar(id,b){if(confirm("¿Confirma la entrega?"))await this.ejecutar(b,"Registrando entrega","Actualizando inventario.",{action:"entregarSolicitudEPP",idSolicitud:id},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
+ async entregar(id, b) {
+  const solicitud = (this.solicitudes || []).find(
+    registro => String(registro.ID_Solicitud) === String(id)
+  ) || {};
+
+  const tipoEPP = solicitud.Tipo_EPP || "Equipo de protección personal";
+
+  const talla = solicitud.Talla && solicitud.Talla !== "UNICA"
+    ? ` · Talla ${solicitud.Talla}`
+    : "";
+
+  const colaborador =
+    solicitud.Colaborador_Nombre || "Colaborador solicitante";
+
+  const confirmacion = await new Promise(resolve => {
+    const anterior = document.getElementById("eppConfirmacionEntrega");
+
+    if (anterior) {
+      anterior.remove();
+    }
+
+    const focoAnterior = document.activeElement;
+
+    const escapar = valor =>
+      String(valor || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const capa = document.createElement("div");
+
+    capa.id = "eppConfirmacionEntrega";
+    capa.className = "epp-confirmacion-overlay";
+
+    capa.setAttribute("role", "dialog");
+    capa.setAttribute("aria-modal", "true");
+    capa.setAttribute("aria-labelledby", "eppConfirmacionTitulo");
+
+    capa.innerHTML = `
+      <section class="epp-confirmacion-dialogo">
+        <header class="epp-confirmacion-encabezado">
+          <span class="epp-confirmacion-icono">
+            <i class="fas fa-box-open"></i>
+          </span>
+
+          <div>
+            <small>SEGURIDAD PERSONAL</small>
+
+            <h3 id="eppConfirmacionTitulo">
+              Confirmar entrega
+            </h3>
+          </div>
+
+          <button
+            type="button"
+            class="epp-confirmacion-cerrar"
+            aria-label="Cerrar"
+            data-epp-cancelar
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </header>
+
+        <div class="epp-confirmacion-contenido">
+          <p>
+            ¿Confirma la entrega del siguiente equipo de protección?
+          </p>
+
+          <article class="epp-confirmacion-detalle">
+            <div>
+              <span>Colaborador</span>
+
+              <strong>
+                ${escapar(colaborador)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Equipo solicitado</span>
+
+              <strong>
+                ${escapar(tipoEPP + talla)}
+              </strong>
+            </div>
+          </article>
+
+          <p class="epp-confirmacion-advertencia">
+            <i class="fas fa-info-circle"></i>
+            El inventario se actualizará automáticamente.
+          </p>
+        </div>
+
+        <footer class="epp-confirmacion-acciones">
+          <button
+            type="button"
+            class="epp-confirmacion-btn secundario"
+            data-epp-cancelar
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            class="epp-confirmacion-btn primario"
+            data-epp-confirmar
+          >
+            <i class="fas fa-check"></i>
+            Confirmar entrega
+          </button>
+        </footer>
+      </section>
+    `;
+
+    let resuelto = false;
+
+    const cerrar = resultado => {
+      if (resuelto) {
+        return;
+      }
+
+      resuelto = true;
+
+      document.removeEventListener("keydown", manejarTeclado);
+
+      capa.remove();
+
+      if (
+        focoAnterior &&
+        document.contains(focoAnterior) &&
+        typeof focoAnterior.focus === "function"
+      ) {
+        focoAnterior.focus();
+      }
+
+      resolve(resultado);
+    };
+
+    const manejarTeclado = evento => {
+      if (evento.key === "Escape") {
+        evento.preventDefault();
+        cerrar(false);
+      }
+    };
+
+    capa.addEventListener("click", evento => {
+      if (
+        evento.target === capa ||
+        evento.target.closest("[data-epp-cancelar]")
+      ) {
+        cerrar(false);
+        return;
+      }
+
+      if (evento.target.closest("[data-epp-confirmar]")) {
+        cerrar(true);
+      }
+    });
+
+    document.addEventListener("keydown", manejarTeclado);
+
+    document.body.appendChild(capa);
+
+    requestAnimationFrame(() => {
+      const botonConfirmar = capa.querySelector(
+        "[data-epp-confirmar]"
+      );
+
+      if (botonConfirmar) {
+        botonConfirmar.focus();
+      }
+    });
+  });
+
+  if (!confirmacion) {
+    return;
+  }
+
+  await this.ejecutar(
+    b,
+    "Registrando entrega",
+    "Actualizando inventario.",
+    {
+      action: "entregarSolicitudEPP",
+      idSolicitud: id
+    },
+    async respuesta => {
+      Sistema.exito(respuesta.mensaje);
+      await this.refrescarTodo();
+    }
+  );
+},
  async autorizar(id,b){if(confirm("¿Autorizar solicitud excepcional?"))await this.ejecutar(b,"Autorizando","Registrando autorización.",{action:"autorizarSolicitudEPP",idSolicitud:id},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
  compromiso(id){const f=prompt("Fecha de compromiso (AAAA-MM-DD):"),m=f&&prompt("Motivo:");if(f&&m)this.ejecutar(null,"Guardando compromiso","Actualizando solicitud.",{action:"establecerCompromisoEPP",idSolicitud:id,fechaCompromiso:f,motivoCompromiso:m},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
  rechazar(id){const m=prompt("Justifique el rechazo:");if(m)this.ejecutar(null,"Rechazando","Registrando decisión.",{action:"rechazarSolicitudEPP",idSolicitud:id,motivoRechazo:m},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},

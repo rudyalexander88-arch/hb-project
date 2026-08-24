@@ -1750,3 +1750,393 @@ body.modal-sistema-abierto {
 
 }
 
+
+/* ============================================================
+   HISTÓRICO DE METAS · SECCIONES OPERATIVAS CONTRAÍBLES
+   Identidad BON: icono, título, línea y flecha.
+   ============================================================ */
+
+.modal-historico-metas #contenidoModal {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.historico-metas-seccion {
+    min-width: 0;
+    margin: 0 0 10px;
+}
+
+.historico-metas-seccion-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 7px 3px;
+    color: #263343;
+    font-size: var(--ui-fs-11, 11px);
+    font-weight: 750;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.historico-metas-seccion-control::-webkit-details-marker {
+    display: none;
+}
+
+.historico-metas-seccion-control::marker {
+    content: "";
+}
+
+.historico-metas-seccion-control > i:first-child {
+    flex: 0 0 auto;
+    color: #d11f3c;
+    font-size: 11px;
+}
+
+.historico-metas-seccion-control > span:not(.historico-metas-seccion-linea) {
+    flex: 0 0 auto;
+}
+
+.historico-metas-seccion-linea {
+    flex: 1 1 auto;
+    min-width: 15px;
+    height: 1px;
+    background: #dce2e8;
+}
+
+.historico-metas-seccion-flecha {
+    flex: 0 0 auto;
+    color: #657487;
+    font-size: 10px;
+    transition: transform .2s ease;
+}
+
+.historico-metas-seccion[open] .historico-metas-seccion-flecha {
+    transform: rotate(90deg);
+}
+
+.historico-metas-seccion-cuerpo {
+    margin-top: 7px;
+}
+
+.historico-metas-seccion > .historico-metas-resumen,
+.historico-metas-seccion > .filtros-historico-metas {
+    margin-bottom: 4px;
+}
+
+.historico-metas-periodos {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    padding: 9px;
+    border: 1px solid #e3e7eb;
+    border-radius: 10px;
+    background: #f8f9fa;
+}
+
+.historico-metas-periodos button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 34px;
+    padding: 6px 8px;
+    border: 1px solid #dfe4e9;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #465365;
+    font: 650 var(--ui-fs-10, 10px) Poppins, sans-serif;
+    text-align: center;
+    cursor: pointer;
+}
+
+.historico-metas-periodos button.activo {
+    border-color: #edb5bd;
+    background: #fff0f2;
+    color: #c61c38;
+}
+
+.historico-metas-seccion > .filtros-historico-metas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 12px;
+}
+
+.historico-metas-seccion .campo-filtro-mes-metas {
+    display: none;
+}
+
+.historico-metas-seccion .acciones-filtros-metas {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.btn-consultar-rango-meta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 0 13px;
+    border: 1px solid #c81e3b;
+    border-radius: 9px;
+    background: #c81e3b;
+    color: #ffffff;
+    font: 700 var(--ui-fs-11, 11px) Poppins, sans-serif;
+    cursor: pointer;
+}
+
+.historico-metas-grafica {
+    position: relative;
+    height: 225px;
+    padding: 10px 10px 5px;
+    border: 1px solid #e3e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.historico-metas-grafica > canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Tema oscuro: conservar contraste sin afectar el tema claro. */
+
+html[data-tema="oscuro"] .historico-metas-seccion-control {
+    color: #ecf1f7;
+}
+
+html[data-tema="oscuro"] .historico-metas-seccion-linea {
+    background: #435164;
+}
+
+html[data-tema="oscuro"] .historico-metas-seccion-flecha {
+    color: #c4cedb;
+}
+
+html[data-tema="oscuro"] .historico-metas-periodos,
+html[data-tema="oscuro"] .historico-metas-grafica {
+    border-color: #3c4a5d;
+    background: #202b39;
+}
+
+html[data-tema="oscuro"] .historico-metas-periodos button {
+    border-color: #435165;
+    background: #273445;
+    color: #dce5ef;
+}
+
+html[data-tema="oscuro"] .historico-metas-periodos button.activo {
+    border-color: #a74459;
+    background: rgba(201, 30, 59, .22);
+    color: #ffb4c0;
+}
+
+@media (max-width: 760px) {
+    .historico-metas-seccion {
+        margin-bottom: 7px;
+    }
+
+    .historico-metas-seccion-control {
+        min-height: 34px;
+        padding: 7px 2px;
+        font-size: 10px;
+    }
+
+    .historico-metas-seccion > .historico-metas-resumen {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    .historico-metas-seccion .resumen-meta-item {
+        min-height: 58px;
+        padding: 9px 10px;
+    }
+
+    .historico-metas-seccion .resumen-meta-item span {
+        overflow: hidden;
+        margin-bottom: 3px;
+        font-size: 9px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .historico-metas-seccion .resumen-meta-item strong {
+        font-size: 17px;
+    }
+
+    .historico-metas-periodos {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding: 7px;
+    }
+
+    .historico-metas-seccion > .filtros-historico-metas {
+        grid-template-columns: 1fr;
+        gap: 9px;
+        padding: 10px;
+    }
+
+    .historico-metas-seccion .acciones-filtros-metas {
+        grid-column: auto;
+    }
+
+    .historico-metas-seccion .acciones-filtros-metas > button {
+        flex: 1 1 0;
+        min-width: 0;
+        padding-inline: 7px;
+    }
+
+    .historico-metas-grafica {
+        height: 185px;
+        padding: 8px 6px 3px;
+    }
+
+    .contenedor-listado-metas {
+        gap: 8px;
+    }
+
+    .historico-metas .fila-meta-historico {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px 8px;
+        align-items: center;
+        padding: 10px 11px;
+        border-left-width: 4px;
+        border-radius: 11px;
+    }
+
+    .historico-metas .fila-meta-fecha {
+        grid-column: 1;
+        grid-row: 1;
+        gap: 2px;
+    }
+
+    .historico-metas .meta-fecha-principal {
+        font-size: 12px;
+    }
+
+    .historico-metas .meta-id {
+        font-size: 8px;
+    }
+
+    .historico-metas .fila-meta-estados {
+        grid-column: 2;
+        grid-row: 1;
+        align-items: flex-end;
+        justify-content: flex-end;
+        gap: 4px;
+    }
+
+    .historico-metas .estado-meta,
+    .historico-metas .estado-justificacion {
+        max-width: 132px;
+        padding: 4px 6px;
+        font-size: 7px;
+        white-space: nowrap;
+    }
+
+    .historico-metas .justificacion-no-aplica {
+        display: none;
+    }
+
+    .historico-metas .fila-meta-supervisor {
+        grid-column: 1;
+        grid-row: 2;
+        gap: 1px;
+    }
+
+    .historico-metas .fila-meta-supervisor span {
+        font-size: 8px;
+    }
+
+    .historico-metas .fila-meta-supervisor strong {
+        font-size: 10px;
+    }
+
+    .historico-metas .fila-meta-acciones {
+        grid-column: 2;
+        grid-row: 2;
+        justify-content: flex-end;
+    }
+
+    .historico-metas .btn-accion-meta {
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        min-height: 32px;
+        padding: 0;
+        border-radius: 50%;
+    }
+
+    .historico-metas .btn-accion-meta i {
+        font-size: 12px;
+    }
+
+    .historico-metas .texto-accion-meta {
+        display: none;
+    }
+
+    .historico-metas .fila-meta-numeros {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        gap: 5px;
+    }
+
+    .historico-metas .fila-meta-numeros > div {
+        padding: 6px;
+    }
+
+    .historico-metas .fila-meta-numeros span {
+        overflow: hidden;
+        font-size: 8px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .historico-metas .fila-meta-numeros strong {
+        overflow: hidden;
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 375px) {
+    .historico-metas .estado-meta,
+    .historico-metas .estado-justificacion {
+        max-width: 113px;
+        font-size: 6.5px;
+    }
+
+    .historico-metas .fila-meta-numeros > div {
+        padding-inline: 4px;
+    }
+}
+
+/* ============================================================
+   HISTÓRICO DE METAS
+   ACTUALIZACIÓN COMPACTA: SOLO ICONO
+   ============================================================ */
+
+#btnActualizarHistoricoMetas {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    padding: 0 !important;
+    flex: 0 0 38px !important;
+}
+
+#btnActualizarHistoricoMetas i {
+    margin: 0 !important;
+    font-size: 14px !important;
+}

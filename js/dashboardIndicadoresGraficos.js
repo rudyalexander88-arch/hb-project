@@ -117,10 +117,23 @@
 
     DashboardIndicadores.construirVistaHistoricoRango = function () {
 
+        const seccionesAbiertas =
+            window.matchMedia("(min-width: 761px)").matches
+                ? "open"
+                : "";
+
         return `
             <div class="historico-metas">
 
-                <div class="historico-metas-resumen">
+                <details class="historico-metas-seccion" ${seccionesAbiertas}>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                        <span>Indicadores de cumplimiento</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha" aria-hidden="true"></i>
+                    </summary>
+
+                <div class="historico-metas-resumen historico-metas-seccion-cuerpo">
 
                     <div class="resumen-meta-item">
                         <span>Meta acumulada</span>
@@ -144,10 +157,17 @@
 
                 </div>
 
+                </details>
 
-                <div class="accesos-rapidos-periodo">
+                <details class="historico-metas-seccion" ${seccionesAbiertas}>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+                        <span>Períodos rápidos</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha" aria-hidden="true"></i>
+                    </summary>
 
-                    <span>Períodos rápidos:</span>
+                <div class="accesos-rapidos-periodo historico-metas-seccion-cuerpo">
 
                     <button
                         type="button"
@@ -179,8 +199,17 @@
 
                 </div>
 
+                </details>
 
-                <div class="filtros-historico-metas filtros-rango-metas">
+                <details class="historico-metas-seccion" ${seccionesAbiertas}>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                        <span>Filtros de consulta</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha" aria-hidden="true"></i>
+                    </summary>
+
+                <div class="filtros-historico-metas filtros-rango-metas historico-metas-seccion-cuerpo">
 
                     <div class="campo-filtro-meta">
 
@@ -311,10 +340,10 @@
                             type="button"
                             id="btnActualizarHistoricoMetas"
                             class="btn-secundario-meta"
-                            title="Consultar nuevamente el servidor"
+                            title="Actualizar información"
+                            aria-label="Actualizar información"
                         >
-                            <i class="fa-solid fa-rotate"></i>
-                            Actualizar
+                            <i class="fa-solid fa-rotate" aria-hidden="true"></i>
                         </button>
 
                         <button
@@ -331,8 +360,17 @@
 
                 </div>
 
+                </details>
 
-                <section class="panel-grafico-metas">
+                <details class="historico-metas-seccion historico-metas-seccion-grafica" open>
+                    <summary class="historico-metas-seccion-control">
+                        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                        <span>Gráfica de cumplimiento</span>
+                        <span class="historico-metas-seccion-linea" aria-hidden="true"></span>
+                        <i class="fa-solid fa-chevron-right historico-metas-seccion-flecha" aria-hidden="true"></i>
+                    </summary>
+
+                <section class="panel-grafico-metas historico-metas-seccion-cuerpo">
 
                     <div class="panel-grafico-metas-header">
 
@@ -363,6 +401,7 @@
 
                 </section>
 
+                </details>
 
                 <div
                     id="contenedorListadoMetas"
@@ -521,6 +560,24 @@
                     );
                 });
             });
+
+        const seccionGrafica = document.querySelector(
+            ".historico-metas-seccion-grafica"
+        );
+
+        if (seccionGrafica) {
+            seccionGrafica.addEventListener("toggle", () => {
+                if (
+                    seccionGrafica.open &&
+                    this.graficoMetasDiarias &&
+                    typeof this.graficoMetasDiarias.resize === "function"
+                ) {
+                    requestAnimationFrame(() => {
+                        this.graficoMetasDiarias.resize();
+                    });
+                }
+            });
+        }
     };
 
 

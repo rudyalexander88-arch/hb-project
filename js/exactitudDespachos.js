@@ -82,7 +82,8 @@ window.ExactitudDespachos = {
 
     seccionesCentro: {
       indicadores: true,
-      filtros: false
+      filtros: false,
+      graficos: false
     },
 
     consultando:
@@ -734,7 +735,8 @@ window.ExactitudDespachos = {
       this.estado.seccionesCentro ||
       {
         indicadores: true,
-        filtros: false
+        filtros: false,
+        graficos: false
       };
 
 
@@ -1018,7 +1020,7 @@ window.ExactitudDespachos = {
           </div>
 
 
-          <label class="check-exactitud">
+          <label class="check-exactitud bon-interruptor">
 
             <input
               type="checkbox"
@@ -1030,7 +1032,11 @@ window.ExactitudDespachos = {
               }
             >
 
-            <span>
+            <span class="bon-interruptor-pista" aria-hidden="true">
+              <span class="bon-interruptor-control"></span>
+            </span>
+
+            <span class="bon-interruptor-etiqueta">
               Solo pendientes
             </span>
 
@@ -1083,7 +1089,25 @@ window.ExactitudDespachos = {
 
         </section>
 
-        <div class="exactitud-graficos">
+        <section class="exactitud-seccion exactitud-seccion-graficos ${
+          secciones.graficos ? "" : "contraida"
+        }">
+
+          <button
+            type="button"
+            id="btnAlternarGraficosExactitud"
+            class="exactitud-seccion-control exactitud-control-graficos"
+            aria-controls="panelGraficosExactitud"
+            aria-expanded="${secciones.graficos ? "true" : "false"}"
+          >
+            <span>
+              <i class="fa-solid fa-chart-line"></i>
+              Gráficas de exactitud
+            </span>
+            <i class="fa-solid fa-chevron-down exactitud-seccion-flecha"></i>
+          </button>
+
+        <div id="panelGraficosExactitud" class="exactitud-graficos exactitud-seccion-cuerpo">
 
           <article class="grafico-exactitud-card">
 
@@ -1099,6 +1123,7 @@ window.ExactitudDespachos = {
 
         </div>
 
+        </section>
 
         <div class="exactitud-listado-encabezado">
 
@@ -1826,6 +1851,12 @@ window.ExactitudDespachos = {
       );
 
 
+    const alternarGraficos =
+      document.getElementById(
+        "btnAlternarGraficosExactitud"
+      );
+
+
     const consultar =
       document.getElementById(
         "btnConsultarExactitud"
@@ -1882,6 +1913,23 @@ window.ExactitudDespachos = {
           this.alternarSeccionCentro(
             "filtros",
             alternarFiltros
+          );
+
+        };
+
+    }
+
+
+    if (alternarGraficos) {
+
+      alternarGraficos.onclick =
+        evento => {
+
+          evento.preventDefault();
+
+          this.alternarSeccionCentro(
+            "graficos",
+            alternarGraficos
           );
 
         };
@@ -1995,7 +2043,8 @@ window.ExactitudDespachos = {
     if (!this.estado.seccionesCentro) {
       this.estado.seccionesCentro = {
         indicadores: true,
-        filtros: false
+        filtros: false,
+        graficos: false
       };
     }
 
@@ -2023,7 +2072,7 @@ window.ExactitudDespachos = {
       );
     }
 
-    if (nombre === "indicadores" && abierto) {
+    if ((nombre === "indicadores" || nombre === "graficos") && abierto) {
       window.requestAnimationFrame(() => {
         if (this.graficoExactitud && typeof this.graficoExactitud.resize === "function") {
           this.graficoExactitud.resize();

@@ -983,17 +983,11 @@ if (!preservarEstado) {
 
             <div class="centro-despachos__encabezado">
 
-                <div>
+                <div class="centro-despachos__fila-superior">
 
                     <span class="centro-despachos__etiqueta">
                         Gestión y consulta
-                    </span>                
-
-                    <p>
-                        Consulte, continúe y administre los conduces registrados en el sistema.
-                    </p>
-
-                </div>
+                    </span>
 
                 <div class="centro-despachos__controles-vista">
 
@@ -1017,9 +1011,44 @@ if (!preservarEstado) {
 
                 </div>
 
+                </div>
+
+                <p class="centro-despachos__descripcion">
+                    Consulte y administre los conduces registrados.
+                </p>
+
             </div>
 
-            <div class="centro-despachos__filtros">
+            <section
+                id="tarjetaFiltrosCentroDespachos"
+                class="centro-despachos__tarjeta-filtros"
+            >
+
+            <button
+                type="button"
+                id="btnAlternarFiltrosCentroDespachos"
+                class="centro-despachos__alternar-filtros"
+                aria-expanded="false"
+                aria-controls="panelFiltrosCentroDespachos"
+            >
+                <span class="centro-despachos__titulo-filtros">
+                    <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+                    Filtros
+                </span>
+                <span
+                    class="centro-despachos__linea-filtros"
+                    aria-hidden="true"
+                ></span>
+                <i
+                    class="fa-solid fa-chevron-down centro-despachos__flecha-filtros"
+                    aria-hidden="true"
+                ></i>
+            </button>
+
+            <div
+                id="panelFiltrosCentroDespachos"
+                class="centro-despachos__filtros"
+            >
 
                 <div class="campo-filtro-despachos">
 
@@ -1142,6 +1171,11 @@ if (!preservarEstado) {
                 </button>
 
             </div>
+
+            </section>
+
+            <section class="centro-despachos__registros">
+
             <div class="centro-despachos__resumen">
 
 				<div class="centro-despachos__resumen-acciones">
@@ -1181,7 +1215,9 @@ if (!preservarEstado) {
 
                 </div>
 
-            </div>            
+            </div>
+
+            </section>
 
         </section>
     `;
@@ -1643,28 +1679,45 @@ crearFilaCentroDespachos(
             ? `${destinoPrincipal} + 1`
             : destinoPrincipal;
 
+    const sesionCentro = JSON.parse(
+        localStorage.getItem("sesion") ||
+        sessionStorage.getItem("sesion") ||
+        "{}"
+    );
+
+    const rolCentro = String(
+        sesionCentro.rol || ""
+    ).trim().toLowerCase();
+
+    const puedeReabrirCompletado =
+        rolCentro === "administrador" ||
+        rolCentro === "encargado";
+
+    const botonVer = `
+        <button
+            type="button"
+            class="btn-accion-centro-despachos ver"
+            data-accion="ver"
+            data-id-conduce="${Despachos.escaparHTMLInspecciones(item.idConduce || "")}"
+            title="Ver despacho"
+            aria-label="Ver despacho"
+        >
+            <i class="fa-solid fa-eye"></i>
+        </button>
+    `;
+
     let botonAccion = "";
 
     if (esAnalista) {
 
-        botonAccion = `
-            <button
-                type="button"
-                class="btn-accion-centro-despachos ver"
-                data-accion="ver"
-                data-id-conduce="${Despachos.escaparHTMLInspecciones(item.idConduce || "")}"
-                title="Ver despacho"
-            >
-                <i class="fa-solid fa-eye"></i>
-            </button>
-        `;
+        botonAccion = botonVer;
 
     } else if (
         estadoNormalizado ===
         "borrador"
     ) {
 
-        botonAccion = `
+        botonAccion = botonVer + `
             <button
                 type="button"
                 class="btn-accion-centro-despachos continuar"
@@ -1683,7 +1736,7 @@ crearFilaCentroDespachos(
         "despachado"
     ) {
 
-        botonAccion = `
+        botonAccion = botonVer + `
             <button
                 type="button"
                 class="btn-accion-centro-despachos finalizar"
@@ -1692,6 +1745,7 @@ crearFilaCentroDespachos(
                     item.idConduce || ""
                 )}"
                 title="Continuar en Finalizar carga"
+                aria-label="Editar despacho"
             >
                 <i class="fa-solid fa-pen"></i>
             </button>
@@ -1699,24 +1753,30 @@ crearFilaCentroDespachos(
 
     } else {
 
-        botonAccion = `
-            <button
-                type="button"
-                class="btn-accion-centro-despachos ver"
-                data-accion="ver"
-                data-id-conduce="${Despachos.escaparHTMLInspecciones(
-                    item.idConduce || ""
-                )}"
-                title="Ver despacho"
-            >
-                <i class="fa-solid fa-eye"></i>
-            </button>
-        `;
+        botonAccion = botonVer;
+
+        if (
+            estadoNormalizado === "completado" &&
+            puedeReabrirCompletado
+        ) {
+            botonAccion += `
+                <button
+                    type="button"
+                    class="btn-accion-centro-despachos finalizar"
+                    data-accion="reabrir"
+                    data-id-conduce="${Despachos.escaparHTMLInspecciones(item.idConduce || "")}"
+                    title="Editar despacho completado"
+                    aria-label="Editar despacho completado"
+                >
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+            `;
+        }
 
     }
 
     return `
-        <article class="fila-centro-despachos">
+        <article class="fila-centro-despachos estado-${estadoNormalizado.replace(/\s+/g, "-")}">
 
             <div class="dato-conduce-lista">
 
@@ -1750,7 +1810,7 @@ crearFilaCentroDespachos(
 
             </div>
 
-            <div>
+            <div class="dato-estado-centro-despachos">
 
                 <span
                     class="
@@ -1766,7 +1826,7 @@ crearFilaCentroDespachos(
             </div>
 
             <div
-                class="texto-truncado-despacho"
+                class="texto-truncado-despacho dato-chofer-centro-despachos"
                 title="${Despachos.escaparHTMLInspecciones(
                     item.chofer || "-"
                 )}"
@@ -1777,7 +1837,7 @@ crearFilaCentroDespachos(
             </div>
 
             <div
-                class="texto-truncado-despacho"
+                class="texto-truncado-despacho dato-destino-centro-despachos"
                 title="${Despachos.escaparHTMLInspecciones(
                     [
                         item.destino1,
@@ -2280,10 +2340,50 @@ configurarEventosCentroDespachos() {
             "btnLimpiarFiltrosCentroDespachos"
         );
 
+    const tarjetaFiltros =
+        document.getElementById(
+            "tarjetaFiltrosCentroDespachos"
+        );
+
+    const btnAlternarFiltros =
+        document.getElementById(
+            "btnAlternarFiltrosCentroDespachos"
+        );
+
+    const panelFiltros =
+        document.getElementById(
+            "panelFiltrosCentroDespachos"
+        );
+
     const lista =
         document.getElementById(
             "listaCentroDespachos"
         );
+
+    if (btnAlternarFiltros && tarjetaFiltros && panelFiltros) {
+
+        const pantallaCompacta =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(max-width: 768px)").matches;
+
+        panelFiltros.inert = pantallaCompacta;
+
+        btnAlternarFiltros.onclick = () => {
+
+            const abierto = tarjetaFiltros.classList.toggle(
+                "centro-despachos__tarjeta-filtros--abierta"
+            );
+
+            btnAlternarFiltros.setAttribute(
+                "aria-expanded",
+                String(abierto)
+            );
+
+            panelFiltros.inert = !abierto;
+
+        };
+
+    }
 
     /*
      * Generamos los años sin depender de los primeros
@@ -2571,14 +2671,35 @@ configurarEventosCentroDespachos() {
                     }
 
                     if (
-                        accion === "continuar"
+                        accion === "continuar" ||
+                        accion === "reabrir"
                     ) {
 
                         if (Despachos.denegarEdicionAnalista()) return;
 
+                        if (accion === "reabrir") {
+                            const sesion = JSON.parse(
+                                localStorage.getItem("sesion") ||
+                                sessionStorage.getItem("sesion") ||
+                                "{}"
+                            );
+                            const rol = String(sesion.rol || "")
+                                .trim()
+                                .toLowerCase();
+
+                            if (rol !== "administrador" && rol !== "encargado") {
+                                throw new Error(
+                                    "Su rol no puede reabrir despachos completados."
+                                );
+                            }
+                        }
+
                         await Despachos
                             .continuarBorrador(
-                                idConduce
+                                idConduce,
+                                accion === "reabrir"
+                                    ? { permitirCompletado: true }
+                                    : undefined
                             );
 
                         return;

@@ -1916,3 +1916,608 @@
     }
 
 }
+
+/* ============================================================
+   CENTRO DE DESPACHOS · VISTA MÓVIL
+
+   Este bloque se mantiene en responsive.css porque este archivo
+   se carga después de despachos.css. Así el contenido del modal
+   conserva un único desplazamiento vertical y la apertura de
+   filtros empuja los registros hacia abajo sin ocultarlos.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    body.centro-despachos-abierto #modalSistema {
+        overflow: hidden !important;
+    }
+
+    body.centro-despachos-abierto #modalSistema > .modal-contenido {
+        display: flex !important;
+        flex-direction: column !important;
+        height: calc(100dvh - 24px) !important;
+        max-height: calc(100dvh - 24px) !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.centro-despachos-abierto #modalSistema > .modal-contenido > .modal-header {
+        flex: 0 0 auto !important;
+    }
+
+    body.centro-despachos-abierto
+    #modalSistema
+    > .modal-contenido
+    > #contenidoModal.modo-centro-despachos {
+        display: block !important;
+        flex: 1 1 0% !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        padding: 10px 11px 18px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overscroll-behavior-y: contain !important;
+        touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    > .centro-despachos {
+        display: flex !important;
+        flex: 0 0 auto !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: min-content !important;
+        max-height: none !important;
+        gap: 10px !important;
+        padding: 0 0 12px !important;
+        overflow: visible !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__encabezado {
+        display: flex !important;
+        flex: 0 0 auto !important;
+        flex-direction: column !important;
+        gap: 5px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__fila-superior {
+        display: flex !important;
+        width: 100% !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__etiqueta {
+        flex: 0 1 auto;
+        padding: 5px 9px;
+        font-size: var(--ui-fs-10, 10px);
+        white-space: nowrap;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__controles-vista {
+        flex: 0 0 auto !important;
+        align-self: center !important;
+        gap: 1px !important;
+        padding: 3px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-vista-despachos {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__descripcion {
+        margin: 0 !important;
+        font-size: var(--ui-fs-11, 11px) !important;
+        line-height: 1.35 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__tarjeta-filtros {
+        display: block !important;
+        flex: 0 0 auto !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__alternar-filtros {
+        display: flex !important;
+        width: 100% !important;
+        min-height: 36px !important;
+        align-items: center !important;
+        gap: 9px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        color: var(--bon-texto, #334155) !important;
+        font-family: inherit !important;
+        font-size: var(--ui-fs-12, 12px) !important;
+        font-weight: 700 !important;
+        cursor: pointer !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__titulo-filtros {
+        display: inline-flex !important;
+        flex: 0 0 auto !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__titulo-filtros i {
+        color: #d7193f !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__linea-filtros {
+        display: block !important;
+        flex: 1 1 auto !important;
+        min-width: 14px !important;
+        height: 1px !important;
+        background: var(--bon-borde, #d6dce3) !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__flecha-filtros {
+        flex: 0 0 auto !important;
+        color: #d7193f !important;
+        transition: transform 220ms ease !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__filtros {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        max-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 10px !important;
+        overflow: hidden !important;
+        border: 0 solid transparent !important;
+        border-radius: 10px !important;
+        gap: 0 9px !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transition:
+            max-height 260ms ease,
+            padding 220ms ease,
+            gap 220ms ease,
+            opacity 180ms ease,
+            visibility 180ms ease !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__tarjeta-filtros--abierta
+    .centro-despachos__filtros {
+        max-height: 480px !important;
+        padding: 11px 10px !important;
+        border-width: 1px !important;
+        border-color: var(--bon-borde, #e3e6e8) !important;
+        gap: 9px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__tarjeta-filtros--abierta
+    .centro-despachos__flecha-filtros {
+        transform: rotate(180deg) !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .campo-filtro-despachos:first-child {
+        grid-column: 1 / -1 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .campo-filtro-despachos input,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .campo-filtro-despachos select,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-limpiar-filtros-despachos {
+        height: 36px !important;
+        min-height: 36px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__registros {
+        display: grid !important;
+        flex: 0 0 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        gap: 8px !important;
+        padding: 9px !important;
+        border: 1px solid var(--bon-borde, #e3e6e8) !important;
+        border-radius: 10px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .lista-centro-despachos {
+        flex: 0 0 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        padding-right: 0 !important;
+        overflow: visible !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__resumen-acciones {
+        width: 100% !important;
+        gap: 7px !important;
+    }
+}
+
+@media (max-width: 360px) {
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-vista-despachos {
+        width: 29px !important;
+        height: 29px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__etiqueta {
+        padding: 4px 7px !important;
+    }
+}
+
+/*
+ * EPP: patrón reutilizable de filtros compactos.
+ * En escritorio conserva la barra completa; en móvil abre únicamente
+ * cuando el usuario solicita consultar los filtros.
+ */
+.epp-alternar-filtros {
+    display: none;
+}
+
+.epp-panel-filtros {
+    display: contents;
+}
+
+/*
+ * CENTRO DE DESPACHOS · TARJETAS REALES EN MÓVILES
+ * La tabla de escritorio exige 920 px. En móviles se transforma cada
+ * fila en una tarjeta contenida, sin desplazamientos horizontales.
+ */
+@media (max-width: 768px) {
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .centro-despachos__registros,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .lista-centro-despachos,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .grupo-mensual-despachos,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .tabla-lista-despachos {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .grupo-mensual-despachos {
+        overflow: hidden !important;
+        border-radius: 9px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .encabezado-mes-despachos {
+        min-height: 46px !important;
+        padding: 8px 10px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .encabezado-mes-despachos strong {
+        font-size: var(--ui-fs-13, 13px) !important;
+        line-height: 1.2 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .tabla-lista-despachos {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 7px !important;
+        padding: 8px !important;
+        overflow: hidden !important;
+        background: transparent !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .cabecera-lista-despachos {
+        display: none !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos {
+        display: grid !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 78px !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-areas:
+            "conduce acciones"
+            "estado acciones"
+            "chofer fecha" !important;
+        align-items: center !important;
+        gap: 2px 7px !important;
+        padding: 8px 8px 7px 10px !important;
+        overflow: hidden !important;
+        border: 1px solid var(--bon-borde, #dce2e8) !important;
+        border-left: 4px solid #94a3b8 !important;
+        border-radius: 9px !important;
+        background: var(--bon-superficie, #ffffff) !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos.estado-borrador,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos.estado-pendiente {
+        border-left-color: #f4a100 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos.estado-despachado {
+        border-left-color: #f2b31b !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos.estado-completado,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos.estado-finalizado {
+        border-left-color: #2d9d46 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-conduce-lista {
+        grid-area: conduce !important;
+        min-width: 0 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-conduce-lista strong {
+        display: block !important;
+        overflow: hidden !important;
+        font-size: var(--ui-fs-12, 12px) !important;
+        line-height: 1.2 !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-conduce-lista small,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-fecha-lista small,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-destino-centro-despachos,
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-numerico-despacho {
+        display: none !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-estado-centro-despachos {
+        grid-area: estado !important;
+        min-width: 0 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .etiqueta-estado-despacho {
+        display: inline !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        font-size: var(--ui-fs-10, 10px) !important;
+        font-weight: 700 !important;
+        line-height: 1.15 !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-chofer-centro-despachos {
+        grid-area: chofer !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+        color: var(--bon-texto-secundario, #718096) !important;
+        font-size: var(--ui-fs-10, 10px) !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .dato-fecha-lista {
+        grid-area: fecha !important;
+        justify-self: end !important;
+        color: var(--bon-texto-secundario, #718096) !important;
+        font-size: var(--ui-fs-9, 9px) !important;
+        white-space: nowrap !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .acciones-lista-centro-despachos {
+        display: flex !important;
+        grid-area: acciones !important;
+        align-self: center !important;
+        justify-content: flex-end !important;
+        gap: 5px !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-accion-centro-despachos {
+        display: inline-flex !important;
+        width: 31px !important;
+        height: 31px !important;
+        min-width: 31px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50% !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-accion-centro-despachos.ver {
+        background: #2d9d46 !important;
+        color: #ffffff !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-accion-centro-despachos.finalizar {
+        background: #2477c5 !important;
+        color: #ffffff !important;
+    }
+
+    body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .btn-accion-centro-despachos.continuar {
+        background: #f4a100 !important;
+        color: #ffffff !important;
+    }
+
+    html[data-tema="oscuro"] body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos,
+    html[data-theme="dark"] body.centro-despachos-abierto
+    #contenidoModal.modo-centro-despachos
+    .fila-centro-despachos {
+        border-top-color: #425063 !important;
+        border-right-color: #425063 !important;
+        border-bottom-color: #425063 !important;
+        background: #293545 !important;
+        color: #edf2f7 !important;
+    }
+
+    .modal-gestion-epp .epp-toolbar {
+        align-items: stretch !important;
+    }
+
+    .modal-gestion-epp .epp-toolbar-acciones {
+        display: grid !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .modal-gestion-epp .epp-alternar-filtros {
+        display: flex !important;
+        width: 100% !important;
+        min-height: 35px !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0 3px !important;
+        border: 0 !important;
+        border-bottom: 1px solid var(--bon-borde, #dce2e8) !important;
+        background: transparent !important;
+        color: inherit !important;
+        font: inherit !important;
+        font-weight: 700 !important;
+    }
+
+    .modal-gestion-epp .epp-alternar-filtros > span {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+    }
+
+    .modal-gestion-epp .epp-alternar-filtros > i {
+        color: #d7193f !important;
+        transition: transform 200ms ease !important;
+    }
+
+    .modal-gestion-epp .epp-alternar-filtros[aria-expanded="true"] > i {
+        transform: rotate(180deg) !important;
+    }
+
+    .modal-gestion-epp .epp-panel-filtros {
+        display: grid !important;
+        max-height: 0 !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        transition: max-height 230ms ease, opacity 180ms ease !important;
+    }
+
+    .modal-gestion-epp .epp-panel-filtros.epp-panel-filtros-abierto {
+        max-height: 120px !important;
+        gap: 8px !important;
+        opacity: 1 !important;
+    }
+
+    .modal-gestion-epp .epp-panel-filtros input,
+    .modal-gestion-epp .epp-panel-filtros select {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+}

@@ -16,6 +16,9 @@ window.RecepcionMateriales = {
     camaraActiva: "",
     origenTraslado: "Carritos",
     horaInicioIngreso: "",
+    participantesIngreso: [],
+    colaboradoresRecepcion: null,
+    elementoEnfoqueAnterior: null,
     resumenAcumulado: null,
     tieneRegistrosPrevios: false,
     analiticaOperativa: [],
@@ -61,8 +64,12 @@ window.RecepcionMateriales = {
 
         <header class="recepcion-encabezado">
 
-          <div>
-            <h2>Recepci\u00f3n de materiales</h2>
+          <div class="recepcion-encabezado-identidad">
+            <span class="recepcion-encabezado-etiqueta">Operaci\u00f3n de almac\u00e9n</span>
+            <h2>
+              <i class="fa-solid fa-dolly" aria-hidden="true"></i>
+              <span>Recepci\u00f3n de materiales</span>
+            </h2>
             <p>
               Registre el ingreso de los materiales y su distribuci\u00f3n
               entre las c\u00e1maras.
@@ -242,6 +249,8 @@ await this.cargarCatalogos();
 
     const modal = this.asegurarModalAsistente();
 
+    this.estado.elementoEnfoqueAnterior = document.activeElement;
+
     const tituloElemento =
       document.getElementById(
         "tituloAsistenteRecepcion"
@@ -253,6 +262,7 @@ await this.cargarCatalogos();
     }
 
     modal.classList.remove("oculto");
+    modal.removeAttribute("inert");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add(
       "asistente-recepcion-abierto"
@@ -269,8 +279,17 @@ await this.cargarCatalogos();
       );
 
     if (modal) {
+      if (modal.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
       modal.classList.add("oculto");
+      modal.setAttribute("inert", "");
       modal.setAttribute("aria-hidden", "true");
+    }
+
+    const devolverEnfoque = this.estado.elementoEnfoqueAnterior;
+    if (devolverEnfoque && document.contains(devolverEnfoque)) {
+      devolverEnfoque.focus({ preventScroll: true });
     }
 
     document.body.classList.remove(
@@ -283,6 +302,7 @@ await this.cargarCatalogos();
     this.estado.distribucion = {};
     this.estado.camaraActiva = "";
     this.estado.horaInicioIngreso = "";
+    this.estado.participantesIngreso = [];
     this.estado.resumenAcumulado = null;
     this.estado.tieneRegistrosPrevios = false;
 
@@ -317,6 +337,7 @@ await this.cargarCatalogos();
     this.estado.distribucion = {};
     this.estado.camaraActiva = "";
     this.estado.horaInicioIngreso = "";
+    this.estado.participantesIngreso = [];
     this.estado.resumenAcumulado = null;
     this.estado.tieneRegistrosPrevios = false;
 
@@ -324,7 +345,7 @@ await this.cargarCatalogos();
       "Asistente de Recepci\u00f3n"
     );
 
-    this.mostrarInicioNuevaRecepcion();
+    this.renderSeleccionMaterial();
 
   },
 
@@ -1394,6 +1415,11 @@ configurarScrollInterno() {
       return;
     }
 
+    if (!this.estado.materialSeleccionado) {
+      this.renderSeleccionMaterial();
+      return;
+    }
+
     panel.innerHTML = `
       <section class="recepcion-paso">
 
@@ -1408,7 +1434,7 @@ configurarScrollInterno() {
           </button>
 
           <div>
-            <span>Nueva recepci\u00f3n</span>
+            <span>${this.escapar(this.estado.materialSeleccionado.descripcion || "Nueva recepci\u00f3n")}</span>
             <h3>\u00bfC\u00f3mo recibiste el material?</h3>
           </div>
 
@@ -1418,7 +1444,7 @@ configurarScrollInterno() {
 
           <button
             type="button"
-            class="opcion-origen-recepcion activo"
+            class="opcion-origen-recepcion"
             data-origen="Carritos"
           >
             <i class="fa-solid fa-dolly"></i>
@@ -1462,14 +1488,14 @@ configurarScrollInterno() {
             class="btn-recepcion principal"
           >
             <i class="fa-solid fa-play"></i>
-            Iniciar recepci\u00f3n
+            Continuar
           </button>
         </div>
 
       </section>
     `;
 
-    this.estado.origenTraslado = "Carritos";
+    this.estado.origenTraslado = "";
 
     panel
       .querySelectorAll("[data-origen]")
@@ -1494,11 +1520,16 @@ configurarScrollInterno() {
 
     document
       .getElementById("btnVolverRecepciones")
-      .onclick = () => this.cerrarAsistente();
+      .onclick = () => this.renderSeleccionMaterial();
 
     document
       .getElementById("btnIniciarRecepcion")
       .onclick = () => {
+
+        if (!this.estado.origenTraslado) {
+          this.notificar("Seleccione la v\u00eda por la que recibi\u00f3 el material.", "advertencia");
+          return;
+        }
 
         const inputHora =
           document.getElementById(
@@ -1523,21 +1554,16 @@ configurarScrollInterno() {
         this.estado.horaInicioIngreso =
           horaInicio;
 
-        /*
-         * IMPORTANTE:
-         * Todav\u00eda NO se crea la recepci\u00f3n en Google Sheets.
-         * Primero el auxiliar debe seleccionar un material.
-         * La creaci\u00f3n real ocurre despu\u00e9s de validar que ese material
-         * no tenga otra recepci\u00f3n abierta.
-         */
         this.estado.recepcionActual = {
           idRecepcion: "",
           turno: "",
           horaInicio: horaInicio,
-          estado: "PENDIENTE MATERIAL"
+          material: this.estado.materialSeleccionado.id || this.estado.materialSeleccionado.material,
+          detalle: this.estado.materialSeleccionado.descripcion || "",
+          estado: "PENDIENTE DISTRIBUCION"
         };
 
-        this.renderSeleccionMaterial();
+        this.mostrarParticipantesIngreso();
 
       };
 
@@ -1593,15 +1619,6 @@ configurarScrollInterno() {
       return;
     }
 
-    if (!this.estado.horaInicioIngreso) {
-      this.notificar(
-        "Debe indicar la hora real de inicio antes de seleccionar el material.",
-        "advertencia"
-      );
-      this.mostrarInicioNuevaRecepcion();
-      return;
-    }
-
     this.mostrarCarga(
       "Validando material",
       "Comprobando si existe una recepci\u00f3n en curso."
@@ -1620,10 +1637,7 @@ configurarScrollInterno() {
           sesion.nombre ||
           sesion.Nombre ||
           "Usuario",
-        origenTraslado:
-          this.estado.origenTraslado,
-        horaInicio:
-          this.estado.horaInicioIngreso,
+        soloValidar: true,
         material:
           codigoMaterial,
         detalle:
@@ -1653,9 +1667,7 @@ configurarScrollInterno() {
         );
       }
 
-      this.estado.recepcionActual =
-        respuesta.data.recepcion;
-
+      this.estado.recepcionActual = null;
       this.estado.materialSeleccionado = material;
       this.estado.distribucion = {};
       this.estado.camaraActiva = "";
@@ -1667,20 +1679,10 @@ configurarScrollInterno() {
       );
 
       if (titulo) {
-        titulo.textContent =
-          "Recepci\u00f3n \u00b7 " +
-          this.estado.recepcionActual.idRecepcion;
+        titulo.textContent = detalleMaterial || codigoMaterial;
       }
 
-      this.renderDistribucionCamaras();
-
-      this.notificar(
-        "Recepci\u00f3n iniciada para " +
-          codigoMaterial +
-          (detalleMaterial ? " - " + detalleMaterial : "") +
-          ".",
-        "exito"
-      );
+      this.mostrarInicioNuevaRecepcion();
 
     } catch (error) {
 
@@ -2110,7 +2112,7 @@ configurarScrollInterno() {
     }
 
     panel.innerHTML = `
-      ${this.renderBarraRecepcion()}
+      ${this.estado.recepcionActual && this.estado.recepcionActual.idRecepcion ? this.renderBarraRecepcion() : ""}
 
       ${this.renderAvanceAcumuladoRecepcion()}
 
@@ -2158,9 +2160,10 @@ configurarScrollInterno() {
       </section>
     `;
 
-    document
-      .getElementById("btnSalirRecepcionActual")
-      .onclick = () => this.cerrarAsistente();
+    const botonSalirRecepcion = document.getElementById("btnSalirRecepcionActual");
+    if (botonSalirRecepcion) {
+      botonSalirRecepcion.onclick = () => this.cerrarAsistente();
+    }
 
     const input =
       document.getElementById(
@@ -2510,6 +2513,82 @@ configurarScrollInterno() {
   },
 
 
+  async mostrarParticipantesIngreso() {
+
+    const panel = this.obtenerContenedorAsistente();
+    if (!panel || !this.estado.materialSeleccionado) return;
+
+    if (!Array.isArray(this.estado.colaboradoresRecepcion)) {
+      this.mostrarCarga("Cargando colaboradores", "Preparando los participantes de la recepci\u00f3n.");
+      try {
+        const respuesta = await API.post({ action: "listarAuxiliaresRecepcionMateriales" });
+        if (!respuesta || respuesta.ok !== true) {
+          throw new Error(respuesta && respuesta.mensaje || "No fue posible consultar los colaboradores.");
+        }
+        this.estado.colaboradoresRecepcion = Array.isArray(respuesta.data && respuesta.data.colaboradores)
+          ? respuesta.data.colaboradores
+          : [];
+      } catch (error) {
+        this.notificar(error.message || "No fue posible cargar los colaboradores.", "error");
+        return;
+      } finally {
+        this.ocultarCarga();
+      }
+    }
+
+    const sesion = this.obtenerSesion();
+    const idActual = String(sesion.id || sesion.ID_Usuario || sesion.IDEmpleado || sesion.usuario || "").trim();
+    const nombreActual = String(sesion.nombre || sesion.Nombre || "Usuario").trim();
+    const opciones = this.estado.colaboradoresRecepcion
+      .filter(colaborador => String(colaborador.id || "").trim() !== idActual)
+      .map(colaborador => `<option value="${this.escapar(colaborador.id)}">${this.escapar(colaborador.nombre)}${colaborador.turno ? " · " + this.escapar(colaborador.turno) : ""}</option>`)
+      .join("");
+
+    panel.innerHTML = `
+      ${this.estado.recepcionActual && this.estado.recepcionActual.idRecepcion ? this.renderBarraRecepcion() : ""}
+      <section class="recepcion-paso recepcion-participantes-paso">
+        <header class="recepcion-paso-encabezado">
+          <button type="button" id="btnVolverOrigenParticipantes" class="btn-icono-recepcion" aria-label="Volver al origen"><i class="fa-solid fa-arrow-left"></i></button>
+          <div><span>Equipo de recepci\u00f3n</span><h3>\u00bfQui\u00e9nes participaron en este ingreso?</h3></div>
+        </header>
+        <div class="recepcion-participante-principal"><i class="fa-solid fa-user-check"></i><div><strong>${this.escapar(nombreActual)}</strong><span>Responsable que registra la recepci\u00f3n</span></div></div>
+        <p class="recepcion-participantes-ayuda">Puedes agregar hasta cuatro compa\u00f1eros adicionales. Si trabajaste solo, contin\u00faa sin seleccionar ninguno.</p>
+        <div class="recepcion-participantes-grid">${[0,1,2,3].map(indice => `<label>Colaborador ${indice + 2}<select class="recepcion-participante-select" data-participante="${indice}"><option value="">Seleccionar colaborador...</option>${opciones}</select></label>`).join("")}</div>
+        <div class="recepcion-acciones-finales"><button type="button" id="btnConfirmarParticipantesRecepcion" class="btn-recepcion principal"><i class="fa-solid fa-arrow-right"></i> Continuar</button></div>
+      </section>`;
+
+    panel.querySelectorAll(".recepcion-participante-select").forEach(select => {
+      select.addEventListener("change", () => {
+        const seleccionados = new Set(Array.from(panel.querySelectorAll(".recepcion-participante-select"))
+          .map(item => item.value).filter(Boolean));
+        panel.querySelectorAll(".recepcion-participante-select").forEach(item => {
+          Array.from(item.options).forEach(opcion => {
+            opcion.disabled = Boolean(opcion.value && opcion.value !== item.value && seleccionados.has(opcion.value));
+          });
+        });
+      });
+    });
+
+    document.getElementById("btnVolverOrigenParticipantes").onclick = () => {
+      if (this.estado.recepcionActual && this.estado.recepcionActual.idRecepcion) {
+        this.mostrarOrigenNuevoIngreso();
+      } else {
+        this.mostrarInicioNuevaRecepcion();
+      }
+    };
+
+    document.getElementById("btnConfirmarParticipantesRecepcion").onclick = () => {
+      this.estado.participantesIngreso = Array.from(panel.querySelectorAll(".recepcion-participante-select"))
+        .map(select => this.estado.colaboradoresRecepcion.find(colaborador => String(colaborador.id) === select.value))
+        .filter(Boolean)
+        .map(colaborador => ({ id: colaborador.id, nombre: colaborador.nombre }));
+      this.renderDistribucionCamaras();
+    };
+
+    const botonSalir = document.getElementById("btnSalirRecepcionActual");
+    if (botonSalir) botonSalir.onclick = () => this.cerrarAsistente();
+  },
+
 mostrarOrigenNuevoIngreso() {
 
   const panel =
@@ -2752,7 +2831,7 @@ mostrarOrigenNuevoIngreso() {
           horaInicio;
 
 
-        this.renderDistribucionCamaras();
+        this.mostrarParticipantesIngreso();
 
       };
 
@@ -3590,6 +3669,11 @@ if (
 
   }
 
+  if (distribucion.reduce((total, item) => total + Number(item.tarimasCompletas || 0), 0) <= 0) {
+    this.notificar("Debe registrar por lo menos una tarima para guardar la recepci\u00f3n.", "advertencia");
+    return;
+  }
+
 
   const fechaProduccion =
     await this.solicitarFechaProduccion();
@@ -3681,7 +3765,7 @@ if (
           "guardarDistribucionMaterialRecepcion",
 
         idRecepcion:
-          recepcion.idRecepcion,
+          recepcion && recepcion.idRecepcion || "",
 
         material:
           material.id ||
@@ -3707,6 +3791,12 @@ if (
           sesion.Nombre ||
           "Usuario",
 
+        detalle:
+          material.descripcion || "",
+
+        participantes:
+          this.estado.participantesIngreso || [],
+
         distribucion:
           distribucion
 
@@ -3725,6 +3815,16 @@ if (
           : "No fue posible guardar la distribuci\u00f3n."
       );
 
+    }
+
+    if (respuesta.data && respuesta.data.idRecepcion) {
+      this.estado.recepcionActual = Object.assign({}, this.estado.recepcionActual || {}, {
+        idRecepcion: respuesta.data.idRecepcion,
+        material: material.id || material.material,
+        detalle: material.descripcion || "",
+        horaInicio: horaInicioIngreso,
+        origenTraslado: origenIngreso
+      });
     }
 
 
@@ -4273,9 +4373,15 @@ async cerrarAsistenteDespuesDeGuardar() {
 
   if (modalAsistente) {
 
+    if (modalAsistente.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+
     modalAsistente.classList.add(
       "oculto"
     );
+
+    modalAsistente.setAttribute("inert", "");
 
     modalAsistente.setAttribute(
       "aria-hidden",
@@ -4308,6 +4414,8 @@ async cerrarAsistenteDespuesDeGuardar() {
 
   this.estado.camaraActiva =
     "";
+
+  this.estado.participantesIngreso = [];
 
   this.estado.resumenAcumulado =
     null;

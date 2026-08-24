@@ -29,17 +29,24 @@ window.GestionEPP={
    this.solicitudes=reiniciar?(d.registros||[]):this.solicitudes.concat(d.registros||[]);this.hayMas=d.hayMas===true;this.renderSolicitudes();
   }catch(e){Sistema.error(e.message);}finally{CargadorSistema.ocultar();this.cargando=false;}
  },
- renderSolicitudes(){const c=document.getElementById("eppContenido");if(!c)return;const p=this.datos.permisos||{};
+ renderSolicitudes(){const c=document.getElementById("eppContenido");if(!c)return;const p=this.datos.permisos||{},estadoGrupos={};
+  c.querySelectorAll("details[data-epp-grupo]").forEach(g=>estadoGrupos[g.dataset.eppGrupo]=g.open);
+  const abiertas=this.solicitudes.filter(r=>["PENDIENTE","COMPROMETIDA","PENDIENTE AUTORIZACION","AUTORIZADA"].includes(this.clave(r.Estado_Solicitud)));
+  const entregadas=this.solicitudes.filter(r=>this.clave(r.Estado_Solicitud)==="ENTREGADA");
+  const rechazadas=this.solicitudes.filter(r=>!abiertas.includes(r)&&!entregadas.includes(r));
   c.innerHTML=`<header class="epp-toolbar"><div><span>${p.gestionar?"GESTIÓN OPERATIVA":"SEGURIDAD PERSONAL"}</span><h3>${p.gestionar?"Solicitudes de colaboradores":"Mis solicitudes"}</h3></div>
   <div class="epp-toolbar-acciones"><button type="button" id="eppAlternarFiltros" class="epp-alternar-filtros" aria-expanded="false" aria-controls="eppPanelFiltros"><span><i class="fa-solid fa-sliders"></i>Filtros</span><i class="fa-solid fa-chevron-down"></i></button>
   <div id="eppPanelFiltros" class="epp-panel-filtros"><input id="eppBuscar" type="search" placeholder="Buscar..."><select id="eppFiltroEstado">
   <option value="TODAS">Todos los estados</option><option value="PENDIENTE">Pendientes</option><option value="PENDIENTE_AUTORIZACION">Por autorizar</option>
   <option value="COMPROMETIDA">Con compromiso</option><option value="ENTREGADA">Entregadas</option><option value="RECHAZADA">Rechazadas</option></select></div>
   ${p.solicitar?`<button id="eppNuevaSolicitud" class="epp-btn primario"><i class="fa-solid fa-plus"></i>Nueva solicitud</button>`:""}</div></header>
-  <div class="epp-listado">${this.solicitudes.length?this.solicitudes.map(r=>this.tarjetaSolicitud(r)).join(""):`<div class="epp-vacio"><i class="fa-solid fa-shield-halved"></i><strong>No hay solicitudes</strong></div>`}</div>
+  <div class="epp-listado">${this.solicitudes.length?`${this.grupoSolicitudes("ABIERTAS","fa-folder-open",abiertas,estadoGrupos.abiertas!==undefined?estadoGrupos.abiertas:true,"abiertas")}${this.grupoSolicitudes("ENTREGADAS","fa-circle-check",entregadas,estadoGrupos.entregadas===true,"entregadas")}${this.grupoSolicitudes("RECHAZADAS","fa-circle-xmark",rechazadas,estadoGrupos.rechazadas===true,"rechazadas")}`:`<div class="epp-vacio"><i class="fa-solid fa-shield-halved"></i><strong>No hay solicitudes</strong></div>`}</div>
   ${this.hayMas?`<div class="epp-cargar-mas"><button id="eppCargarMas" class="epp-btn secundario"><i class="fa-solid fa-plus"></i>Cargar ${this.limite} más</button></div>`:""}`;
   this.eventosSolicitudes();
  },
+ grupoSolicitudes(titulo,icono,registros,abierto,clave){if(!registros.length)return"";return`<details class="epp-grupo-solicitudes" data-epp-grupo="${clave}" ${abierto?"open":""}>
+  <summary class="epp-grupo-cabecera"><span><i class="fa-solid ${icono}"></i>${titulo}</span><span class="epp-grupo-conteo">${registros.length}</span><i class="fa-solid fa-chevron-down epp-grupo-flecha"></i></summary>
+  <div class="epp-grupo-contenido">${registros.map(r=>this.tarjetaSolicitud(r)).join("")}</div></details>`;},
  tarjetaSolicitud(r){const s=r.semaforo||{},e=this.clave(r.Estado_Solicitud),p=this.datos.permisos||{};
   const activa=["PENDIENTE","COMPROMETIDA","PENDIENTE AUTORIZACION","AUTORIZADA"].includes(e);
   const entregar=p.gestionar&&["PENDIENTE","COMPROMETIDA","AUTORIZADA"].includes(e)&&!(this.clave(r.Requiere_Autorizacion)==="SI"&&e!=="AUTORIZADA");
@@ -98,7 +105,29 @@ window.GestionEPP={
   const foto=(this.datos.reglas?.evidenciaObligatoria||[]).some(v=>this.clave(v)===this.clave(tipo));if(!tipo||!talla||!motivo)return Sistema.error("Complete tipo, talla y motivo.");if(foto&&!this.evidencia)return Sistema.error("Debe tomar la fotografía.");
   await this.ejecutar(b,"Enviando solicitud","Registrando su solicitud.",{action:"crearSolicitudEPP",tipoEPP:tipo,talla:talla,motivoSolicitud:motivo,comentario:document.getElementById("eppComentario").value,
    justificacionAutorizacion:document.getElementById("eppJustificacion").value,evidenciaBase64:this.evidencia||"",evidenciaMime:"image/jpeg"},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
- async entregar(id,b){if(confirm("¿Confirma la entrega?"))await this.ejecutar(b,"Registrando entrega","Actualizando inventario.",{action:"entregarSolicitudEPP",idSolicitud:id},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
+ async confirmarEntrega(id){
+  const solicitud=(this.solicitudes||[]).find(r=>String(r.ID_Solicitud)===String(id))||{};
+  document.getElementById("eppConfirmacionEntrega")?.remove();
+  const enfoqueAnterior=document.activeElement,ventana=document.createElement("div");
+  ventana.id="eppConfirmacionEntrega";ventana.className="epp-confirmacion-fondo";
+  ventana.innerHTML=`<section class="epp-confirmacion-dialogo" role="dialog" aria-modal="true" aria-labelledby="eppConfirmacionTitulo" aria-describedby="eppConfirmacionMensaje">
+   <button type="button" class="epp-confirmacion-cerrar" data-epp-confirmar="no" aria-label="Cerrar confirmación"><i class="fa-solid fa-xmark"></i></button>
+   <div class="epp-confirmacion-icono"><i class="fa-solid fa-box-open"></i></div>
+   <span class="epp-confirmacion-etiqueta">SEGURIDAD PERSONAL</span>
+   <h3 id="eppConfirmacionTitulo">Confirmar entrega de EPP</h3>
+   <p id="eppConfirmacionMensaje">¿Confirma que este equipo fue entregado al colaborador?</p>
+   ${solicitud.Tipo_EPP||solicitud.Colaborador_Nombre?`<div class="epp-confirmacion-detalle">${solicitud.Tipo_EPP?`<strong>${this.esc(solicitud.Tipo_EPP)}${solicitud.Talla&&solicitud.Talla!=="UNICA"?` · ${this.esc(solicitud.Talla)}`:""}</strong>`:""}${solicitud.Colaborador_Nombre?`<span><i class="fa-solid fa-user"></i>${this.esc(solicitud.Colaborador_Nombre)}</span>`:""}</div>`:""}
+   <div class="epp-confirmacion-acciones"><button type="button" class="epp-btn secundario" data-epp-confirmar="no">Cancelar</button><button type="button" class="epp-btn primario" data-epp-confirmar="si"><i class="fa-solid fa-check"></i>Confirmar entrega</button></div>
+  </section>`;
+  document.body.appendChild(ventana);
+  return new Promise(resolver=>{let resuelto=false;
+   const cerrar=confirmado=>{if(resuelto)return;resuelto=true;document.removeEventListener("keydown",tecla);ventana.remove();if(enfoqueAnterior&&document.contains(enfoqueAnterior))enfoqueAnterior.focus({preventScroll:true});resolver(confirmado);};
+   const tecla=e=>{if(e.key==="Escape"){e.preventDefault();cerrar(false);}};
+   ventana.addEventListener("click",e=>{const accion=e.target.closest("[data-epp-confirmar]");if(accion)cerrar(accion.dataset.eppConfirmar==="si");else if(e.target===ventana)cerrar(false);});
+   document.addEventListener("keydown",tecla);ventana.querySelector('[data-epp-confirmar="si"]')?.focus();
+  });
+ },
+ async entregar(id,b){if(!await this.confirmarEntrega(id))return;await this.ejecutar(b,"Registrando entrega","Actualizando inventario.",{action:"entregarSolicitudEPP",idSolicitud:id},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
  async autorizar(id,b){if(confirm("¿Autorizar solicitud excepcional?"))await this.ejecutar(b,"Autorizando","Registrando autorización.",{action:"autorizarSolicitudEPP",idSolicitud:id},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
  compromiso(id){const f=prompt("Fecha de compromiso (AAAA-MM-DD):"),m=f&&prompt("Motivo:");if(f&&m)this.ejecutar(null,"Guardando compromiso","Actualizando solicitud.",{action:"establecerCompromisoEPP",idSolicitud:id,fechaCompromiso:f,motivoCompromiso:m},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},
  rechazar(id){const m=prompt("Justifique el rechazo:");if(m)this.ejecutar(null,"Rechazando","Registrando decisión.",{action:"rechazarSolicitudEPP",idSolicitud:id,motivoRechazo:m},async r=>{Sistema.exito(r.mensaje);await this.refrescarTodo();});},

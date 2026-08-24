@@ -334,10 +334,12 @@ const Sistema = {
             return false;
         }
 
+        const rol = this.normalizarPermiso(sesion.rol);
+
         return (
             sesion.accesoTotal === true ||
-            this.normalizarPermiso(sesion.rol) ===
-                "ADMINISTRADOR"
+            rol === "ADMINISTRADOR" ||
+            rol === "ENCARGADO"
         );
 
     },

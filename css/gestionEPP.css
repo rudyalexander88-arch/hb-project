@@ -238,6 +238,117 @@ html[data-tema="oscuro"] .epp-btn.peligro{background:#4a252d;color:#ffd8dd;borde
     }
 }
 
+/* ============================================================
+   SOLICITUDES EPP: GRUPOS DESPLEGABLES
+
+   Abiertas inicia visible. Entregadas y rechazadas inician
+   contraídas. Conserva intactas las tarjetas y sus acciones.
+   ============================================================ */
+
+.modal-gestion-epp .epp-listado {
+    gap: 10px;
+}
+
+.modal-gestion-epp .epp-grupo-solicitudes {
+    min-width: 0;
+}
+
+.modal-gestion-epp .epp-grupo-cabecera {
+    display: grid;
+    grid-template-columns: auto minmax(24px, auto) 15px;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    padding: 0 3px;
+    color: var(--bon-texto, #243040);
+    font: 800 var(--ui-fs-11, 11px) Poppins, sans-serif;
+    cursor: pointer;
+    list-style: none;
+}
+
+.modal-gestion-epp .epp-grupo-cabecera::-webkit-details-marker {
+    display: none;
+}
+
+.modal-gestion-epp .epp-grupo-cabecera::after {
+    content: "";
+    position: relative;
+    z-index: 0;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    align-self: center;
+    height: 1px;
+    margin-left: 112px;
+    background: var(--bon-borde, #d8dfe7);
+}
+
+.modal-gestion-epp .epp-grupo-cabecera > span,
+.modal-gestion-epp .epp-grupo-flecha {
+    position: relative;
+    z-index: 1;
+}
+
+.modal-gestion-epp .epp-grupo-cabecera > span:first-child {
+    display: inline-flex;
+    grid-column: 1;
+    grid-row: 1;
+    align-items: center;
+    gap: 7px;
+    padding-right: 9px;
+    background: var(--bon-superficie, #f8f9fa);
+}
+
+.modal-gestion-epp .epp-grupo-cabecera > span:first-child i {
+    color: #ce1d45;
+}
+
+.modal-gestion-epp .epp-grupo-conteo {
+    display: inline-grid;
+    grid-column: 2;
+    grid-row: 1;
+    place-items: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    border: 1px solid var(--bon-borde, #d8dfe7);
+    border-radius: 999px;
+    background: var(--bon-superficie-suave, #eef2f5);
+    color: var(--bon-texto-secundario, #596779);
+    font-size: 9px;
+}
+
+.modal-gestion-epp .epp-grupo-flecha {
+    grid-column: 3;
+    grid-row: 1;
+    padding-left: 3px;
+    background: var(--bon-superficie, #f8f9fa);
+    color: #ce1d45;
+    transition: transform .2s ease;
+}
+
+.modal-gestion-epp .epp-grupo-solicitudes[open]
+.epp-grupo-flecha {
+    transform: rotate(180deg);
+}
+
+.modal-gestion-epp .epp-grupo-contenido {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0 2px;
+}
+
+@media (max-width: 600px) {
+    .modal-gestion-epp .epp-grupo-cabecera {
+        min-height: 36px;
+        font-size: var(--ui-fs-10, 10px);
+    }
+
+    .modal-gestion-epp .epp-grupo-cabecera::after {
+        margin-left: 104px;
+    }
+}
+
 @media (max-width: 600px) {
     .modal-gestion-epp .epp-contenido {
         padding: 9px;
@@ -290,400 +401,191 @@ html[data-tema="oscuro"] .epp-btn.peligro{background:#4a252d;color:#ffd8dd;borde
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
-/* ============================================================
-   CONFIRMACIÓN PERSONALIZADA DE ENTREGA EPP
-   Pegar al final de gestionEPP.css
-   ============================================================ */
 
-.epp-confirmacion-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 25000;
-
-  display: grid;
-  place-items: center;
-
-  padding: 18px;
-
-  background: rgba(12, 17, 25, 0.64);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+/* Confirmación corporativa de entrega: conserva visible el asistente EPP. */
+.epp-confirmacion-fondo {
+    position: fixed;
+    z-index: 12050;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(13, 20, 30, .62);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
 }
 
 .epp-confirmacion-dialogo {
-  position: relative;
-
-  width: min(430px, 100%);
-  overflow: hidden;
-
-  border: 1px solid #dfe5eb;
-  border-radius: 15px;
-
-  background: #ffffff;
-  color: #182331;
-
-  box-shadow: 0 22px 65px rgba(0, 0, 0, 0.26);
-
-  animation: eppConfirmacionAparecer 0.18s ease-out;
-}
-
-.epp-confirmacion-dialogo::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-
-  height: 4px;
-
-  background: linear-gradient(
-    90deg,
-    #d0193b 0%,
-    #ec5a19 65%,
-    #f5a000 100%
-  );
-
-  content: "";
-}
-
-.epp-confirmacion-encabezado {
-  display: flex;
-  align-items: center;
-
-  gap: 11px;
-
-  padding: 19px 18px 14px;
-
-  border-bottom: 1px solid #e7ebef;
-}
-
-.epp-confirmacion-icono {
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 42px;
-
-  width: 42px;
-  height: 42px;
-
-  border-radius: 11px;
-
-  background: #fcecef;
-  color: #d0193b;
-
-  font-size: 17px;
-}
-
-.epp-confirmacion-encabezado > div {
-  flex: 1;
-  min-width: 0;
-}
-
-.epp-confirmacion-encabezado small {
-  display: block;
-
-  margin-bottom: 3px;
-
-  color: #d0193b;
-
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.65px;
-}
-
-.epp-confirmacion-encabezado h3 {
-  margin: 0;
-
-  color: #182331;
-
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.2;
+    position: relative;
+    width: min(420px, 100%);
+    padding: 26px 24px 20px;
+    border: 1px solid var(--bon-borde, #d8dfe7);
+    border-top: 4px solid #ce1d45;
+    border-radius: 16px;
+    background: var(--bon-superficie-elevada, #ffffff);
+    color: var(--bon-texto, #202327);
+    box-shadow: 0 18px 55px rgba(0, 0, 0, .24);
+    font-family: Poppins, sans-serif;
 }
 
 .epp-confirmacion-cerrar {
-  display: grid;
-  place-items: center;
-
-  width: 31px;
-  height: 31px;
-
-  border: 0;
-  border-radius: 8px;
-
-  background: #f1f3f5;
-  color: #566171;
-
-  cursor: pointer;
+    position: absolute;
+    top: 13px;
+    right: 13px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 1px solid var(--bon-borde, #d8dfe7);
+    border-radius: 9px;
+    background: var(--bon-superficie-suave, #f1f3f5);
+    color: var(--bon-texto-secundario, #59616b);
+    cursor: pointer;
 }
 
-.epp-confirmacion-cerrar:hover {
-  background: #fdecef;
-  color: #d0193b;
+.epp-confirmacion-icono {
+    display: grid;
+    width: 49px;
+    height: 49px;
+    margin-bottom: 13px;
+    place-items: center;
+    border-radius: 13px;
+    background: rgba(206, 29, 69, .11);
+    color: #ce1d45;
+    font-size: 20px;
 }
 
-.epp-confirmacion-contenido {
-  padding: 15px 18px 4px;
+.epp-confirmacion-etiqueta {
+    color: #ce1d45;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .06em;
 }
 
-.epp-confirmacion-contenido > p:first-child {
-  margin: 0 0 13px;
+.epp-confirmacion-dialogo h3 {
+    margin: 4px 0 7px;
+    color: var(--bon-texto, #202327);
+    font-size: clamp(16px, 4.3vw, 19px);
+    line-height: 1.3;
+}
 
-  color: #465162;
-
-  font-size: 12px;
-  line-height: 1.5;
+.epp-confirmacion-dialogo p {
+    margin: 0;
+    color: var(--bon-texto-secundario, #667180);
+    font-size: 12px;
+    line-height: 1.55;
 }
 
 .epp-confirmacion-detalle {
-  display: grid;
-  gap: 11px;
-
-  padding: 13px;
-
-  border: 1px solid #e5eaf0;
-  border-radius: 10px;
-
-  background: #f7f8fa;
-}
-
-.epp-confirmacion-detalle div {
-  display: grid;
-  gap: 3px;
-}
-
-.epp-confirmacion-detalle span {
-  color: #748091;
-
-  font-size: 10px;
-  font-weight: 600;
+    display: grid;
+    gap: 5px;
+    margin-top: 15px;
+    padding: 11px 12px;
+    border: 1px solid var(--bon-borde, #d8dfe7);
+    border-radius: 10px;
+    background: var(--bon-superficie-suave, #f1f3f5);
 }
 
 .epp-confirmacion-detalle strong {
-  color: #1d2938;
-
-  font-size: 12px;
-  font-weight: 750;
+    color: var(--bon-texto, #202327);
+    font-size: 12px;
 }
 
-.epp-confirmacion-advertencia {
-  display: flex;
-  align-items: center;
-
-  gap: 7px;
-
-  margin: 12px 0 0;
-
-  color: #637083;
-
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.epp-confirmacion-advertencia i {
-  color: #1f6fbd;
+.epp-confirmacion-detalle span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--bon-texto-secundario, #667180);
+    font-size: 11px;
 }
 
 .epp-confirmacion-acciones {
-  display: flex;
-  justify-content: flex-end;
-
-  gap: 9px;
-
-  padding: 15px 18px 17px;
-}
-
-.epp-confirmacion-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  gap: 7px;
-
-  min-height: 37px;
-
-  padding: 0 13px;
-
-  border: 1px solid transparent;
-  border-radius: 8px;
-
-  font: 700 11px Poppins, sans-serif;
-
-  cursor: pointer;
-}
-
-.epp-confirmacion-btn.secundario {
-  border-color: #dce3ea;
-
-  background: #f4f6f8;
-  color: #465264;
-}
-
-.epp-confirmacion-btn.secundario:hover {
-  background: #e9edf1;
-}
-
-.epp-confirmacion-btn.primario {
-  border-color: #c91e38;
-
-  background: #c91e38;
-  color: #ffffff;
-}
-
-.epp-confirmacion-btn.primario:hover {
-  background: #b71831;
-}
-
-@keyframes eppConfirmacionAparecer {
-  from {
-    opacity: 0;
-    transform: translateY(7px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Tema oscuro */
-
-html[data-tema="oscuro"] .epp-confirmacion-dialogo {
-  border-color: #354356;
-
-  background: #1b2532;
-  color: #eef3f8;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-encabezado {
-  border-bottom-color: #354356;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-icono {
-  background: rgba(208, 25, 59, 0.16);
-  color: #ff5b78;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-encabezado small {
-  color: #ff647f;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-encabezado h3 {
-  color: #f2f5fa;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-cerrar {
-  background: #263344;
-  color: #d5deea;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-contenido > p:first-child {
-  color: #d3dbe6;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-detalle {
-  border-color: #354356;
-
-  background: #222e3d;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-detalle span {
-  color: #a9b7c8;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-detalle strong {
-  color: #f1f5fb;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-advertencia {
-  color: #b7c5d5;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-advertencia i {
-  color: #76b7f1;
-}
-
-html[data-tema="oscuro"] .epp-confirmacion-btn.secundario {
-  border-color: #435165;
-
-  background: #263344;
-  color: #e3eaf2;
-}
-
-/* Pantallas pequeñas */
-
-@media (max-width: 480px) {
-  .epp-confirmacion-overlay {
-    padding: 14px;
-  }
-
-  .epp-confirmacion-encabezado {
-    padding: 17px 14px 13px;
-  }
-
-  .epp-confirmacion-contenido {
-    padding: 13px 14px 4px;
-  }
-
-  .epp-confirmacion-acciones {
     display: grid;
+    grid-template-columns: minmax(95px, 1fr) minmax(155px, 1.45fr);
+    gap: 9px;
+    margin-top: 19px;
+}
 
-    grid-template-columns: 1fr 1.25fr;
+.epp-confirmacion-acciones .epp-btn {
+    min-height: 39px;
+    padding: 0 10px;
+}
 
-    padding: 14px;
-  }
+@media (max-width: 380px) {
+    .epp-confirmacion-dialogo {
+        padding: 23px 16px 17px;
+    }
 
-  .epp-confirmacion-btn {
-    width: 100%;
+    .epp-confirmacion-acciones {
+        grid-template-columns: 1fr;
+    }
 
-    padding-inline: 8px;
-
-    font-size: 10px;
-  }
+    .epp-confirmacion-acciones .primario {
+        grid-row: 1;
+    }
 }
 
 /* ============================================================
-   SOLICITUDES EPP: ORGANIZACIÓN DE BOTONES
-   Rechazar y compromiso arriba; entregar abajo.
+   SOLICITUDES EPP: DISTRIBUCIÓN DE ACCIONES
+
+   Primera fila:  Rechazar  |  Compromiso
+   Segunda fila:         Entregar
+
+   No modifica la ventana de confirmación personalizada.
    ============================================================ */
 
-.epp-acciones-tarjeta:has([data-entregar]) {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-
-  width: 190px;
-
-  align-items: stretch;
+.modal-gestion-epp .epp-solicitud .epp-acciones-tarjeta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    gap: 6px;
 }
 
-.epp-acciones-tarjeta [data-rechazar] {
-  grid-column: 1;
-  grid-row: 1;
+.modal-gestion-epp
+.epp-solicitud
+.epp-acciones-tarjeta
+button[data-rechazar] {
+    grid-column: 1;
+    grid-row: 1;
 }
 
-.epp-acciones-tarjeta [data-compromiso] {
-  grid-column: 2;
-  grid-row: 1;
+.modal-gestion-epp
+.epp-solicitud
+.epp-acciones-tarjeta
+button[data-compromiso] {
+    grid-column: 2;
+    grid-row: 1;
 }
 
-.epp-acciones-tarjeta [data-entregar] {
-  grid-column: 1 / -1;
-  grid-row: 2;
-
-  width: 100%;
-}
-
-.epp-acciones-tarjeta:has([data-entregar]) button {
-  width: 100%;
-  min-height: 32px;
-
-  justify-content: center;
-}
-
-/* Adaptación para teléfonos. */
-
-@media (max-width: 600px) {
-  .epp-acciones-tarjeta:has([data-entregar]) {
+.modal-gestion-epp
+.epp-solicitud
+.epp-acciones-tarjeta
+button[data-entregar] {
+    grid-column: 1 / -1;
+    grid-row: 2;
     width: 100%;
-  }
+}
+
+.modal-gestion-epp
+.epp-solicitud
+.epp-acciones-tarjeta
+button[data-autorizar] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
+}
+
+.modal-gestion-epp
+.epp-solicitud
+.epp-acciones-tarjeta
+.epp-btn {
+    min-width: 0;
+}
+
+@media (max-width: 760px) {
+    .modal-gestion-epp
+    .epp-solicitud
+    .epp-acciones-tarjeta {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }

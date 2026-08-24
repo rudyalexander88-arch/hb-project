@@ -1185,3 +1185,86 @@
     }
 
 }
+
+/* ============================================================
+   HISTÓRICO DE METAS · DISTRIBUCIÓN RESPONSIVE DE ACCIONES
+   Escritorio: grupo alineado a la derecha.
+   Móvil: tres acciones en una sola línea.
+   Móvil muy estrecho: Actualizar + PDF arriba y Consultar debajo.
+   ============================================================ */
+
+.filtros-rango-metas .acciones-filtros-metas {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+}
+
+.filtros-rango-metas .acciones-filtros-metas > button {
+    width: auto;
+    margin: 0;
+}
+
+#btnActualizarHistoricoMetas {
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+}
+
+@media (max-width: 540px) {
+
+    .filtros-rango-metas .acciones-filtros-metas {
+        grid-column: auto;
+        display: grid;
+        grid-template-columns:
+            minmax(0, 1fr)
+            40px
+            minmax(70px, 82px);
+        align-items: stretch;
+        gap: 7px;
+    }
+
+    .filtros-rango-metas .acciones-filtros-metas > button,
+    .filtros-rango-metas .btn-consultar-rango-meta,
+    .filtros-rango-metas .btn-pdf-historico-metas {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+    }
+
+    #btnActualizarHistoricoMetas {
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
+        flex: 0 0 40px !important;
+    }
+}
+
+@media (max-width: 374px) {
+
+    .filtros-rango-metas .acciones-filtros-metas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+            "actualizar pdf"
+            "consultar consultar";
+    }
+
+    #btnActualizarHistoricoMetas {
+        grid-area: actualizar;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        flex: 1 1 auto !important;
+    }
+
+    #btnGenerarPDFHistoricoMetas {
+        grid-area: pdf;
+    }
+
+    #btnConsultarRangoMetas {
+        grid-area: consultar;
+    }
+}

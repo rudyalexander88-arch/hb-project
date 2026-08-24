@@ -983,11 +983,17 @@ if (!preservarEstado) {
 
             <div class="centro-despachos__encabezado">
 
-                <div class="centro-despachos__fila-superior">
+                <div>
 
                     <span class="centro-despachos__etiqueta">
                         Gestión y consulta
-                    </span>
+                    </span>                
+
+                    <p>
+                        Consulte, continúe y administre los conduces registrados en el sistema.
+                    </p>
+
+                </div>
 
                 <div class="centro-despachos__controles-vista">
 
@@ -1011,44 +1017,9 @@ if (!preservarEstado) {
 
                 </div>
 
-                </div>
-
-                <p class="centro-despachos__descripcion">
-                    Consulte y administre los conduces registrados.
-                </p>
-
             </div>
 
-            <section
-                id="tarjetaFiltrosCentroDespachos"
-                class="centro-despachos__tarjeta-filtros"
-            >
-
-            <button
-                type="button"
-                id="btnAlternarFiltrosCentroDespachos"
-                class="centro-despachos__alternar-filtros"
-                aria-expanded="false"
-                aria-controls="panelFiltrosCentroDespachos"
-            >
-                <span class="centro-despachos__titulo-filtros">
-                    <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-                    Filtros
-                </span>
-                <span
-                    class="centro-despachos__linea-filtros"
-                    aria-hidden="true"
-                ></span>
-                <i
-                    class="fa-solid fa-chevron-down centro-despachos__flecha-filtros"
-                    aria-hidden="true"
-                ></i>
-            </button>
-
-            <div
-                id="panelFiltrosCentroDespachos"
-                class="centro-despachos__filtros"
-            >
+            <div class="centro-despachos__filtros">
 
                 <div class="campo-filtro-despachos">
 
@@ -1171,11 +1142,6 @@ if (!preservarEstado) {
                 </button>
 
             </div>
-
-            </section>
-
-            <section class="centro-despachos__registros">
-
             <div class="centro-despachos__resumen">
 
 				<div class="centro-despachos__resumen-acciones">
@@ -1215,9 +1181,7 @@ if (!preservarEstado) {
 
                 </div>
 
-            </div>
-
-            </section>
+            </div>            
 
         </section>
     `;
@@ -2316,50 +2280,10 @@ configurarEventosCentroDespachos() {
             "btnLimpiarFiltrosCentroDespachos"
         );
 
-    const tarjetaFiltros =
-        document.getElementById(
-            "tarjetaFiltrosCentroDespachos"
-        );
-
-    const btnAlternarFiltros =
-        document.getElementById(
-            "btnAlternarFiltrosCentroDespachos"
-        );
-
-    const panelFiltros =
-        document.getElementById(
-            "panelFiltrosCentroDespachos"
-        );
-
     const lista =
         document.getElementById(
             "listaCentroDespachos"
         );
-
-    if (btnAlternarFiltros && tarjetaFiltros && panelFiltros) {
-
-        const pantallaCompacta =
-            typeof window.matchMedia === "function" &&
-            window.matchMedia("(max-width: 768px)").matches;
-
-        panelFiltros.inert = pantallaCompacta;
-
-        btnAlternarFiltros.onclick = () => {
-
-            const abierto = tarjetaFiltros.classList.toggle(
-                "centro-despachos__tarjeta-filtros--abierta"
-            );
-
-            btnAlternarFiltros.setAttribute(
-                "aria-expanded",
-                String(abierto)
-            );
-
-            panelFiltros.inert = !abierto;
-
-        };
-
-    }
 
     /*
      * Generamos los años sin depender de los primeros

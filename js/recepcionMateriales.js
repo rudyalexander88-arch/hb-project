@@ -89,6 +89,15 @@ window.RecepcionMateriales = {
 
           <div class="recepcion-encabezado-acciones">
 
+            <button
+              type="button"
+              id="btnActualizarRecepciones"
+              class="btn-recepcion secundario"
+            >
+              <i class="fa-solid fa-arrows-rotate"></i>
+              Actualizar
+            </button>
+
             ${
               (
                 Sistema.tieneAccesoModulo(
@@ -154,6 +163,37 @@ window.RecepcionMateriales = {
 
       botonNuevaRecepcion.onclick =
         () => this.abrirAsistenteNueva();
+
+    }
+
+
+    const botonActualizarRecepciones =
+      document.getElementById(
+        "btnActualizarRecepciones"
+      );
+
+    if (botonActualizarRecepciones) {
+
+      botonActualizarRecepciones.onclick =
+        async () => {
+
+          if (
+            window.CacheOperativo &&
+            typeof CacheOperativo.invalidarPrefijo === "function"
+          ) {
+            await CacheOperativo.invalidarPrefijo("recepciones_");
+          }
+
+          await this.cargarCatalogos({
+            forzarCache: true
+          });
+
+          this.notificar(
+            "Recepciones actualizadas correctamente.",
+            "exito"
+          );
+
+        };
 
     }
 
@@ -432,7 +472,7 @@ configurarScrollInterno() {
 
 },
 
-  async cargarCatalogos() {
+  async cargarCatalogos(opciones = {}) {
 
     /*
      * Evita solicitudes duplicadas cuando el dashboard intenta
@@ -444,7 +484,7 @@ configurarScrollInterno() {
     }
 
     this._cargaCatalogosEnCurso =
-      this.cargarCatalogosInterno();
+      this.cargarCatalogosInterno(opciones);
 
     try {
       return await this._cargaCatalogosEnCurso;
@@ -455,7 +495,7 @@ configurarScrollInterno() {
   },
 
 
-  async cargarCatalogosInterno() {
+  async cargarCatalogosInterno(opciones = {}) {
 
     this.mostrarCarga(
       "Cargando recepciones",
@@ -463,6 +503,25 @@ configurarScrollInterno() {
     );
 
     try {
+
+      const cacheRecepciones =
+        window.CacheOperativo &&
+        typeof CacheOperativo.obtener === "function"
+          ? await CacheOperativo.obtener(
+              "recepciones_resumen_diario",
+              {permitirVencido: true}
+            )
+          : null;
+
+      const usarCache =
+        opciones.forzarCache !== true &&
+        cacheRecepciones &&
+        cacheRecepciones.vigente === true;
+
+      const datosCache =
+        cacheRecepciones && cacheRecepciones.datos
+          ? cacheRecepciones.datos
+          : {};
 
       const resultados =
         await Promise.all([
@@ -474,18 +533,37 @@ configurarScrollInterno() {
               50
           }),
 
-          API.post({
-            action:
-              "listarRecepcionesRecientes",
-            limite:
-              6
-          }),
+          usarCache
+            ? Promise.resolve({
+                ok: true,
+                data: Array.isArray(datosCache.recepcionesRecientes)
+                  ? datosCache.recepcionesRecientes
+                  : []
+              })
+            : API.post({
+                action:
+                  "listarRecepcionesRecientes",
+                limite:
+                  6
+              }),
 
           this.puedeVerAnaliticaOperativa()
-            ? API.post({
-                action:"obtenerAnaliticaOperativaRecepciones",
-                frecuencia:this.estado.frecuenciaAnalitica
-              })
+            ? (
+                usarCache &&
+                datosCache.frecuenciaAnalitica === this.estado.frecuenciaAnalitica
+                  ? Promise.resolve({
+                      ok: true,
+                      data: {
+                        serie: Array.isArray(datosCache.analiticaOperativa)
+                          ? datosCache.analiticaOperativa
+                          : []
+                      }
+                    })
+                  : API.post({
+                      action:"obtenerAnaliticaOperativaRecepciones",
+                      frecuencia:this.estado.frecuenciaAnalitica
+                    })
+              )
             : Promise.resolve({ok:true,data:{serie:[]}})
 
         ]);
@@ -545,7 +623,11 @@ configurarScrollInterno() {
           respuestaRecientes.data
         )
           ? respuestaRecientes.data
-          : [];
+          : (
+              Array.isArray(datosCache.recepcionesRecientes)
+                ? datosCache.recepcionesRecientes
+                : []
+            );
 
       this.estado.analiticaOperativa =
         respuestaAnalitica &&
@@ -553,7 +635,34 @@ configurarScrollInterno() {
         respuestaAnalitica.data &&
         Array.isArray(respuestaAnalitica.data.serie)
           ? respuestaAnalitica.data.serie
-          : [];
+          : (
+              Array.isArray(datosCache.analiticaOperativa)
+                ? datosCache.analiticaOperativa
+                : []
+            );
+
+
+      if (
+        !usarCache &&
+        respuestaRecientes &&
+        respuestaRecientes.ok === true &&
+        window.CacheOperativo &&
+        typeof CacheOperativo.guardar === "function"
+      ) {
+
+        await CacheOperativo.guardar(
+          "recepciones_resumen_diario",
+          {
+            recepcionesRecientes:
+              this.estado.recepcionesRecientes,
+            analiticaOperativa:
+              this.estado.analiticaOperativa,
+            frecuenciaAnalitica:
+              this.estado.frecuenciaAnalitica
+          }
+        );
+
+      }
 
 
       this.renderRecepcionesAbiertas();
@@ -921,6 +1030,49 @@ configurarScrollInterno() {
 
 
   async cargarHistoricoRecepciones(anexar) {
+    const claveCache =
+      "recepciones_historico_" +
+      String(this.estado.historicoLimite);
+
+    if (
+      !anexar &&
+      window.CacheOperativo &&
+      typeof CacheOperativo.obtener === "function"
+    ) {
+
+      const cache = await CacheOperativo.obtener(
+        claveCache
+      );
+
+      const datosCache = cache && cache.datos;
+
+      if (
+        datosCache &&
+        Array.isArray(datosCache.registros)
+      ) {
+
+        this.estado.historico =
+          datosCache.registros;
+
+        this.estado.historicoOffset =
+          Number(
+            datosCache.offset ||
+            datosCache.registros.length
+          );
+
+        this.estado.historicoHayMas =
+          datosCache.hayMas === true;
+
+        this.estado.historicoTotal =
+          Number(datosCache.total || 0);
+
+        this.renderHistoricoRecepciones();
+        return;
+
+      }
+
+    }
+
     this.mostrarCarga("Cargando histórico", "Consultando recepciones registradas.");
     try {
       const respuesta = await API.post({
@@ -937,6 +1089,28 @@ configurarScrollInterno() {
       this.estado.historicoOffset = Number(datos.offset || 0) + nuevos.length;
       this.estado.historicoHayMas = datos.hayMas === true;
       this.estado.historicoTotal = Number(datos.total || 0);
+
+      if (
+        window.CacheOperativo &&
+        typeof CacheOperativo.guardar === "function"
+      ) {
+
+        await CacheOperativo.guardar(
+          claveCache,
+          {
+            registros:
+              this.estado.historico,
+            offset:
+              this.estado.historicoOffset,
+            hayMas:
+              this.estado.historicoHayMas,
+            total:
+              this.estado.historicoTotal
+          }
+        );
+
+      }
+
       this.renderHistoricoRecepciones();
     } catch (error) {
       this.notificar(error.message, "error");
@@ -4353,6 +4527,14 @@ if (
       "Estado de la recepci\u00f3n actualizado.",
       "exito"
     );
+
+    if (
+      String(valor || "").toUpperCase() === "SI" &&
+      window.CacheOperativo &&
+      typeof CacheOperativo.invalidarPrefijo === "function"
+    ) {
+      await CacheOperativo.invalidarPrefijo("recepciones_");
+    }
 
   },
 

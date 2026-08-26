@@ -440,6 +440,15 @@ async cargar() {
                 </div>
 
                <div class="acciones-header-despachos">
+
+				<button
+					type="button"
+					id="btnActualizarDespachos"
+					class="btn-principal-despachos"
+				>
+					<i class="fa-solid fa-arrows-rotate"></i>
+					<span>Actualizar</span>
+				</button>
 			   
 			   <button
 					type="button"
@@ -845,6 +854,40 @@ if (
 				() => {
 
 					Despachos.abrirInspeccionesRealizadas();
+
+				}
+			);
+
+		}
+
+		const btnActualizarDespachos =
+			document.getElementById(
+				"btnActualizarDespachos"
+			);
+
+		if (btnActualizarDespachos) {
+
+			btnActualizarDespachos.addEventListener(
+				"click",
+				async () => {
+
+					if (
+						window.CacheOperativo &&
+						typeof CacheOperativo.invalidarPrefijo === "function"
+					) {
+						await CacheOperativo.invalidarPrefijo("despachos_");
+					}
+
+					await Despachos.cargarConducesAbiertos({
+						forzarCompletados: true
+					});
+
+					await Despachos.cargarResumenDiario();
+
+					Despachos.notificar(
+						"Despachos actualizados correctamente.",
+						"exito"
+					);
 
 				}
 			);
@@ -2755,7 +2798,7 @@ configurarEventosCentroDespachos() {
 
 },
 
-async cargarConducesAbiertos() {
+async cargarConducesAbiertos(opciones = {}) {
 
     const estado =
         Despachos.listasDashboardEstado;
@@ -2778,17 +2821,66 @@ async cargarConducesAbiertos() {
     Despachos.configurarEventosListasDashboard();
 
 
-    await Promise.all([
+    let completadosDesdeCache = false;
 
+    if (
+        opciones.forzarCompletados !== true &&
+        window.CacheOperativo &&
+        typeof CacheOperativo.obtener === "function"
+    ) {
+
+        const cache = await CacheOperativo.obtener(
+            "despachos_completados_dashboard"
+        );
+
+        const datosCache = cache && cache.datos;
+
+        if (
+            datosCache &&
+            Array.isArray(datosCache.registros)
+        ) {
+
+            estado.completados.registros =
+                datosCache.registros;
+
+            estado.completados.desplazamiento =
+                Number(
+                    datosCache.desplazamiento ||
+                    datosCache.registros.length
+                );
+
+            estado.completados.hayMas =
+                datosCache.hayMas === true;
+
+            Despachos.renderizarListaDashboard(
+                "completados"
+            );
+
+            Despachos.actualizarBotonListaDashboard(
+                "completados"
+            );
+
+            completadosDesdeCache = true;
+
+        }
+
+    }
+
+    const consultas = [
         Despachos.cargarPaginaListaDashboard(
             "abiertos"
-        ),
-
-        Despachos.cargarPaginaListaDashboard(
-            "completados"
         )
+    ];
 
-    ]);
+    if (!completadosDesdeCache) {
+        consultas.push(
+            Despachos.cargarPaginaListaDashboard(
+                "completados"
+            )
+        );
+    }
+
+    await Promise.all(consultas);
 
 },
 
@@ -2928,6 +3020,27 @@ async cargarPaginaListaDashboard(
 
         estadoLista.hayMas =
             datos.hayMas === true;
+
+
+        if (
+            tipo === "completados" &&
+            window.CacheOperativo &&
+            typeof CacheOperativo.guardar === "function"
+        ) {
+
+            await CacheOperativo.guardar(
+                "despachos_completados_dashboard",
+                {
+                    registros:
+                        estadoLista.registros,
+                    desplazamiento:
+                        estadoLista.desplazamiento,
+                    hayMas:
+                        estadoLista.hayMas
+                }
+            );
+
+        }
 
 
         Despachos.renderizarListaDashboard(
@@ -9437,6 +9550,14 @@ return true;
             "Conduce completado correctamente.",
             "exito"
         );
+
+
+        if (
+            window.CacheOperativo &&
+            typeof CacheOperativo.invalidarPrefijo === "function"
+        ) {
+            await CacheOperativo.invalidarPrefijo("despachos_");
+        }
 
 
         /*

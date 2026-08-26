@@ -394,11 +394,11 @@ html[data-tema="oscuro"] .gal-plegable{background:#202b3a;border-color:#435063}
  gap:7px;
  margin-left:auto;
  padding-inline:15px;
- box-shadow:0 4px 12px rgba(213,30,58,.18);
+ box-shadow:none;
 }
 .gal-dec-datos-comunes{
  display:grid;
- grid-template-columns:repeat(3,minmax(0,1fr));
+ grid-template-columns:repeat(4,minmax(0,1fr));
  gap:10px;
  margin-top:14px;
  padding:12px;
@@ -412,6 +412,19 @@ html[data-tema="oscuro"] .gal-plegable{background:#202b3a;border-color:#435063}
  gap:5px;
  min-width:0;
 }
+.gal-dec-total-acumulado{
+ display:flex;
+ min-width:0;
+ flex-direction:column;
+ justify-content:center;
+ gap:5px;
+ padding:0 11px;
+ border:1px solid #d7dfe7;
+ border-radius:8px;
+ background:#fff;
+}
+.gal-dec-total-acumulado span{color:#5c6877;font-size:10px;font-weight:700}
+.gal-dec-total-acumulado strong{overflow:hidden;color:#d51e3a;font-size:16px;text-overflow:ellipsis;white-space:nowrap}
 .gal-dec-tabla-marco{
  width:100%;
  max-height:390px;
@@ -500,9 +513,16 @@ html[data-tema="oscuro"] .gal-plegable{background:#202b3a;border-color:#435063}
 }
 .gal-dec-agregar-filas{margin-top:10px}
 .gal-form-decomiso .gal-form-acciones{
+ position:sticky;
+ bottom:0;
+ z-index:8;
  display:flex;
  justify-content:flex-end;
- padding-top:4px;
+ margin:0 -17px -17px;
+ padding:10px 17px;
+ border-top:1px solid #d7dfe7;
+ background:rgba(255,255,255,.97);
+ backdrop-filter:blur(8px);
 }
 .gal-form-decomiso .gal-form-acciones>.gal-btn{
  width:auto;
@@ -518,6 +538,16 @@ html[data-tema="oscuro"] .gal-dec-acciones .gal-btn.gal-sec:hover{background:#35
 html[data-tema="oscuro"] .gal-dec-datos-comunes{
  border-color:#435063;
  background:#263244;
+}
+html[data-tema="oscuro"] .gal-dec-total-acumulado{
+ border-color:#435063;
+ background:#202b3a;
+}
+html[data-tema="oscuro"] .gal-dec-total-acumulado span{color:#b8c4d3}
+html[data-tema="oscuro"] .gal-dec-total-acumulado strong{color:#ff5268}
+html[data-tema="oscuro"] .gal-form-decomiso .gal-form-acciones{
+ border-color:#435063;
+ background:rgba(24,33,45,.97);
 }
 html[data-tema="oscuro"] .gal-dec-tabla-marco{
  border-color:#435063;
@@ -550,6 +580,8 @@ html[data-tema="oscuro"] .gal-dec-tabla-edicion tr.gal-dec-fila-invalida th,
 html[data-tema="oscuro"] .gal-dec-tabla-edicion tr.gal-dec-fila-invalida td{background:#432732}
 html[data-tema="gris"] .gal-dec-datos-comunes,
 html[data-tema="gris"] .gal-dec-tabla-edicion tbody th{background:#e5e8ec}
+html[data-tema="gris"] .gal-dec-total-acumulado{background:#f2f3f5}
+html[data-tema="gris"] .gal-form-decomiso .gal-form-acciones{background:rgba(235,237,240,.97)}
 html[data-tema="gris"] .gal-dec-tabla-marco{background:#f2f3f5}
 html[data-tema="gris"] .gal-dec-tabla-edicion thead th{background:#d8dde3}
 
@@ -598,6 +630,7 @@ html[data-tema="gris"] .gal-dec-tabla-edicion thead th{background:#d8dde3}
   margin:9px 0 0;
  }
  .gal-dec-datos-comunes{grid-template-columns:1fr}
+ .gal-dec-total-acumulado{min-height:58px}
  .gal-dec-tabla-marco{max-height:330px}
  .gal-form-decomiso .gal-form-acciones>.gal-btn{
   width:100%;

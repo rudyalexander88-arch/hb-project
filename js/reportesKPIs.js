@@ -239,8 +239,20 @@ window.ReportesKPIs = {
     const imprimir = document.getElementById("rkImprimirReporte");
     const exportar = document.getElementById("rkExportarReporte");
     if (enviar) enviar.addEventListener("click", () => this.abrirDialogoReporte("enviar"));
-    if (imprimir) imprimir.addEventListener("click", () => window.print());
+    if (imprimir) imprimir.addEventListener("click", () => this.imprimirReporte());
     if (exportar) exportar.addEventListener("click", () => this.abrirDialogoReporte("exportar"));
+  },
+
+  imprimirReporte() {
+    const encabezado = document.querySelector(".rk-encabezado-documento");
+    if (encabezado) encabezado.hidden = false;
+    const restaurar = () => {
+      if (encabezado) encabezado.hidden = true;
+      window.removeEventListener("afterprint", restaurar);
+    };
+    window.addEventListener("afterprint", restaurar, {once: true});
+    window.print();
+    window.setTimeout(restaurar, 1200);
   },
 
   abrirDialogoReporte(modo) {
@@ -636,7 +648,7 @@ window.ReportesKPIs = {
 
     this.destruirGraficas();
     panel.innerHTML = `
-      <header class="rk-encabezado-documento" aria-hidden="true">
+      <header class="rk-encabezado-documento" aria-hidden="true" hidden>
         <div class="rk-documento-marca"><img src="../img/icon.png" alt=""><strong>Helados BON</strong></div>
         <div class="rk-documento-titulo"><strong>Sistema Logístico Productos Terminados</strong><span>REPORTE DE INDICADORES DEPARTAMENTALES</span></div>
         <div class="rk-documento-codigo"><span>Documento KPI</span><strong>${this.escapar(this.datos.corteId || "Corte actual")}</strong></div>

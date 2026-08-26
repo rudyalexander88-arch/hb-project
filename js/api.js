@@ -140,7 +140,7 @@ const API = {
     _recuperacionEstilosInstalada: false,
     _solicitudesRedActivas: 0,
     _colaSolicitudesRed: [],
-    _maximoSolicitudesSimultaneas: 2,
+    _maximoSolicitudesSimultaneas: 1,
 
     _accion(datos) {
         return String(datos && (datos.action || datos.accion) || "").trim();
@@ -502,12 +502,9 @@ const API = {
 
         const reintentoSeguro =
             /^(listar|obtener|consultar|buscar|ping)/i.test(accion) ||
-            accion === "verificarSesionUsuario" ||
-            accion === "guardarDetalleInspeccion";
+            accion === "verificarSesionUsuario";
 
-        const intentos = accion === "obtenerVersionesModulos"
-            ? 1
-            : reintentoSeguro ? 2 : 1;
+        const intentos = reintentoSeguro ? 3 : 1;
 
         const erroresReintentables = [
             404,

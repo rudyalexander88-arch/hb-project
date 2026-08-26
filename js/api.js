@@ -378,8 +378,6 @@ const API = {
             window.setTimeout(() => {
                 if (this._versionesPendientes === lote) this._versionesPendientes = null;
 
-                // Consultar todas las versiones permite compartir una sola
-                // respuesta entre los módulos que se abren simultáneamente.
                 const consulta = this._enviarRed({
                     action: "obtenerVersionesModulos",
                     modulos: []
@@ -502,15 +500,11 @@ const API = {
             ""
         ).trim();
 
-        // Solo se repiten consultas o una escritura idempotente conocida.
-        // Crear, finalizar, enviar correos y subir archivos nunca se repiten.
         const reintentoSeguro =
             /^(listar|obtener|consultar|buscar|ping)/i.test(accion) ||
             accion === "verificarSesionUsuario" ||
             accion === "guardarDetalleInspeccion";
 
-        // Las versiones tienen respaldo local: repetirlas multiplicaría las
-        // conexiones justo cuando Apps Script está temporalmente inestable.
         const intentos = accion === "obtenerVersionesModulos"
             ? 1
             : reintentoSeguro ? 2 : 1;
@@ -560,8 +554,12 @@ const API = {
 
                 }
 
+                // USO DE TEXT/PLAIN PARA EVITAR PREFLIGHT Y BLOQUEOS CORS
                 const opciones = {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8"
+                    },
                     body: JSON.stringify(solicitud),
                     cache: "no-store",
                     redirect: "follow"

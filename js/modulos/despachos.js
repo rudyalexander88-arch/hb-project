@@ -21,7 +21,7 @@ obtenerSesionActual() {
 esAnalista() {
     const sesion = Despachos.obtenerSesionActual();
 
-    return String(sesion.rol || "")
+    const rol = String(sesion.rol || "")
         .trim()
         .toLowerCase()
         .normalize("NFD")

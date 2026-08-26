@@ -9,6 +9,10 @@ window.ReportesKPIs = {
   pestanaActiva: "indicadores",
   // Valores disponibles: "hojas" o "segmentadas".
   estiloPestanas: "hojas",
+  versionCache: "1",
+  prefijoCache: "bon_reportes_kpi",
+  horaCorte: 18,
+  minutoCorte: 15,
   cargando: false,
   datos: {},
   graficas: [],
@@ -16,7 +20,7 @@ window.ReportesKPIs = {
   puedeVer() {
     const sesion = this.obtenerSesion();
     const rol = this.clave(sesion.rol || sesion.Rol);
-    return ["ANALISTA", "ENCARGADO", "ADMINISTRADOR", "GERENCIA", "GERENTE"]
+    return ["ANALISTA", "SUPERVISOR", "ENCARGADO", "ADMINISTRADOR", "GERENCIA", "GERENTE"]
       .some(item => rol === item || rol.indexOf(item) >= 0);
   },
 
@@ -29,6 +33,94 @@ window.ReportesKPIs = {
     } catch (error) {
       return {};
     }
+  },
+
+  claveCache() {
+    const sesion = this.obtenerSesion();
+    const usuario = this.clave(
+      sesion.idEmpleado || sesion.IDEmpleado || sesion.usuario ||
+      sesion.Usuario || sesion.nombre || sesion.Nombre || "USUARIO"
+    );
+    const rol = this.clave(sesion.rol || sesion.Rol || "SIN_ROL");
+    return `${this.prefijoCache}_${usuario}_${rol}`;
+  },
+
+  fechaISO(fecha) {
+    return [
+      fecha.getFullYear(),
+      String(fecha.getMonth() + 1).padStart(2, "0"),
+      String(fecha.getDate()).padStart(2, "0")
+    ].join("-");
+  },
+
+  identificadorCorteVigente(fecha = new Date()) {
+    const referencia = new Date(fecha);
+    const corteHoy = new Date(
+      referencia.getFullYear(),
+      referencia.getMonth(),
+      referencia.getDate(),
+      this.horaCorte,
+      this.minutoCorte,
+      0,
+      0
+    );
+    if (referencia < corteHoy) referencia.setDate(referencia.getDate() - 1);
+    return this.fechaISO(referencia);
+  },
+
+  esDatoVigente(datos) {
+    return Boolean(
+      datos &&
+      datos.fechaCarga &&
+      datos.corteId === this.identificadorCorteVigente() &&
+      datos.rango &&
+      datos.rango.mes === this.rangoMesActual().mes
+    );
+  },
+
+  leerCache(permitirVencido = false) {
+    try {
+      const contenido = localStorage.getItem(this.claveCache());
+      if (!contenido) return null;
+      const paquete = JSON.parse(contenido);
+      if (!paquete || paquete.version !== this.versionCache || !paquete.datos) {
+        localStorage.removeItem(this.claveCache());
+        return null;
+      }
+      const datos = paquete.datos;
+      const fechaCarga = new Date(datos.fechaCarga);
+      if (Number.isNaN(fechaCarga.getTime())) {
+        localStorage.removeItem(this.claveCache());
+        return null;
+      }
+      datos.fechaCarga = fechaCarga;
+      if (!permitirVencido && !this.esDatoVigente(datos)) return null;
+      return datos;
+    } catch (error) {
+      console.warn("No fue posible leer el caché de Reportes & KPIs:", error);
+      return null;
+    }
+  },
+
+  guardarCache(datos) {
+    try {
+      localStorage.setItem(this.claveCache(), JSON.stringify({
+        version: this.versionCache,
+        guardadoEn: new Date().toISOString(),
+        datos: datos
+      }));
+    } catch (error) {
+      console.warn("No fue posible guardar el caché de Reportes & KPIs:", error);
+    }
+  },
+
+  formatearFechaCorte(corteId) {
+    const partes = String(corteId || "").split("-").map(Number);
+    if (partes.length !== 3 || partes.some(valor => !Number.isFinite(valor))) return "";
+    return new Date(partes[0], partes[1] - 1, partes[2]).toLocaleDateString(
+      "es-DO",
+      {day: "2-digit", month: "2-digit", year: "numeric"}
+    );
   },
 
   async cargar() {
@@ -165,9 +257,17 @@ window.ReportesKPIs = {
 
   async cargarIndicadores(forzar) {
     if (this.cargando) return;
-    if (!forzar && this.datos && this.datos.fechaCarga) {
-      this.renderizarIndicadores();
-      return;
+    if (!forzar) {
+      if (this.esDatoVigente(this.datos)) {
+        this.renderizarIndicadores();
+        return;
+      }
+      const datosGuardados = this.leerCache();
+      if (datosGuardados) {
+        this.datos = datosGuardados;
+        this.renderizarIndicadores();
+        return;
+      }
     }
 
     this.cargando = true;
@@ -202,12 +302,32 @@ window.ReportesKPIs = {
 
       const claves = Object.keys(peticiones);
       const respuestas = await Promise.all(claves.map(clave => this.consultaSegura(peticiones[clave])));
-      this.datos = {fechaCarga: new Date(), rango: rango};
+      const consultaCompleta = respuestas.every(respuesta => respuesta && respuesta.ok !== false);
+      const respaldo = consultaCompleta ? null : this.leerCache(true);
+      if (respaldo) {
+        this.datos = respaldo;
+        this.renderizarIndicadores();
+        Sistema.advertencia("No fue posible actualizar todos los indicadores. Se muestra el último corte disponible.", 5200);
+        return;
+      }
+      this.datos = {
+        fechaCarga: new Date(),
+        corteId: this.identificadorCorteVigente(),
+        rango: rango
+      };
       claves.forEach((clave, indice) => { this.datos[clave] = respuestas[indice]; });
+      if (consultaCompleta) this.guardarCache(this.datos);
       this.renderizarIndicadores();
     } catch (error) {
       console.error("Error cargando Reportes & KPIs:", error);
-      this.renderizarError(error.message || "No fue posible cargar los indicadores.");
+      const respaldo = this.leerCache(true);
+      if (respaldo) {
+        this.datos = respaldo;
+        this.renderizarIndicadores();
+        Sistema.advertencia("Se muestra el último corte disponible porque la actualización falló.", 5200);
+      } else {
+        this.renderizarError(error.message || "No fue posible cargar los indicadores.");
+      }
     } finally {
       this.cargando = false;
       Sistema.ocultarCarga();
@@ -241,15 +361,19 @@ window.ReportesKPIs = {
     const ocupacion = this.extraerData(this.datos.ocupacion);
     const montoDespacho = this.resumenMontoDesviaciones(exactitud);
     const reduccion = this.calcularReduccionDecomiso(decomisos);
-    const fechaCarga = this.datos.fechaCarga instanceof Date
-      ? this.datos.fechaCarga.toLocaleString("es-DO", {dateStyle: "short", timeStyle: "short"})
-      : "";
+    const fechaCargaValor = this.datos.fechaCarga instanceof Date
+      ? this.datos.fechaCarga
+      : new Date(this.datos.fechaCarga);
+    const fechaCarga = Number.isNaN(fechaCargaValor.getTime())
+      ? ""
+      : fechaCargaValor.toLocaleString("es-DO", {dateStyle: "short", timeStyle: "short"});
+    const fechaCorte = this.formatearFechaCorte(this.datos.corteId);
 
     this.destruirGraficas();
     panel.innerHTML = `
       <div class="rk-periodo">
         <div><i class="fa-solid fa-calendar"></i><span>Mes actual: <strong>${this.escapar(this.datos.rango.mes)}</strong></span></div>
-        <small>Actualizado ${this.escapar(fechaCarga)}</small>
+        <small>Corte ${this.escapar(fechaCorte)} · consultado ${this.escapar(fechaCarga)}</small>
       </div>
 
       <section class="rk-kpis-principales">

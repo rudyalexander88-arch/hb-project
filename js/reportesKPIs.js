@@ -649,7 +649,7 @@ window.ReportesKPIs = {
     this.destruirGraficas();
     panel.innerHTML = `
       <header class="rk-encabezado-documento" aria-hidden="true" hidden>
-        <div class="rk-documento-marca"><img src="../img/icon.png" alt=""><strong>Helados BON</strong></div>
+        <div class="rk-documento-marca"><img src="../img/logo_dashboard.png" alt="Logo de Helados BON"><strong>Helados BON</strong></div>
         <div class="rk-documento-titulo"><strong>Sistema Logístico Productos Terminados</strong><span>REPORTE DE INDICADORES DEPARTAMENTALES</span></div>
         <div class="rk-documento-codigo"><span>Documento KPI</span><strong>${this.escapar(this.datos.corteId || "Corte actual")}</strong></div>
       </header>

@@ -13317,6 +13317,35 @@ async abrirInspeccionesRealizadas() {
         "modo-centro-despachos"
     );
 
+    contenido.classList.add(
+        "modo-visor-inspecciones"
+    );
+
+    modal.classList.add(
+        "modal-visor-inspecciones"
+    );
+
+    const observarCierre =
+        new MutationObserver(() => {
+            if (modal.classList.contains("oculto")) {
+                contenido.classList.remove(
+                    "modo-visor-inspecciones"
+                );
+                modal.classList.remove(
+                    "modal-visor-inspecciones"
+                );
+                observarCierre.disconnect();
+            }
+        });
+
+    observarCierre.observe(
+        modal,
+        {
+            attributes: true,
+            attributeFilter: ["class"]
+        }
+    );
+
 
     modal.classList.remove(
         "oculto"
@@ -13379,13 +13408,28 @@ renderizarVisorInspecciones() {
 
         <div class="visor-inspecciones">
 
-            <section
-                class="resumen-inspecciones"
-                id="resumenInspecciones"
-            ></section>
+            <details class="plegable-inspecciones plegable-indicadores-inspecciones">
+                <summary>
+                    <span><i class="fa-solid fa-chart-column"></i> Indicadores de inspección</span>
+                    <i class="linea-plegable-inspecciones"></i>
+                    <i class="fa-solid fa-chevron-down flecha-plegable-inspecciones"></i>
+                </summary>
+
+                <section
+                    class="resumen-inspecciones contenido-plegable-inspecciones"
+                    id="resumenInspecciones"
+                ></section>
+            </details>
 
 
-            <section class="filtros-inspecciones">
+            <details class="plegable-inspecciones plegable-filtros-inspecciones">
+                <summary>
+                    <span><i class="fa-solid fa-sliders"></i> Filtros de consulta</span>
+                    <i class="linea-plegable-inspecciones"></i>
+                    <i class="fa-solid fa-chevron-down flecha-plegable-inspecciones"></i>
+                </summary>
+
+            <section class="filtros-inspecciones contenido-plegable-inspecciones">
 
                 <div
                     class="
@@ -13560,6 +13604,7 @@ renderizarVisorInspecciones() {
                 </button>
 
             </section>
+            </details>
 
 
             <div class="barra-resultados-inspecciones">
@@ -13633,6 +13678,103 @@ renderizarVisorInspecciones() {
 
 },
 
+claveUnicaInspeccion(item) {
+    const registro = item || {};
+    const id = String(
+        registro.idInspeccion ||
+        registro.ID_Inspeccion ||
+        ""
+    ).trim();
+
+    if (id) {
+        return `ID:${id.toUpperCase()}`;
+    }
+
+    return [
+        registro.idConduce || "",
+        registro.noConduce || "",
+        registro.fechaHora ||
+            registro.fechaInspeccion || "",
+        registro.unidadCarga || ""
+    ]
+        .map(valor => String(valor).trim().toUpperCase())
+        .join("|");
+},
+
+fechaOrdenInspeccion(item) {
+    const valor = String(
+        item?.fechaHora ||
+        item?.fechaInspeccion ||
+        item?.fecha ||
+        ""
+    ).trim();
+
+    const fechaDirecta = Date.parse(valor);
+    if (Number.isFinite(fechaDirecta)) {
+        return fechaDirecta;
+    }
+
+    const coincidencia = valor.match(
+        /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/
+    );
+
+    if (coincidencia) {
+        return new Date(
+            Number(coincidencia[3]),
+            Number(coincidencia[2]) - 1,
+            Number(coincidencia[1]),
+            Number(coincidencia[4] || 0),
+            Number(coincidencia[5] || 0),
+            Number(coincidencia[6] || 0)
+        ).getTime();
+    }
+
+    return 0;
+},
+
+ordenarInspeccionesRecientes(registros) {
+    return [...(Array.isArray(registros) ? registros : [])]
+        .sort((a, b) => {
+            const diferenciaFecha =
+                Despachos.fechaOrdenInspeccion(b) -
+                Despachos.fechaOrdenInspeccion(a);
+
+            if (diferenciaFecha) {
+                return diferenciaFecha;
+            }
+
+            const numeroId = item => {
+                const partes = String(
+                    item?.idInspeccion || ""
+                ).match(/(\d+)(?!.*\d)/);
+                return partes ? Number(partes[1]) : 0;
+            };
+
+            return numeroId(b) - numeroId(a);
+        });
+},
+
+combinarInspeccionesSinDuplicados(
+    actuales,
+    nuevos
+) {
+    const mapa = new Map();
+
+    [...(actuales || []), ...(nuevos || [])]
+        .forEach(item => {
+            const clave =
+                Despachos.claveUnicaInspeccion(item);
+            if (!mapa.has(clave)) {
+                mapa.set(clave, item);
+            }
+        });
+
+    return Despachos
+        .ordenarInspeccionesRecientes(
+            Array.from(mapa.values())
+        );
+},
+
 async cargarListadoInspecciones(
     opciones = {}
 ) {
@@ -13683,6 +13825,14 @@ async cargarListadoInspecciones(
             [];
 
     }
+
+    const desplazamientoSolicitado =
+        reiniciar
+            ? 0
+            : Math.max(
+                Number(estado.desplazamiento || 0),
+                estado.registros.length
+            );
 
 
     estado.cargando =
@@ -13759,7 +13909,19 @@ async cargarListadoInspecciones(
                     estado.limite,
 
                 desplazamiento:
-                    estado.desplazamiento,
+                    desplazamientoSolicitado,
+
+                offset:
+                    desplazamientoSolicitado,
+
+                pagina:
+                    Math.floor(
+                        desplazamientoSolicitado /
+                        estado.limite
+                    ) + 1,
+
+                orden:
+                    "DESC",
 
                 busqueda:
                     estado.filtros.busqueda,
@@ -13807,18 +13969,21 @@ async cargarListadoInspecciones(
                 : [];
 
 
-        if (reiniciar) {
+        const cantidadAnterior =
+            estado.registros.length;
 
-            estado.registros =
-                nuevosRegistros;
+        estado.registros =
+            Despachos
+                .combinarInspeccionesSinDuplicados(
+                    reiniciar
+                        ? []
+                        : estado.registros,
+                    nuevosRegistros
+                );
 
-        } else {
-
-            estado.registros.push(
-                ...nuevosRegistros
-            );
-
-        }
+        const cantidadAgregada =
+            estado.registros.length -
+            cantidadAnterior;
 
 
         estado.total =
@@ -13827,15 +13992,39 @@ async cargarListadoInspecciones(
             );
 
 
-        estado.hayMas =
-            datos.hayMas === true;
-
-
         estado.desplazamiento =
-            Number(
-                datos.siguienteDesplazamiento ||
-                estado.registros.length
+            desplazamientoSolicitado +
+            nuevosRegistros.length;
+
+        const siguienteServidor = Number(
+            datos.siguienteDesplazamiento
+        );
+
+        if (
+            Number.isFinite(siguienteServidor) &&
+            siguienteServidor >
+                estado.desplazamiento
+        ) {
+            estado.desplazamiento =
+                siguienteServidor;
+        }
+
+        estado.hayMas =
+            datos.hayMas === true &&
+            estado.desplazamiento <
+                estado.total;
+
+        if (
+            !reiniciar &&
+            nuevosRegistros.length > 0 &&
+            cantidadAgregada === 0
+        ) {
+            estado.hayMas = false;
+            Despachos.notificar(
+                "El servidor repitió la página anterior. Se detuvo la carga para evitar registros duplicados.",
+                "advertencia"
             );
+        }
 
 
         estado.resumen = {
@@ -13856,8 +14045,19 @@ async cargarListadoInspecciones(
                 ),
 
             conHallazgos:
-                Number(
-                    datos.resumen?.conHallazgos || 0
+                Math.max(
+                    Number(
+                        datos.resumen?.conHallazgos || 0
+                    ),
+                    Math.max(
+                        0,
+                        Number(
+                            datos.resumen?.completadas || 0
+                        ) -
+                        Number(
+                            datos.resumen?.conformes || 0
+                        )
+                    )
                 ),
 
             pendientes:
@@ -14385,8 +14585,14 @@ renderizarResumenInspecciones(
 
 
     const hallazgos =
-        Number(
-            datos.conHallazgos || 0
+        Math.max(
+            Number(
+                datos.conHallazgos || 0
+            ),
+            Math.max(
+                0,
+                completadas - conformes
+            )
         );
 
 
@@ -14635,7 +14841,6 @@ renderizarListaInspecciones(inspecciones, totalOriginal) {
                                             item.idInspeccion || ""
                                         )}"
                                         title="Regenerar el PDF con los datos actuales de Google Sheets"
-                                        style="border:0;border-radius:8px;padding:9px 12px;background:#f59e0b;color:#fff;font-weight:700;cursor:pointer;"
                                     >
                                         <i class="fa-solid fa-rotate"></i>
                                         Regenerar PDF

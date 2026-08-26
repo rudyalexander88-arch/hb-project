@@ -6353,3 +6353,541 @@ body.centro-despachos-abierto
         font-size: var(--ui-fs-9, 9px) !important;
     }
 }
+
+/* ============================================================
+   VISOR COMPACTO DE INSPECCIONES Y TEMAS
+   ============================================================ */
+
+#modalSistema.modal-visor-inspecciones {
+    --vi-fondo: #f3f5f7;
+    --vi-superficie: #ffffff;
+    --vi-superficie-suave: #eef1f4;
+    --vi-texto: #1f2b38;
+    --vi-secundario: #667384;
+    --vi-borde: #d9e0e7;
+    --vi-sombra: 0 7px 18px rgba(25, 37, 52, .08);
+}
+
+html[data-tema="gris"]
+#modalSistema.modal-visor-inspecciones {
+    --vi-fondo: #dce1e6;
+    --vi-superficie: #f2f4f6;
+    --vi-superficie-suave: #e5e9ed;
+    --vi-texto: #202c38;
+    --vi-secundario: #5d6976;
+    --vi-borde: #bdc7d1;
+    --vi-sombra: 0 7px 18px rgba(24, 35, 47, .11);
+}
+
+html[data-tema="oscuro"]
+#modalSistema.modal-visor-inspecciones,
+html[data-theme="dark"]
+#modalSistema.modal-visor-inspecciones {
+    --vi-fondo: #0e151e;
+    --vi-superficie: #182230;
+    --vi-superficie-suave: #222e3d;
+    --vi-texto: #f2f5f9;
+    --vi-secundario: #aeb9c7;
+    --vi-borde: #3b4a5d;
+    --vi-sombra: 0 10px 24px rgba(0, 0, 0, .25);
+}
+
+#modalSistema.modal-visor-inspecciones
+.modal-contenido {
+    height: min(880px, 94dvh);
+    border: 1px solid var(--vi-borde);
+    background: var(--vi-fondo);
+    color: var(--vi-texto);
+}
+
+#contenidoModal.modo-visor-inspecciones {
+    padding: 0 14px 12px;
+    background: var(--vi-fondo);
+    color: var(--vi-texto);
+    scrollbar-color: var(--vi-borde) transparent;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.visor-inspecciones {
+    gap: 10px;
+    padding-top: 10px;
+}
+
+.plegable-inspecciones {
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--vi-borde);
+    border-radius: 11px;
+    background: var(--vi-superficie);
+    box-shadow: var(--vi-sombra);
+}
+
+.plegable-inspecciones > summary {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    color: var(--vi-texto);
+    font-size: var(--ui-fs-10, 10px);
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+}
+
+.plegable-inspecciones > summary::-webkit-details-marker {
+    display: none;
+}
+
+.plegable-inspecciones > summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+}
+
+.plegable-inspecciones > summary > span i {
+    color: #e31b36;
+}
+
+.linea-plegable-inspecciones {
+    flex: 1;
+    height: 1px;
+    background: var(--vi-borde);
+}
+
+.flecha-plegable-inspecciones {
+    color: var(--vi-texto);
+    transition: transform .2s ease;
+}
+
+.plegable-inspecciones[open]
+.flecha-plegable-inspecciones {
+    transform: rotate(180deg);
+}
+
+.contenido-plegable-inspecciones {
+    border-top: 1px solid var(--vi-borde) !important;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.resumen-inspecciones {
+    grid-template-columns: repeat(5, minmax(90px, 1fr));
+    gap: 8px;
+    padding: 10px;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.tarjeta-resumen-inspeccion {
+    min-height: 64px;
+    gap: 1px;
+    padding: 8px 10px;
+    border-color: var(--vi-borde);
+    border-radius: 9px;
+    background: var(--vi-superficie-suave);
+    box-shadow: none;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.tarjeta-resumen-inspeccion span {
+    color: var(--vi-secundario);
+    font-size: var(--ui-fs-8_5, 8.5px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.tarjeta-resumen-inspeccion strong {
+    color: var(--vi-texto);
+    font-size: var(--ui-fs-19, 19px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.filtros-inspecciones {
+    grid-template-columns: minmax(230px, 2fr) repeat(5, minmax(110px, 1fr)) auto;
+    gap: 8px;
+    padding: 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.filtro-inspecciones label {
+    color: var(--vi-secundario);
+    font-size: var(--ui-fs-9, 9px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.filtro-inspecciones input,
+#contenidoModal.modo-visor-inspecciones
+.filtro-inspecciones select {
+    height: 36px;
+    border-color: var(--vi-borde);
+    background: var(--vi-superficie-suave);
+    color: var(--vi-texto);
+    font-size: var(--ui-fs-10, 10px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.entrada-busqueda-inspecciones i {
+    color: var(--vi-secundario);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.btn-limpiar-filtros-inspecciones {
+    height: 36px;
+    background: var(--vi-superficie-suave);
+    color: var(--vi-texto);
+    border: 1px solid var(--vi-borde);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.barra-resultados-inspecciones {
+    min-height: 32px;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.contador-resultados-inspecciones {
+    color: var(--vi-secundario);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.lista-inspecciones {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.tarjeta-inspeccion-realizada {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(165px, .75fr) minmax(380px, 2fr) auto;
+    grid-template-areas: "cabecera datos pie";
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    border-color: var(--vi-borde);
+    border-left: 4px solid #1677c8;
+    border-radius: 9px;
+    background: var(--vi-superficie);
+    color: var(--vi-texto);
+    box-shadow: none;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.tarjeta-inspeccion-realizada:hover {
+    transform: none;
+    border-left-color: #d71920;
+    box-shadow: var(--vi-sombra);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.cabecera-tarjeta-inspeccion {
+    grid-area: cabecera;
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    padding: 0 10px 0 0;
+    border-right: 1px solid var(--vi-borde);
+    border-bottom: 0;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.cabecera-tarjeta-inspeccion > div:first-child span,
+#contenidoModal.modo-visor-inspecciones
+.datos-tarjeta-inspeccion span {
+    color: var(--vi-secundario);
+    font-size: var(--ui-fs-8, 8px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.cabecera-tarjeta-inspeccion > div:first-child strong {
+    color: var(--vi-texto);
+    font-size: var(--ui-fs-14, 14px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.etiquetas-inspeccion {
+    justify-content: flex-start;
+    gap: 4px;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion {
+    min-height: 21px;
+    padding: 3px 7px;
+    font-size: var(--ui-fs-8, 8px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.datos-tarjeta-inspeccion {
+    grid-area: datos;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 10px;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.datos-tarjeta-inspeccion div {
+    gap: 0;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.datos-tarjeta-inspeccion strong {
+    color: var(--vi-texto);
+    font-size: var(--ui-fs-10, 10px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.pie-tarjeta-inspeccion {
+    grid-area: pie;
+    min-width: 155px;
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 0 0 10px;
+    border-top: 0;
+    border-left: 1px solid var(--vi-borde);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.pie-tarjeta-inspeccion > span {
+    color: var(--vi-secundario);
+    font-size: var(--ui-fs-9, 9px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.acciones-tarjeta-inspeccion {
+    gap: 5px;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.acciones-tarjeta-inspeccion button {
+    min-height: 30px;
+    padding: 5px 8px;
+    font-size: var(--ui-fs-8_5, 8.5px);
+}
+
+#contenidoModal.modo-visor-inspecciones
+.btn-regenerar-pdf-inspeccion {
+    border: 0;
+    border-radius: 7px;
+    background: #f59e0b;
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+#contenidoModal.modo-visor-inspecciones
+.acciones-visor-inspecciones {
+    position: sticky;
+    bottom: 0;
+    padding: 7px 0 2px;
+    background: linear-gradient(to top, var(--vi-fondo) 70%, transparent);
+}
+
+html[data-tema="oscuro"]
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion.exito,
+html[data-theme="dark"]
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion.exito {
+    border-color: #326d4a;
+    background: #173c2a;
+    color: #7ee0a3;
+}
+
+html[data-tema="oscuro"]
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion.error,
+html[data-theme="dark"]
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion.error {
+    border-color: #7c3540;
+    background: #43212a;
+    color: #ff9ba8;
+}
+
+html[data-tema="oscuro"]
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion.advertencia,
+html[data-theme="dark"]
+#contenidoModal.modo-visor-inspecciones
+.etiqueta-inspeccion.advertencia {
+    border-color: #796229;
+    background: #3d331b;
+    color: #ffd877;
+}
+
+@media (max-width: 1150px) {
+    #contenidoModal.modo-visor-inspecciones
+    .filtros-inspecciones {
+        grid-template-columns: repeat(3, minmax(140px, 1fr));
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .filtro-busqueda-inspecciones {
+        grid-column: 1 / -1;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .tarjeta-inspeccion-realizada {
+        grid-template-columns: minmax(150px, .7fr) minmax(320px, 2fr);
+        grid-template-areas:
+            "cabecera datos"
+            "cabecera pie";
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .pie-tarjeta-inspeccion {
+        min-width: 0;
+        align-items: center;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 6px 0 0;
+        border-top: 1px solid var(--vi-borde);
+        border-left: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    #modalSistema.modal-visor-inspecciones
+    .modal-contenido {
+        width: calc(100% - 12px);
+        height: calc(100dvh - 12px);
+        max-height: calc(100dvh - 12px);
+        border-radius: 11px;
+    }
+
+    #modalSistema.modal-visor-inspecciones
+    .modal-header {
+        padding: 12px 14px;
+    }
+
+    #modalSistema.modal-visor-inspecciones
+    .modal-header h2 {
+        font-size: var(--ui-fs-16, 16px);
+    }
+
+    #contenidoModal.modo-visor-inspecciones {
+        padding: 0 9px 9px;
+    }
+
+    .plegable-inspecciones > summary {
+        min-height: 38px;
+        padding: 7px 9px;
+        font-size: var(--ui-fs-9, 9px);
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .resumen-inspecciones {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        padding: 8px;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .tarjeta-resumen-inspeccion {
+        min-height: 55px;
+        padding: 6px;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .tarjeta-resumen-inspeccion strong {
+        font-size: var(--ui-fs-17, 17px);
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .filtros-inspecciones {
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        padding: 8px;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .filtro-busqueda-inspecciones {
+        grid-column: 1 / -1;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .btn-limpiar-filtros-inspecciones {
+        width: 100%;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .barra-resultados-inspecciones {
+        align-items: center;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 7px;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .contador-resultados-inspecciones {
+        flex: 1;
+        width: auto;
+        text-align: left;
+        font-size: var(--ui-fs-8_5, 8.5px);
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .btn-cargar-mas-inspecciones {
+        width: auto;
+        min-width: 105px;
+        min-height: 31px;
+        padding: 5px 8px;
+        font-size: var(--ui-fs-8_5, 8.5px);
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .tarjeta-inspeccion-realizada {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "cabecera"
+            "datos"
+            "pie";
+        gap: 7px;
+        padding: 8px;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .cabecera-tarjeta-inspeccion {
+        align-items: center;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 0 0 6px;
+        border-right: 0;
+        border-bottom: 1px solid var(--vi-borde);
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .datos-tarjeta-inspeccion {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px 8px;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .pie-tarjeta-inspeccion {
+        align-items: center;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 7px;
+        padding: 6px 0 0;
+        border-top: 1px solid var(--vi-borde);
+        border-left: 0;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .acciones-tarjeta-inspeccion {
+        width: auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    #contenidoModal.modo-visor-inspecciones
+    .acciones-tarjeta-inspeccion button {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}

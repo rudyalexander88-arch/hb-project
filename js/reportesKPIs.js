@@ -16,6 +16,9 @@ window.ReportesKPIs = {
   cargando: false,
   datos: {},
   graficas: [],
+  dialogoReporte: null,
+  focoAntesDialogo: null,
+  manejarTecladoDialogo: null,
 
   puedeVer() {
     const sesion = this.obtenerSesion();
@@ -243,38 +246,147 @@ window.ReportesKPIs = {
   abrirDialogoReporte(modo) {
     const esEnvio = modo === "enviar";
     const titulo = esEnvio ? "Enviar Reportes & KPIs" : "Exportar Reportes & KPIs";
-    const correo = esEnvio ? `
-      <label>Correo destinatario
-        <input id="rkCorreoReporte" type="email" autocomplete="email" placeholder="Déjelo vacío para usar el correo configurado">
-      </label>
-      <small class="rk-ayuda-modal">Puede escribir un correo distinto o utilizar el definido en Configuración.</small>
-    ` : "";
-    Sistema.abrirModal(titulo, `
-      <form id="rkFormularioReporte" class="rk-form-reporte">
-        ${correo}
-        <label>Formato
-          <select id="rkFormatoReporte">
-            <option value="PDF">PDF</option>
-            <option value="PPTX">PowerPoint (PPTX)</option>
-          </select>
-        </label>
-        <div class="rk-form-acciones">
-          <button type="button" id="rkCancelarReporte" class="rk-btn rk-btn-secundario">Cancelar</button>
-          <button type="submit" class="rk-btn rk-btn-principal"><i class="fa-solid ${esEnvio ? "fa-paper-plane" : "fa-download"}"></i>${esEnvio ? "Enviar" : "Descargar"}</button>
-        </div>
-      </form>
-    `, {clase: "modal-reportes-kpi"});
+    this.cerrarDialogoReporte(true);
+    this.focoAntesDialogo = document.activeElement;
 
-    const cancelar = document.getElementById("rkCancelarReporte");
-    if (cancelar) cancelar.onclick = () => Sistema.cerrarModal();
+    const correosConfigurados = this.obtenerCorreosConfigurados();
+    const selectorCorreos = esEnvio ? `
+      <details class="rk-dialogo-plegable" ${correosConfigurados.length ? "open" : ""}>
+        <summary>
+          <span><i class="fa-solid fa-address-book"></i> Correos de Configuración</span>
+          <i class="fa-solid fa-chevron-down rk-plegable-flecha" aria-hidden="true"></i>
+        </summary>
+        <div class="rk-dialogo-plegable-contenido">
+          ${correosConfigurados.length ? `
+            <div class="rk-lista-correos" role="group" aria-label="Correos configurados">
+              ${correosConfigurados.map((correo, indice) => `
+                <label class="rk-correo-opcion">
+                  <input type="checkbox" name="rkCorreoConfigurado" value="${this.escapar(correo)}" ${indice === 0 ? "checked" : ""}>
+                  <span>${this.escapar(correo)}</span>
+                </label>
+              `).join("")}
+            </div>
+          ` : `<p class="rk-sin-correos">No hay correos de Reportes & KPIs definidos en Configuración.</p>`}
+        </div>
+      </details>
+      <label class="rk-campo-dialogo" for="rkCorreoReporte">
+        <span>Otro correo destinatario <small>(opcional)</small></span>
+        <input id="rkCorreoReporte" type="text" inputmode="email" autocomplete="email" placeholder="correo@empresa.com; otro@empresa.com">
+      </label>
+      <small class="rk-ayuda-dialogo">Puede seleccionar los correos configurados y agregar otros separados por coma o punto y coma.</small>
+    ` : "";
+
+    document.body.insertAdjacentHTML("beforeend", `
+      <div id="rkDialogoFondo" class="rk-dialogo-fondo" data-modo="${esEnvio ? "enviar" : "exportar"}">
+        <section class="rk-dialogo-tarjeta" role="dialog" aria-modal="true" aria-labelledby="rkDialogoTitulo">
+          <header class="rk-dialogo-encabezado">
+            <div>
+              <span>${esEnvio ? "Distribución" : "Documento"}</span>
+              <h3 id="rkDialogoTitulo">${titulo}</h3>
+            </div>
+            <button type="button" id="rkCerrarDialogo" class="rk-dialogo-cerrar" aria-label="Cerrar">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </header>
+          <form id="rkFormularioReporte" class="rk-form-reporte">
+            ${selectorCorreos}
+            <fieldset class="rk-formatos" aria-label="Formato del archivo">
+              <legend>Formato</legend>
+              <label class="rk-formato-opcion">
+                <input type="radio" name="rkFormatoReporte" value="PDF" checked>
+                <span class="rk-radio-circulo" aria-hidden="true"></span>
+                <i class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                <span><strong>PDF</strong><small>Documento listo para compartir o imprimir</small></span>
+              </label>
+              <label class="rk-formato-opcion">
+                <input type="radio" name="rkFormatoReporte" value="PPTX">
+                <span class="rk-radio-circulo" aria-hidden="true"></span>
+                <i class="fa-solid fa-file-powerpoint" aria-hidden="true"></i>
+                <span><strong>PowerPoint</strong><small>Presentación editable en formato PPTX</small></span>
+              </label>
+            </fieldset>
+            <div class="rk-form-acciones">
+              <button type="button" id="rkCancelarReporte" class="rk-dialogo-boton rk-dialogo-boton-secundario">Cancelar</button>
+              <button type="submit" id="rkConfirmarReporte" class="rk-dialogo-boton rk-dialogo-boton-principal">
+                <i class="fa-solid ${esEnvio ? "fa-paper-plane" : "fa-download"}"></i>
+                ${esEnvio ? "Enviar" : "Exportar"}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    `);
+
+    this.dialogoReporte = document.getElementById("rkDialogoFondo");
+    document.body.classList.add("rk-dialogo-abierto");
+    requestAnimationFrame(() => this.dialogoReporte && this.dialogoReporte.classList.add("visible"));
+
+    const cerrar = () => this.cerrarDialogoReporte();
+    document.getElementById("rkCerrarDialogo")?.addEventListener("click", cerrar);
+    document.getElementById("rkCancelarReporte")?.addEventListener("click", cerrar);
     const formulario = document.getElementById("rkFormularioReporte");
     if (formulario) formulario.onsubmit = async evento => {
       evento.preventDefault();
-      const formato = document.getElementById("rkFormatoReporte").value;
+      const formatoSeleccionado = formulario.querySelector("input[name='rkFormatoReporte']:checked");
+      const formato = formatoSeleccionado ? formatoSeleccionado.value : "PDF";
       const correoEntrada = document.getElementById("rkCorreoReporte");
-      const correoDestino = correoEntrada ? correoEntrada.value.trim() : "";
+      const correosMarcados = Array.from(formulario.querySelectorAll("input[name='rkCorreoConfigurado']:checked"))
+        .map(campo => campo.value.trim()).filter(Boolean);
+      const adicionales = correoEntrada ? correoEntrada.value.split(/[;,]/).map(valor => valor.trim()).filter(Boolean) : [];
+      const correoDestino = Array.from(new Set(correosMarcados.concat(adicionales))).join(",");
+      if (esEnvio && !correoDestino) {
+        Sistema.advertencia("Seleccione o escriba al menos un correo destinatario.", 4200);
+        return;
+      }
       await this.procesarSalidaReporte(esEnvio, formato, correoDestino);
     };
+
+    this.manejarTecladoDialogo = evento => {
+      if (!this.dialogoReporte) return;
+      if (evento.key === "Escape") {
+        evento.preventDefault();
+        this.cerrarDialogoReporte();
+        return;
+      }
+      if (evento.key !== "Tab") return;
+      const focos = Array.from(this.dialogoReporte.querySelectorAll("button, input, summary, [tabindex]:not([tabindex='-1'])"))
+        .filter(elemento => !elemento.disabled && elemento.getClientRects().length);
+      if (!focos.length) return;
+      const primero = focos[0];
+      const ultimo = focos[focos.length - 1];
+      if (evento.shiftKey && document.activeElement === primero) {
+        evento.preventDefault();
+        ultimo.focus();
+      } else if (!evento.shiftKey && document.activeElement === ultimo) {
+        evento.preventDefault();
+        primero.focus();
+      }
+    };
+    document.addEventListener("keydown", this.manejarTecladoDialogo);
+    setTimeout(() => document.getElementById("rkCerrarDialogo")?.focus(), 30);
+  },
+
+  obtenerCorreosConfigurados() {
+    const complemento = this.extraerData(this.datos.complemento);
+    const lista = Array.isArray(complemento.correosConfigurados) ? complemento.correosConfigurados : [];
+    return Array.from(new Set(lista.map(correo => String(correo || "").trim()).filter(correo => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo))));
+  },
+
+  cerrarDialogoReporte(inmediato = false) {
+    const fondo = this.dialogoReporte || document.getElementById("rkDialogoFondo");
+    if (!fondo) return;
+    if (fondo.contains(document.activeElement)) document.activeElement.blur();
+    fondo.classList.remove("visible");
+    fondo.inert = true;
+    document.body.classList.remove("rk-dialogo-abierto");
+    if (this.manejarTecladoDialogo) document.removeEventListener("keydown", this.manejarTecladoDialogo);
+    this.manejarTecladoDialogo = null;
+    this.dialogoReporte = null;
+    const retirar = () => fondo.remove();
+    if (inmediato) retirar(); else setTimeout(retirar, 190);
+    const foco = this.focoAntesDialogo;
+    this.focoAntesDialogo = null;
+    if (!inmediato && foco && document.contains(foco)) setTimeout(() => foco.focus(), 200);
   },
 
   async procesarSalidaReporte(esEnvio, formato, correoDestino) {
@@ -295,12 +407,12 @@ window.ReportesKPIs = {
       }
       const contenido = respuesta.data || respuesta;
       if (esEnvio) {
-        Sistema.cerrarModal();
+        this.cerrarDialogoReporte();
         Sistema.exito(`Reporte enviado a ${contenido.correo || correoDestino || "el correo configurado"}.`);
       } else {
         const archivo = contenido.archivo || contenido;
         this.descargarArchivo(archivo);
-        Sistema.cerrarModal();
+        this.cerrarDialogoReporte();
         Sistema.exito("El reporte fue generado correctamente.");
       }
     } catch (error) {
@@ -311,7 +423,8 @@ window.ReportesKPIs = {
   },
 
   construirResumenExportacion() {
-    const exactitud = this.extraerData(this.datos.exactitud).resumen || {};
+    const exactitudData = this.extraerData(this.datos.exactitud);
+    const exactitud = exactitudData.resumen || {};
     const complemento = this.extraerData(this.datos.complemento);
     const recepcion = complemento.resumenRecepciones || {};
     const metas = Array.isArray(this.datos.metas && this.datos.metas.metas) ? this.datos.metas.metas : [];
@@ -341,6 +454,27 @@ window.ReportesKPIs = {
       periodo: this.datos.rango && this.datos.rango.mes ? this.datos.rango.mes : "",
       corte: this.datos.corteId || "",
       generadoEn: new Date().toISOString(),
+      generadoPor: this.obtenerSesion().nombre || this.obtenerSesion().Nombre || "",
+      metricas: {
+        exactitudDespacho: this.valorNumero(exactitud.tasaExactitud),
+        errorDespacho: this.valorNumero(exactitud.tasaError),
+        errorRecepcion: this.valorNumero(recepcion.tasaError),
+        ocupacionCamaras: this.valorNumero(ocupacion.porcentajeOcupacion || ocupacion.porcentaje),
+        metaDespachos: this.valorNumero(resumenMeta.cumplimiento),
+        metaDecomiso: this.valorNumero(reduccion.avanceMeta),
+        desviacionesDespacho: {
+          total: this.valorNumero(despacho.total),
+          corregido: this.valorNumero(despacho.corregido),
+          pendiente: this.valorNumero(despacho.pendiente)
+        },
+        desviacionesRecepcion: {
+          total: this.valorNumero(recepcion.montoTotal),
+          corregido: this.valorNumero(recepcion.montoCorregido),
+          pendiente: this.valorNumero(recepcion.montoPendiente)
+        }
+      },
+      evolucionDespacho: (exactitudData.evolucion || []).slice(-16),
+      evolucionRecepcion: (complemento.evolucionRecepciones || []).slice(-16),
       indicadores: indicadores,
       responsablesProduccion: (complemento.responsablesProduccion || []).slice(0, 8),
       responsablesPT: (complemento.responsablesPT || []).slice(0, 8)
@@ -502,6 +636,11 @@ window.ReportesKPIs = {
 
     this.destruirGraficas();
     panel.innerHTML = `
+      <header class="rk-encabezado-documento" aria-hidden="true">
+        <div class="rk-documento-marca"><img src="../img/icon.png" alt=""><strong>Helados BON</strong></div>
+        <div class="rk-documento-titulo"><strong>Sistema Logístico Productos Terminados</strong><span>REPORTE DE INDICADORES DEPARTAMENTALES</span></div>
+        <div class="rk-documento-codigo"><span>Documento KPI</span><strong>${this.escapar(this.datos.corteId || "Corte actual")}</strong></div>
+      </header>
       <div class="rk-acciones-reporte" aria-label="Acciones del reporte">
         <button type="button" id="rkEnviarReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-envelope"></i> Enviar</button>
         <button type="button" id="rkImprimirReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-print"></i> Imprimir</button>

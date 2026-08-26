@@ -86,14 +86,125 @@ html[data-tema="gris"] .rk-modulo {
   margin: 0 0 10px;
 }
 
-.rk-form-reporte { display: flex; flex-direction: column; gap: 13px; padding: 18px; }
-.rk-form-reporte label { display: flex; flex-direction: column; gap: 6px; color: var(--color-texto, #17202b); font-size: .75rem; font-weight: 700; }
-.rk-form-reporte input, .rk-form-reporte select { min-height: 42px; padding: 8px 11px; border: 1px solid var(--color-borde, #cfd7e0); border-radius: 9px; background: var(--color-superficie, #fff); color: var(--color-texto, #17202b); font: inherit; }
-.rk-ayuda-modal { color: var(--color-texto-secundario, #647182); font-size: .66rem; line-height: 1.4; }
-.rk-form-acciones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }
-html[data-tema="oscuro"] .rk-form-reporte label { color: #f3f6fa; }
-html[data-tema="oscuro"] .rk-form-reporte input, html[data-tema="oscuro"] .rk-form-reporte select { border-color: #425066; background: #182230; color: #f3f6fa; }
-html[data-tema="oscuro"] .rk-ayuda-modal { color: #aeb9c8; }
+.rk-encabezado-documento { display: none; }
+
+body.rk-dialogo-abierto { overflow: hidden; }
+
+.rk-dialogo-fondo {
+  --rkd-superficie: #ffffff;
+  --rkd-superficie-suave: #f2f4f7;
+  --rkd-texto: #17202b;
+  --rkd-secundario: #657183;
+  --rkd-borde: #cfd6df;
+  position: fixed;
+  z-index: 10060;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  overflow: auto;
+  background: rgba(8, 13, 20, .68);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+
+html[data-tema="gris"] .rk-dialogo-fondo {
+  --rkd-superficie: #eef1f4;
+  --rkd-superficie-suave: #e2e7ec;
+  --rkd-texto: #1c2733;
+  --rkd-secundario: #596879;
+  --rkd-borde: #b9c3ce;
+}
+
+html[data-tema="oscuro"] .rk-dialogo-fondo {
+  --rkd-superficie: #151c25;
+  --rkd-superficie-suave: #1d2632;
+  --rkd-texto: #f3f6fa;
+  --rkd-secundario: #aeb9c8;
+  --rkd-borde: #3b4859;
+  background: rgba(0, 0, 0, .82);
+}
+
+.rk-dialogo-fondo.visible { opacity: 1; }
+
+.rk-dialogo-tarjeta {
+  width: min(560px, 100%);
+  max-height: min(760px, calc(100dvh - 36px));
+  overflow: hidden auto;
+  border: 1px solid var(--rkd-borde);
+  border-radius: 16px;
+  background: var(--rkd-superficie);
+  color: var(--rkd-texto);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .34);
+  transform: translateY(18px) scale(.97);
+  transition: transform .2s ease;
+}
+
+.rk-dialogo-fondo.visible .rk-dialogo-tarjeta { transform: translateY(0) scale(1); }
+
+.rk-dialogo-encabezado {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 70px;
+  padding: 12px 16px 12px 19px;
+  background: linear-gradient(105deg, #d71920, #f7941d);
+  color: #ffffff;
+}
+
+.rk-dialogo-encabezado span { display: block; margin-bottom: 1px; font-size: .62rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.rk-dialogo-encabezado h3 { margin: 0; color: #ffffff; font-size: 1.12rem; line-height: 1.2; }
+.rk-dialogo-cerrar { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.13); color: #ffffff; font-size: 1.45rem; cursor: pointer; }
+.rk-dialogo-cerrar:hover, .rk-dialogo-cerrar:focus-visible { background: rgba(255,255,255,.24); outline: 2px solid rgba(255,255,255,.85); outline-offset: 2px; }
+
+.rk-form-reporte { display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.rk-campo-dialogo { display: flex; flex-direction: column; gap: 6px; color: var(--rkd-texto); font-size: .75rem; font-weight: 750; }
+.rk-campo-dialogo small { color: var(--rkd-secundario); font-weight: 500; }
+.rk-campo-dialogo input { min-height: 43px; padding: 9px 11px; border: 1px solid var(--rkd-borde); border-radius: 9px; background: var(--rkd-superficie-suave); color: var(--rkd-texto); font: inherit; }
+.rk-campo-dialogo input:focus { border-color: #e12536; outline: 3px solid rgba(225, 37, 54, .14); }
+.rk-ayuda-dialogo { margin-top: -8px; color: var(--rkd-secundario); font-size: .65rem; line-height: 1.45; }
+
+.rk-formatos { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.rk-formatos legend { margin-bottom: 7px; color: var(--rkd-texto); font-size: .75rem; font-weight: 800; }
+.rk-formato-opcion { position: relative; display: grid; grid-template-columns: 20px 24px 1fr; gap: 10px; align-items: center; min-height: 62px; padding: 10px 12px; border: 1px solid var(--rkd-borde); border-radius: 11px; background: var(--rkd-superficie-suave); color: var(--rkd-texto); cursor: pointer; }
+.rk-formato-opcion:hover { border-color: #e12536; }
+.rk-formato-opcion > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.rk-radio-circulo { display: grid; width: 18px; height: 18px; place-items: center; border: 2px solid #8c98a6; border-radius: 50%; }
+.rk-radio-circulo::after { width: 8px; height: 8px; border-radius: 50%; background: #e12536; content: ""; transform: scale(0); transition: transform .14s ease; }
+.rk-formato-opcion > input:checked + .rk-radio-circulo { border-color: #e12536; }
+.rk-formato-opcion > input:checked + .rk-radio-circulo::after { transform: scale(1); }
+.rk-formato-opcion:has(input:checked) { border-color: #e12536; background: color-mix(in srgb, #e12536 8%, var(--rkd-superficie)); box-shadow: 0 0 0 2px rgba(225, 37, 54, .08); }
+.rk-formato-opcion > i { color: #d71920; font-size: 1.18rem; text-align: center; }
+.rk-formato-opcion > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
+.rk-formato-opcion strong { font-size: .78rem; }
+.rk-formato-opcion small { color: var(--rkd-secundario); font-size: .64rem; font-weight: 500; }
+.rk-formato-opcion > input:focus-visible + .rk-radio-circulo { outline: 3px solid rgba(225,37,54,.2); outline-offset: 3px; }
+
+.rk-dialogo-plegable { border-block: 1px solid var(--rkd-borde); }
+.rk-dialogo-plegable summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; color: var(--rkd-texto); font-size: .73rem; font-weight: 800; cursor: pointer; list-style: none; }
+.rk-dialogo-plegable summary::-webkit-details-marker { display: none; }
+.rk-dialogo-plegable summary > span { display: flex; align-items: center; gap: 7px; }
+.rk-dialogo-plegable summary > span::after { flex: 1; min-width: 50px; height: 1px; margin-left: 4px; background: var(--rkd-borde); content: ""; }
+.rk-dialogo-plegable summary > span { flex: 1; }
+.rk-dialogo-plegable summary i:first-child { color: #e12536; }
+.rk-plegable-flecha { color: var(--rkd-secundario); transition: transform .18s ease; }
+.rk-dialogo-plegable[open] .rk-plegable-flecha { transform: rotate(180deg); }
+.rk-dialogo-plegable-contenido { padding: 2px 0 12px; }
+.rk-lista-correos { display: grid; gap: 7px; }
+.rk-correo-opcion { display: grid; grid-template-columns: 18px 1fr; gap: 9px; align-items: center; min-height: 38px; padding: 7px 10px; border: 1px solid var(--rkd-borde); border-radius: 9px; background: var(--rkd-superficie-suave); color: var(--rkd-texto); font-size: .7rem; font-weight: 650; cursor: pointer; }
+.rk-correo-opcion input { width: 16px; height: 16px; accent-color: #e12536; }
+.rk-sin-correos { margin: 0; color: var(--rkd-secundario); font-size: .7rem; }
+
+.rk-form-acciones { display: flex; justify-content: flex-end; gap: 9px; margin-top: 2px; padding-top: 13px; border-top: 1px solid var(--rkd-borde); }
+.rk-dialogo-boton { display: inline-flex; min-width: 112px; min-height: 42px; align-items: center; justify-content: center; gap: 7px; padding: 9px 14px; border: 1px solid transparent; border-radius: 10px; font: inherit; font-size: .78rem; font-weight: 800; cursor: pointer; }
+.rk-dialogo-boton-secundario { border-color: #7b8795; background: #697583; color: #ffffff; }
+.rk-dialogo-boton-secundario:hover, .rk-dialogo-boton-secundario:focus-visible { background: #56616e; outline: 3px solid rgba(86, 97, 110, .2); }
+.rk-dialogo-boton-principal { border-color: #d71920; background: linear-gradient(135deg, #d71920, #ef2d45); color: #ffffff; box-shadow: 0 6px 15px rgba(215, 25, 32, .24); }
+.rk-dialogo-boton-principal:hover, .rk-dialogo-boton-principal:focus-visible { filter: brightness(1.08); outline: 3px solid rgba(215,25,32,.2); }
 
 .rk-pestanas {
   display: flex;
@@ -358,6 +469,10 @@ html[data-tema="oscuro"] .rk-ayuda-modal { color: #aeb9c8; }
   .rk-acciones-reporte { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .rk-acciones-reporte .rk-btn { padding-inline: 6px; font-size: .7rem; }
   .rk-form-acciones { display: grid; grid-template-columns: 1fr 1fr; }
+  .rk-dialogo-fondo { align-items: center; padding: 12px; }
+  .rk-dialogo-tarjeta { max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .rk-form-reporte { padding: 14px; }
+  .rk-dialogo-boton { min-width: 0; }
 }
 
 @media print {
@@ -365,5 +480,14 @@ html[data-tema="oscuro"] .rk-ayuda-modal { color: #aeb9c8; }
   .rk-modulo, .rk-modulo * { visibility: visible !important; }
   .rk-modulo { position: absolute; inset: 0; min-height: 0; padding: 0; background: #fff !important; color: #111 !important; }
   .rk-encabezado .rk-btn, .rk-pestanas, .rk-acciones-reporte { display: none !important; }
+  .rk-encabezado-documento { display: grid !important; grid-template-columns: 105px 1fr 120px; align-items: center; min-height: 82px; margin-bottom: 14px; border: 1px solid #bfc6ce; border-top: 7px solid #d71920; border-radius: 12px; color: #20262e !important; }
+  .rk-documento-marca, .rk-documento-titulo, .rk-documento-codigo { display: grid; min-height: 66px; place-items: center; align-content: center; padding: 7px; text-align: center; }
+  .rk-documento-marca, .rk-documento-titulo { border-right: 1px solid #d7dce1; }
+  .rk-documento-marca img { width: 42px; height: 42px; object-fit: contain; }
+  .rk-documento-marca strong { color: #d71920 !important; font-size: 9px; }
+  .rk-documento-titulo strong { font-size: 12px; }
+  .rk-documento-titulo span { margin-top: 3px; font-size: 10px; font-weight: 800; }
+  .rk-documento-codigo span { font-size: 8px; }
+  .rk-documento-codigo strong { margin-top: 3px; font-size: 9px; }
   .rk-kpi, .rk-velocimetro, .rk-bloque { break-inside: avoid; box-shadow: none; }
 }

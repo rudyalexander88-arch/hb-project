@@ -904,6 +904,27 @@ html[data-tema="oscuro"] .perfil-acceso-escritorio-flecha {
     color: #ff6675 !important;
 }
 
+/* Botón Actualizar de Despachos: contraste en temas claro y gris. */
+html:not([data-tema]) #btnActualizarDespachos,
+html[data-tema="claro"] #btnActualizarDespachos,
+html[data-tema="gris"] #btnActualizarDespachos {
+    border: 1px solid #68717d !important;
+    background: #7a8491 !important;
+    color: #ffffff !important;
+    box-shadow: 0 5px 13px rgba(31, 41, 55, .18) !important;
+}
+
+html:not([data-tema]) #btnActualizarDespachos:hover,
+html[data-tema="claro"] #btnActualizarDespachos:hover,
+html[data-tema="gris"] #btnActualizarDespachos:hover,
+html:not([data-tema]) #btnActualizarDespachos:focus-visible,
+html[data-tema="claro"] #btnActualizarDespachos:focus-visible,
+html[data-tema="gris"] #btnActualizarDespachos:focus-visible {
+    border-color: #4b5563 !important;
+    background: #5f6976 !important;
+    color: #ffffff !important;
+}
+
 /* ============================================================
    VERIFICACION DE RECEPCIONES: TEMAS GRIS Y OSCURO
    Mantiene la jerarquía visual sin alterar el tema claro.

@@ -233,9 +233,23 @@
 }
 
 @media (min-width: 701px) {
+    .acciones-secundarias-despachos {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .acciones-secundarias-despachos > summary {
+        display: none !important;
+    }
+
+    .acciones-secundarias-despachos
+    > .acciones-secundarias-despachos__contenido,
     .acciones-secundarias-despachos:not([open])
     > .acciones-secundarias-despachos__contenido {
         display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 }
 
@@ -344,6 +358,21 @@
         0 9px 22px rgba(0,0,0,.17);
 
     filter:brightness(1.04);
+}
+
+/* Acción secundaria: contraste estable en claro, gris y oscuro. */
+#btnActualizarDespachos {
+    border: 1px solid #626d7a !important;
+    background: #737e8b !important;
+    color: #ffffff !important;
+    box-shadow: 0 5px 13px rgba(31, 41, 55, .18) !important;
+}
+
+#btnActualizarDespachos:hover,
+#btnActualizarDespachos:focus-visible {
+    border-color: #46515e !important;
+    background: #56616e !important;
+    color: #ffffff !important;
 }
 
 .btn-ver-todos-despachos{
@@ -3266,7 +3295,6 @@ body.centro-despachos-abierto
 
     overflow: hidden !important;
     overscroll-behavior: contain;
-}
 }
 
 .centro-despachos {

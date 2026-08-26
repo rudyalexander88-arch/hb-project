@@ -7,6 +7,94 @@ window.Despachos = {
 
 urlPdfTemporalConduce: null,
 
+consultaAccionesDespachosMovil: null,
+controlAccionesDespachosResponsive: null,
+
+sincronizarAccionesDespachosResponsive() {
+
+    const panel =
+        document.querySelector(
+            ".acciones-secundarias-despachos"
+        );
+
+
+    if (!panel) {
+        return;
+    }
+
+
+    const consulta =
+        Despachos.consultaAccionesDespachosMovil ||
+        window.matchMedia("(max-width: 700px)");
+
+
+    /*
+     * En escritorio las acciones de consulta siempre deben
+     * estar disponibles. En móvil el usuario conserva el
+     * control del plegable y puede abrirlo o cerrarlo.
+     */
+    if (!consulta.matches) {
+        panel.open = true;
+    }
+
+},
+
+configurarAccionesDespachosResponsive() {
+
+    if (!Despachos.consultaAccionesDespachosMovil) {
+
+        Despachos.consultaAccionesDespachosMovil =
+            window.matchMedia(
+                "(max-width: 700px)"
+            );
+
+    }
+
+
+    if (!Despachos.controlAccionesDespachosResponsive) {
+
+        Despachos.controlAccionesDespachosResponsive =
+            function() {
+
+                Despachos
+                    .sincronizarAccionesDespachosResponsive();
+
+            };
+
+
+        const consulta =
+            Despachos.consultaAccionesDespachosMovil;
+
+
+        if (
+            typeof consulta.addEventListener ===
+            "function"
+        ) {
+
+            consulta.addEventListener(
+                "change",
+                Despachos.controlAccionesDespachosResponsive
+            );
+
+        } else if (
+            typeof consulta.addListener ===
+            "function"
+        ) {
+
+            consulta.addListener(
+                Despachos.controlAccionesDespachosResponsive
+            );
+
+        }
+
+    }
+
+
+    Despachos
+        .sincronizarAccionesDespachosResponsive();
+
+},
+
 obtenerSesionActual() {
     try {
         return JSON.parse(
@@ -731,6 +819,9 @@ async cargar() {
 
         </div>
     `;
+
+    Despachos
+        .configurarAccionesDespachosResponsive();
 	
 	const modalSistema =
     document.getElementById("modalSistema");
@@ -784,6 +875,26 @@ if (
                 Boolean(tieneIconoCerrar);
 
             if (!esBotonCerrar) {
+                return;
+            }
+
+            /*
+             * Este escucha pertenece exclusivamente a Despachos.
+             * No debe reaccionar al cierre de ventanas de otros módulos
+             * que reutilicen #modalSistema.
+             */
+            const contenidoModalActual =
+                document.getElementById("contenidoModal");
+
+            const perteneceADespachos = Boolean(
+                document.getElementById("btnActualizarDespachos") ||
+                document.body.classList.contains("centro-despachos-abierto") ||
+                contenidoModalActual?.classList.contains("modo-centro-despachos") ||
+                contenidoModalActual?.classList.contains("modo-visor-conduce") ||
+                contenidoModalActual?.classList.contains("modo-visor-inspecciones")
+            );
+
+            if (!perteneceADespachos) {
                 return;
             }
 

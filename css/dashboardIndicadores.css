@@ -2140,3 +2140,351 @@ html[data-tema="oscuro"] .historico-metas-periodos button.activo {
     margin: 0 !important;
     font-size: 14px !important;
 }
+
+﻿/* ============================================================
+   OCUPACIÓN DE CÁMARAS · VISTA COMPACTA Y TEMAS BON
+   Ajuste aislado: no modifica las demás tarjetas del dashboard.
+   ============================================================ */
+
+.modal-contenido.modal-ocupacion-camaras {
+    width: min(1180px, calc(100vw - 24px));
+    max-width: 1180px;
+    height: min(790px, calc(100dvh - 24px));
+    overflow: hidden;
+}
+
+.modal-ocupacion-camaras #contenidoModal {
+    min-height: 0;
+    padding: 12px 14px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #f4f6f8;
+}
+
+.modal-ocupacion-camaras .ocupacion-camaras-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.modal-ocupacion-camaras .resumen-ocupacion-general {
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.modal-ocupacion-camaras :is(
+    .ocupacion-general-principal,
+    .metricas-ocupacion-general,
+    .seccion-ocupacion-camaras,
+    .seccion-historico-ocupacion
+) {
+    border-color: #dfe4e9;
+    border-radius: 11px;
+    box-shadow: 0 4px 12px rgba(32, 43, 55, .05);
+}
+
+.modal-ocupacion-camaras .ocupacion-general-principal {
+    padding: 12px 14px;
+}
+
+.modal-ocupacion-camaras .ocupacion-general-principal > strong {
+    margin: 5px 0 9px;
+    color: #20262e;
+    font-size: var(--ui-fs-27, 27px);
+}
+
+.modal-ocupacion-camaras .metricas-ocupacion-general {
+    gap: 7px;
+    padding: 10px;
+}
+
+.modal-ocupacion-camaras .metricas-ocupacion-general > div {
+    padding: 8px 9px;
+    border-radius: 8px;
+    background: #f3f5f7;
+}
+
+.modal-ocupacion-camaras .metricas-ocupacion-general strong {
+    margin-top: 2px;
+    color: #20262e;
+    font-size: var(--ui-fs-16, 16px);
+}
+
+.modal-ocupacion-camaras :is(
+    .seccion-ocupacion-camaras,
+    .seccion-historico-ocupacion
+) {
+    margin-bottom: 0;
+    padding: 12px 14px;
+}
+
+.modal-ocupacion-camaras .seccion-ocupacion-camaras {
+    border-top: 3px solid #d71920;
+}
+
+.modal-ocupacion-camaras .encabezado-seccion-ocupacion {
+    align-items: center;
+    margin-bottom: 9px;
+}
+
+.modal-ocupacion-camaras .encabezado-seccion-ocupacion h3 {
+    color: #252b33;
+    font-size: var(--ui-fs-13, 13px);
+}
+
+.modal-ocupacion-camaras .btn-actualizar-ocupacion {
+    min-height: 32px;
+    padding: 6px 11px;
+    border-color: #d71920;
+    background: #fff;
+    color: #d71920;
+}
+
+.modal-ocupacion-camaras .rejilla-detalle-ocupacion {
+    grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+    gap: 8px;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara {
+    padding: 9px 10px;
+    border-width: 1px 1px 1px 4px;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara > header {
+    align-items: center;
+    gap: 7px;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara header span {
+    color: #d71920;
+    font-size: var(--ui-fs-8, 8px);
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara h4 {
+    margin-top: 1px;
+    color: #29313a;
+    font-size: var(--ui-fs-11, 11px);
+    line-height: 1.2;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara header > strong {
+    color: #20262e;
+    font-size: var(--ui-fs-14, 14px);
+    white-space: nowrap;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara .barra-camara {
+    height: 5px;
+    margin: 7px 0;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara.nivel-baja .barra-camara span {
+    background: #2e963f;
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara.nivel-media .barra-camara span {
+    background: #287bd1;
+}
+
+.modal-ocupacion-camaras .metricas-camara {
+    gap: 4px;
+}
+
+.modal-ocupacion-camaras .metricas-camara > div {
+    min-width: 0;
+    padding: 5px 6px;
+    border-radius: 6px;
+    background: #f3f5f7;
+}
+
+.modal-ocupacion-camaras .metricas-camara span {
+    overflow: hidden;
+    color: #737e8b;
+    font-size: var(--ui-fs-8, 8px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-ocupacion-camaras .metricas-camara strong {
+    margin-top: 1px;
+    color: #232a33;
+    font-size: var(--ui-fs-11, 11px);
+}
+
+.modal-ocupacion-camaras .tarjeta-ocupacion-camara > footer {
+    margin-top: 6px;
+    color: #687482;
+    font-size: var(--ui-fs-8, 8px);
+}
+
+.modal-ocupacion-camaras .filtros-historico-ocupacion {
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 9px;
+    background: #f3f5f7;
+}
+
+.modal-ocupacion-camaras .filtros-historico-ocupacion select {
+    height: 34px;
+}
+
+.modal-ocupacion-camaras .btn-consultar-ocupacion {
+    min-height: 34px;
+    padding-block: 6px;
+}
+
+.modal-ocupacion-camaras .contenedor-grafico-ocupacion {
+    height: 235px;
+}
+
+/* Tema oscuro: negro carbón, superficies profundas y acentos BON. */
+html[data-tema="oscuro"] .modal-contenido.modal-ocupacion-camaras,
+html[data-tema="oscuro"] .modal-ocupacion-camaras #contenidoModal,
+html[data-tema="oscuro"] .modal-ocupacion-camaras .ocupacion-camaras-modal {
+    border-color: #343f4d !important;
+    background: #151a21 !important;
+    color: #f5f7fa !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras :is(
+    .ocupacion-general-principal,
+    .metricas-ocupacion-general,
+    .seccion-ocupacion-camaras,
+    .seccion-historico-ocupacion
+) {
+    border-color: #384452 !important;
+    background: #1d242d !important;
+    color: #f5f7fa !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .24);
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras :is(
+    .ocupacion-general-principal > strong,
+    .metricas-ocupacion-general strong,
+    .encabezado-seccion-ocupacion h3,
+    .tarjeta-ocupacion-camara h4,
+    .tarjeta-ocupacion-camara header > strong,
+    .metricas-camara strong
+) {
+    color: #f6f8fb !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras :is(
+    .ocupacion-general-principal > span,
+    .metricas-ocupacion-general span,
+    .encabezado-seccion-ocupacion p,
+    .metricas-camara span,
+    .tarjeta-ocupacion-camara > footer,
+    .filtros-historico-ocupacion label,
+    .sin-datos-historico-ocupacion,
+    .estado-vacio-ocupacion
+) {
+    color: #b8c3d0 !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras :is(
+    .metricas-ocupacion-general > div,
+    .metricas-camara > div,
+    .filtros-historico-ocupacion
+) {
+    border-color: #35414f !important;
+    background: #171e27 !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .tarjeta-ocupacion-camara {
+    border-color: #3b4755 !important;
+    border-left-color: #2e963f !important;
+    background: #232b35 !important;
+    color: #f5f7fa !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .tarjeta-ocupacion-camara.nivel-media {
+    border-left-color: #3d91e8 !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .tarjeta-ocupacion-camara.nivel-alta {
+    border-left-color: #f5a623 !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .tarjeta-ocupacion-camara.nivel-critica {
+    border-left-color: #ef334f !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .tarjeta-ocupacion-camara header span,
+html[data-tema="oscuro"] .modal-ocupacion-camaras .encabezado-seccion-ocupacion > div > span {
+    color: #ff526a !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras :is(.barra-ocupacion-general, .barra-camara) {
+    background: #111720 !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras :is(
+    .filtros-historico-ocupacion select,
+    .btn-actualizar-ocupacion
+) {
+    border-color: #596575 !important;
+    background: #202934 !important;
+    color: #f5f7fa !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .btn-actualizar-ocupacion {
+    border-color: #ef334f !important;
+    color: #ff6075 !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .btn-consultar-ocupacion {
+    background: #d71920 !important;
+    color: #fff !important;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras .contenedor-grafico-ocupacion {
+    border-radius: 9px;
+    background: #171e27;
+}
+
+html[data-tema="oscuro"] .modal-ocupacion-camaras #contenidoModal {
+    scrollbar-color: #596575 #151a21;
+}
+
+@media (max-width: 760px) {
+    .modal-contenido.modal-ocupacion-camaras {
+        width: calc(100vw - 14px);
+        height: calc(100dvh - 14px);
+    }
+
+    .modal-ocupacion-camaras #contenidoModal {
+        padding: 9px;
+    }
+
+    .modal-ocupacion-camaras .ocupacion-camaras-modal {
+        gap: 9px;
+    }
+
+    .modal-ocupacion-camaras :is(
+        .seccion-ocupacion-camaras,
+        .seccion-historico-ocupacion
+    ) {
+        padding: 10px;
+    }
+
+    .modal-ocupacion-camaras .rejilla-detalle-ocupacion {
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .modal-ocupacion-camaras .metricas-camara {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .modal-ocupacion-camaras .encabezado-seccion-ocupacion {
+        align-items: flex-start;
+    }
+
+    .modal-ocupacion-camaras .contenedor-grafico-ocupacion {
+        height: 210px;
+    }
+}

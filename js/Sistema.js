@@ -251,6 +251,313 @@ const Sistema = {
     },
 
 
+    /**
+     * Confirmación corporativa para toda interacción que requiera
+     * una decisión explícita del usuario.
+     *
+     * Devuelve una Promise<boolean>:
+     * - true: el usuario confirmó la acción.
+     * - false: el usuario canceló o presionó Escape.
+     */
+    confirmar(configuracion = {}, opciones = {}) {
+
+        const parametros =
+            typeof configuracion === "string"
+                ? {
+                    ...opciones,
+                    mensaje: configuracion
+                }
+                : {
+                    ...(configuracion || {})
+                };
+
+        if (
+            this.confirmacionActiva &&
+            this.confirmacionActiva.promesa
+        ) {
+            return this.confirmacionActiva.promesa;
+        }
+
+        const tiposPermitidos = [
+            "peligro",
+            "advertencia",
+            "info",
+            "exito"
+        ];
+
+        const tipo =
+            tiposPermitidos.includes(parametros.tipo)
+                ? parametros.tipo
+                : "advertencia";
+
+        const iconos = {
+            peligro: "fa-solid fa-triangle-exclamation",
+            advertencia: "fa-solid fa-circle-exclamation",
+            info: "fa-solid fa-circle-question",
+            exito: "fa-solid fa-circle-check"
+        };
+
+        const titulo =
+            String(
+                parametros.titulo ||
+                "Confirmar acción"
+            );
+
+        const mensaje =
+            String(
+                parametros.mensaje ||
+                "¿Desea continuar con esta acción?"
+            );
+
+        const detalle =
+            String(
+                parametros.detalle ||
+                ""
+            );
+
+        const textoConfirmar =
+            String(
+                parametros.textoConfirmar ||
+                "Confirmar"
+            );
+
+        const textoCancelar =
+            String(
+                parametros.textoCancelar ||
+                "Cancelar"
+            );
+
+        const elementoAnterior =
+            document.activeElement;
+
+        const fondo =
+            document.createElement("div");
+
+        fondo.className =
+            "confirmacion-sistema-fondo " +
+            "confirmacion-sistema-" +
+            tipo;
+
+        fondo.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+
+        fondo.innerHTML = `
+            <section
+                class="confirmacion-sistema-tarjeta"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="confirmacionSistemaTitulo"
+                aria-describedby="confirmacionSistemaMensaje"
+            >
+                <div class="confirmacion-sistema-identidad" aria-hidden="true">
+                    <i class="${iconos[tipo]}"></i>
+                </div>
+
+                <div class="confirmacion-sistema-contenido">
+                    <span class="confirmacion-sistema-etiqueta">
+                        Sistema Logístico PT
+                    </span>
+
+                    <h3 id="confirmacionSistemaTitulo">
+                        ${this.escaparHTML(titulo)}
+                    </h3>
+
+                    <p id="confirmacionSistemaMensaje">
+                        ${this.escaparHTML(mensaje)}
+                    </p>
+
+                    ${
+                        detalle
+                            ? `
+                                <small>
+                                    ${this.escaparHTML(detalle)}
+                                </small>
+                            `
+                            : ""
+                    }
+                </div>
+
+                <div class="confirmacion-sistema-acciones">
+                    <button
+                        type="button"
+                        class="confirmacion-sistema-cancelar"
+                        data-confirmacion-cancelar
+                    >
+                        ${this.escaparHTML(textoCancelar)}
+                    </button>
+
+                    <button
+                        type="button"
+                        class="confirmacion-sistema-confirmar"
+                        data-confirmacion-aceptar
+                    >
+                        ${this.escaparHTML(textoConfirmar)}
+                    </button>
+                </div>
+            </section>
+        `;
+
+        let resolverPromesa;
+
+        const promesa =
+            new Promise(resolve => {
+                resolverPromesa = resolve;
+            });
+
+        let cerrando = false;
+
+        const cerrar = resultado => {
+
+            if (cerrando) {
+                return;
+            }
+
+            cerrando = true;
+
+            document.removeEventListener(
+                "keydown",
+                manejarTeclado
+            );
+
+            fondo.classList.add("cerrando");
+            fondo.classList.remove("visible");
+            fondo.setAttribute("aria-hidden", "true");
+
+            window.setTimeout(() => {
+
+                fondo.remove();
+
+                document.body.classList.remove(
+                    "confirmacion-sistema-abierta"
+                );
+
+                this.confirmacionActiva = null;
+
+                if (
+                    elementoAnterior &&
+                    document.contains(elementoAnterior) &&
+                    typeof elementoAnterior.focus === "function"
+                ) {
+                    elementoAnterior.focus({
+                        preventScroll: true
+                    });
+                }
+
+                resolverPromesa(
+                    resultado === true
+                );
+
+            }, 230);
+
+        };
+
+        const manejarTeclado = evento => {
+
+            if (evento.key === "Escape") {
+                evento.preventDefault();
+                cerrar(false);
+                return;
+            }
+
+            if (evento.key !== "Tab") {
+                return;
+            }
+
+            const controles =
+                Array.from(
+                    fondo.querySelectorAll(
+                        "button:not(:disabled)"
+                    )
+                );
+
+            if (!controles.length) {
+                return;
+            }
+
+            const primero = controles[0];
+            const ultimo =
+                controles[controles.length - 1];
+
+            if (
+                evento.shiftKey &&
+                document.activeElement === primero
+            ) {
+                evento.preventDefault();
+                ultimo.focus();
+            } else if (
+                !evento.shiftKey &&
+                document.activeElement === ultimo
+            ) {
+                evento.preventDefault();
+                primero.focus();
+            }
+
+        };
+
+        const botonCancelar =
+            fondo.querySelector(
+                "[data-confirmacion-cancelar]"
+            );
+
+        const botonAceptar =
+            fondo.querySelector(
+                "[data-confirmacion-aceptar]"
+            );
+
+        botonCancelar.addEventListener(
+            "click",
+            () => cerrar(false)
+        );
+
+        botonAceptar.addEventListener(
+            "click",
+            () => cerrar(true)
+        );
+
+        if (parametros.cerrarConFondo === true) {
+            fondo.addEventListener(
+                "click",
+                evento => {
+                    if (evento.target === fondo) {
+                        cerrar(false);
+                    }
+                }
+            );
+        }
+
+        document.body.appendChild(fondo);
+        document.body.classList.add(
+            "confirmacion-sistema-abierta"
+        );
+
+        document.addEventListener(
+            "keydown",
+            manejarTeclado
+        );
+
+        this.confirmacionActiva = {
+            promesa: promesa,
+            cerrar: cerrar
+        };
+
+        window.requestAnimationFrame(() => {
+
+            fondo.classList.add("visible");
+            fondo.setAttribute("aria-hidden", "false");
+
+            window.setTimeout(() => {
+                botonCancelar.focus();
+            }, 80);
+
+        });
+
+        return promesa;
+
+    },
+
+
     mostrarCarga(
         titulo = "Procesando...",
         mensaje = "Espere un momento."

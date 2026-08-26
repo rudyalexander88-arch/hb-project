@@ -25,7 +25,9 @@ esAnalista() {
         .trim()
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") === "analista";
+        .replace(/[\u0300-\u036f]/g, "");
+
+    return rol === "analista" || rol === "gerencia" || rol === "gerente";
 },
 
 denegarEdicionAnalista() {
@@ -34,7 +36,7 @@ denegarEdicionAnalista() {
     }
 
     Despachos.notificar(
-        "El perfil Analista dispone de acceso de solo lectura en Despachos. Las correcciones deben realizarse desde Exactitud de despachos.",
+        "Su perfil dispone únicamente de consulta en Despachos.",
         "advertencia"
     );
 

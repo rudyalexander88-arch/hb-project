@@ -830,6 +830,8 @@ window.addEventListener("load", async () => {
             "function"
     ) {
 
+        activarMenu("menuInicio");
+
         window.InicioOperativo.cargar();
 
     }
@@ -862,9 +864,13 @@ function aplicarPermisosDashboard() {
         }
 
         const permitido =
-            Sistema.tieneAccesoModulo(
-                item.modulo
-            );
+            item.idMenu === "menuReportes" &&
+            window.ReportesKPIs &&
+            typeof window.ReportesKPIs.puedeVer === "function"
+                ? window.ReportesKPIs.puedeVer()
+                : Sistema.tieneAccesoModulo(
+                    item.modulo
+                );
 
         elemento.hidden = !permitido;
 
@@ -1060,6 +1066,58 @@ function inicializarMenu() {
     }
 
 
+    const menuReportes =
+        document.getElementById(
+            "menuReportes"
+        );
+
+    if (menuReportes) {
+
+        menuReportes.addEventListener(
+            "click",
+            async () => {
+
+                if (
+                    !window.ReportesKPIs ||
+                    typeof window.ReportesKPIs.cargar !==
+                        "function"
+                ) {
+
+                    Sistema.error(
+                        "El módulo Reportes & KPIs no está disponible."
+                    );
+
+                    return;
+
+                }
+
+                if (
+                    typeof window.ReportesKPIs.puedeVer ===
+                        "function" &&
+                    !window.ReportesKPIs.puedeVer()
+                ) {
+
+                    Sistema.advertencia(
+                        "No tiene acceso a Reportes & KPIs.",
+                        4200
+                    );
+
+                    return;
+
+                }
+
+                activarMenu(
+                    "menuReportes"
+                );
+
+                await window.ReportesKPIs.cargar();
+
+            }
+        );
+
+    }
+
+
     const salir =
         document.getElementById(
             "salir"
@@ -1192,6 +1250,35 @@ async function cerrarSesion() {
      * mientras Apps Script elimina la sesión activa.
      */
     if (cierreSesionEnProceso) {
+        return;
+    }
+
+
+    const confirmarCierre =
+        await Sistema.confirmar({
+
+            titulo:
+                "Cerrar sesión",
+
+            mensaje:
+                "¿Está seguro de que desea cerrar su sesión?",
+
+            detalle:
+                "Se finalizará el acceso actual y volverá a la pantalla de inicio.",
+
+            tipo:
+                "peligro",
+
+            textoConfirmar:
+                "Sí, cerrar sesión",
+
+            textoCancelar:
+                "Permanecer"
+
+        });
+
+
+    if (!confirmarCierre) {
         return;
     }
 

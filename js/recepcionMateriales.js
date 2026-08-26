@@ -5,6 +5,17 @@
 
 window.RecepcionMateriales = {
 
+  esGerencia() {
+    const sesion = API.obtenerSesion() || {};
+    const rol = String(sesion.rol || "").trim().toUpperCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return rol === "GERENCIA" || rol === "GERENTE";
+  },
+
+  puedeEditar(permiso) {
+    return !this.esGerencia() && Sistema.tienePermiso(permiso);
+  },
+
   estado: {
     camaras: [],
     recepcionesAbiertas: [],
@@ -101,7 +112,7 @@ window.RecepcionMateriales = {
             }
 
             ${
-              Sistema.tienePermiso(
+              this.puedeEditar(
                 "RECEPCIONES_CREAR"
               )
                 ? `
@@ -321,6 +332,11 @@ await this.cargarCatalogos();
 
 
   abrirAsistenteNueva() {
+
+    if (this.esGerencia()) {
+      Sistema.advertencia("Gerencia dispone únicamente de consulta en Recepciones.");
+      return;
+    }
 
     if (
       !Sistema.exigirPermiso(
@@ -1378,7 +1394,7 @@ configurarScrollInterno() {
         }
 
         ${
-          Sistema.tienePermiso(
+          this.puedeEditar(
             "RECEPCIONES_CONTINUAR"
           )
             ? `
@@ -1775,6 +1791,11 @@ configurarScrollInterno() {
 
 
   async abrirRecepcion(idRecepcion) {
+
+    if (this.esGerencia()) {
+      Sistema.advertencia("Gerencia dispone únicamente de consulta en Recepciones.");
+      return;
+    }
 
     if (
       !Sistema.exigirPermiso(

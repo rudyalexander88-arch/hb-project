@@ -677,11 +677,54 @@ const DashboardIndicadores = {
                 "click",
                 () => {
 
-                    if (!botonPrioridades.disabled) {
+                    if (
+                        !botonPrioridades.disabled &&
+                        typeof botonPrioridades.onclick !==
+                            "function"
+                    ) {
                         this.abrirPrioridades();
                     }
 
                 }
+            );
+
+        }
+
+    },
+
+
+    async abrirPrioridades() {
+
+        if (
+            !window.Prioridades ||
+            typeof window.Prioridades.abrirCentro !==
+                "function"
+        ) {
+
+            Sistema.error(
+                "El módulo de Prioridades no está disponible."
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            await window.Prioridades
+                .abrirCentro();
+
+        } catch (error) {
+
+            console.error(
+                "Error abriendo el Centro de Prioridades:",
+                error
+            );
+
+            Sistema.error(
+                error.message ||
+                "No fue posible abrir las prioridades."
             );
 
         }
@@ -1712,6 +1755,119 @@ const DashboardIndicadores = {
 
         }
 
+        const temaOscuro =
+            document.documentElement.dataset.tema ===
+            "oscuro";
+
+        const colorTexto =
+            temaOscuro
+                ? "rgba(225, 232, 241, 0.92)"
+                : "rgba(55, 65, 78, 0.92)";
+
+        const colorCuadricula =
+            temaOscuro
+                ? "rgba(210, 222, 236, 0.12)"
+                : "rgba(0, 0, 0, 0.06)";
+
+        const series =
+            Array.isArray(informacion.series)
+                ? informacion.series.filter(
+                      serie =>
+                          Array.isArray(serie.puntos) &&
+                          serie.puntos.length
+                  )
+                : [];
+
+        const colores = [
+            "#ef334f",
+            "#3182f6",
+            "#f5a623",
+            "#2eaa5f",
+            "#9b6cff",
+            "#16b6c9",
+            "#f06292",
+            "#8bc34a"
+        ];
+
+        const seriesVisibles =
+            series.length
+                ? series
+                : [
+                      {
+                          idCamara:
+                              informacion.idCamara ||
+                              "GENERAL",
+                          codigo:
+                              informacion.idCamara ===
+                              "GENERAL"
+                                  ? "General"
+                                  : informacion.idCamara,
+                          nombre: "Ocupación",
+                          puntos: puntos
+                      }
+                  ];
+
+        const etiquetas =
+            seriesVisibles[0].puntos.map(
+                punto => punto.etiqueta
+            );
+
+        const conjuntos =
+            seriesVisibles.map(
+                (serie, indice) => {
+
+                    const color =
+                        colores[
+                            indice % colores.length
+                        ];
+
+                    return {
+                        label:
+                            [
+                                serie.codigo,
+                                serie.nombre
+                            ]
+                                .filter(Boolean)
+                                .join(" · "),
+                        data:
+                            serie.puntos.map(
+                                punto =>
+                                    Sistema.convertirNumero(
+                                        punto.porcentaje
+                                    )
+                            ),
+                        datosOcupacion:
+                            serie.puntos,
+                        borderColor: color,
+                        backgroundColor: color,
+                        fill: false,
+                        tension: 0.25,
+                        borderWidth: 2.2,
+                        pointRadius: 2.5,
+                        pointHoverRadius: 5
+                    };
+
+                }
+            );
+
+        const porcentajeMayor =
+            conjuntos.reduce(
+                (mayor, conjunto) =>
+                    Math.max(
+                        mayor,
+                        ...conjunto.data
+                    ),
+                100
+            );
+
+        const maximoEscala =
+            Math.max(
+                100,
+                Math.ceil(
+                    porcentajeMayor * 1.08 / 20
+                ) * 20
+            );
+
         this.graficoOcupacionCamaras =
             new Chart(
                 canvas.getContext("2d"),
@@ -1719,33 +1875,8 @@ const DashboardIndicadores = {
                     type: "line",
 
                     data: {
-                        labels:
-                            puntos.map(
-                                punto => punto.etiqueta
-                            ),
-
-                        datasets: [
-                            {
-                                label:
-                                    "Ocupación %",
-                                data:
-                                    puntos.map(
-                                        punto =>
-                                            Sistema.convertirNumero(
-                                                punto.porcentaje
-                                            )
-                                    ),
-                                borderColor:
-                                    "rgba(33, 150, 243, 1)",
-                                backgroundColor:
-                                    "rgba(33, 150, 243, 0.13)",
-                                fill: true,
-                                tension: 0.28,
-                                borderWidth: 2,
-                                pointRadius: 3,
-                                pointHoverRadius: 5
-                            }
-                        ]
+                        labels: etiquetas,
+                        datasets: conjuntos
                     },
 
                     options: {
@@ -1759,7 +1890,19 @@ const DashboardIndicadores = {
 
                         plugins: {
                             legend: {
-                                display: false
+                                display: true,
+                                position: "bottom",
+                                labels: {
+                                    color: colorTexto,
+                                    usePointStyle: true,
+                                    boxWidth: 8,
+                                    boxHeight: 8,
+                                    padding: 12,
+                                    font: {
+                                        size: 9,
+                                        weight: "600"
+                                    }
+                                }
                             },
 
                             tooltip: {
@@ -1767,9 +1910,10 @@ const DashboardIndicadores = {
                                     afterLabel: contexto => {
 
                                         const punto =
-                                            puntos[
-                                                contexto.dataIndex
-                                            ];
+                                            contexto.dataset
+                                                .datosOcupacion[
+                                                    contexto.dataIndex
+                                                ];
 
                                         return (
                                             Sistema.formatearNumero(
@@ -1792,19 +1936,22 @@ const DashboardIndicadores = {
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                suggestedMax: 100,
-                                max: 100,
+                                suggestedMax: maximoEscala,
+                                max: maximoEscala,
                                 ticks: {
                                     callback:
-                                        valor => valor + "%"
+                                        valor => valor + "%",
+                                    color: colorTexto
                                 },
                                 grid: {
-                                    color:
-                                        "rgba(0, 0, 0, 0.06)"
+                                    color: colorCuadricula
                                 }
                             },
 
                             x: {
+                                ticks: {
+                                    color: colorTexto
+                                },
                                 grid: {
                                     display: false
                                 }

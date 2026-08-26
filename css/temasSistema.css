@@ -1248,63 +1248,371 @@ html:is([data-tema="gris"], [data-tema="oscuro"]) .metas-periodos-opciones butto
     background: rgba(213, 30, 58, .18);
     color: #ff8295;
 }
-/* ============================================================
-   INDICADORES SUPERIORES
-   ESQUINAS LIMPIAS EN TEMA CLARO
-   ============================================================ */
 
-html:not([data-tema="oscuro"]):not([data-tema="gris"])
-#tarjetasDashboard {
-    background: transparent !important;
+/* ------------------------------------------------------------
+   REGLA GLOBAL DE AVISOS DEL SISTEMA
+
+   1. Notificaciones de proceso: esquina superior derecha.
+   2. Interacciones: tarjeta centrada con fondo bloqueante.
+   ------------------------------------------------------------ */
+
+.contenedor-notificaciones-sistema {
+    position: fixed;
+    top: 22px;
+    right: 22px;
+    left: auto;
+    z-index: 100100;
+    width: min(390px, calc(100vw - 32px));
+    pointer-events: none;
 }
 
-html:not([data-tema="oscuro"]):not([data-tema="gris"])
-#tarjetasDashboard > .card,
-html:not([data-tema="oscuro"]):not([data-tema="gris"])
-#tarjetasDashboard > .card-indicador {
-    background: #ffffff !important;
+.notificacion-sistema {
+    opacity: 0;
+    transform: translateX(calc(100% + 48px));
+    pointer-events: auto;
+    transition:
+        opacity .24s ease,
+        transform .28s cubic-bezier(.2, .75, .25, 1);
+}
 
-    border: 1px solid #e7ebef !important;
-    border-radius: 15px !important;
+.notificacion-sistema.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
 
-    box-shadow: none !important;
-    background-clip: padding-box;
+.notificacion-sistema.saliendo {
+    opacity: 0;
+    transform: translateX(calc(100% + 48px));
+}
 
+body.confirmacion-sistema-abierta {
     overflow: hidden;
 }
 
-/* Conserva una respuesta visual discreta al pasar el cursor. */
-html:not([data-tema="oscuro"]):not([data-tema="gris"])
-#tarjetasDashboard > .card:hover,
-html:not([data-tema="oscuro"]):not([data-tema="gris"])
-#tarjetasDashboard > .card-indicador:hover {
-    border-color: #d6dce3 !important;
-    box-shadow: none !important;
+.confirmacion-sistema-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 100300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(19, 25, 34, .58);
+    opacity: 0;
+    visibility: hidden;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition:
+        opacity .22s ease,
+        visibility .22s ease;
 }
 
-
-/* ============================================================
-   ACCESO AL PERFIL
-   NOMBRE Y ROL LEGIBLES EN TEMA OSCURO
-   ============================================================ */
-
-html[data-tema="oscuro"]
-.perfil-acceso-escritorio-datos strong,
-
-html[data-tema="oscuro"]
-#nombreUsuario {
-    color: #f4f7fb !important;
+.confirmacion-sistema-fondo.visible {
+    opacity: 1;
+    visibility: visible;
 }
 
-html[data-tema="oscuro"]
-.perfil-acceso-escritorio-datos > span,
-
-html[data-tema="oscuro"]
-#rolUsuario {
-    color: #b8c4d3 !important;
+.confirmacion-sistema-fondo.cerrando {
+    opacity: 0;
 }
 
-html[data-tema="oscuro"]
-.perfil-acceso-escritorio-flecha {
-    color: #aab8c8 !important;
+.confirmacion-sistema-tarjeta {
+    --confirmacion-color: #f7941d;
+    position: relative;
+    width: min(430px, 100%);
+    overflow: hidden;
+    border: 1px solid #e3e7ec;
+    border-radius: 18px;
+    background: #ffffff;
+    color: #202631;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, .28),
+        0 8px 20px rgba(0, 0, 0, .12);
+    opacity: 0;
+    transform: translateY(14px) scale(.94);
+    transition:
+        opacity .24s ease,
+        transform .3s cubic-bezier(.2, .78, .24, 1.08);
+}
+
+.confirmacion-sistema-tarjeta::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 5px;
+    background: linear-gradient(
+        90deg,
+        #d71920,
+        var(--confirmacion-color),
+        #f59e0b
+    );
+}
+
+.confirmacion-sistema-fondo.visible .confirmacion-sistema-tarjeta {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.confirmacion-sistema-fondo.cerrando .confirmacion-sistema-tarjeta {
+    opacity: 0;
+    transform: translateY(8px) scale(.97);
+}
+
+.confirmacion-sistema-peligro .confirmacion-sistema-tarjeta {
+    --confirmacion-color: #ed1b2f;
+}
+
+.confirmacion-sistema-advertencia .confirmacion-sistema-tarjeta {
+    --confirmacion-color: #f7941d;
+}
+
+.confirmacion-sistema-info .confirmacion-sistema-tarjeta {
+    --confirmacion-color: #327dbc;
+}
+
+.confirmacion-sistema-exito .confirmacion-sistema-tarjeta {
+    --confirmacion-color: #269447;
+}
+
+.confirmacion-sistema-identidad {
+    display: grid;
+    width: 62px;
+    height: 62px;
+    margin: 30px auto 12px;
+    place-items: center;
+    border: 1px solid color-mix(
+        in srgb,
+        var(--confirmacion-color) 28%,
+        transparent
+    );
+    border-radius: 20px;
+    background: color-mix(
+        in srgb,
+        var(--confirmacion-color) 12%,
+        #ffffff
+    );
+    color: var(--confirmacion-color);
+    font-size: 27px;
+    box-shadow: 0 9px 24px color-mix(
+        in srgb,
+        var(--confirmacion-color) 17%,
+        transparent
+    );
+}
+
+.confirmacion-sistema-contenido {
+    padding: 0 28px;
+    text-align: center;
+}
+
+.confirmacion-sistema-etiqueta {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--confirmacion-color);
+    font-size: var(--ui-fs-8, 8px);
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.confirmacion-sistema-contenido h3 {
+    margin: 0;
+    color: #202631;
+    font-size: var(--ui-fs-18, 18px);
+    line-height: 1.3;
+}
+
+.confirmacion-sistema-contenido p {
+    margin: 9px 0 0;
+    color: #4f5967;
+    font-size: var(--ui-fs-11, 11px);
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+.confirmacion-sistema-contenido small {
+    display: block;
+    margin-top: 7px;
+    color: #7a8491;
+    font-size: var(--ui-fs-9, 9px);
+    line-height: 1.5;
+}
+
+.confirmacion-sistema-acciones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 22px 24px 24px;
+}
+
+.confirmacion-sistema-acciones button {
+    min-height: 43px;
+    padding: 10px 14px;
+    border-radius: 11px;
+    font-family: Poppins, sans-serif;
+    font-size: var(--ui-fs-10, 10px);
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        transform .16s ease,
+        border-color .16s ease,
+        background .16s ease,
+        box-shadow .16s ease;
+}
+
+.confirmacion-sistema-acciones button:hover {
+    transform: translateY(-1px);
+}
+
+.confirmacion-sistema-acciones button:focus-visible {
+    outline: 3px solid color-mix(
+        in srgb,
+        var(--confirmacion-color) 28%,
+        transparent
+    );
+    outline-offset: 2px;
+}
+
+.confirmacion-sistema-cancelar {
+    border: 1px solid #cbd2da;
+    background: #f1f3f5;
+    color: #414a56;
+}
+
+.confirmacion-sistema-cancelar:hover {
+    border-color: #aeb7c2;
+    background: #e7eaee;
+}
+
+.confirmacion-sistema-confirmar {
+    border: 1px solid var(--confirmacion-color);
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--confirmacion-color) 84%, #9d1220),
+        var(--confirmacion-color)
+    );
+    color: #ffffff;
+    box-shadow: 0 8px 18px color-mix(
+        in srgb,
+        var(--confirmacion-color) 25%,
+        transparent
+    );
+}
+
+.confirmacion-sistema-confirmar:hover {
+    filter: brightness(1.05);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-fondo {
+    background: var(--bon-overlay, rgba(5, 10, 17, .76));
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-tarjeta {
+    border-color: var(--bon-borde);
+    background: var(--bon-superficie);
+    color: var(--bon-texto);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .42);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-identidad {
+    background: color-mix(
+        in srgb,
+        var(--confirmacion-color) 14%,
+        var(--bon-superficie-elevada)
+    );
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-contenido h3 {
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-contenido p {
+    color: var(--bon-texto-secundario);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-contenido small {
+    color: var(--bon-texto-tenue);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .confirmacion-sistema-cancelar {
+    border-color: var(--bon-borde);
+    background: var(--bon-superficie-suave);
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .notificacion-sistema {
+    border-color: var(--bon-borde);
+    background: var(--bon-superficie-elevada);
+    color: var(--bon-texto);
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .notificacion-sistema-contenido p {
+    color: var(--bon-texto) !important;
+}
+
+html:is([data-tema="gris"], [data-tema="oscuro"])
+    .notificacion-sistema-cerrar {
+    color: var(--bon-texto-tenue);
+}
+
+@media (max-width: 600px) {
+    .contenedor-notificaciones-sistema {
+        top: 14px;
+        right: 14px;
+        left: 14px;
+        width: auto;
+    }
+
+    .confirmacion-sistema-fondo {
+        align-items: center;
+        padding: 16px;
+    }
+
+    .confirmacion-sistema-tarjeta {
+        width: 100%;
+        max-width: 390px;
+        border-radius: 16px;
+    }
+
+    .confirmacion-sistema-identidad {
+        width: 56px;
+        height: 56px;
+        margin-top: 26px;
+        font-size: 24px;
+    }
+
+    .confirmacion-sistema-contenido {
+        padding-inline: 20px;
+    }
+
+    .confirmacion-sistema-acciones {
+        grid-template-columns: 1fr;
+        padding: 20px;
+    }
+
+    .confirmacion-sistema-cancelar {
+        order: 2;
+    }
+
+    .confirmacion-sistema-confirmar {
+        order: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .notificacion-sistema,
+    .confirmacion-sistema-fondo,
+    .confirmacion-sistema-tarjeta,
+    .confirmacion-sistema-acciones button {
+        transition-duration: .01ms !important;
+    }
 }

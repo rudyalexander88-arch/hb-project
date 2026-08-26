@@ -1,4 +1,4 @@
-/** ASISTENCIAPERSONAL.JS · UTF-8 */
+/** ASISTENCIAPERSONAL.JS · UTF-8 · Gestión de personal y avisos. */
 window.AsistenciaPersonal={
  datos:null,catalogos:null,turnoActual:"A",coberturas:[],
  puedeGestionar(){const s=Sistema.obtenerSesion()||{},r=this.n(s.rol);return r.includes("SUPERVISOR")||r.includes("ENCARGADO")||r.includes("ADMINISTRADOR");},
@@ -17,8 +17,86 @@ window.AsistenciaPersonal={
  async guardarVacaciones(){this.cargar("Guardando vacaciones","Actualizando la disponibilidad del colaborador.");try{const r=await API.post({action:"registrarVacacionesPersonal",empleadoId:document.getElementById("apVacEmpleado").value,fechaInicio:document.getElementById("apVacInicio").value,fechaFinal:document.getElementById("apVacFinal").value,comentario:document.getElementById("apVacComentario").value});if(!r||!r.ok)throw new Error(r.mensaje);Sistema.exito(r.mensaje);await this.abrirVacaciones();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
  async abrirBono(){this.cargar("Cargando Bono Felicidad","Consultando beneficios programados.");try{const [cols,r]=await Promise.all([this.cargarColaboradores(),API.post({action:"listarBonosFelicidad"})]);if(!r||!r.ok)throw new Error(r.mensaje);this.modal("Bono Felicidad",`<section class="ap-modulo"><div class="ap-form-bloque"><div class="ap-grid-form"><label>Colaborador<select id="apBonoEmpleado">${this.opcionesColaboradores(cols)}</select></label><label>Fecha del bono<input id="apBonoFecha" type="date"></label><label class="ancho">Comentario<input id="apBonoComentario" placeholder="Opcional"></label></div><div class="ap-acciones"><button id="apGuardarBono">Registrar bono</button></div></div>${this.listaSimple(r.data.registros||[],"Empleado_Nombre","Fecha_Bono","Turno","Estado")}</section>`);document.getElementById("apGuardarBono").onclick=()=>this.guardarBono();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
  async guardarBono(){this.cargar("Guardando Bono Felicidad","Actualizando la disponibilidad del colaborador.");try{const r=await API.post({action:"registrarBonoFelicidad",empleadoId:document.getElementById("apBonoEmpleado").value,fechaBono:document.getElementById("apBonoFecha").value,comentario:document.getElementById("apBonoComentario").value});if(!r||!r.ok)throw new Error(r.mensaje);Sistema.exito(r.mensaje);await this.abrirBono();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
- async abrirAmonestacion(){this.cargar("Cargando amonestaciones","Consultando colaboradores y documentos pendientes.");try{const [cols,r]=await Promise.all([this.cargarColaboradores(),API.post({action:"listarAmonestacionesPendientes"})]);if(!r||!r.ok)throw new Error(r.mensaje);this.modal("Amonestaciones",`<section class="ap-modulo"><div class="ap-form-bloque"><div class="ap-grid-form"><label>Colaborador<select id="apAmoEmpleado">${this.opcionesColaboradores(cols)}</select></label><label>Fecha<input id="apAmoFecha" type="date" value="${this.hoy()}"></label><label class="ancho">Causa<input id="apAmoCausa"></label><label class="ancho">Comentario<textarea id="apAmoComentario"></textarea></label><label class="ancho">Formulario firmado PDF<input id="apAmoArchivo" type="file" accept="application/pdf"></label></div><div class="ap-acciones"><button id="apGuardarAmo">Registrar y enviar a RR. HH.</button></div></div>${this.listaSimple(r.data.registros||[],"Empleado_Nombre","Fecha_Incidencia","Causa","Estado")}</section>`);document.getElementById("apGuardarAmo").onclick=()=>this.guardarAmonestacion();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
- async guardarAmonestacion(){const archivo=document.getElementById("apAmoArchivo").files[0];if(!archivo){Sistema.info("Seleccione el formulario firmado en PDF.");return;}this.cargar("Enviando amonestación","Guardando el expediente y notificando a RR. HH.");try{const r=await API.post({action:"registrarAmonestacionPersonal",empleadoId:document.getElementById("apAmoEmpleado").value,fechaIncidencia:document.getElementById("apAmoFecha").value,causa:document.getElementById("apAmoCausa").value,comentario:document.getElementById("apAmoComentario").value});if(!r||!r.ok)throw new Error(r.mensaje);const u=await API.post({action:"subirDocumentoAmonestacion",idAmonestacion:r.data.idAmonestacion,archivoBase64:await this.base64(archivo)});if(!u||!u.ok)throw new Error(u&&u.mensaje||"La amonestación se registró, pero el documento no pudo enviarse.");Sistema.exito(u.mensaje);await this.abrirAmonestacion();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
+ async abrirAmonestacion(){
+  this.cargar("Cargando amonestaciones","Consultando colaboradores y documentos pendientes.");
+  try{
+   const [cols,r]=await Promise.all([this.cargarColaboradores(),API.post({action:"listarAmonestacionesPendientes"})]);
+   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible consultar las amonestaciones.");
+   this.amonestacionesPendientes=r.data.registros||[];
+   this.amonestacionActivaId="";
+   this.amonestacionesVisibles=12;
+   this.modal("Amonestaciones",`<section class="ap-modulo ap-modulo-amonestaciones"><div class="ap-form-bloque"><div id="apAmoEdicion" class="ap-edicion-pendiente" hidden><i class="fa-solid fa-file-pen"></i><span>Gestionando una amonestación pendiente.</span><button id="apCancelarAmo" type="button">Cancelar</button></div><div class="ap-grid-form"><label>Colaborador<select id="apAmoEmpleado">${this.opcionesColaboradores(cols)}</select></label><label>Fecha<input id="apAmoFecha" type="date" value="${this.hoy()}"></label><label class="ancho">Causa<input id="apAmoCausa" placeholder="Indique la causa de la amonestación"></label><label class="ancho">Comentario<textarea id="apAmoComentario" placeholder="Agregue una observación para Recursos Humanos"></textarea></label><div class="ancho ap-archivo-campo"><span class="ap-archivo-etiqueta">Formulario firmado PDF</span><label for="apAmoArchivo" class="ap-archivo-selector"><span class="ap-archivo-boton"><i class="fa-solid fa-file-arrow-up"></i> Seleccionar PDF</span><span id="apAmoArchivoNombre" class="ap-archivo-nombre">Ningún documento seleccionado</span></label><input id="apAmoArchivo" class="ap-archivo-input" type="file" accept=".pdf,application/pdf"></div></div><div class="ap-acciones"><button id="apGuardarAmo"><i class="fa-solid fa-paper-plane"></i> Registrar y enviar a RR. HH.</button></div></div><div class="ap-pendientes-encabezado"><strong>Amonestaciones pendientes</strong><span>${this.amonestacionesPendientes.length}</span></div><div id="apAmonestacionesLista"></div></section>`);
+   document.getElementById("apGuardarAmo").onclick=()=>this.guardarAmonestacion();
+   document.getElementById("apCancelarAmo").onclick=()=>this.cancelarAmonestacionActiva();
+   document.getElementById("apAmoArchivo").onchange=e=>{
+    const archivo=e.target.files[0];
+    document.getElementById("apAmoArchivoNombre").textContent=archivo?archivo.name:"Ningún documento seleccionado";
+   };
+   this.renderAmonestacionesPendientes();
+  }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
+ },
+ renderAmonestacionesPendientes(){
+  const lista=this.amonestacionesPendientes||[],contenedor=document.getElementById("apAmonestacionesLista");
+  if(!contenedor)return;
+  contenedor.innerHTML=`<div class="ap-listado-simple ap-listado-amonestaciones">${lista.slice(0,this.amonestacionesVisibles||12).map(a=>`<article class="ap-amonestacion-fila"><div><strong>${this.e(a.Empleado_Nombre)}</strong><span>${this.e(a.Fecha_Incidencia)} · ${this.e(a.Causa||a.Tipo_Amonestacion)}</span></div><em class="${this.n(a.Estado)==="VENCIDA"?"ap-estado-vencido":""}">${this.e(a.Estado)}</em><button type="button" class="ap-gestionar-amonestacion" data-ap-gestionar-amo="${this.e(a.ID_Amonestacion)}"><i class="fa-solid fa-pen-to-square"></i> Gestionar</button></article>`).join("")||"<div class='ap-vacio'>No hay amonestaciones pendientes.</div>"}</div>${lista.length>(this.amonestacionesVisibles||12)?`<button id="apCargarMasAmonestaciones" type="button" class="ap-cargar-mas">Cargar más pendientes</button>`:""}`;
+  contenedor.querySelectorAll("[data-ap-gestionar-amo]").forEach(b=>b.onclick=()=>this.gestionarAmonestacion(b.dataset.apGestionarAmo));
+  const cargarMas=document.getElementById("apCargarMasAmonestaciones");
+  if(cargarMas)cargarMas.onclick=()=>{this.amonestacionesVisibles=(this.amonestacionesVisibles||12)+12;this.renderAmonestacionesPendientes();};
+ },
+ gestionarAmonestacion(id){
+  const amonestacion=(this.amonestacionesPendientes||[]).find(a=>String(a.ID_Amonestacion)===String(id));
+  if(!amonestacion){Sistema.info("Esta amonestación ya no se encuentra disponible.");return;}
+  this.amonestacionActivaId=String(amonestacion.ID_Amonestacion);
+  const empleado=document.getElementById("apAmoEmpleado"),fecha=document.getElementById("apAmoFecha");
+  if(![...empleado.options].some(opcion=>String(opcion.value)===String(amonestacion.Empleado_ID))){
+   empleado.insertAdjacentHTML("beforeend",`<option value="${this.e(amonestacion.Empleado_ID)}">${this.e(amonestacion.Empleado_Nombre)}</option>`);
+  }
+  empleado.value=String(amonestacion.Empleado_ID||"");
+  fecha.value=String(amonestacion.Fecha_Incidencia||"").slice(0,10);
+  empleado.disabled=true;
+  fecha.disabled=true;
+  document.getElementById("apAmoCausa").value=amonestacion.Causa||"";
+  document.getElementById("apAmoComentario").value=amonestacion.Comentario||"";
+  document.getElementById("apAmoArchivo").value="";
+  document.getElementById("apAmoArchivoNombre").textContent="Seleccione el documento firmado";
+  document.getElementById("apAmoEdicion").hidden=false;
+  document.getElementById("apGuardarAmo").innerHTML='<i class="fa-solid fa-paper-plane"></i> Guardar documento y enviar a RR. HH.';
+  document.querySelector(".ap-modulo-amonestaciones .ap-form-bloque").scrollIntoView({behavior:"smooth",block:"start"});
+  document.getElementById("apAmoCausa").focus();
+ },
+ cancelarAmonestacionActiva(){
+  this.amonestacionActivaId="";
+  const empleado=document.getElementById("apAmoEmpleado"),fecha=document.getElementById("apAmoFecha");
+  empleado.disabled=false;empleado.value="";
+  fecha.disabled=false;fecha.value=this.hoy();
+  document.getElementById("apAmoCausa").value="";
+  document.getElementById("apAmoComentario").value="";
+  document.getElementById("apAmoArchivo").value="";
+  document.getElementById("apAmoArchivoNombre").textContent="Ningún documento seleccionado";
+  document.getElementById("apAmoEdicion").hidden=true;
+  document.getElementById("apGuardarAmo").innerHTML='<i class="fa-solid fa-paper-plane"></i> Registrar y enviar a RR. HH.';
+ },
+ async guardarAmonestacion(){
+  const archivo=document.getElementById("apAmoArchivo").files[0],empleadoId=document.getElementById("apAmoEmpleado").value,causa=document.getElementById("apAmoCausa").value.trim(),comentario=document.getElementById("apAmoComentario").value.trim();
+  if(!empleadoId){Sistema.info("Seleccione el colaborador.");return;}
+  if(!causa){Sistema.info("Indique la causa de la amonestación.");return;}
+  if(!archivo){Sistema.info("Seleccione el formulario firmado en PDF.");return;}
+  if(archivo.type&&archivo.type!=="application/pdf"||!archivo.name.toLowerCase().endsWith(".pdf")){Sistema.info("El documento debe estar en formato PDF.");return;}
+  this.cargar("Enviando amonestación","Guardando el expediente y notificando a RR. HH.");
+  try{
+   let idAmonestacion=this.amonestacionActivaId||"";
+   if(!idAmonestacion){
+    const registro=await API.post({action:"registrarAmonestacionPersonal",empleadoId,fechaIncidencia:document.getElementById("apAmoFecha").value,causa,comentario});
+    if(!registro||!registro.ok)throw new Error(registro&&registro.mensaje||"No fue posible registrar la amonestación.");
+    idAmonestacion=String(registro.data.idAmonestacion);
+    this.amonestacionActivaId=idAmonestacion;
+   }
+   const envio=await API.post({action:"subirDocumentoAmonestacion",idAmonestacion,causa,comentario,archivoBase64:await this.base64(archivo)});
+   if(!envio||!envio.ok)throw new Error(envio&&envio.mensaje||"La amonestación quedó pendiente, pero el documento no pudo enviarse.");
+   Sistema.exito(envio.mensaje);
+   await this.abrirAmonestacion();
+  }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
+ },
  async abrirTrabajoExtra(){if(!this.puedeGestionar())return;this.modal("Trabajo extraordinario",`<section class="ap-selector-extra"><button id="apCrearJornada"><i class="fa-solid fa-calendar-plus"></i><b>Registrar jornada</b><span>Definir fecha, turnos, líneas y cupos.</span></button><button id="apAsignarJornada"><i class="fa-solid fa-users-gear"></i><b>Asignar personal</b><span>Completar grupos y colaboradores.</span></button></section>`);document.getElementById("apCrearJornada").onclick=()=>this.abrirCrearJornada();document.getElementById("apAsignarJornada").onclick=()=>this.abrirAsignarJornada();},
  async obtenerCatalogosExtra(){if(this.catalogos)return this.catalogos;const r=await API.post({action:"obtenerCatalogosJornadaExtraordinaria"});if(!r||!r.ok)throw new Error(r.mensaje);return this.catalogos=r.data;},
  async abrirCrearJornada(){if(!this.puedeCrearExtras()){Sistema.info("Solo encargado o administrador puede registrar jornadas.");return;}this.cargar("Preparando jornada","Cargando turnos, líneas y supervisores.");try{const c=await this.obtenerCatalogosExtra();this.modal("Registrar trabajo extraordinario",`<section class="ap-modulo"><div class="ap-grid-form"><label>Fecha<input id="apJeFecha" type="date"></label><label>Tipo<select id="apJeTipo"><option>FERIADO</option><option>FIN DE SEMANA</option><option>NORMAL</option></select></label><label>¿Habrá despacho?<select id="apJeDespacho"><option value="NO">No</option><option value="SI">Sí</option></select></label><label>Fecha límite<input id="apJeLimite" type="date"></label><label class="ancho">Descripción<input id="apJeDescripcion"></label></div><div class="ap-turnos-extra">${c.turnos.map(t=>this.bloqueTurno(t,c)).join("")}</div><div class="ap-acciones ap-doble"><button id="apGuardarBorrador" class="ap-gris">Guardar borrador</button><button id="apPublicarJornada">Publicar jornada</button></div></section>`);document.getElementById("apGuardarBorrador").onclick=()=>this.guardarJornada(false);document.getElementById("apPublicarJornada").onclick=()=>this.guardarJornada(true);document.querySelectorAll(".ap-turno-check").forEach(x=>x.onchange=()=>x.closest(".ap-turno-extra").classList.toggle("seleccionado",x.checked));document.querySelectorAll(".ap-agregar-linea").forEach(b=>b.onclick=()=>this.agregarLineaTurno(b.closest(".ap-turno-extra"),c.lineas));}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
@@ -31,9 +109,9 @@ window.AsistenciaPersonal={
  async guardarAsignacionesTurno(boton){const bloque=boton.closest(".ap-turno-asignacion"),jornada=boton.closest(".ap-jornada"),asignaciones=[...bloque.querySelectorAll(".ap-detalle-jornada")].map(fila=>({idDetalleJornada:fila.dataset.detalle,empleadoId:fila.querySelector(".ap-persona-extra").value,trabajoCorrido:fila.querySelector(".ap-corrido").checked?"SI":"NO"})).filter(item=>item.empleadoId);if(!asignaciones.length){Sistema.info("Seleccione al menos un colaborador para guardar el turno.");return;}const claves=asignaciones.map(item=>item.idDetalleJornada+"::"+item.empleadoId);if(new Set(claves).size!==claves.length){Sistema.info("Un colaborador no puede repetirse en la misma línea.");return;}this.cargar("Guardando turno","Registrando todos los colaboradores seleccionados.");try{const r=await API.post({action:"asignarPersonalJornadaLote",idJornada:jornada.dataset.jornada,asignaciones});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible guardar las asignaciones.");Sistema.exito(r.mensaje);await this.abrirAsignarJornada();}catch(error){Sistema.error(error.message);await this.abrirAsignarJornada();}finally{this.ocultar();}},
  async asignarDesdeFila(b){const fila=b.closest(".ap-detalle-jornada"),j=b.closest(".ap-jornada"),empleadoId=fila.querySelector(".ap-persona-extra").value;if(!empleadoId){Sistema.info("Seleccione un candidato antes de asignarlo.");return;}this.cargar("Asignando colaborador","Validando turno, línea y tipo de horas.");try{const r=await API.post({action:"asignarPersonalJornada",idJornada:j.dataset.jornada,idDetalleJornada:b.dataset.apAsignar,empleadoId:empleadoId,trabajoCorrido:fila.querySelector(".ap-corrido").checked?"SI":"NO"});if(!r||!r.ok)throw new Error(r.mensaje);Sistema.exito(r.mensaje);await this.abrirAsignarJornada();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
  listaSimple(lista,a,b,c,d){return `<div class="ap-listado-simple">${lista.slice(0,30).map(x=>`<article><strong>${this.e(x[a])}</strong><span>${this.e(x[b])} · ${this.e(x[c])}</span><em>${this.e(x[d])}</em></article>`).join("")||"<div class='ap-vacio'>No hay registros.</div>"}</div>`;},
- async cargarAvisos(){
+ async cargarAvisos(pagina,limite){
   try{
-   const r=await API.post({action:"obtenerAvisosAsistenciaUsuario"});
+   const r=await API.post({action:"obtenerAvisosAsistenciaUsuario",pagina:pagina||1,limite:limite||20});
    if(!r||!r.ok)return{avisos:[],total:0};
 
    const datos=r.data||{};
@@ -51,7 +129,72 @@ window.AsistenciaPersonal={
    return Object.assign({},datos,{avisos,total:avisos.length});
   }catch(e){return{avisos:[],total:0};}
  },
- async abrirAvisos(){this.cargar("Cargando avisos","Consultando sus comunicaciones pendientes.");try{const d=await this.cargarAvisos(),avisos=d.avisos||[];this.modal("Mis avisos",`<section class="ap-avisos">${avisos.map(a=>`<article><i class="fa-solid fa-bell"></i><div><strong>${this.e(a.Titulo)}</strong><p>${this.e(a.Mensaje)}</p><small>${this.e(a.Fecha_Creacion)}</small></div>${this.n(a.Tipo)==="RECEPCION VACIA"?`<button data-ap-aprobar-recepcion="${this.e(a.Referencia_ID)}">Aprobar eliminación</button>`:`<button data-ap-leer="${this.e(a.ID_Aviso)}">Marcar leído</button>`}</article>`).join("")||"<div class='ap-vacio'>No tiene avisos pendientes.</div>"}</section>`);document.querySelectorAll("[data-ap-leer]").forEach(b=>b.onclick=async()=>{await API.post({action:"marcarAvisoAsistenciaLeido",idAviso:b.dataset.apLeer});b.closest("article").remove();});document.querySelectorAll("[data-ap-aprobar-recepcion]").forEach(b=>b.onclick=async()=>{if(!window.confirm("¿Autoriza eliminar esta recepción vacía y sin registros?"))return;this.cargar("Validando recepción","Confirmando que continúa vacía antes de eliminarla.");try{const r=await API.post({action:"aprobarEliminacionRecepcionVacia",idRecepcion:b.dataset.apAprobarRecepcion});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible eliminar la recepción.");Sistema.exito(r.mensaje);await this.abrirAvisos();}catch(error){Sistema.error(error.message);}finally{this.ocultar();}});}catch(e){Sistema.error(e.message);}finally{this.ocultar();}},
+ async abrirAvisos(pagina,anteriores){
+  this.cargar("Cargando avisos","Consultando sus comunicaciones pendientes.");
+  try{
+   const d=await this.cargarAvisos(pagina||1,20),avisos=[...(anteriores||[]),...(d.avisos||[])];
+   this.avisosActuales=avisos;
+   this.modal("Mis avisos",`<section class="ap-modulo ap-centro-avisos">${this.puedeGestionar()?`<header class="ap-avisos-cabecera"><div><strong>Centro de avisos</strong><span>Comunicaciones internas del equipo</span></div><button id="apAbrirCrearAviso" type="button"><i class="fa-solid fa-bullhorn"></i> Crear aviso</button></header><div id="apAvisoFormulario"></div>`:""}<section class="ap-avisos">${avisos.map(a=>`<article data-prioridad="${this.e(this.n(a.Tipo))}"><i class="fa-solid ${this.n(a.Tipo)==="URGENTE"?"fa-triangle-exclamation":"fa-bell"}"></i><div><strong>${this.e(a.Titulo)}</strong><p>${this.e(a.Mensaje)}</p><small>${this.e(a.Fecha_Creacion)}${["IMPORTANTE","URGENTE"].includes(this.n(a.Tipo))?` · ${this.e(a.Tipo)}`:""}</small></div>${this.n(a.Tipo)==="RECEPCION VACIA"?`<button data-ap-aprobar-recepcion="${this.e(a.Referencia_ID)}">Aprobar eliminación</button>`:`<button data-ap-leer="${this.e(a.ID_Aviso)}">Marcar leído</button>`}</article>`).join("")||"<div class='ap-vacio'>No tiene avisos pendientes.</div>"}</section>${d.hayMas?'<button id="apCargarMasAvisos" type="button" class="ap-cargar-mas">Cargar más avisos</button>':""}</section>`);
+   const crear=document.getElementById("apAbrirCrearAviso"),cargarMas=document.getElementById("apCargarMasAvisos");
+   if(crear)crear.onclick=()=>this.abrirCrearAviso();
+   if(cargarMas)cargarMas.onclick=()=>this.abrirAvisos((d.pagina||1)+1,avisos);
+   document.querySelectorAll("[data-ap-leer]").forEach(b=>b.onclick=()=>this.marcarAvisoLeido(b));
+   document.querySelectorAll("[data-ap-aprobar-recepcion]").forEach(b=>b.onclick=async()=>{
+    const confirmado=await Sistema.confirmar({titulo:"Eliminar recepción vacía",mensaje:"¿Autoriza eliminar esta recepción vacía y sin registros?",detalle:"Antes de eliminarla, el sistema comprobará nuevamente que no tenga materiales, cantidades ni líneas registradas.",tipo:"peligro",textoConfirmar:"Sí, eliminar",textoCancelar:"Cancelar"});
+    if(!confirmado)return;
+    this.cargar("Validando recepción","Confirmando que continúa vacía antes de eliminarla.");
+    try{const r=await API.post({action:"aprobarEliminacionRecepcionVacia",idRecepcion:b.dataset.apAprobarRecepcion});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible eliminar la recepción.");Sistema.exito(r.mensaje);await this.abrirAvisos();}catch(error){Sistema.error(error.message);}finally{this.ocultar();}
+   });
+  }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
+ },
+ async marcarAvisoLeido(boton){
+  this.cargar("Actualizando aviso","Marcando la comunicación como leída.");
+  try{
+   const r=await API.post({action:"marcarAvisoAsistenciaLeido",idAviso:boton.dataset.apLeer});
+   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible marcar el aviso como leído.");
+   const lista=boton.closest(".ap-avisos");
+   boton.closest("article").remove();
+   if(lista&&!lista.querySelector("article"))lista.innerHTML="<div class='ap-vacio'>No tiene avisos pendientes.</div>";
+  }catch(error){Sistema.error(error.message);}finally{this.ocultar();}
+ },
+ async abrirCrearAviso(){
+  if(!this.puedeGestionar()){Sistema.info("Su rol no puede crear avisos.");return;}
+  this.cargar("Preparando aviso","Consultando colaboradores, roles y turnos disponibles.");
+  try{
+   const r=await API.post({action:"obtenerCatalogosAvisosSistema"});
+   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible cargar los destinatarios.");
+   this.catalogosAvisos=r.data||{};
+   const formulario=document.getElementById("apAvisoFormulario");
+   formulario.innerHTML=`<section class="ap-form-bloque ap-aviso-formulario"><div class="ap-grid-form"><label>Título<input id="apAvisoTitulo" maxlength="120" placeholder="Asunto de la comunicación"></label><label>Prioridad<select id="apAvisoPrioridad"><option value="INFORMATIVO">Informativo</option><option value="IMPORTANTE">Importante</option><option value="URGENTE">Urgente</option></select></label><label class="ancho">Mensaje<textarea id="apAvisoMensaje" rows="3" maxlength="2000" placeholder="Escriba la información que recibirán los colaboradores"></textarea></label><label class="ancho">Destinatarios<select id="apAvisoAlcance"><option value="TODOS">Todos los colaboradores activos</option><option value="ROLES">Uno o varios roles</option><option value="TURNOS">Uno o varios turnos</option><option value="COLABORADORES">Uno o varios colaboradores específicos</option></select></label><div id="apAvisoSeleccion" class="ancho"></div></div><div class="ap-acciones ap-doble ap-aviso-acciones"><button id="apCancelarAviso" class="ap-gris" type="button">Cancelar</button><button id="apEnviarAviso" type="button"><i class="fa-solid fa-paper-plane"></i> Enviar aviso</button></div></section>`;
+   document.getElementById("apAvisoAlcance").onchange=()=>this.renderSeleccionAviso();
+   document.getElementById("apCancelarAviso").onclick=()=>{formulario.innerHTML="";};
+   document.getElementById("apEnviarAviso").onclick=()=>this.guardarAvisoManual();
+   this.renderSeleccionAviso();
+   document.getElementById("apAvisoTitulo").focus();
+  }catch(error){Sistema.error(error.message);}finally{this.ocultar();}
+ },
+ renderSeleccionAviso(){
+  const alcance=document.getElementById("apAvisoAlcance").value,contenedor=document.getElementById("apAvisoSeleccion"),catalogos=this.catalogosAvisos||{};
+  if(alcance==="TODOS"){contenedor.innerHTML=`<p class="ap-aviso-alcance-info"><i class="fa-solid fa-users"></i> Recibirán el aviso los ${Number((catalogos.colaboradores||[]).length)} usuarios activos.</p>`;return;}
+  const elementos=alcance==="ROLES"?(catalogos.roles||[]).map(v=>({id:v,nombre:v})):alcance==="TURNOS"?(catalogos.turnos||[]).map(v=>({id:v,nombre:`Turno ${v}`})):(catalogos.colaboradores||[]).map(c=>({id:c.id,nombre:c.nombre,detalle:[c.rol,c.turno].filter(Boolean).join(" · ")}));
+  contenedor.innerHTML=`<div class="ap-seleccion-multiple">${alcance==="COLABORADORES"?'<input id="apBuscarDestinatario" class="ap-destinatario-buscar" placeholder="Buscar colaborador por nombre, rol o código">':""}<div class="ap-destinatarios-lista">${elementos.map(item=>`<label class="ap-destinatario-opcion" data-busqueda="${this.e(this.n(`${item.nombre} ${item.detalle||""} ${item.id}`))}"><input type="checkbox" value="${this.e(item.id)}"><span><strong>${this.e(alcance==="COLABORADORES"?`${item.id} · ${item.nombre}`:item.nombre)}</strong>${item.detalle?`<small>${this.e(item.detalle)}</small>`:""}</span></label>`).join("")||"<div class='ap-vacio'>No hay destinatarios disponibles.</div>"}</div><span id="apTotalDestinatarios" class="ap-total-destinatarios">0 seleccionados</span></div>`;
+  const actualizar=()=>{const total=contenedor.querySelectorAll('input[type="checkbox"]:checked').length;document.getElementById("apTotalDestinatarios").textContent=`${total} seleccionado${total===1?"":"s"}`;};
+  contenedor.querySelectorAll('input[type="checkbox"]').forEach(c=>c.onchange=actualizar);
+  const buscador=document.getElementById("apBuscarDestinatario");
+  if(buscador)buscador.oninput=()=>{const texto=this.n(buscador.value);contenedor.querySelectorAll(".ap-destinatario-opcion").forEach(opcion=>{opcion.hidden=Boolean(texto)&&!opcion.dataset.busqueda.includes(texto);});};
+ },
+ async guardarAvisoManual(){
+  const titulo=document.getElementById("apAvisoTitulo").value.trim(),mensaje=document.getElementById("apAvisoMensaje").value.trim(),prioridad=document.getElementById("apAvisoPrioridad").value,alcance=document.getElementById("apAvisoAlcance").value,seleccion=[...document.querySelectorAll('#apAvisoSeleccion input[type="checkbox"]:checked')].map(c=>c.value);
+  if(!titulo){Sistema.info("Escriba el título del aviso.");return;}
+  if(!mensaje){Sistema.info("Escriba el mensaje del aviso.");return;}
+  if(alcance!=="TODOS"&&!seleccion.length){Sistema.info("Seleccione al menos un destinatario.");return;}
+  const datos={action:"crearAvisoSistemaManual",titulo,mensaje,prioridad,alcance};
+  if(alcance==="ROLES")datos.roles=seleccion;
+  if(alcance==="TURNOS")datos.turnos=seleccion;
+  if(alcance==="COLABORADORES")datos.empleadosIds=seleccion;
+  this.cargar("Enviando aviso","Generando una comunicación independiente para cada destinatario.");
+  try{const r=await API.post(datos);if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible enviar el aviso.");Sistema.exito(r.mensaje);await this.abrirAvisos();}catch(error){Sistema.error(error.message);}finally{this.ocultar();}
+ },
  modal(t,h,o){Sistema.abrirModal(t,h,Object.assign({clase:"modal-asistencia-personal"},o||{}));},base64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]||"");r.onerror=rej;r.readAsDataURL(f);});},cargar(t,m){if(window.CargadorSistema)CargadorSistema.mostrar(t,m);},ocultar(){if(window.CargadorSistema)CargadorSistema.ocultar();},hoy(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;},n(v){return String(v||"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();},e(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 };
 
@@ -89,8 +232,8 @@ window.AsistenciaPersonal={
 
  AP.verListadoJornada=async function(id){this.cargar("Cargando listado","Organizando supervisores, líneas, carga e inventario.");try{const r=await API.post({action:"obtenerDetalleJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible cargar el listado.");const d=r.data,grupos={};(d.personal||[]).forEach(p=>{const clave=String(p.Linea_Trabajo||"GENERAL")+" · Turno "+String(p.Turno_Trabajado||"");(grupos[clave]=grupos[clave]||[]).push(p);});this.modal("Listado de personal extraordinario",`<section class="ap-modulo"><div class="ap-jornada-meta"><strong>${this.e(d.jornada.Fecha_Trabajo)} · ${this.e(d.jornada.Tipo_Jornada)}</strong> · ${d.totalColaboradores} participantes</div><section class="ap-listado-grupo"><header class="ap-listado-grupo-header"><i class="fa-solid fa-user-tie"></i><strong>Supervisores responsables</strong></header>${(d.supervisores||[]).map(s=>`<div class="ap-listado-persona">${this.e(s.nombre)} · Turno ${this.e(s.turno)}</div>`).join("")}</section>${Object.keys(grupos).sort().map(k=>`<section class="ap-listado-grupo"><header class="ap-listado-grupo-header"><i class="fa-solid ${this.n(k).includes("CARGA")?"fa-truck-ramp-box":this.n(k).includes("INVENTARIO")?"fa-boxes-stacked":"fa-industry"}"></i><strong>${this.e(k)}</strong></header>${grupos[k].map(p=>`<div class="ap-listado-persona">${this.e(p.Empleado_Nombre)}${p.Motivo_Cobertura?` · ${this.e(p.Motivo_Cobertura)}`:""}</div>`).join("")}</section>`).join("")}<div class="ap-acciones"><button id="apVolverJornadas">Volver</button></div></section>`);document.getElementById("apVolverJornadas").onclick=()=>this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
 
- AP.enviarListadoJornada=async function(id){if(!window.confirm("¿Desea enviar el listado a los correos configurados?"))return;this.cargar("Enviando listado","Preparando y enviando el listado de horas extraordinarias.");try{const r=await API.post({action:"enviarListadoJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible enviar el listado.");Sistema.exito(r.mensaje);await this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
- AP.completarJornada=async function(id){if(!window.confirm("¿Desea marcar esta jornada como completada?"))return;this.cargar("Completando jornada","Actualizando el estado del trabajo extraordinario.");try{const r=await API.post({action:"completarJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible completar la jornada.");Sistema.exito(r.mensaje);await this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
+ AP.enviarListadoJornada=async function(id){const confirmado=await Sistema.confirmar({titulo:"Enviar listado",mensaje:"¿Desea enviar el listado a los correos configurados?",detalle:"El sistema preparará y enviará el listado de horas extraordinarias.",tipo:"info",textoConfirmar:"Sí, enviar",textoCancelar:"Cancelar"});if(!confirmado)return;this.cargar("Enviando listado","Preparando y enviando el listado de horas extraordinarias.");try{const r=await API.post({action:"enviarListadoJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible enviar el listado.");Sistema.exito(r.mensaje);await this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
+ AP.completarJornada=async function(id){const confirmado=await Sistema.confirmar({titulo:"Completar jornada",mensaje:"¿Desea marcar esta jornada como completada?",detalle:"La jornada cambiará a estado finalizado.",tipo:"advertencia",textoConfirmar:"Sí, completar",textoCancelar:"Cancelar"});if(!confirmado)return;this.cargar("Completando jornada","Actualizando el estado del trabajo extraordinario.");try{const r=await API.post({action:"completarJornadaExtraordinaria",idJornada:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible completar la jornada.");Sistema.exito(r.mensaje);await this.abrirTrabajoExtra();}catch(e){Sistema.error(e.message);}finally{this.ocultar();}};
 
  AP.obtenerUbicacionActual=function(){
   return new Promise((resolve,reject)=>{

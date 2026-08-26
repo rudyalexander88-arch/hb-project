@@ -879,3 +879,444 @@
     }
 
 }
+
+
+/* ============================================================
+   PLEGABLES, HISTÓRICO Y TEMAS DEL CENTRO DE PRIORIDADES
+   ============================================================ */
+
+#contenidoModal.modo-centro-prioridades {
+    --prior-fondo: #f5f6f8;
+    --prior-superficie: #ffffff;
+    --prior-superficie-suave: #f0f2f5;
+    --prior-texto: #202a36;
+    --prior-secundario: #687586;
+    --prior-borde: #d9e0e7;
+    --prior-sombra: 0 7px 18px rgba(26, 38, 52, .08);
+
+    padding: 10px 14px 14px;
+    background: var(--prior-fondo);
+    color: var(--prior-texto);
+}
+
+html[data-tema="gris"]
+#contenidoModal.modo-centro-prioridades {
+    --prior-fondo: #dce1e6;
+    --prior-superficie: #f2f4f6;
+    --prior-superficie-suave: #e5e9ed;
+    --prior-texto: #202c38;
+    --prior-secundario: #5c6978;
+    --prior-borde: #bcc7d2;
+    --prior-sombra: 0 8px 20px rgba(24, 35, 47, .11);
+}
+
+html[data-tema="oscuro"]
+#contenidoModal.modo-centro-prioridades {
+    --prior-fondo: #0e151e;
+    --prior-superficie: #182230;
+    --prior-superficie-suave: #222e3d;
+    --prior-texto: #f2f5f9;
+    --prior-secundario: #aeb9c7;
+    --prior-borde: #3b4a5d;
+    --prior-sombra: 0 10px 24px rgba(0, 0, 0, .25);
+}
+
+#contenidoModal.modo-centro-prioridades
+.centro-prioridades {
+    gap: 9px;
+}
+
+.plegable-prioridades {
+    flex: 0 0 auto;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--prior-borde);
+    border-radius: 11px;
+    background: var(--prior-superficie);
+    box-shadow: var(--prior-sombra);
+}
+
+.plegable-prioridades > summary {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    color: var(--prior-texto);
+    font-size: var(--ui-fs-10, 10px);
+    font-weight: 750;
+    cursor: pointer;
+    list-style: none;
+}
+
+.plegable-prioridades > summary::-webkit-details-marker {
+    display: none;
+}
+
+.plegable-prioridades > summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+}
+
+.plegable-prioridades > summary > span i {
+    color: #e31b36;
+}
+
+.linea-plegable-prioridades {
+    flex: 1;
+    height: 1px;
+    background: var(--prior-borde);
+}
+
+.flecha-plegable-prioridades {
+    color: var(--prior-texto);
+    transition: transform .2s ease;
+}
+
+.plegable-prioridades[open]
+.flecha-plegable-prioridades {
+    transform: rotate(180deg);
+}
+
+.contenido-plegable-prioridades {
+    border-top: 1px solid var(--prior-borde);
+}
+
+.indicadores-plegable-prioridades {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 10px;
+}
+
+#contenidoModal.modo-centro-prioridades
+.cumplimiento-prioridades {
+    padding: 11px 12px;
+    border-color: var(--prior-borde);
+    background: var(--prior-superficie-suave);
+    box-shadow: none;
+}
+
+#contenidoModal.modo-centro-prioridades
+.cumplimiento-prioridades-cabecera span,
+#contenidoModal.modo-centro-prioridades
+.cumplimiento-prioridades-metricas strong,
+#contenidoModal.modo-centro-prioridades
+.resumen-actual-prioridades strong,
+#contenidoModal.modo-centro-prioridades
+.tarjeta-prioridad :is(strong, .identidad-prioridad strong),
+#contenidoModal.modo-centro-prioridades
+.detalle-grid-prioridad strong {
+    color: var(--prior-texto);
+}
+
+#contenidoModal.modo-centro-prioridades
+:is(
+    .cumplimiento-prioridades-cabecera small,
+    .cumplimiento-prioridades-metricas span,
+    .resumen-actual-prioridades span,
+    .filtro-prioridad label,
+    .barra-listado-prioridades span,
+    .identidad-prioridad small,
+    .dato-prioridad small,
+    .detalle-grid-prioridad span,
+    .accion-recomendada-prioridad span
+) {
+    color: var(--prior-secundario);
+}
+
+#contenidoModal.modo-centro-prioridades
+:is(
+    .cumplimiento-prioridades-metricas > div,
+    .resumen-actual-prioridades article,
+    .tarjeta-prioridad,
+    .detalle-grid-prioridad > div
+) {
+    border-color: var(--prior-borde);
+    background: var(--prior-superficie);
+}
+
+#contenidoModal.modo-centro-prioridades
+.resumen-actual-prioridades article {
+    min-height: 54px;
+    padding: 8px 10px;
+}
+
+#contenidoModal.modo-centro-prioridades
+.filtros-prioridades {
+    padding: 10px;
+}
+
+#contenidoModal.modo-centro-prioridades
+:is(
+    .filtro-prioridad input,
+    .filtro-prioridad select,
+    .rango-prioridades input
+) {
+    border-color: var(--prior-borde);
+    background: var(--prior-superficie-suave);
+    color: var(--prior-texto);
+    color-scheme: light;
+}
+
+html[data-tema="oscuro"]
+#contenidoModal.modo-centro-prioridades
+:is(
+    .filtro-prioridad input,
+    .filtro-prioridad select,
+    .rango-prioridades input
+) {
+    color-scheme: dark;
+}
+
+#contenidoModal.modo-centro-prioridades
+.entrada-busqueda-prioridad i {
+    color: var(--prior-secundario);
+}
+
+#contenidoModal.modo-centro-prioridades
+.btn-limpiar-prioridades {
+    border: 1px solid var(--prior-borde);
+    background: var(--prior-superficie-suave);
+    color: var(--prior-texto);
+}
+
+.listado-contenido-prioridades {
+    padding: 8px 10px 10px;
+}
+
+#contenidoModal.modo-centro-prioridades
+.barra-listado-prioridades {
+    justify-content: space-between;
+}
+
+#contenidoModal.modo-centro-prioridades
+.detalle-tarjeta-prioridad {
+    border-color: var(--prior-borde);
+}
+
+#contenidoModal.modo-centro-prioridades
+.accion-recomendada-prioridad strong {
+    color: var(--prior-texto);
+}
+
+#contenidoModal.modo-centro-prioridades
+.selector-periodo-prioridades {
+    background: var(--prior-superficie);
+}
+
+#contenidoModal.modo-centro-prioridades
+.selector-periodo-prioridades button {
+    color: var(--prior-secundario);
+}
+
+#contenidoModal.modo-centro-prioridades
+.selector-periodo-prioridades button.activo {
+    background: #e31b36;
+    color: #ffffff;
+}
+
+#contenidoModal.modo-centro-prioridades
+.acciones-periodo-prioridades {
+    width: 100%;
+}
+
+#contenidoModal.modo-centro-prioridades
+.btn-historico-prioridades {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.historico-detalle-prioridades {
+    padding: 10px;
+    border: 1px solid var(--prior-borde);
+    border-left: 4px solid #f59e0b;
+    border-radius: 9px;
+    background: var(--prior-superficie);
+    color: var(--prior-texto);
+    animation: prioridadHistoricoAparecer .2s ease both;
+}
+
+.historico-detalle-prioridades[hidden] {
+    display: none !important;
+}
+
+.cabecera-historico-prioridades {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--prior-borde);
+}
+
+.cabecera-historico-prioridades span,
+.cabecera-historico-prioridades small {
+    display: block;
+    color: var(--prior-secundario);
+    font-size: var(--ui-fs-8, 8px);
+}
+
+.cabecera-historico-prioridades strong {
+    color: var(--prior-texto);
+    font-size: var(--ui-fs-11, 11px);
+}
+
+.metricas-historico-prioridades {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 8px;
+}
+
+.metricas-historico-prioridades article {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 7px;
+    background: var(--prior-superficie-suave);
+}
+
+.metricas-historico-prioridades span {
+    display: block;
+    color: var(--prior-secundario);
+    font-size: var(--ui-fs-8, 8px);
+}
+
+.metricas-historico-prioridades strong {
+    display: block;
+    margin-top: 2px;
+    color: var(--prior-texto);
+    font-size: var(--ui-fs-12, 12px);
+}
+
+.lista-historico-prioridades {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+.fila-historico-prioridades {
+    display: grid;
+    grid-template-columns: minmax(100px, .7fr) minmax(180px, 1.5fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 1px solid var(--prior-borde);
+    border-radius: 7px;
+    background: var(--prior-superficie-suave);
+    color: var(--prior-texto);
+    font-size: var(--ui-fs-8, 8px);
+}
+
+.nota-historico-prioridades {
+    margin: 8px 0 0;
+    padding: 8px;
+    border-radius: 7px;
+    background: var(--prior-superficie-suave);
+    color: var(--prior-secundario);
+    font-size: var(--ui-fs-8, 8px);
+    line-height: 1.45;
+}
+
+@keyframes prioridadHistoricoAparecer {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    #contenidoModal.modo-centro-prioridades {
+        padding: 8px;
+    }
+
+    .plegable-prioridades > summary {
+        min-height: 38px;
+        padding: 7px 9px;
+        font-size: var(--ui-fs-9, 9px);
+    }
+
+    .indicadores-plegable-prioridades,
+    #contenidoModal.modo-centro-prioridades
+    .filtros-prioridades,
+    .listado-contenido-prioridades {
+        padding: 8px;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .acciones-periodo-prioridades {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .btn-historico-prioridades {
+        margin-left: auto;
+    }
+
+    .metricas-historico-prioridades {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    #contenidoModal.modo-centro-prioridades
+    .cumplimiento-prioridades-cabecera {
+        align-items: flex-start;
+        flex-direction: row;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .cumplimiento-prioridades-cabecera > strong {
+        flex: 0 0 auto;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .acciones-periodo-prioridades {
+        gap: 7px;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .selector-periodo-prioridades {
+        flex: 0 0 auto;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .btn-historico-prioridades {
+        flex: 0 0 auto;
+        margin-left: auto;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .rango-prioridades {
+        width: 100%;
+        order: 3;
+    }
+
+    #contenidoModal.modo-centro-prioridades
+    .rango-prioridades input {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .cabecera-historico-prioridades {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .fila-historico-prioridades {
+        grid-template-columns: 1fr auto;
+    }
+
+    .fila-historico-prioridades span:nth-child(2) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}

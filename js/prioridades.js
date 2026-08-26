@@ -37,6 +37,9 @@ window.Prioridades = {
         periodo:
             "mes",
 
+        historicoVisible:
+            false,
+
         filtros: {
 
             busqueda:
@@ -340,6 +343,9 @@ window.Prioridades = {
             periodo:
                 "mes",
 
+            historicoVisible:
+                false,
+
             filtros: {
 
                 busqueda:
@@ -384,47 +390,80 @@ window.Prioridades = {
 
             <div class="centro-prioridades">
 
-                <section
-                    class="cumplimiento-prioridades"
-                    id="cumplimientoPrioridades"
-                >
+                <details class="plegable-prioridades" open>
 
-                    <div class="estado-carga-prioridades">
-                        Cargando cumplimiento histórico...
+                    <summary>
+                        <span>
+                            <i class="fa-solid fa-chart-column"></i>
+                            Indicadores de cumplimiento
+                        </span>
+                        <i class="linea-plegable-prioridades"></i>
+                        <i class="fa-solid fa-chevron-down flecha-plegable-prioridades"></i>
+                    </summary>
+
+                    <div class="contenido-plegable-prioridades indicadores-plegable-prioridades">
+
+                        <section
+                            class="cumplimiento-prioridades"
+                            id="cumplimientoPrioridades"
+                        >
+
+                            <div class="estado-carga-prioridades">
+                                Cargando cumplimiento histórico...
+                            </div>
+
+                        </section>
+
+                        <section
+                            class="resumen-actual-prioridades"
+                            id="resumenActualPrioridades"
+                        >
+
+                            <article>
+                                <span>Prioridades</span>
+                                <strong>--</strong>
+                            </article>
+
+                            <article>
+                                <span>Reposición</span>
+                                <strong>--</strong>
+                            </article>
+
+                            <article>
+                                <span>Pendiente QA</span>
+                                <strong>--</strong>
+                            </article>
+
+                            <article>
+                                <span>Sin reposición</span>
+                                <strong>--</strong>
+                            </article>
+
+                        </section>
+
+                        <section
+                            class="historico-detalle-prioridades"
+                            id="historicoDetallePrioridades"
+                            hidden
+                        ></section>
+
                     </div>
 
-                </section>
+                </details>
 
 
-                <section
-                    class="resumen-actual-prioridades"
-                    id="resumenActualPrioridades"
-                >
+                <details class="plegable-prioridades">
 
-                    <article>
-                        <span>Prioridades</span>
-                        <strong>--</strong>
-                    </article>
+                    <summary>
+                        <span>
+                            <i class="fa-solid fa-sliders"></i>
+                            Filtros de consulta
+                        </span>
+                        <i class="linea-plegable-prioridades"></i>
+                        <i class="fa-solid fa-chevron-down flecha-plegable-prioridades"></i>
+                    </summary>
 
-                    <article>
-                        <span>Reposición</span>
-                        <strong>--</strong>
-                    </article>
-
-                    <article>
-                        <span>Pendiente QA</span>
-                        <strong>--</strong>
-                    </article>
-
-                    <article>
-                        <span>Sin reposición</span>
-                        <strong>--</strong>
-                    </article>
-
-                </section>
-
-
-                <section class="filtros-prioridades">
+                <section class="filtros-prioridades contenido-plegable-prioridades">
 
                     <div class="filtro-prioridad busqueda">
 
@@ -575,6 +614,21 @@ window.Prioridades = {
 
                 </section>
 
+                </details>
+
+
+                <details class="plegable-prioridades listado-plegable-prioridades" open>
+
+                    <summary>
+                        <span>
+                            <i class="fa-solid fa-list-check"></i>
+                            Materiales prioritarios
+                        </span>
+                        <i class="linea-plegable-prioridades"></i>
+                        <i class="fa-solid fa-chevron-down flecha-plegable-prioridades"></i>
+                    </summary>
+
+                <div class="contenido-plegable-prioridades listado-contenido-prioridades">
 
                 <div class="barra-listado-prioridades">
 
@@ -605,6 +659,10 @@ window.Prioridades = {
                     </div>
 
                 </section>
+
+                </div>
+
+                </details>
 
 
                 <footer class="acciones-centro-prioridades">
@@ -1097,10 +1155,20 @@ window.Prioridades = {
                     type="button"
                     id="btnHistoricoPrioridades"
                     class="btn-historico-prioridades"
-                    title="Disponible en la siguiente fase"
+                    aria-expanded="${
+                        Prioridades.estado.historicoVisible
+                            ? "true"
+                            : "false"
+                    }"
+                    aria-controls="historicoDetallePrioridades"
+                    title="Mostrar el detalle histórico del periodo"
                 >
                     <i class="fa-solid fa-chart-column"></i>
-                    Ver histórico
+                    ${
+                        Prioridades.estado.historicoVisible
+                            ? "Ocultar histórico"
+                            : "Ver histórico"
+                    }
                 </button>
 
             </div>
@@ -1108,7 +1176,184 @@ window.Prioridades = {
 
 
         Prioridades
+            .renderizarDetalleHistorico();
+
+
+        Prioridades
             .configurarEventosPeriodo();
+
+    },
+
+
+    renderizarDetalleHistorico() {
+
+        const contenedor =
+            document.getElementById(
+                "historicoDetallePrioridades"
+            );
+
+
+        if (!contenedor) {
+            return;
+        }
+
+
+        const visible =
+            Prioridades.estado.historicoVisible ===
+            true;
+
+
+        contenedor.hidden =
+            !visible;
+
+
+        if (!visible) {
+            contenedor.innerHTML = "";
+            return;
+        }
+
+
+        const datos =
+            Prioridades.estado.historico || {};
+
+
+        const registros =
+            [
+                datos.serie,
+                datos.registros,
+                datos.detalle,
+                datos.historico
+            ].find(Array.isArray) || [];
+
+
+        const cumplimientoMateriales =
+            Number(
+                datos.cumplimientoMateriales || 0
+            );
+
+
+        const cumplimientoCantidad =
+            Number(
+                datos.cumplimientoCantidad || 0
+            );
+
+
+        const filas = registros
+            .map(function(item) {
+
+                const etiqueta =
+                    item.fecha ||
+                    item.periodo ||
+                    item.etiqueta ||
+                    item.dia ||
+                    "Periodo";
+
+
+                const porcentaje =
+                    Number(
+                        item.cumplimientoMateriales ??
+                        item.cumplimiento ??
+                        0
+                    );
+
+
+                return `
+                    <article class="fila-historico-prioridades">
+                        <strong>
+                            ${Prioridades.escapar(etiqueta)}
+                        </strong>
+
+                        <span>
+                            Materiales:
+                            ${Prioridades.numero(
+                                item.materialesAbastecidos ??
+                                item.atendidos
+                            )}
+                            /
+                            ${Prioridades.numero(
+                                item.oportunidadesAtendibles ??
+                                item.total
+                            )}
+                        </span>
+
+                        <span>
+                            ${porcentaje.toFixed(2)}%
+                        </span>
+                    </article>
+                `;
+
+            })
+            .join("");
+
+
+        contenedor.innerHTML = `
+
+            <header class="cabecera-historico-prioridades">
+                <div>
+                    <span>Detalle histórico</span>
+                    <strong>
+                        ${Prioridades.escapar(
+                            datos.etiquetaPeriodo ||
+                            "Periodo consultado"
+                        )}
+                    </strong>
+                </div>
+
+                <small>
+                    ${Prioridades.escapar(
+                        datos.fechaDesde || ""
+                    )}
+                    —
+                    ${Prioridades.escapar(
+                        datos.fechaHasta || ""
+                    )}
+                </small>
+            </header>
+
+            <div class="metricas-historico-prioridades">
+                <article>
+                    <span>Cumplimiento materiales</span>
+                    <strong>${cumplimientoMateriales.toFixed(2)}%</strong>
+                </article>
+
+                <article>
+                    <span>Cumplimiento cantidad</span>
+                    <strong>${cumplimientoCantidad.toFixed(2)}%</strong>
+                </article>
+
+                <article>
+                    <span>Materiales atendidos</span>
+                    <strong>
+                        ${Prioridades.numero(
+                            datos.materialesAbastecidos
+                        )}
+                    </strong>
+                </article>
+
+                <article>
+                    <span>Oportunidades perdidas</span>
+                    <strong>
+                        ${Prioridades.numero(
+                            datos.oportunidadesPerdidas
+                        )}
+                    </strong>
+                </article>
+            </div>
+
+            ${
+                filas
+                    ? `
+                        <div class="lista-historico-prioridades">
+                            ${filas}
+                        </div>
+                    `
+                    : `
+                        <p class="nota-historico-prioridades">
+                            El backend entregó el consolidado del periodo. Cuando incluya una serie diaria, se mostrará automáticamente en esta sección.
+                        </p>
+                    `
+            }
+        `;
 
     },
 
@@ -1731,6 +1976,95 @@ window.Prioridades = {
 
                     await Prioridades
                         .cargarResumenHistorico();
+
+                };
+
+        }
+
+
+        const historico =
+            document.getElementById(
+                "btnHistoricoPrioridades"
+            );
+
+
+        if (historico) {
+
+            historico.onclick =
+                async function() {
+
+                    if (historico.disabled) {
+                        return;
+                    }
+
+
+                    const mostrar =
+                        Prioridades.estado
+                            .historicoVisible !== true;
+
+
+                    Prioridades.estado
+                        .historicoVisible = mostrar;
+
+
+                    if (mostrar) {
+
+                        historico.disabled = true;
+
+
+                        try {
+
+                            await Prioridades
+                                .cargarResumenHistorico();
+
+                        } catch (error) {
+
+                            Prioridades.estado
+                                .historicoVisible = false;
+
+
+                            Prioridades.notificar(
+                                error.message ||
+                                "No fue posible consultar el histórico.",
+                                "error"
+                            );
+
+                        } finally {
+
+                            historico.disabled = false;
+
+                        }
+
+                    } else {
+
+                        Prioridades
+                            .renderizarCumplimiento();
+
+                    }
+
+
+                    if (
+                        Prioridades.estado
+                            .historicoVisible
+                    ) {
+
+                        window.setTimeout(
+                            function() {
+
+                                document
+                                    .getElementById(
+                                        "historicoDetallePrioridades"
+                                    )
+                                    ?.scrollIntoView({
+                                        behavior: "smooth",
+                                        block: "nearest"
+                                    });
+
+                            },
+                            80
+                        );
+
+                    }
 
                 };
 

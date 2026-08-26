@@ -421,6 +421,25 @@ const Sistema = {
                 manejarTeclado
             );
 
+            /*
+             * El foco debe salir de la tarjeta antes de marcarla
+             * como oculta. De lo contrario Chrome bloquea
+             * aria-hidden porque el botón confirmado todavía
+             * conserva el foco.
+             */
+            const elementoEnfocado =
+                document.activeElement;
+
+            if (
+                elementoEnfocado &&
+                fondo.contains(elementoEnfocado) &&
+                typeof elementoEnfocado.blur === "function"
+            ) {
+                elementoEnfocado.blur();
+            }
+
+            fondo.setAttribute("inert", "");
+
             fondo.classList.add("cerrando");
             fondo.classList.remove("visible");
             fondo.setAttribute("aria-hidden", "true");

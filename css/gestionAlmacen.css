@@ -338,6 +338,11 @@ html[data-tema="oscuro"] .gal-plegable{background:#202b3a;border-color:#435063}
 @media(max-width:760px){.gal-dec-fila{grid-template-columns:1fr}.gal-dec-fila .gal-inline{grid-column:auto}.gal-dec-grafica{min-height:210px}.gal-plegable>summary{padding:12px}}
 @media print{.gal-tabs,.gal-header-recargar,.gal-acciones,.gal-inline{display:none!important}.gal-plegable{break-inside:avoid}.gal-plegable:not([open])>*:not(summary){display:block!important}}
 
+/* Acción principal del resumen: alineada arriba a la derecha. */
+.gal-resumen-acciones{display:flex;justify-content:flex-end;align-items:center;margin:0 0 -3px}
+@media(max-width:480px){.gal-resumen-acciones .gal-btn{width:100%}}
+@media print{.gal-resumen-acciones{display:none!important}}
+
 .gal-solo-consulta #galReporte,.gal-solo-consulta #galTraslado,.gal-solo-consulta #galAjuste{display:none!important}
 
 .gal-dec-linea{margin:0 0 12px;padding:12px;border:1px solid #d7dfe7;border-radius:10px}.gal-dec-linea legend{padding:0 7px;font-size:11px;font-weight:800;color:#d51e3a}html[data-tema="oscuro"] .gal-dec-linea{border-color:#435063}

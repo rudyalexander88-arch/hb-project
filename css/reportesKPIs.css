@@ -74,6 +74,26 @@ html[data-tema="gris"] .rk-modulo {
 
 .rk-btn-principal { border-color: var(--rk-rojo); background: linear-gradient(135deg, var(--rk-rojo), var(--rk-rojo-vivo)); color: #fff; }
 .rk-btn-principal:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.rk-btn-secundario { border-color: var(--rk-borde); background: var(--rk-superficie-suave); color: var(--rk-texto); }
+.rk-btn-secundario:hover { border-color: var(--rk-rojo); color: var(--rk-rojo); transform: translateY(-1px); }
+.rk-btn i { margin-right: 6px; }
+
+.rk-acciones-reporte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  margin: 0 0 10px;
+}
+
+.rk-form-reporte { display: flex; flex-direction: column; gap: 13px; padding: 18px; }
+.rk-form-reporte label { display: flex; flex-direction: column; gap: 6px; color: var(--color-texto, #17202b); font-size: .75rem; font-weight: 700; }
+.rk-form-reporte input, .rk-form-reporte select { min-height: 42px; padding: 8px 11px; border: 1px solid var(--color-borde, #cfd7e0); border-radius: 9px; background: var(--color-superficie, #fff); color: var(--color-texto, #17202b); font: inherit; }
+.rk-ayuda-modal { color: var(--color-texto-secundario, #647182); font-size: .66rem; line-height: 1.4; }
+.rk-form-acciones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }
+html[data-tema="oscuro"] .rk-form-reporte label { color: #f3f6fa; }
+html[data-tema="oscuro"] .rk-form-reporte input, html[data-tema="oscuro"] .rk-form-reporte select { border-color: #425066; background: #182230; color: #f3f6fa; }
+html[data-tema="oscuro"] .rk-ayuda-modal { color: #aeb9c8; }
 
 .rk-pestanas {
   display: flex;
@@ -335,4 +355,15 @@ html[data-tema="gris"] .rk-modulo {
   .rk-calor > strong { padding-left: 29px; }
   .rk-ranking > article { grid-template-columns: 28px minmax(0, 1fr); }
   .rk-ranking-montos { grid-column: 2; text-align: left; }
+  .rk-acciones-reporte { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rk-acciones-reporte .rk-btn { padding-inline: 6px; font-size: .7rem; }
+  .rk-form-acciones { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .rk-modulo, .rk-modulo * { visibility: visible !important; }
+  .rk-modulo { position: absolute; inset: 0; min-height: 0; padding: 0; background: #fff !important; color: #111 !important; }
+  .rk-encabezado .rk-btn, .rk-pestanas, .rk-acciones-reporte { display: none !important; }
+  .rk-kpi, .rk-velocimetro, .rk-bloque { break-inside: avoid; box-shadow: none; }
 }

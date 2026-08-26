@@ -8,6 +8,237 @@
 
 }
 
+/* ============================================================
+   ACCIONES RESPONSIVAS DEL ENCABEZADO DE DESPACHOS
+   ============================================================ */
+
+.acciones-secundarias-despachos {
+    display: block;
+}
+
+.acciones-secundarias-despachos > summary {
+    display: none;
+}
+
+.acciones-secundarias-despachos__contenido,
+.acciones-flotantes-despachos {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.marco-temporal-pdf-conduce {
+    position: fixed;
+    left: -12000px;
+    top: 0;
+    width: 816px;
+    height: 1056px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+}
+
+@media (max-width: 700px) {
+
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .modulo-header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-header-despachos {
+        width: 100%;
+        display: block;
+    }
+
+    .acciones-secundarias-despachos {
+        width: 100%;
+        overflow: hidden;
+        border: 1px solid var(--color-borde, #d5dce5);
+        border-radius: 11px;
+        background: var(--color-superficie, #ffffff);
+        box-shadow: 0 7px 18px rgba(0, 0, 0, .08);
+    }
+
+    .acciones-secundarias-despachos > summary {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 9px 12px;
+        border-left: 4px solid #d71920;
+        color: var(--color-texto, #233041);
+        font-size: var(--ui-fs-11, 11px);
+        font-weight: 700;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .acciones-secundarias-despachos > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .acciones-secundarias-despachos > summary span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .acciones-secundarias-despachos > summary > .fa-chevron-down {
+        color: #d71920;
+        transition: transform .2s ease;
+    }
+
+    .acciones-secundarias-despachos[open]
+    > summary > .fa-chevron-down {
+        transform: rotate(180deg);
+    }
+
+    .acciones-secundarias-despachos__contenido {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px;
+        border-top: 1px solid var(--color-borde, #d5dce5);
+    }
+
+    .acciones-secundarias-despachos:not([open])
+    > .acciones-secundarias-despachos__contenido {
+        display: none;
+    }
+
+    .acciones-secundarias-despachos__contenido > button {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 40px !important;
+        height: 40px !important;
+        margin: 0 !important;
+        padding: 0 12px !important;
+        border-radius: 8px !important;
+        font-size: var(--ui-fs-11, 11px) !important;
+    }
+
+    .acciones-flotantes-despachos {
+        position: fixed;
+        right: max(22px, env(safe-area-inset-right));
+        bottom: max(22px, env(safe-area-inset-bottom));
+        z-index: 880;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 11px;
+        pointer-events: none;
+    }
+
+    .acciones-flotantes-despachos > button {
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 50% !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, .30) !important;
+        pointer-events: auto;
+    }
+
+    .acciones-flotantes-despachos > button span {
+        display: none !important;
+    }
+
+    .acciones-flotantes-despachos
+    #btnInspeccionarContenedor {
+        width: 52px !important;
+        height: 52px !important;
+        min-height: 52px !important;
+        background: #d71920 !important;
+        font-size: 0 !important;
+    }
+
+    .acciones-flotantes-despachos
+    #btnNuevoConduce {
+        width: 64px !important;
+        height: 64px !important;
+        min-height: 64px !important;
+        background: #f7941d !important;
+        font-size: 0 !important;
+    }
+
+    .acciones-flotantes-despachos
+    #btnInspeccionarContenedor i {
+        margin: 0 !important;
+        font-size: 19px !important;
+    }
+
+    .acciones-flotantes-despachos
+    #btnNuevoConduce i {
+        margin: 0 !important;
+        font-size: 25px !important;
+    }
+
+    .acciones-flotantes-despachos > button:active {
+        transform: scale(.94) !important;
+    }
+
+    html[data-tema="oscuro"]
+    .acciones-secundarias-despachos {
+        border-color: #405067;
+        background: #182230;
+    }
+
+    html[data-tema="oscuro"]
+    .acciones-secundarias-despachos > summary {
+        color: #f3f6fa;
+    }
+
+    html[data-tema="oscuro"]
+    .acciones-secundarias-despachos__contenido {
+        border-top-color: #405067;
+    }
+
+    .visor-conduce-final--pdf
+    .area-documento-papel {
+        padding: 0 !important;
+        overflow: hidden !important;
+        background: #333b46;
+    }
+
+    .visor-conduce-final--pdf
+    .hoja-documento-papel {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        aspect-ratio: auto !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .visor-conduce-final--pdf
+    .iframe-conduce-final {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        background: #333b46;
+    }
+
+    .visor-conduce-final--pdf
+    .estado-visor-conduce {
+        top: 54px !important;
+    }
+}
+
+@media (min-width: 701px) {
+    .acciones-secundarias-despachos:not([open])
+    > .acciones-secundarias-despachos__contenido {
+        display: flex !important;
+    }
+}
+
 .modulo-header{
 
     display:flex;
@@ -6064,5 +6295,61 @@ body.centro-despachos-abierto
     #contenidoModal.modo-centro-despachos .btn-vista-despachos {
         width: 31px;
         height: 31px;
+    }
+}
+
+/* Conserva las proporciones compactas actuales en escritorio. */
+@media (min-width: 1025px) {
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-secundarias-despachos__contenido > button,
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-flotantes-despachos > button {
+        width: auto !important;
+        min-width: 0 !important;
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
+        margin: 0 !important;
+        padding: 0 14px !important;
+        border-radius: 8px !important;
+        font-size: var(--ui-fs-10, 10px) !important;
+        line-height: 1 !important;
+        white-space: nowrap;
+    }
+
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-secundarias-despachos__contenido > button i,
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-flotantes-despachos > button i {
+        margin: 0 !important;
+        font-size: var(--ui-fs-11, 11px) !important;
+    }
+}
+
+@media (min-width: 1025px) and (max-width: 1450px) {
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-secundarias-despachos__contenido,
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-flotantes-despachos {
+        gap: 6px;
+    }
+
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-secundarias-despachos__contenido > button,
+    #contenidoPrincipal
+    .modulo:has(.cards-resumen)
+    .acciones-flotantes-despachos > button {
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        padding: 0 10px !important;
+        font-size: var(--ui-fs-9, 9px) !important;
     }
 }

@@ -1,6 +1,6 @@
 /**
  * RECEPCIONMATERIALES.JS
- * Sistema Log\u00edstico PT - Helados BON
+ * Sistema Logístico PT - Helados BON
  */
 
 window.RecepcionMateriales = {
@@ -8,7 +8,7 @@ window.RecepcionMateriales = {
   esGerencia() {
     const sesion = API.obtenerSesion() || {};
     const rol = String(sesion.rol || "").trim().toUpperCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      .normalize("NFD").replace(/[̀-ͯ]/g, "");
     return rol === "GERENCIA" || rol === "GERENTE";
   },
 
@@ -46,8 +46,8 @@ window.RecepcionMateriales = {
   async cargar() {
 
     /*
-     * Protecci\u00f3n: si un modal anterior dej\u00f3 el bloqueo activo,
-     * se restablece el desplazamiento del m\u00f3dulo.
+     * Protección: si un modal anterior dejó el bloqueo activo,
+     * se restablece el desplazamiento del módulo.
      */
     document.body.classList.remove(
       "asistente-recepcion-abierto"
@@ -76,14 +76,14 @@ window.RecepcionMateriales = {
         <header class="recepcion-encabezado">
 
           <div class="recepcion-encabezado-identidad">
-            <span class="recepcion-encabezado-etiqueta">Operaci\u00f3n de almac\u00e9n</span>
+            <span class="recepcion-encabezado-etiqueta">Operación de almacén</span>
             <h2>
               <i class="fa-solid fa-dolly" aria-hidden="true"></i>
-              <span>Recepci\u00f3n de materiales</span>
+              <span>Recepción de materiales</span>
             </h2>
             <p>
-              Registre el ingreso de los materiales y su distribuci\u00f3n
-              entre las c\u00e1maras.
+              Registre el ingreso de los materiales y su distribución
+              entre las cámaras.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ window.RecepcionMateriales = {
                       class="btn-recepcion principal"
                     >
                       <i class="fa-solid fa-plus"></i>
-                      Nueva recepci\u00f3n
+                      Nueva recepción
                     </button>
                   `
                 : ""
@@ -219,7 +219,7 @@ window.RecepcionMateriales = {
           } else {
 
             this.notificar(
-              "No fue posible abrir la verificaci\u00f3n de recepciones.",
+              "No fue posible abrir la verificación de recepciones.",
               "error"
             );
 
@@ -259,7 +259,7 @@ await this.cargarCatalogos();
 
         <header class="modal-asistente-recepcion-header">
           <h2 id="tituloAsistenteRecepcion">
-            Asistente de Recepci\u00f3n
+            Asistente de Recepción
           </h2>
 
           <button
@@ -309,7 +309,7 @@ await this.cargarCatalogos();
 
     if (tituloElemento) {
       tituloElemento.textContent =
-        titulo || "Asistente de Recepci\u00f3n";
+        titulo || "Asistente de Recepción";
     }
 
     modal.classList.remove("oculto");
@@ -398,7 +398,7 @@ await this.cargarCatalogos();
     this.estado.tieneRegistrosPrevios = false;
 
     this.abrirAsistente(
-      "Asistente de Recepci\u00f3n"
+      "Asistente de Recepción"
     );
 
     this.renderSeleccionMaterial();
@@ -476,8 +476,8 @@ configurarScrollInterno() {
 
     /*
      * Evita solicitudes duplicadas cuando el dashboard intenta
-     * montar el mismo m\u00f3dulo m\u00e1s de una vez mientras la primera
-     * consulta todav\u00eda est\u00e1 en curso.
+     * montar el mismo módulo más de una vez mientras la primera
+     * consulta todavía está en curso.
      */
     if (this._cargaCatalogosEnCurso) {
       return this._cargaCatalogosEnCurso;
@@ -589,7 +589,7 @@ configurarScrollInterno() {
           respuestaCatalogos &&
           respuestaCatalogos.mensaje
             ? respuestaCatalogos.mensaje
-            : "No fue posible cargar los cat\u00e1logos."
+            : "No fue posible cargar los catálogos."
         );
 
       }
@@ -672,7 +672,7 @@ configurarScrollInterno() {
 
       this.renderError(
         error.message ||
-        "No fue posible cargar el m\u00f3dulo."
+        "No fue posible cargar el módulo."
       );
 
     } finally {
@@ -760,14 +760,46 @@ configurarScrollInterno() {
 
         </div>
 
+        ${this.puedeVerAnaliticaOperativa() ? `
+        <details
+          id="desplegableIndicadoresRecepcion"
+          class="plegable-recepciones plegable-indicadores-recepcion"
+        >
+          <summary>
+            <span>
+              <small>Comportamiento operativo</small>
+              <strong>Indicadores de recepción</strong>
+            </span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </summary>
+
+          <div class="contenido-plegable-recepciones">
+            <header class="encabezado-interior-plegable-recepciones">
+              <p>Evolución de recepciones finalizadas por período.</p>
+              <select id="frecuenciaAnaliticaRecepciones" class="selector-periodo-recepciones">
+                <option value="DIA" ${this.estado.frecuenciaAnalitica === "DIA" ? "selected" : ""}>Día</option>
+                <option value="SEMANA" ${this.estado.frecuenciaAnalitica === "SEMANA" ? "selected" : ""}>Semana</option>
+                <option value="MES" ${this.estado.frecuenciaAnalitica === "MES" ? "selected" : ""}>Mes</option>
+              </select>
+            </header>
+
+            <div class="graficas-operativas-recepciones">
+              ${this.renderLienzoAnalitica("Tarimas recibidas", "graficaTarimasRecepciones", "fa-layer-group")}
+              ${this.renderLienzoAnalitica("Cajas y cubos recibidos", "graficaUnidadesRecepciones", "fa-boxes-stacked")}
+              ${this.renderLienzoAnalitica("Posiciones ocupadas", "graficaPosicionesRecepciones", "fa-warehouse")}
+            </div>
+          </div>
+        </details>
+        ` : ""}
+
         <section class="bloque-centro-recepciones">
 
           <header class="encabezado-bloque-recepciones">
             <div>
-              <span>Operaci\u00f3n actual</span>
+              <span>Operación actual</span>
               <h3>Recepciones abiertas</h3>
               <p>
-                Contin\u00fae los procesos que todav\u00eda no han sido
+                Continúe los procesos que todavía no han sido
                 finalizados.
               </p>
             </div>
@@ -784,8 +816,8 @@ configurarScrollInterno() {
                     <i class="fa-solid fa-inbox"></i>
                     <h3>No hay recepciones abiertas</h3>
                     <p>
-                      Inicie una nueva recepci\u00f3n cuando
-                      Producci\u00f3n entregue material.
+                      Inicie una nueva recepción cuando
+                      Producción entregue material.
                     </p>
                   </article>
                 `
@@ -794,59 +826,31 @@ configurarScrollInterno() {
 
         </section>
 
-        <div class="rejilla-inferior-recepciones ${this.puedeVerAnaliticaOperativa() ? "" : "solo-actividad"}">
+        <details class="plegable-recepciones plegable-completadas-recepcion" open>
+          <summary>
+            <span>
+              <small>Seguimiento</small>
+              <strong>Recepciones completadas</strong>
+            </span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </summary>
 
-          <section class="bloque-centro-recepciones">
-            <header class="encabezado-bloque-recepciones compacto">
-              <div>
-                <span>Seguimiento</span>
-                <h3>Actividad reciente</h3>
-                <p>
-                  Este espacio mostrar\u00e1 las recepciones cerradas
-                  cuando conectemos la consulta hist\u00f3rica.
-                </p>
-              </div>
-
+          <div class="contenido-plegable-recepciones">
+            <header class="encabezado-interior-plegable-recepciones completadas">
+              <p>Recepciones cerradas recientemente, ordenadas desde la más nueva.</p>
               <button
                 type="button"
                 id="btnHistoricoRecepciones"
                 class="btn-recepcion secundario"
               >
                 <i class="fa-solid fa-clock-rotate-left"></i>
-                Ver hist\u00f3rico
+                Ver histórico
               </button>
             </header>
 
             ${this.renderActividadReciente()}
-          </section>
-
-          ${this.puedeVerAnaliticaOperativa() ? `
-          <section class="bloque-centro-recepciones bloque-analitica-recepciones">
-            <header class="encabezado-bloque-recepciones compacto">
-              <div>
-                <span>Comportamiento operativo</span>
-                <h3>Indicadores de recepci\u00f3n</h3>
-                <p>
-                  Evoluci\u00f3n de recepciones finalizadas por per\u00edodo.
-                </p>
-              </div>
-
-              <select id="frecuenciaAnaliticaRecepciones" class="selector-periodo-recepciones">
-                <option value="DIA" ${this.estado.frecuenciaAnalitica === "DIA" ? "selected" : ""}>D\u00eda</option>
-                <option value="SEMANA" ${this.estado.frecuenciaAnalitica === "SEMANA" ? "selected" : ""}>Semana</option>
-                <option value="MES" ${this.estado.frecuenciaAnalitica === "MES" ? "selected" : ""}>Mes</option>
-              </select>
-            </header>
-
-            <div class="graficas-operativas-recepciones">
-              ${this.renderLienzoAnalitica("Tarimas recibidas", "graficaTarimasRecepciones", "fa-layer-group")}
-              ${this.renderLienzoAnalitica("Cajas y cubos recibidos", "graficaUnidadesRecepciones", "fa-boxes-stacked")}
-              ${this.renderLienzoAnalitica("Posiciones ocupadas", "graficaPosicionesRecepciones", "fa-warehouse")}
-            </div>
-          </section>
-          ` : ""}
-
-        </div>
+          </div>
+        </details>
 
       </section>
     `;
@@ -871,6 +875,16 @@ configurarScrollInterno() {
     const frecuencia = document.getElementById("frecuenciaAnaliticaRecepciones");
     if (frecuencia) {
       frecuencia.onchange = () => this.cargarAnaliticaOperativa(frecuencia.value);
+    }
+
+    const desplegableIndicadores =
+      document.getElementById("desplegableIndicadoresRecepcion");
+
+    if (desplegableIndicadores) {
+      desplegableIndicadores.addEventListener("toggle", () => {
+        if (!desplegableIndicadores.open) return;
+        window.requestAnimationFrame(() => this.renderGraficasOperativas());
+      });
     }
 
   },
@@ -925,6 +939,9 @@ configurarScrollInterno() {
 
   renderGraficasOperativas() {
     if (!this.puedeVerAnaliticaOperativa() || typeof Chart === "undefined") return;
+
+    const desplegable = document.getElementById("desplegableIndicadoresRecepcion");
+    if (desplegable && !desplegable.open) return;
 
     (this.estado.graficasOperativas || []).forEach(grafica => {
       if (grafica && typeof grafica.destroy === "function") grafica.destroy();
@@ -1251,7 +1268,7 @@ configurarScrollInterno() {
           <i class="fa-solid fa-box-archive"></i>
 
           <span>
-            Todav\u00eda no hay recepciones finalizadas recientes
+            Todavía no hay recepciones finalizadas recientes
             para mostrar.
           </span>
 
@@ -1315,7 +1332,7 @@ configurarScrollInterno() {
           <header>
 
             <div>
-              <span>Recepci\u00f3n finalizada</span>
+              <span>Recepción finalizada</span>
 
               <h4>
                 ${this.escapar(
@@ -1381,7 +1398,7 @@ configurarScrollInterno() {
             </div>
 
             <div>
-              <span>Duraci\u00f3n</span>
+              <span>Duración</span>
               <strong>
                 ${this.formatearNumero(
                   item.duracionMinutos
@@ -1427,7 +1444,7 @@ configurarScrollInterno() {
                             )
                         )
                         .join(", ")
-                    : "Sin c\u00e1mara identificada"
+                    : "Sin cámara identificada"
                 }
               </span>
             </div>
@@ -1454,7 +1471,7 @@ configurarScrollInterno() {
       item.descripcion ||
       item.detalle ||
       item.material ||
-      "Recepci\u00f3n pendiente de material";
+      "Recepción pendiente de material";
 
     return `
       <article class="tarjeta-recepcion-abierta">
@@ -1464,7 +1481,7 @@ configurarScrollInterno() {
         <header>
 
           <div>
-            <span>Producto en recepci\u00f3n</span>
+            <span>Producto en recepción</span>
 
             <h3>
               ${this.escapar(titulo)}
@@ -1527,14 +1544,14 @@ configurarScrollInterno() {
           </div>
 
           <div>
-            <span>C\u00e1maras utilizadas</span>
+            <span>Cámaras utilizadas</span>
             <strong>
               ${this.formatearNumero(item.cantidadCamaras)}
             </strong>
           </div>
 
           <div>
-            <span>\u00daltimo auxiliar</span>
+            <span>Último auxiliar</span>
             <strong>
               ${this.escapar(
                 item.ultimoAuxiliarNombre ||
@@ -1580,7 +1597,7 @@ configurarScrollInterno() {
                   )}"
                 >
                   <i class="fa-solid fa-arrow-right"></i>
-                  Continuar recepci\u00f3n
+                  Continuar recepción
                 </button>
               `
             : ""
@@ -1620,8 +1637,8 @@ configurarScrollInterno() {
           </button>
 
           <div>
-            <span>${this.escapar(this.estado.materialSeleccionado.descripcion || "Nueva recepci\u00f3n")}</span>
-            <h3>\u00bfC\u00f3mo recibiste el material?</h3>
+            <span>${this.escapar(this.estado.materialSeleccionado.descripcion || "Nueva recepción")}</span>
+            <h3>¿Cómo recibiste el material?</h3>
           </div>
 
         </header>
@@ -1635,24 +1652,24 @@ configurarScrollInterno() {
           >
             <i class="fa-solid fa-dolly"></i>
             <strong>Carritos</strong>
-            <span>Traslado desde Producci\u00f3n.</span>
+            <span>Traslado desde Producción.</span>
           </button>
 
           <button
             type="button"
             class="opcion-origen-recepcion"
-            data-origen="T\u00fanel refrigerador"
+            data-origen="Túnel refrigerador"
           >
             <i class="fa-solid fa-temperature-low"></i>
-            <strong>T\u00fanel refrigerador</strong>
-            <span>Entrada directa desde el t\u00fanel.</span>
+            <strong>Túnel refrigerador</strong>
+            <span>Entrada directa desde el túnel.</span>
           </button>
 
         </div>
 
         <div class="campo-hora-inicio-recepcion">
           <label for="inputHoraInicioRecepcion">
-            Hora en que comenz\u00f3 a recibir
+            Hora en que comenzó a recibir
           </label>
 
           <input
@@ -1663,7 +1680,7 @@ configurarScrollInterno() {
           >
 
           <small>
-            Indique la hora real de inicio. La hora final se registrar\u00e1 autom\u00e1ticamente al guardar.
+            Indique la hora real de inicio. La hora final se registrará automáticamente al guardar.
           </small>
         </div>
 
@@ -1713,7 +1730,7 @@ configurarScrollInterno() {
       .onclick = () => {
 
         if (!this.estado.origenTraslado) {
-          this.notificar("Seleccione la v\u00eda por la que recibi\u00f3 el material.", "advertencia");
+          this.notificar("Seleccione la vía por la que recibió el material.", "advertencia");
           return;
         }
 
@@ -1730,7 +1747,7 @@ configurarScrollInterno() {
         if (!horaInicio) {
 
           this.notificar(
-            "Indique la hora en que comenz\u00f3 a recibir el material.",
+            "Indique la hora en que comenzó a recibir el material.",
             "advertencia"
           );
 
@@ -1760,8 +1777,8 @@ configurarScrollInterno() {
 
     /*
      * Compatibilidad con referencias antiguas.
-     * Esta funci\u00f3n ya no escribe en Google Sheets sin material.
-     * La creaci\u00f3n real se realiza exclusivamente desde
+     * Esta función ya no escribe en Google Sheets sin material.
+     * La creación real se realiza exclusivamente desde
      * crearRecepcionConMaterial(material).
      */
     if (!this.estado.horaInicioIngreso) {
@@ -1799,7 +1816,7 @@ configurarScrollInterno() {
 
     if (!codigoMaterial) {
       this.notificar(
-        "Debe seleccionar un material antes de iniciar la recepci\u00f3n.",
+        "Debe seleccionar un material antes de iniciar la recepción.",
         "advertencia"
       );
       return;
@@ -1807,7 +1824,7 @@ configurarScrollInterno() {
 
     this.mostrarCarga(
       "Validando material",
-      "Comprobando si existe una recepci\u00f3n en curso."
+      "Comprobando si existe una recepción en curso."
     );
 
     try {
@@ -1849,7 +1866,7 @@ configurarScrollInterno() {
         throw new Error(
           respuesta && respuesta.mensaje
             ? respuesta.mensaje
-            : "No fue posible iniciar la recepci\u00f3n."
+            : "No fue posible iniciar la recepción."
         );
       }
 
@@ -1905,11 +1922,11 @@ configurarScrollInterno() {
         </div>
 
         <span class="recepcion-en-curso-etiqueta">
-          Recepci\u00f3n existente
+          Recepción existente
         </span>
 
         <h3>
-          Ya existe una recepci\u00f3n en curso de este material
+          Ya existe una recepción en curso de este material
         </h3>
 
         <div class="recepcion-en-curso-material">
@@ -1918,12 +1935,12 @@ configurarScrollInterno() {
         </div>
 
         <p>
-          Producci\u00f3n todav\u00eda no ha finalizado la recepci\u00f3n de este material.
-          Contin\u00fae la recepci\u00f3n existente antes de crear una nueva.
+          Producción todavía no ha finalizado la recepción de este material.
+          Continúe la recepción existente antes de crear una nueva.
         </p>
 
         <div class="recepcion-en-curso-datos">
-          <span>Recepci\u00f3n</span>
+          <span>Recepción</span>
           <strong>${this.escapar(recepcion.idRecepcion || "-")}</strong>
         </div>
 
@@ -1943,7 +1960,7 @@ configurarScrollInterno() {
             class="btn-recepcion principal"
           >
             <i class="fa-solid fa-arrow-right"></i>
-            Continuar recepci\u00f3n
+            Continuar recepción
           </button>
         </div>
 
@@ -1983,11 +2000,11 @@ configurarScrollInterno() {
     this.estado.horaInicioIngreso = "";
 
     this.abrirAsistente(
-      "Continuar Recepci\u00f3n"
+      "Continuar Recepción"
     );
 
     this.mostrarCarga(
-      "Abriendo recepci\u00f3n",
+      "Abriendo recepción",
       "Consultando el avance acumulado."
     );
 
@@ -2002,7 +2019,7 @@ configurarScrollInterno() {
         throw new Error(
           respuesta && respuesta.mensaje
             ? respuesta.mensaje
-            : "No fue posible abrir la recepci\u00f3n."
+            : "No fue posible abrir la recepción."
         );
       }
 
@@ -2020,8 +2037,8 @@ configurarScrollInterno() {
       this.estado.distribucion = {};
 
 		/*
-		 * Ninguna c\u00e1mara se selecciona autom\u00e1ticamente.
-		 * El auxiliar debe pulsar la c\u00e1mara correcta.
+		 * Ninguna cámara se selecciona automáticamente.
+		 * El auxiliar debe pulsar la cámara correcta.
 		 */
 		this.estado.camaraActiva = "";
 
@@ -2102,15 +2119,15 @@ configurarScrollInterno() {
             this.estado.materialSeleccionado
               .descripcion ||
             (
-              "Recepci\u00f3n \u00b7 " +
+              "Recepción · " +
               this.estado.recepcionActual
                 .idRecepcion
             );
         }
 
         /*
-         * Los ingresos anteriores son hist\u00f3ricos.
-         * El nuevo registro comienza con campos vac\u00edos.
+         * Los ingresos anteriores son históricos.
+         * El nuevo registro comienza con campos vacíos.
          */
         this.estado.distribucion = {};
         this.estado.horaInicioIngreso = "";
@@ -2220,7 +2237,7 @@ configurarScrollInterno() {
 
         if (titulo) {
           titulo.textContent =
-            "Recepci\u00f3n \u00b7 " +
+            "Recepción · " +
             recepcion.idRecepcion;
         }
 
@@ -2233,7 +2250,7 @@ configurarScrollInterno() {
 
       this.notificar(
         error.message ||
-        "No fue posible abrir la recepci\u00f3n.",
+        "No fue posible abrir la recepción.",
         "error"
       );
 
@@ -2254,7 +2271,7 @@ configurarScrollInterno() {
       <div class="barra-recepcion-actual">
 
         <div>
-          <span>Recepci\u00f3n</span>
+          <span>Recepción</span>
           <strong>
             ${this.escapar(r.idRecepcion || "-")}
           </strong>
@@ -2312,8 +2329,8 @@ configurarScrollInterno() {
         <header class="recepcion-paso-encabezado">
           <div class="numero-paso-recepcion">1</div>
           <div>
-            <span>Selecci\u00f3n del producto</span>
-            <h3>\u00bfQu\u00e9 material est\u00e1s recibiendo?</h3>
+            <span>Selección del producto</span>
+            <h3>¿Qué material estás recibiendo?</h3>
           </div>
         </header>
 
@@ -2323,14 +2340,14 @@ configurarScrollInterno() {
           <input
             type="search"
             id="inputBuscarMaterialRecepcion"
-            placeholder="Escribe c\u00f3digo o descripci\u00f3n"
+            placeholder="Escribe código o descripción"
             autocomplete="off"
           >
 
           <button
             type="button"
             id="btnEscanearMaterialRecepcion"
-            aria-label="Escanear c\u00f3digo"
+            aria-label="Escanear código"
           >
             <i class="fa-solid fa-qrcode"></i>
           </button>
@@ -2379,7 +2396,7 @@ configurarScrollInterno() {
       .onclick = () => {
 
         this.notificar(
-          "El lector QR se conectar\u00e1 en la siguiente etapa.",
+          "El lector QR se conectará en la siguiente etapa.",
           "advertencia"
         );
 
@@ -2503,7 +2520,7 @@ configurarScrollInterno() {
           </div>
 
           <div class="estandar-material-recepcion">
-            <span>Est\u00e1ndar pallet</span>
+            <span>Estándar pallet</span>
             <strong>
               ${this.formatearNumero(
                 material.cantidadEstandarPallet
@@ -2531,8 +2548,8 @@ configurarScrollInterno() {
           }
 
           /*
-           * Si todav\u00eda no existe un ID de recepci\u00f3n, estamos creando
-           * una nueva. La validaci\u00f3n del material se hace ANTES de
+           * Si todavía no existe un ID de recepción, estamos creando
+           * una nueva. La validación del material se hace ANTES de
            * insertar cualquier encabezado en Google Sheets.
            */
           if (
@@ -2547,8 +2564,8 @@ configurarScrollInterno() {
           this.estado.distribucion = {};
 
           /*
-           * Ninguna c\u00e1mara queda seleccionada autom\u00e1ticamente.
-           * El auxiliar debe indicar primero d\u00f3nde coloc\u00f3 el material.
+           * Ninguna cámara queda seleccionada automáticamente.
+           * El auxiliar debe indicar primero dónde colocó el material.
            */
           this.estado.camaraActiva = "";
           this.renderDistribucionCamaras();
@@ -2591,7 +2608,7 @@ configurarScrollInterno() {
             <h3>
               ${this.escapar(
                 material.descripcion ||
-                "Material en recepci\u00f3n"
+                "Material en recepción"
               )}
             </h3>
 
@@ -2605,7 +2622,7 @@ configurarScrollInterno() {
           </div>
 
           <div class="ultimo-ingreso-recepcion">
-            <span>\u00daltimo ingreso</span>
+            <span>Último ingreso</span>
 
             <strong>
               ${this.escapar(
@@ -2664,7 +2681,7 @@ configurarScrollInterno() {
 
         <div class="camaras-avance-recepcion">
 
-          <span>C\u00e1maras utilizadas</span>
+          <span>Cámaras utilizadas</span>
 
           <div>
             ${
@@ -2683,7 +2700,7 @@ configurarScrollInterno() {
                     .join("")
                 : `
                     <span class="sin-camaras-avance">
-                      Sin c\u00e1maras registradas
+                      Sin cámaras registradas
                     </span>
                   `
             }
@@ -2710,7 +2727,7 @@ configurarScrollInterno() {
     if (!panel || !this.estado.materialSeleccionado) return;
 
     if (!Array.isArray(this.estado.colaboradoresRecepcion)) {
-      this.mostrarCarga("Cargando colaboradores", "Preparando los participantes de la recepci\u00f3n.");
+      this.mostrarCarga("Cargando colaboradores", "Preparando los participantes de la recepción.");
       try {
         const respuesta = await API.post({ action: "listarAuxiliaresRecepcionMateriales" });
         if (!respuesta || respuesta.ok !== true) {
@@ -2740,10 +2757,10 @@ configurarScrollInterno() {
       <section class="recepcion-paso recepcion-participantes-paso">
         <header class="recepcion-paso-encabezado">
           <button type="button" id="btnVolverOrigenParticipantes" class="btn-icono-recepcion" aria-label="Volver al origen"><i class="fa-solid fa-arrow-left"></i></button>
-          <div><span>Equipo de recepci\u00f3n</span><h3>\u00bfQui\u00e9nes participaron en este ingreso?</h3></div>
+          <div><span>Equipo de recepción</span><h3>¿Quiénes participaron en este ingreso?</h3></div>
         </header>
-        <div class="recepcion-participante-principal"><i class="fa-solid fa-user-check"></i><div><strong>${this.escapar(nombreActual)}</strong><span>Responsable que registra la recepci\u00f3n</span></div></div>
-        <p class="recepcion-participantes-ayuda">Puedes agregar hasta cuatro compa\u00f1eros adicionales. Si trabajaste solo, contin\u00faa sin seleccionar ninguno.</p>
+        <div class="recepcion-participante-principal"><i class="fa-solid fa-user-check"></i><div><strong>${this.escapar(nombreActual)}</strong><span>Responsable que registra la recepción</span></div></div>
+        <p class="recepcion-participantes-ayuda">Puedes agregar hasta cuatro compañeros adicionales. Si trabajaste solo, continúa sin seleccionar ninguno.</p>
         <div class="recepcion-participantes-grid">${[0,1,2,3].map(indice => `<label>Colaborador ${indice + 2}<select class="recepcion-participante-select" data-participante="${indice}"><option value="">Seleccionar colaborador...</option>${opciones}</select></label>`).join("")}</div>
         <div class="recepcion-acciones-finales"><button type="button" id="btnConfirmarParticipantesRecepcion" class="btn-recepcion principal"><i class="fa-solid fa-arrow-right"></i> Continuar</button></div>
       </section>`;
@@ -2821,7 +2838,7 @@ mostrarOrigenNuevoIngreso() {
           </span>
 
           <h3>
-            \u00bfC\u00f3mo recibiste este material ahora?
+            ¿Cómo recibiste este material ahora?
           </h3>
 
         </div>
@@ -2831,8 +2848,8 @@ mostrarOrigenNuevoIngreso() {
 
       <p class="ayuda-origen-nuevo-ingreso">
 
-        Selecciona la v\u00eda utilizada \u00fanicamente para este nuevo ingreso.
-        Los registros anteriores no ser\u00e1n modificados.
+        Selecciona la vía utilizada únicamente para este nuevo ingreso.
+        Los registros anteriores no serán modificados.
 
       </p>
 
@@ -2852,7 +2869,7 @@ mostrarOrigenNuevoIngreso() {
           </strong>
 
           <span>
-            Traslado desde Producci\u00f3n por carritos.
+            Traslado desde Producción por carritos.
           </span>
 
         </button>
@@ -2861,17 +2878,17 @@ mostrarOrigenNuevoIngreso() {
         <button
           type="button"
           class="opcion-origen-recepcion"
-          data-origen-nuevo-ingreso="T\u00fanel refrigerador"
+          data-origen-nuevo-ingreso="Túnel refrigerador"
         >
 
           <i class="fa-solid fa-temperature-low"></i>
 
           <strong>
-            T\u00fanel refrigerador
+            Túnel refrigerador
           </strong>
 
           <span>
-            Entrada directa desde el t\u00fanel.
+            Entrada directa desde el túnel.
           </span>
 
         </button>
@@ -2882,7 +2899,7 @@ mostrarOrigenNuevoIngreso() {
       <div class="campo-hora-inicio-recepcion">
 
         <label for="inputHoraInicioNuevoIngreso">
-          Hora en que comenz\u00f3 a recibir
+          Hora en que comenzó a recibir
         </label>
 
         <input
@@ -2893,7 +2910,7 @@ mostrarOrigenNuevoIngreso() {
         >
 
         <small>
-          Indique la hora real de inicio de este ingreso. La hora final se registrar\u00e1 autom\u00e1ticamente al guardar.
+          Indique la hora real de inicio de este ingreso. La hora final se registrará automáticamente al guardar.
         </small>
 
       </div>
@@ -2985,7 +3002,7 @@ mostrarOrigenNuevoIngreso() {
         ) {
 
           this.notificar(
-            "Seleccione la v\u00eda utilizada para este ingreso.",
+            "Seleccione la vía utilizada para este ingreso.",
             "advertencia"
           );
 
@@ -3009,7 +3026,7 @@ mostrarOrigenNuevoIngreso() {
         if (!horaInicio) {
 
           this.notificar(
-            "Indique la hora en que comenz\u00f3 a recibir este ingreso.",
+            "Indique la hora en que comenzó a recibir este ingreso.",
             "advertencia"
           );
 
@@ -3064,8 +3081,8 @@ mostrarOrigenNuevoIngreso() {
         <header class="recepcion-paso-encabezado">
           <div class="numero-paso-recepcion">2</div>
           <div>
-            <span>Distribuci\u00f3n por c\u00e1maras</span>
-            <h3>\u00bfD\u00f3nde colocaste el material?</h3>
+            <span>Distribución por cámaras</span>
+            <h3>¿Dónde colocaste el material?</h3>
           </div>
         </header>
 
@@ -3087,7 +3104,7 @@ mostrarOrigenNuevoIngreso() {
           </div>
 
           <div class="material-estandar-destacado">
-            <span>Est\u00e1ndar pallet</span>
+            <span>Estándar pallet</span>
             <strong>
               ${this.formatearNumero(
                 material.cantidadEstandarPallet
@@ -3210,11 +3227,11 @@ if (
       <div>
 
         <strong>
-          Selecciona una c\u00e1mara
+          Selecciona una cámara
         </strong>
 
         <span>
-          Pulsa la c\u00e1mara donde colocaste el material
+          Pulsa la cámara donde colocaste el material
           para registrar las tarimas y el parcial.
         </span>
 
@@ -3233,7 +3250,7 @@ if (
     if (!camara) {
       return `
         <div class="recepcion-vacia compacta">
-          <p>No existen c\u00e1maras activas.</p>
+          <p>No existen cámaras activas.</p>
         </div>
       `;
     }
@@ -3273,7 +3290,7 @@ if (
 
         <header>
           <div>
-            <span>C\u00e1mara activa</span>
+            <span>Cámara activa</span>
             <h4>${this.escapar(camara.nombre)}</h4>
           </div>
 
@@ -3291,7 +3308,7 @@ if (
         <div class="campo-pregunta-recepcion">
 
           <label for="inputTarimasCamara">
-            \u00bfCu\u00e1ntas tarimas completas colocaste aqu\u00ed?
+            ¿Cuántas tarimas completas colocaste aquí?
           </label>
 
           <div class="control-numero-recepcion">
@@ -3327,7 +3344,7 @@ if (
         <div class="campo-pregunta-recepcion">
 
           <span class="etiqueta-pregunta-recepcion">
-            \u00bfColocaste un parcial?
+            ¿Colocaste un parcial?
           </span>
 
           <div class="selector-binario-recepcion">
@@ -3345,7 +3362,7 @@ if (
               data-tiene-parcial="SI"
               class="${tieneParcial ? "activo" : ""}"
             >
-              S\u00ed
+              Sí
             </button>
 
           </div>
@@ -3359,7 +3376,7 @@ if (
 
                 <div class="campo-pregunta-recepcion">
                   <label for="inputParcialCamara">
-                    \u00bfCu\u00e1ntas unidades tiene el parcial?
+                    ¿Cuántas unidades tiene el parcial?
                   </label>
 
                   <input
@@ -3393,7 +3410,7 @@ if (
 
                 <div class="campo-pregunta-recepcion">
                   <span class="etiqueta-pregunta-recepcion">
-                    \u00bfEl parcial ocupa una posici\u00f3n?
+                    ¿El parcial ocupa una posición?
                   </span>
 
                   <div class="selector-binario-recepcion">
@@ -3419,7 +3436,7 @@ if (
                           : ""
                       }"
                     >
-                      S\u00ed
+                      Sí
                     </button>
 
                   </div>
@@ -3480,7 +3497,7 @@ if (
 
 
     /*
-     * Despu\u00e9s del render, desplaza suavemente
+     * Después del render, desplaza suavemente
      * el formulario hacia la zona visible.
      */
     requestAnimationFrame(
@@ -3796,13 +3813,13 @@ if (
 
     return `
       <header>
-        <span>Resumen de distribuci\u00f3n</span>
+        <span>Resumen de distribución</span>
         <strong>
           ${lista.length}
           ${
             lista.length === 1
-              ? "c\u00e1mara utilizada"
-              : "c\u00e1maras utilizadas"
+              ? "cámara utilizada"
+              : "cámaras utilizadas"
           }
         </strong>
       </header>
@@ -3852,7 +3869,7 @@ if (
   if (!distribucion.length) {
 
     this.notificar(
-      "Registre tarimas o un parcial en al menos una c\u00e1mara.",
+      "Registre tarimas o un parcial en al menos una cámara.",
       "advertencia"
     );
 
@@ -3861,7 +3878,7 @@ if (
   }
 
   if (distribucion.reduce((total, item) => total + Number(item.tarimasCompletas || 0), 0) <= 0) {
-    this.notificar("Debe registrar por lo menos una tarima para guardar la recepci\u00f3n.", "advertencia");
+    this.notificar("Debe registrar por lo menos una tarima para guardar la recepción.", "advertencia");
     return;
   }
 
@@ -3906,7 +3923,7 @@ if (
 	if (!origenIngreso) {
 
 	  this.notificar(
-		"No se pudo recuperar la v\u00eda seleccionada. Regrese y seleccione Carritos o T\u00fanel.",
+		"No se pudo recuperar la vía seleccionada. Regrese y seleccione Carritos o Túnel.",
 		"advertencia"
 	  );
 
@@ -3925,7 +3942,7 @@ if (
     if (!horaInicioIngreso) {
 
       this.notificar(
-        "No se encontr\u00f3 la hora de inicio de este ingreso. Regrese y selecci\u00f3nela nuevamente.",
+        "No se encontró la hora de inicio de este ingreso. Regrese y selecciónela nuevamente.",
         "advertencia"
       );
 
@@ -3937,11 +3954,11 @@ if (
 
     /*
      * ETAPA 1:
-     * Guardar las l\u00edneas de distribuci\u00f3n.
+     * Guardar las líneas de distribución.
      */
     this.mostrarCarga(
-      "Guardando distribuci\u00f3n",
-      "Registrando el material en las c\u00e1maras seleccionadas."
+      "Guardando distribución",
+      "Registrando el material en las cámaras seleccionadas."
     );
 
 
@@ -4003,7 +4020,7 @@ if (
         respuesta &&
         respuesta.mensaje
           ? respuesta.mensaje
-          : "No fue posible guardar la distribuci\u00f3n."
+          : "No fue posible guardar la distribución."
       );
 
     }
@@ -4020,9 +4037,9 @@ if (
 
 
     /*
-     * Las l\u00edneas ya fueron guardadas.
+     * Las líneas ya fueron guardadas.
      * Se oculta el cargador para permitir responder
-     * la pregunta sobre el estado de Producci\u00f3n.
+     * la pregunta sobre el estado de Producción.
      */
     this.ocultarCarga();
 
@@ -4040,7 +4057,7 @@ if (
 
     /*
      * ETAPA 2:
-     * Preguntar si Producci\u00f3n termin\u00f3.
+     * Preguntar si Producción terminó.
      */
     const produccionFinalizada =
       await this.preguntarProduccionFinalizada();
@@ -4052,12 +4069,12 @@ if (
      */
     this.mostrarCarga(
       produccionFinalizada
-        ? "Finalizando recepci\u00f3n"
-        : "Manteniendo recepci\u00f3n abierta",
+        ? "Finalizando recepción"
+        : "Manteniendo recepción abierta",
 
       produccionFinalizada
         ? "Registrando el cierre del proceso productivo."
-        : "Preparando la recepci\u00f3n para el pr\u00f3ximo ingreso."
+        : "Preparando la recepción para el próximo ingreso."
     );
 
 
@@ -4092,7 +4109,7 @@ if (
       error &&
       error.message
         ? error.message
-        : "No fue posible completar la recepci\u00f3n.",
+        : "No fue posible completar la recepción.",
       "error"
     );
 
@@ -4133,7 +4150,7 @@ if (
 			if (!modalAsistente) {
 
 			  this.notificar(
-				"No se encontr\u00f3 el asistente de recepci\u00f3n.",
+				"No se encontró el asistente de recepción.",
 				"error"
 			  );
 
@@ -4195,11 +4212,11 @@ if (
             <div>
 
               <span>
-                Datos de producci\u00f3n
+                Datos de producción
               </span>
 
               <h3>
-                Confirma la fecha de producci\u00f3n
+                Confirma la fecha de producción
               </h3>
 
             </div>
@@ -4211,14 +4228,14 @@ if (
 
             <p>
               Selecciona la fecha indicada en la etiqueta del material.
-              El sistema calcular\u00e1 autom\u00e1ticamente el lote y el vencimiento.
+              El sistema calculará automáticamente el lote y el vencimiento.
             </p>
 
 
             <label
               for="inputFechaProduccionRecepcion"
             >
-              Fecha de producci\u00f3n
+              Fecha de producción
             </label>
 
 
@@ -4315,7 +4332,7 @@ if (
             if (!valor) {
 
               this.notificar(
-                "Debe indicar la fecha de producci\u00f3n.",
+                "Debe indicar la fecha de producción.",
                 "advertencia"
               );
 
@@ -4391,24 +4408,24 @@ if (
               <i class="fa-solid fa-industry"></i>
             </div>
             <div>
-              <span>Estado de producci\u00f3n</span>
-              <h3>\u00bfProducci\u00f3n termin\u00f3 este material?</h3>
+              <span>Estado de producción</span>
+              <h3>¿Producción terminó este material?</h3>
             </div>
           </header>
 
           <div class="submodal-recepcion-cuerpo">
             <p>
-              Si Producci\u00f3n continuar\u00e1 fabricando este mismo material,
-              mantenga la recepci\u00f3n abierta para el pr\u00f3ximo ingreso.
+              Si Producción continuará fabricando este mismo material,
+              mantenga la recepción abierta para el próximo ingreso.
             </p>
 
             <div class="alerta-cierre-produccion">
               <i class="fa-solid fa-triangle-exclamation"></i>
               <div>
-                <strong>Finalice solo cuando Producci\u00f3n cambie de material</strong>
+                <strong>Finalice solo cuando Producción cambie de material</strong>
                 <span>
-                  Deslice completamente \u00fanicamente si est\u00e1 seguro de que
-                  Producci\u00f3n no continuar\u00e1 fabricando este material.
+                  Deslice completamente únicamente si está seguro de que
+                  Producción no continuará fabricando este material.
                 </span>
               </div>
             </div>
@@ -4425,7 +4442,7 @@ if (
                 max="100"
                 value="0"
                 step="1"
-                aria-label="Deslice para confirmar que Producci\u00f3n termin\u00f3 el material"
+                aria-label="Deslice para confirmar que Producción terminó el material"
               >
             </div>
           </div>
@@ -4437,7 +4454,7 @@ if (
               class="btn-recepcion secundario"
             >
               <i class="fa-solid fa-clock-rotate-left"></i>
-              Producci\u00f3n continuar\u00e1
+              Producción continuará
             </button>
           </footer>
 
@@ -4518,13 +4535,13 @@ if (
       throw new Error(
         respuesta && respuesta.mensaje
           ? respuesta.mensaje
-          : "No fue posible actualizar el estado de la recepci\u00f3n."
+          : "No fue posible actualizar el estado de la recepción."
       );
     }
 
     this.notificar(
       respuesta.mensaje ||
-      "Estado de la recepci\u00f3n actualizado.",
+      "Estado de la recepción actualizado.",
       "exito"
     );
 
@@ -4540,8 +4557,8 @@ if (
 
 
 /**
- * Cierra el asistente despu\u00e9s de guardar una recepci\u00f3n
- * y actualiza el centro de gesti\u00f3n.
+ * Cierra el asistente después de guardar una recepción
+ * y actualiza el centro de gestión.
  */
 async cerrarAsistenteDespuesDeGuardar() {
 

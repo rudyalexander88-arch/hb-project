@@ -231,6 +231,137 @@ window.ReportesKPIs = {
     if (actualizar) actualizar.addEventListener("click", () => this.cargarIndicadores(true));
   },
 
+  conectarAccionesReporte() {
+    const enviar = document.getElementById("rkEnviarReporte");
+    const imprimir = document.getElementById("rkImprimirReporte");
+    const exportar = document.getElementById("rkExportarReporte");
+    if (enviar) enviar.addEventListener("click", () => this.abrirDialogoReporte("enviar"));
+    if (imprimir) imprimir.addEventListener("click", () => window.print());
+    if (exportar) exportar.addEventListener("click", () => this.abrirDialogoReporte("exportar"));
+  },
+
+  abrirDialogoReporte(modo) {
+    const esEnvio = modo === "enviar";
+    const titulo = esEnvio ? "Enviar Reportes & KPIs" : "Exportar Reportes & KPIs";
+    const correo = esEnvio ? `
+      <label>Correo destinatario
+        <input id="rkCorreoReporte" type="email" autocomplete="email" placeholder="Déjelo vacío para usar el correo configurado">
+      </label>
+      <small class="rk-ayuda-modal">Puede escribir un correo distinto o utilizar el definido en Configuración.</small>
+    ` : "";
+    Sistema.abrirModal(titulo, `
+      <form id="rkFormularioReporte" class="rk-form-reporte">
+        ${correo}
+        <label>Formato
+          <select id="rkFormatoReporte">
+            <option value="PDF">PDF</option>
+            <option value="PPTX">PowerPoint (PPTX)</option>
+          </select>
+        </label>
+        <div class="rk-form-acciones">
+          <button type="button" id="rkCancelarReporte" class="rk-btn rk-btn-secundario">Cancelar</button>
+          <button type="submit" class="rk-btn rk-btn-principal"><i class="fa-solid ${esEnvio ? "fa-paper-plane" : "fa-download"}"></i>${esEnvio ? "Enviar" : "Descargar"}</button>
+        </div>
+      </form>
+    `, {clase: "modal-reportes-kpi"});
+
+    const cancelar = document.getElementById("rkCancelarReporte");
+    if (cancelar) cancelar.onclick = () => Sistema.cerrarModal();
+    const formulario = document.getElementById("rkFormularioReporte");
+    if (formulario) formulario.onsubmit = async evento => {
+      evento.preventDefault();
+      const formato = document.getElementById("rkFormatoReporte").value;
+      const correoEntrada = document.getElementById("rkCorreoReporte");
+      const correoDestino = correoEntrada ? correoEntrada.value.trim() : "";
+      await this.procesarSalidaReporte(esEnvio, formato, correoDestino);
+    };
+  },
+
+  async procesarSalidaReporte(esEnvio, formato, correoDestino) {
+    const action = esEnvio ? "enviarArchivoReportesKPI" : "generarArchivoReportesKPI";
+    Sistema.mostrarCarga(
+      esEnvio ? "Enviando Reportes & KPIs" : "Generando archivo",
+      `Preparando el reporte en formato ${formato}.`
+    );
+    try {
+      const respuesta = await API.post({
+        action: action,
+        formato: formato,
+        correo: correoDestino,
+        resumen: this.construirResumenExportacion()
+      });
+      if (!respuesta || respuesta.ok === false) {
+        throw new Error(respuesta && respuesta.mensaje ? respuesta.mensaje : "No fue posible generar el reporte.");
+      }
+      const contenido = respuesta.data || respuesta;
+      if (esEnvio) {
+        Sistema.cerrarModal();
+        Sistema.exito(`Reporte enviado a ${contenido.correo || correoDestino || "el correo configurado"}.`);
+      } else {
+        const archivo = contenido.archivo || contenido;
+        this.descargarArchivo(archivo);
+        Sistema.cerrarModal();
+        Sistema.exito("El reporte fue generado correctamente.");
+      }
+    } catch (error) {
+      Sistema.error(error.message || String(error));
+    } finally {
+      Sistema.ocultarCarga();
+    }
+  },
+
+  construirResumenExportacion() {
+    const exactitud = this.extraerData(this.datos.exactitud).resumen || {};
+    const complemento = this.extraerData(this.datos.complemento);
+    const recepcion = complemento.resumenRecepciones || {};
+    const metas = Array.isArray(this.datos.metas && this.datos.metas.metas) ? this.datos.metas.metas : [];
+    const resumenMeta = this.resumirMetas(metas);
+    const decomisos = this.extraerData(this.datos.decomisos).indicadores || {};
+    const ocupacion = this.extraerData(this.datos.ocupacion);
+    const despacho = this.resumenMontoDesviaciones(exactitud);
+    const reduccion = this.calcularReduccionDecomiso(decomisos);
+    const indicadores = [
+      {nombre: "Exactitud de despacho", valor: this.porcentaje(exactitud.tasaExactitud), detalle: "Sobre bultos verificados"},
+      {nombre: "Tasa de error en despacho", valor: this.porcentaje(exactitud.tasaError), detalle: this.numero(exactitud.bultosDesviados) + " bultos desviados"},
+      {nombre: "Recepciones verificadas", valor: this.numero(recepcion.totalVerificaciones), detalle: this.numero(recepcion.conDesviacion) + " con desviación"},
+      {nombre: "Tasa de error en recepción", valor: this.porcentaje(recepcion.tasaError), detalle: "Según verificaciones del período"},
+      {nombre: "Ocupación de cámaras", valor: this.porcentaje(ocupacion.porcentajeOcupacion || ocupacion.porcentaje), detalle: this.numero(ocupacion.posicionesDisponibles || ocupacion.disponibles) + " posiciones disponibles"},
+      {nombre: "Meta de despachos", valor: this.porcentaje(resumenMeta.cumplimiento), detalle: this.numero(resumenMeta.realizados) + " realizados de " + this.numero(resumenMeta.meta)},
+      {nombre: "Meta de reducción de decomiso", valor: this.porcentaje(reduccion.avanceMeta), detalle: "Reducción real " + this.porcentaje(reduccion.reduccionReal)},
+      {nombre: "Desviaciones de despacho - total", valor: this.moneda(despacho.total), detalle: "Detectado en el período"},
+      {nombre: "Desviaciones de despacho - corregido", valor: this.moneda(despacho.corregido), detalle: this.porcentaje(despacho.resolucion) + " resuelto"},
+      {nombre: "Desviaciones de despacho - pendiente", valor: this.moneda(despacho.pendiente), detalle: "Requiere seguimiento"},
+      {nombre: "Desviaciones de recepción - total", valor: this.moneda(recepcion.montoTotal), detalle: "Detectado en el período"},
+      {nombre: "Desviaciones de recepción - corregido", valor: this.moneda(recepcion.montoCorregido), detalle: this.porcentaje(recepcion.resolucionPorcentaje) + " resuelto"},
+      {nombre: "Desviaciones de recepción - pendiente", valor: this.moneda(recepcion.montoPendiente), detalle: "Requiere seguimiento"},
+      {nombre: "Valor de decomisos", valor: this.moneda(decomisos.valorTotal), detalle: this.numero(decomisos.pendientes) + " pendientes de aprobación"}
+    ];
+    return {
+      titulo: "Reportes & KPIs",
+      periodo: this.datos.rango && this.datos.rango.mes ? this.datos.rango.mes : "",
+      corte: this.datos.corteId || "",
+      generadoEn: new Date().toISOString(),
+      indicadores: indicadores,
+      responsablesProduccion: (complemento.responsablesProduccion || []).slice(0, 8),
+      responsablesPT: (complemento.responsablesPT || []).slice(0, 8)
+    };
+  },
+
+  descargarArchivo(archivo) {
+    if (!archivo || !archivo.base64) throw new Error("El servidor no devolvió el archivo solicitado.");
+    const binario = atob(archivo.base64);
+    const bytes = new Uint8Array(binario.length);
+    for (let indice = 0; indice < binario.length; indice += 1) bytes[indice] = binario.charCodeAt(indice);
+    const enlace = document.createElement("a");
+    const url = URL.createObjectURL(new Blob([bytes], {type: archivo.mimeType || "application/octet-stream"}));
+    enlace.href = url;
+    enlace.download = archivo.nombre || "Reportes_KPIs";
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1200);
+  },
+
   configurarEstiloPestanas(estilo) {
     this.estiloPestanas = estilo === "segmentadas" ? "segmentadas" : "hojas";
     const navegacion = document.getElementById("rkPestanas");
@@ -371,6 +502,11 @@ window.ReportesKPIs = {
 
     this.destruirGraficas();
     panel.innerHTML = `
+      <div class="rk-acciones-reporte" aria-label="Acciones del reporte">
+        <button type="button" id="rkEnviarReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-envelope"></i> Enviar</button>
+        <button type="button" id="rkImprimirReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-print"></i> Imprimir</button>
+        <button type="button" id="rkExportarReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-file-export"></i> Exportar</button>
+      </div>
       <div class="rk-periodo">
         <div><i class="fa-solid fa-calendar"></i><span>Mes actual: <strong>${this.escapar(this.datos.rango.mes)}</strong></span></div>
         <small>Corte ${this.escapar(fechaCorte)} · consultado ${this.escapar(fechaCarga)}</small>
@@ -440,6 +576,7 @@ window.ReportesKPIs = {
 
     this.crearGraficaExactitud(exactitudData.evolucion || []);
     this.crearGraficaRecepciones(recepcionesSerie);
+    this.conectarAccionesReporte();
   },
 
   kpi(etiqueta, valor, icono, clase, detalle) {

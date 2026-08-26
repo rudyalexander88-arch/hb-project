@@ -894,6 +894,16 @@ html[data-tema="oscuro"] .ap-secundario {
     }
 }
 
+/* Tarjeta de acceso a Mi perfil: contraste correcto en modo oscuro. */
+html[data-tema="oscuro"] .perfil-acceso-escritorio-datos > strong {
+    color: #ffffff !important;
+}
+
+html[data-tema="oscuro"] .perfil-acceso-escritorio-datos > span,
+html[data-tema="oscuro"] .perfil-acceso-escritorio-flecha {
+    color: #ff6675 !important;
+}
+
 /* ============================================================
    VERIFICACION DE RECEPCIONES: TEMAS GRIS Y OSCURO
    Mantiene la jerarquía visual sin alterar el tema claro.

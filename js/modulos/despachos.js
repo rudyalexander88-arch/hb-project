@@ -5,6 +5,8 @@
 
 window.Despachos = {
 
+urlPdfTemporalConduce: null,
+
 obtenerSesionActual() {
     try {
         return JSON.parse(
@@ -441,6 +443,13 @@ async cargar() {
 
                <div class="acciones-header-despachos">
 
+				<details class="acciones-secundarias-despachos">
+					<summary>
+						<span><i class="fa-solid fa-sliders"></i> Acciones</span>
+						<i class="fa-solid fa-chevron-down"></i>
+					</summary>
+					<div class="acciones-secundarias-despachos__contenido">
+
 				<button
 					type="button"
 					id="btnActualizarDespachos"
@@ -467,22 +476,27 @@ async cargar() {
 					class="btn-ver-todos-despachos"
 				>
 					<i class="fa-solid fa-table-list"></i>
-					Ver todos los despachos
+					<span>Ver todos los despachos</span>
 				</button>
+
+					</div>
+				</details>
 								
 				${
 					esAnalista
 						? ""
 						: `
-							<button type="button" id="btnInspeccionarContenedor" class="btn-principal-despachos btn-inspeccionar-contenedor">
+						<div class="acciones-flotantes-despachos" aria-label="Acciones principales de despacho">
+							<button type="button" id="btnInspeccionarContenedor" class="btn-principal-despachos btn-inspeccionar-contenedor" aria-label="Inspeccionar contenedor" title="Inspeccionar contenedor">
 								<i class="fa-solid fa-clipboard-check"></i>
 								<span>Inspeccionar contenedor</span>
 							</button>
 
-							<button id="btnNuevoConduce" class="btn-rojo">
+							<button type="button" id="btnNuevoConduce" class="btn-rojo btn-nuevo-conduce" aria-label="Crear nuevo conduce" title="Crear nuevo conduce">
 								<i class="fa-solid fa-plus"></i>
-								Nuevo Conduce
+								<span>Nuevo Conduce</span>
 							</button>
+						</div>
 						`
 				}
 
@@ -12143,6 +12157,187 @@ async abrirVistaConduce(
 
 },
 
+esVisorPdfMovil() {
+    return window.matchMedia(
+        "(max-width: 768px)"
+    ).matches;
+},
+
+liberarPdfTemporalConduce() {
+    if (Despachos.urlPdfTemporalConduce) {
+        URL.revokeObjectURL(
+            Despachos.urlPdfTemporalConduce
+        );
+        Despachos.urlPdfTemporalConduce = null;
+    }
+},
+
+async esperarRecursosDocumentoConduce(documento) {
+    if (
+        documento.fonts &&
+        documento.fonts.ready
+    ) {
+        try {
+            await documento.fonts.ready;
+        } catch (error) {
+            console.warn(
+                "No fue posible esperar las fuentes del conduce:",
+                error
+            );
+        }
+    }
+
+    const imagenes = Array.from(
+        documento.images || []
+    );
+
+    await Promise.all(
+        imagenes.map(imagen => {
+            if (imagen.complete) {
+                return Promise.resolve();
+            }
+
+            return new Promise(resolve => {
+                const finalizar = () => resolve();
+                imagen.addEventListener(
+                    "load",
+                    finalizar,
+                    { once: true }
+                );
+                imagen.addEventListener(
+                    "error",
+                    finalizar,
+                    { once: true }
+                );
+                setTimeout(finalizar, 2500);
+            });
+        })
+    );
+},
+
+async generarPdfTemporalConduce(
+    htmlConduce,
+    noConduce
+) {
+    if (typeof window.html2pdf !== "function") {
+        throw new Error(
+            "El generador PDF del navegador no está disponible."
+        );
+    }
+
+    Despachos.liberarPdfTemporalConduce();
+
+    const marcoTemporal =
+        document.createElement("iframe");
+
+    marcoTemporal.className =
+        "marco-temporal-pdf-conduce";
+    marcoTemporal.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+    marcoTemporal.tabIndex = -1;
+
+    document.body.appendChild(
+        marcoTemporal
+    );
+
+    try {
+        await new Promise((resolve, reject) => {
+            const temporizador = setTimeout(
+                () => reject(
+                    new Error(
+                        "El documento tardó demasiado en prepararse."
+                    )
+                ),
+                10000
+            );
+
+            marcoTemporal.onload = () => {
+                clearTimeout(temporizador);
+                resolve();
+            };
+
+            marcoTemporal.srcdoc = htmlConduce;
+        });
+
+        const documento =
+            marcoTemporal.contentDocument;
+
+        if (!documento || !documento.body) {
+            throw new Error(
+                "No fue posible preparar el contenido del conduce."
+            );
+        }
+
+        await Despachos
+            .esperarRecursosDocumentoConduce(
+                documento
+            );
+
+        documento.documentElement.style.width =
+            "816px";
+        documento.documentElement.style.minWidth =
+            "816px";
+        documento.body.style.width = "816px";
+        documento.body.style.minWidth = "816px";
+        documento.body.style.margin = "0";
+
+        const nombreSeguro = String(
+            noConduce || "Conduce"
+        )
+            .replace(/[^0-9A-Za-z_-]+/g, "-")
+            .replace(/^-+|-+$/g, "") ||
+            "Conduce";
+
+        const blobPdf = await window
+            .html2pdf()
+            .set({
+                margin: 0,
+                filename:
+                    `${nombreSeguro}.pdf`,
+                image: {
+                    type: "jpeg",
+                    quality: 0.98
+                },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: "#ffffff",
+                    windowWidth: 816,
+                    scrollX: 0,
+                    scrollY: 0
+                },
+                jsPDF: {
+                    unit: "in",
+                    format: "letter",
+                    orientation: "portrait",
+                    compress: true
+                },
+                pagebreak: {
+                    mode: ["css", "legacy"]
+                }
+            })
+            .from(documento.body)
+            .outputPdf("blob");
+
+        if (!(blobPdf instanceof Blob)) {
+            throw new Error(
+                "El navegador no pudo construir el PDF."
+            );
+        }
+
+        Despachos.urlPdfTemporalConduce =
+            URL.createObjectURL(blobPdf);
+
+        return Despachos
+            .urlPdfTemporalConduce;
+    } finally {
+        marcoTemporal.remove();
+    }
+},
+
 async verConduce(idConduce) {
 
     if (!idConduce) {
@@ -12200,6 +12395,37 @@ async verConduce(idConduce) {
         return;
     }
 
+    let urlPdfMovil = null;
+
+    if (Despachos.esVisorPdfMovil()) {
+        try {
+            urlPdfMovil = await Despachos
+                .ejecutarConCargador(
+                    "Preparando PDF del conduce",
+                    "Organizando el documento para la pantalla móvil.",
+                    () => Despachos
+                        .generarPdfTemporalConduce(
+                            htmlConduce,
+                            encabezado.noConduce ||
+                            idConduce
+                        )
+                );
+        } catch (error) {
+            console.warn(
+                "No fue posible generar el PDF temporal. Se utilizará el visor habitual:",
+                error
+            );
+
+            Despachos.notificar(
+                "El PDF temporal no estuvo disponible. Se muestra la vista normal del conduce.",
+                "advertencia"
+            );
+        }
+    }
+
+    const usarPdfMovil =
+        Boolean(urlPdfMovil);
+
     const estado =
         String(
             encabezado.estado || "-"
@@ -12235,7 +12461,7 @@ async verConduce(idConduce) {
     <div class="contenedor-ajuste-hoja-conduce">
 
         <div
-            class="visor-conduce-final"
+            class="visor-conduce-final${usarPdfMovil ? " visor-conduce-final--pdf" : ""}"
             id="hojaConduceVisor"
         >
 
@@ -12252,7 +12478,7 @@ async verConduce(idConduce) {
                     <iframe
                         id="iframeConduceFinal"
                         class="iframe-conduce-final"
-                        title="Vista del conduce final"
+                        title="${usarPdfMovil ? "Documento PDF del conduce" : "Vista del conduce final"}"
                     ></iframe>
 
                 </div>
@@ -12297,11 +12523,18 @@ async verConduce(idConduce) {
             "iframeConduceFinal"
         );
 
-    iframe.srcdoc = htmlConduce;
+    if (usarPdfMovil) {
+        iframe.src = urlPdfMovil;
+    } else {
+        iframe.srcdoc = htmlConduce;
+    }
 
     document.getElementById(
     "btnCerrarVisorConduce"
 ).onclick = async () => {
+
+    Despachos
+        .liberarPdfTemporalConduce();
 
     const volverAlCentro =
         Despachos
@@ -12354,7 +12587,26 @@ async verConduce(idConduce) {
         "btnImprimirVisorConduce"
     ).onclick = async () => {
 
-        await Despachos.imprimirConduceFinal();
+        if (
+            usarPdfMovil &&
+            Despachos.urlPdfTemporalConduce
+        ) {
+            const ventanaPdf = window.open(
+                Despachos.urlPdfTemporalConduce,
+                "_blank"
+            );
+
+            if (!ventanaPdf) {
+                Despachos.notificar(
+                    "El navegador bloqueó la apertura del PDF.",
+                    "error"
+                );
+            }
+            return;
+        }
+
+        await Despachos
+            .imprimirConduceFinal();
 
     };
 

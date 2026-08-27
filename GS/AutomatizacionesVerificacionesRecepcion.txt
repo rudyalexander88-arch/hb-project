@@ -1,0 +1,343 @@
+/**
+ * AUTOMATIZACIONESVERIFICACIONESRECEPCION.GS
+ * Trigger aislado para el reporte semanal de correcciones pendientes.
+ */
+
+const FUNCION_REPORTE_SEMANAL_VERIFICACIONES_ =
+  "temporizadorReporteSemanalVerificacionesRecepcion";
+
+const FUNCION_REPORTE_MENSUAL_DESVIACIONES_ =
+  "temporizadorReporteMensualDesviacionesRecepcion";
+
+function configurarTemporizadorReporteSemanalVerificacionesRecepcion() {
+  eliminarTemporizadorReporteSemanalVerificacionesRecepcion();
+
+  const activo = String(
+    obtenerConfiguracionAutomatizaciones_(
+      "Enviar_Reporte_Semanal_Verificacion",
+      "NO"
+    ) || ""
+  ).trim().toUpperCase();
+
+  if (!["SI", "SÍ", "TRUE", "1"].includes(activo)) {
+    return {
+      exito:true,
+      creado:false,
+      mensaje:"El reporte semanal de verificaciones está desactivado."
+    };
+  }
+
+  const diaTexto = obtenerConfiguracionAutomatizaciones_(
+    "Dia_Reporte_Semanal_Verificacion",
+    "LUNES"
+  );
+
+  const hora = obtenerHoraAutomatizacion_(
+    "Hora_Reporte_Semanal_Verificacion",
+    "08:00"
+  );
+
+  const zona = obtenerZonaHorariaAutomatizaciones_();
+  const dia = convertirDiaSemanaVerificaciones_(diaTexto);
+
+  const trigger = ScriptApp
+    .newTrigger(FUNCION_REPORTE_SEMANAL_VERIFICACIONES_)
+    .timeBased()
+    .onWeekDay(dia)
+    .atHour(hora.hora)
+    .nearMinute(hora.minuto)
+    .inTimezone(zona)
+    .create();
+
+  return {
+    exito:true,
+    creado:true,
+    funcion:FUNCION_REPORTE_SEMANAL_VERIFICACIONES_,
+    dia:String(diaTexto),
+    hora:String(hora.hora).padStart(2,"0") + ":" +
+      String(hora.minuto).padStart(2,"0"),
+    id:trigger.getUniqueId()
+  };
+}
+
+function eliminarTemporizadorReporteSemanalVerificacionesRecepcion() {
+  let eliminados = 0;
+
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === FUNCION_REPORTE_SEMANAL_VERIFICACIONES_) {
+      ScriptApp.deleteTrigger(trigger);
+      eliminados++;
+    }
+  });
+
+  return {exito:true, eliminados:eliminados};
+}
+
+function listarTemporizadorReporteSemanalVerificacionesRecepcion() {
+  const temporizadores = ScriptApp.getProjectTriggers()
+    .filter(function(trigger) {
+      return trigger.getHandlerFunction() === FUNCION_REPORTE_SEMANAL_VERIFICACIONES_;
+    })
+    .map(function(trigger) {
+      return {
+        funcion:trigger.getHandlerFunction(),
+        tipo:String(trigger.getEventType()),
+        id:trigger.getUniqueId()
+      };
+    });
+
+  return {exito:true, total:temporizadores.length, temporizadores:temporizadores};
+}
+
+function temporizadorReporteSemanalVerificacionesRecepcion() {
+  return enviarReporteSemanalVerificacionesRecepcion();
+}
+
+function probarReporteSemanalVerificacionesRecepcion() {
+  const cuotaAntes = MailApp.getRemainingDailyQuota();
+  const resultado = enviarReporteSemanalVerificacionesRecepcion();
+  const cuotaDespues = MailApp.getRemainingDailyQuota();
+
+  const diagnostico = {
+    resultado:resultado,
+    cuotaAntes:cuotaAntes,
+    cuotaDespues:cuotaDespues,
+    cuotaConsumida:cuotaAntes - cuotaDespues
+  };
+
+  console.log(JSON.stringify(diagnostico, null, 2));
+
+  return diagnostico;
+}
+
+function configurarTemporizadorReporteMensualDesviacionesRecepcion() {
+  eliminarTemporizadorReporteMensualDesviacionesRecepcion();
+
+  const activo = String(
+    obtenerConfiguracionAutomatizaciones_(
+      "Enviar_Reporte_General_Desviaciones",
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Mensual_Desviaciones",
+        "NO"
+      )
+    ) || ""
+  ).trim().toUpperCase();
+
+  if (!["SI","SÍ","TRUE","1"].includes(activo)) {
+    return {
+      exito:true,
+      creado:false,
+      mensaje:"El reporte automático general de desviaciones está desactivado."
+    };
+  }
+
+  const hora = obtenerHoraAutomatizacion_(
+    "Hora_Reporte_General_Desviaciones",
+    obtenerConfiguracionAutomatizaciones_(
+      "Hora_Reporte_Mensual_Desviaciones",
+      "23:00"
+    )
+  );
+
+  const frecuencia = obtenerFrecuenciaReporteGeneralDesviaciones_();
+
+  const trigger = ScriptApp
+    .newTrigger(FUNCION_REPORTE_MENSUAL_DESVIACIONES_)
+    .timeBased()
+    .everyDays(1)
+    .atHour(hora.hora)
+    .nearMinute(hora.minuto)
+    .inTimezone(obtenerZonaHorariaAutomatizaciones_())
+    .create();
+
+  return {
+    exito:true,
+    creado:true,
+    funcion:FUNCION_REPORTE_MENSUAL_DESVIACIONES_,
+    frecuencia:frecuencia,
+    ejecucion:"DIARIA - ENVÍA CUANDO CORRESPONDE A LA FRECUENCIA CONFIGURADA",
+    hora:String(hora.hora).padStart(2,"0") + ":" +
+      String(hora.minuto).padStart(2,"0"),
+    id:trigger.getUniqueId()
+  };
+}
+
+function eliminarTemporizadorReporteMensualDesviacionesRecepcion() {
+  let eliminados = 0;
+
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === FUNCION_REPORTE_MENSUAL_DESVIACIONES_) {
+      ScriptApp.deleteTrigger(trigger);
+      eliminados++;
+    }
+  });
+
+  return {exito:true,eliminados:eliminados};
+}
+
+function temporizadorReporteMensualDesviacionesRecepcion() {
+  const ahora = new Date();
+  const frecuencia = obtenerFrecuenciaReporteGeneralDesviaciones_();
+  const evaluacion = evaluarEnvioReporteGeneralDesviaciones_(
+    ahora,
+    frecuencia
+  );
+
+  if (!evaluacion.corresponde) {
+    return {
+      exito:true,
+      enviado:false,
+      frecuencia:frecuencia,
+      mensaje:evaluacion.mensaje
+    };
+  }
+
+  const propiedades = PropertiesService.getScriptProperties();
+  const claveControl = "ULTIMO_REPORTE_GENERAL_DESVIACIONES_" + frecuencia;
+  const ultimoPeriodo = propiedades.getProperty(claveControl);
+
+  if (ultimoPeriodo === evaluacion.clavePeriodo) {
+    return {
+      exito:true,
+      enviado:false,
+      frecuencia:frecuencia,
+      mensaje:"El reporte de este período ya fue enviado."
+    };
+  }
+
+  const resultado = enviarReporteGeneralDesviacionesRecepcion(
+    frecuencia,
+    {validarActivo:true}
+  );
+
+  if (resultado && resultado.enviado === true) {
+    propiedades.setProperty(claveControl, evaluacion.clavePeriodo);
+  }
+
+  return resultado;
+}
+
+/**
+ * Mantiene un nombre general para nuevas instalaciones sin romper el
+ * temporizador mensual que ya pudiera estar creado en el proyecto.
+ */
+function configurarTemporizadorReporteGeneralDesviacionesRecepcion() {
+  return configurarTemporizadorReporteMensualDesviacionesRecepcion();
+}
+
+function temporizadorReporteGeneralDesviacionesRecepcion() {
+  return temporizadorReporteMensualDesviacionesRecepcion();
+}
+
+function obtenerFrecuenciaReporteGeneralDesviaciones_() {
+  const valor = String(
+    obtenerConfiguracionAutomatizaciones_(
+      "Frecuencia_Reporte_General_Desviaciones",
+      "MENSUAL"
+    ) || "MENSUAL"
+  )
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  const equivalencias = {
+    SEMANA:"SEMANAL",
+    SEMANAL:"SEMANAL",
+    QUINCENA:"QUINCENAL",
+    QUINCENAL:"QUINCENAL",
+    MES:"MENSUAL",
+    MENSUAL:"MENSUAL"
+  };
+
+  if (!equivalencias[valor]) {
+    throw new Error(
+      "Frecuencia de reporte general no válida: " + valor +
+      ". Use SEMANAL, QUINCENAL o MENSUAL."
+    );
+  }
+
+  return equivalencias[valor];
+}
+
+function evaluarEnvioReporteGeneralDesviaciones_(fecha, frecuencia) {
+  const zona = obtenerZonaHorariaAutomatizaciones_();
+  const fechaTexto = Utilities.formatDate(fecha, zona, "yyyy-MM-dd");
+  const partes = fechaTexto.split("-").map(Number);
+  const ano = partes[0];
+  const mes = partes[1];
+  const diaMes = partes[2];
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+
+  if (frecuencia === "SEMANAL") {
+    const diaConfigurado = convertirDiaSemanaVerificaciones_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Dia_Reporte_General_Desviaciones",
+        "LUNES"
+      )
+    );
+    const numeroDiaConfigurado = numeroDiaSemanaAutomatizaciones_(diaConfigurado);
+    const numeroDiaActual = Number(
+      Utilities.formatDate(fecha, zona, "u")
+    );
+
+    return {
+      corresponde:numeroDiaActual === numeroDiaConfigurado,
+      clavePeriodo:Utilities.formatDate(fecha, zona, "YYYY-'S'ww"),
+      mensaje:"Hoy no corresponde al día semanal configurado."
+    };
+  }
+
+  if (frecuencia === "QUINCENAL") {
+    const segundaQuincena = diaMes === ultimoDia;
+    return {
+      corresponde:diaMes === 15 || segundaQuincena,
+      clavePeriodo:
+        String(ano) + "-" + String(mes).padStart(2,"0") +
+        "-Q" + (diaMes <= 15 ? "1" : "2"),
+      mensaje:"Hoy no es día 15 ni el último día del mes."
+    };
+  }
+
+  return {
+    corresponde:diaMes === ultimoDia,
+    clavePeriodo:String(ano) + "-" + String(mes).padStart(2,"0"),
+    mensaje:"Hoy no es el último día del mes."
+  };
+}
+
+function numeroDiaSemanaAutomatizaciones_(diaScriptApp) {
+  const mapa = {};
+  mapa[String(ScriptApp.WeekDay.MONDAY)] = 1;
+  mapa[String(ScriptApp.WeekDay.TUESDAY)] = 2;
+  mapa[String(ScriptApp.WeekDay.WEDNESDAY)] = 3;
+  mapa[String(ScriptApp.WeekDay.THURSDAY)] = 4;
+  mapa[String(ScriptApp.WeekDay.FRIDAY)] = 5;
+  mapa[String(ScriptApp.WeekDay.SATURDAY)] = 6;
+  mapa[String(ScriptApp.WeekDay.SUNDAY)] = 7;
+  return mapa[String(diaScriptApp)];
+}
+
+function convertirDiaSemanaVerificaciones_(valor) {
+  const dia = String(valor || "LUNES")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  const mapa = {
+    DOMINGO:ScriptApp.WeekDay.SUNDAY,
+    LUNES:ScriptApp.WeekDay.MONDAY,
+    MARTES:ScriptApp.WeekDay.TUESDAY,
+    MIERCOLES:ScriptApp.WeekDay.WEDNESDAY,
+    JUEVES:ScriptApp.WeekDay.THURSDAY,
+    VIERNES:ScriptApp.WeekDay.FRIDAY,
+    SABADO:ScriptApp.WeekDay.SATURDAY
+  };
+
+  if (!mapa[dia]) {
+    throw new Error("Día semanal no válido: " + valor);
+  }
+
+  return mapa[dia];
+}

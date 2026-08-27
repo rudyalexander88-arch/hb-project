@@ -1,0 +1,1029 @@
+/**
+ * ============================================================
+ * RECEPCIONMATERIALESUTILIDADES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Paso 1 del módulo de Recepción de Materiales.
+ *
+ * Responsabilidad:
+ * - Centralizar nombres de hojas del módulo.
+ * - Obtener y validar encabezados.
+ * - Generar identificadores.
+ * - Normalizar números, textos, fechas y estados.
+ * - Calcular tarimas, posiciones y unidades.
+ * - Construir filas respetando el orden real de las hojas.
+ *
+ * Este archivo:
+ * - No modifica el switch principal.
+ * - No guarda recepciones.
+ * - No actualiza inventarios.
+ * - No actualiza ocupaciones.
+ * - No modifica funciones existentes del sistema.
+ * ============================================================
+ */
+
+const RECEPCION_MATERIALES_HOJAS = {
+  CONFIG_CAMARAS: "Config_Camaras",
+  RECEPCIONES_ENCABEZADO: "Recepciones_Encabezado",
+  RECEPCIONES_DETALLE: "Recepciones_Detalle",
+  MOVIMIENTOS_CAMARAS: "Movimientos_Camaras",
+  INVENTARIO_CAMARAS: "Inventario_Camaras",
+  OCUPACION_CAMARAS: "Ocupacion_Camaras",
+  INCIDENCIAS_CAMARAS: "Incidencias_Camaras",
+  KPI_CAMARAS_HISTORICO: "KPI_Camaras_Historico"
+};
+
+const RECEPCION_MATERIALES_PREFIJOS = {
+  RECEPCION: "REC",
+  DETALLE_RECEPCION: "RDE",
+  MOVIMIENTO_CAMARA: "MOV",
+  INCIDENCIA_CAMARA: "INC",
+  KPI_CAMARA: "KPI"
+};
+
+function obtenerZonaHorariaRecepcionMateriales_() {
+  try {
+    const libro = SpreadsheetApp.openById(SHEET_ID);
+    const zona = String(libro.getSpreadsheetTimeZone() || "").trim();
+    if (zona) return zona;
+  } catch (error) {
+    console.warn("No fue posible obtener la zona horaria del archivo:", error);
+  }
+
+  return String(Session.getScriptTimeZone() || "").trim() ||
+    "America/Santo_Domingo";
+}
+
+function obtenerHojaRecepcionMateriales_(nombreHoja) {
+  const nombre = String(nombreHoja || "").trim();
+  if (!nombre) throw new Error("Debe indicar el nombre de la hoja.");
+
+  const hoja = getSheet(nombre);
+  if (!hoja) throw new Error('No existe la hoja "' + nombre + '".');
+
+  return hoja;
+}
+
+function obtenerEncabezadosRecepcionMateriales_(hoja) {
+  if (!hoja) throw new Error("No se recibió una hoja válida.");
+
+  const ultimaColumna = hoja.getLastColumn();
+  if (ultimaColumna <= 0) {
+    throw new Error('La hoja "' + hoja.getName() + '" no tiene encabezados.');
+  }
+
+  return hoja
+    .getRange(1, 1, 1, ultimaColumna)
+    .getDisplayValues()[0]
+    .map(function(valor) {
+      return String(valor || "").trim();
+    });
+}
+
+function crearMapaEncabezadosRecepcionMateriales_(encabezados) {
+  const mapa = {};
+
+  (Array.isArray(encabezados) ? encabezados : [])
+    .forEach(function(encabezado, indice) {
+      const nombre = String(encabezado || "").trim();
+      if (nombre) mapa[nombre] = indice;
+    });
+
+  return mapa;
+}
+
+function validarEncabezadosRecepcionMateriales_(hoja, requeridos) {
+  const encabezados = obtenerEncabezadosRecepcionMateriales_(hoja);
+  const mapa = crearMapaEncabezadosRecepcionMateriales_(encabezados);
+
+  const faltantes = (Array.isArray(requeridos) ? requeridos : [])
+    .filter(function(nombre) {
+      return typeof mapa[nombre] === "undefined";
+    });
+
+  if (faltantes.length > 0) {
+    throw new Error(
+      'Faltan columnas en la hoja "' +
+      hoja.getName() +
+      '": ' +
+      faltantes.join(", ") +
+      "."
+    );
+  }
+
+  return {
+    encabezados: encabezados,
+    mapa: mapa
+  };
+}
+
+function construirFilaRecepcionMateriales_(encabezados, datos) {
+  const objeto = datos && typeof datos === "object" ? datos : {};
+
+  return (Array.isArray(encabezados) ? encabezados : [])
+    .map(function(encabezado) {
+      return typeof objeto[encabezado] !== "undefined"
+        ? objeto[encabezado]
+        : "";
+    });
+}
+
+function agregarFilaRecepcionMateriales_(hoja, datos) {
+  const encabezados = obtenerEncabezadosRecepcionMateriales_(hoja);
+  const fila = construirFilaRecepcionMateriales_(encabezados, datos);
+
+  hoja.appendRow(fila);
+  return hoja.getLastRow();
+}
+
+function numeroRecepcionMateriales_(valor) {
+  if (typeof valor === "number") {
+    return isFinite(valor) ? valor : 0;
+  }
+
+  let texto = String(
+    valor === null || typeof valor === "undefined" ? "" : valor
+  )
+    .trim()
+    .replace(/\s+/g, "");
+
+  if (!texto) return 0;
+
+  if (texto.indexOf(",") !== -1 && texto.indexOf(".") === -1) {
+    texto = texto.replace(",", ".");
+  } else if (texto.indexOf(",") !== -1 && texto.indexOf(".") !== -1) {
+    if (texto.lastIndexOf(",") > texto.lastIndexOf(".")) {
+      texto = texto.replace(/\./g, "").replace(",", ".");
+    } else {
+      texto = texto.replace(/,/g, "");
+    }
+  }
+
+  const numero = Number(texto);
+  return isFinite(numero) ? numero : 0;
+}
+
+function enteroNoNegativoRecepcionMateriales_(valor) {
+  return Math.max(0, Math.trunc(numeroRecepcionMateriales_(valor)));
+}
+
+function normalizarTextoRecepcionMateriales_(valor) {
+  return String(
+    valor === null || typeof valor === "undefined" ? "" : valor
+  )
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function claveRecepcionMateriales_(valor) {
+  return normalizarTextoRecepcionMateriales_(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function normalizarSiNoRecepcionMateriales_(valor) {
+  const texto = claveRecepcionMateriales_(valor);
+
+  return (
+    texto === "SI" ||
+    texto === "TRUE" ||
+    texto === "1"
+  )
+    ? "SI"
+    : "NO";
+}
+
+function calcularEstandarPalletRecepcionMateriales_(
+  baseEstandar,
+  alturaEstandar
+) {
+  const base = enteroNoNegativoRecepcionMateriales_(baseEstandar);
+  const altura = enteroNoNegativoRecepcionMateriales_(alturaEstandar);
+
+  return base * altura;
+}
+
+function calcularTotalUnidadesRecepcionMateriales_(
+  tarimasCompletas,
+  cantidadEstandarPallet,
+  parcialUnidades
+) {
+  const tarimas = enteroNoNegativoRecepcionMateriales_(tarimasCompletas);
+  const estandar = enteroNoNegativoRecepcionMateriales_(cantidadEstandarPallet);
+  const parcial = enteroNoNegativoRecepcionMateriales_(parcialUnidades);
+
+  return (tarimas * estandar) + parcial;
+}
+
+function calcularPosicionesRecepcionMateriales_(
+  tarimasCompletas,
+  parcialUnidades,
+  parcialOcupaPosicion
+) {
+  const tarimas = enteroNoNegativoRecepcionMateriales_(tarimasCompletas);
+  const parcial = enteroNoNegativoRecepcionMateriales_(parcialUnidades);
+  const ocupa = normalizarSiNoRecepcionMateriales_(parcialOcupaPosicion) === "SI";
+
+  return tarimas + (parcial > 0 && ocupa ? 1 : 0);
+}
+
+function validarCantidadesRecepcionMateriales_(parametros) {
+  const p = parametros || {};
+
+  const tarimas = enteroNoNegativoRecepcionMateriales_(p.tarimasCompletas);
+  const parcial = enteroNoNegativoRecepcionMateriales_(p.parcialUnidades);
+  const estandar = enteroNoNegativoRecepcionMateriales_(p.cantidadEstandarPallet);
+  const parcialOcupa = normalizarSiNoRecepcionMateriales_(
+    p.parcialOcupaPosicion
+  );
+
+  if (tarimas <= 0 && parcial <= 0) {
+    throw new Error(
+      "Debe registrar al menos una tarima completa o un parcial."
+    );
+  }
+
+  if (estandar <= 0) {
+    throw new Error(
+      "El material no tiene un estándar pallet válido."
+    );
+  }
+
+  if (parcial >= estandar) {
+    throw new Error(
+      "El parcial debe ser menor que el estándar pallet del material."
+    );
+  }
+
+  if (parcial <= 0 && parcialOcupa === "SI") {
+    throw new Error(
+      "No puede indicar que el parcial ocupa una posición si no registró unidades parciales."
+    );
+  }
+
+  return {
+    tarimasCompletas: tarimas,
+    parcialUnidades: parcial,
+    parcialOcupaPosicion: parcial > 0 ? parcialOcupa : "NO",
+    cantidadEstandarPallet: estandar,
+    posicionesOcupadas: calcularPosicionesRecepcionMateriales_(
+      tarimas,
+      parcial,
+      parcialOcupa
+    ),
+    totalUnidades: calcularTotalUnidadesRecepcionMateriales_(
+      tarimas,
+      estandar,
+      parcial
+    )
+  };
+}
+
+function convertirFechaRecepcionMateriales_(valor) {
+  if (
+    Object.prototype.toString.call(valor) === "[object Date]" &&
+    !isNaN(valor.getTime())
+  ) {
+    return new Date(valor.getTime());
+  }
+
+  const texto = String(valor || "").trim();
+  let coincidencia = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (coincidencia) {
+    return new Date(
+      Number(coincidencia[1]),
+      Number(coincidencia[2]) - 1,
+      Number(coincidencia[3])
+    );
+  }
+
+  coincidencia = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  if (coincidencia) {
+    return new Date(
+      Number(coincidencia[3]),
+      Number(coincidencia[2]) - 1,
+      Number(coincidencia[1])
+    );
+  }
+
+  return null;
+}
+
+function formatearFechaRecepcionMateriales_(valor) {
+  const fecha = convertirFechaRecepcionMateriales_(valor);
+  if (!fecha) return "";
+
+  return Utilities.formatDate(
+    fecha,
+    obtenerZonaHorariaRecepcionMateriales_(),
+    "yyyy-MM-dd"
+  );
+}
+
+function formatearHoraRecepcionMateriales_(valor) {
+  const fecha =
+    valor && Object.prototype.toString.call(valor) === "[object Date]"
+      ? valor
+      : new Date();
+
+  return Utilities.formatDate(
+    fecha,
+    obtenerZonaHorariaRecepcionMateriales_(),
+    "HH:mm:ss"
+  );
+}
+
+function calcularDuracionMinutosRecepcionMateriales_(inicio, final) {
+  const convertirASegundos = function(valor) {
+    let texto = "";
+
+    if (
+      valor instanceof Date &&
+      !isNaN(valor.getTime())
+    ) {
+      texto = Utilities.formatDate(
+        valor,
+        obtenerZonaHorariaRecepcionMateriales_(),
+        "HH:mm:ss"
+      );
+    } else {
+      texto = normalizarTextoRecepcionMateriales_(valor);
+    }
+
+    const coincidencia = texto.match(
+      /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/
+    );
+
+    if (!coincidencia) {
+      return null;
+    }
+
+    const hora = Number(coincidencia[1]);
+    const minuto = Number(coincidencia[2]);
+    const segundo = Number(coincidencia[3] || 0);
+
+    if (
+      hora < 0 || hora > 23 ||
+      minuto < 0 || minuto > 59 ||
+      segundo < 0 || segundo > 59
+    ) {
+      return null;
+    }
+
+    return (hora * 3600) + (minuto * 60) + segundo;
+  };
+
+  const segundosInicio = convertirASegundos(inicio);
+  const segundosFinal = convertirASegundos(final);
+
+  if (
+    segundosInicio === null ||
+    segundosFinal === null
+  ) {
+    return 0;
+  }
+
+  let diferencia = segundosFinal - segundosInicio;
+
+  /* Permite recepciones que atraviesen la medianoche. */
+  if (diferencia < 0) {
+    diferencia += 24 * 60 * 60;
+  }
+
+  return Math.max(0, Math.round(diferencia / 60));
+}
+
+function generarIdRecepcionMateriales_(prefijo) {
+  const zona = obtenerZonaHorariaRecepcionMateriales_();
+  const fechaHora = Utilities.formatDate(
+    new Date(),
+    zona,
+    "yyyyMMdd-HHmmss"
+  );
+
+  const sufijo = Utilities
+    .getUuid()
+    .replace(/-/g, "")
+    .substring(0, 4)
+    .toUpperCase();
+
+  return (
+    String(prefijo || "ID").trim().toUpperCase() +
+    "-" +
+    fechaHora +
+    "-" +
+    sufijo
+  );
+}
+
+function generarIDRecepcion_() {
+  return generarIdRecepcionMateriales_(
+    RECEPCION_MATERIALES_PREFIJOS.RECEPCION
+  );
+}
+
+function generarIDDetalleRecepcion_() {
+  return generarIdRecepcionMateriales_(
+    RECEPCION_MATERIALES_PREFIJOS.DETALLE_RECEPCION
+  );
+}
+
+function generarIDMovimientoCamara_() {
+  return generarIdRecepcionMateriales_(
+    RECEPCION_MATERIALES_PREFIJOS.MOVIMIENTO_CAMARA
+  );
+}
+
+function generarIDIncidenciaCamara_() {
+  return generarIdRecepcionMateriales_(
+    RECEPCION_MATERIALES_PREFIJOS.INCIDENCIA_CAMARA
+  );
+}
+
+function buscarRegistroRecepcionMateriales_(
+  hoja,
+  campoBusqueda,
+  valorBusqueda
+) {
+  const datos = hoja.getDataRange().getValues();
+
+  if (datos.length <= 1) {
+    return {
+      encontrada: false,
+      numeroFila: -1,
+      datos: null
+    };
+  }
+
+  const encabezados = datos[0].map(function(valor) {
+    return String(valor || "").trim();
+  });
+
+  const indice = encabezados.indexOf(campoBusqueda);
+
+  if (indice === -1) {
+    throw new Error(
+      'No existe la columna "' +
+      campoBusqueda +
+      '" en la hoja "' +
+      hoja.getName() +
+      '".'
+    );
+  }
+
+  const claveBuscada = normalizarTextoRecepcionMateriales_(valorBusqueda);
+
+  for (let i = 1; i < datos.length; i++) {
+    const valorFila = normalizarTextoRecepcionMateriales_(datos[i][indice]);
+
+    if (valorFila === claveBuscada) {
+      const objeto = {};
+
+      encabezados.forEach(function(encabezado, posicion) {
+        objeto[encabezado] = datos[i][posicion];
+      });
+
+      return {
+        encontrada: true,
+        numeroFila: i + 1,
+        datos: objeto
+      };
+    }
+  }
+
+  return {
+    encontrada: false,
+    numeroFila: -1,
+    datos: null
+  };
+}
+
+function actualizarRegistroRecepcionMateriales_(hoja, numeroFila, datos) {
+  if (numeroFila <= 1) {
+    throw new Error("El número de fila para actualizar no es válido.");
+  }
+
+  const encabezados = obtenerEncabezadosRecepcionMateriales_(hoja);
+  const mapa = crearMapaEncabezadosRecepcionMateriales_(encabezados);
+  const objeto = datos || {};
+
+  Object.keys(objeto).forEach(function(campo) {
+    if (typeof mapa[campo] === "undefined") return;
+
+    hoja
+      .getRange(numeroFila, mapa[campo] + 1)
+      .setValue(objeto[campo]);
+  });
+}
+
+function obtenerMarcaTiempoRecepcionMateriales_() {
+  const ahora = new Date();
+  const zona = obtenerZonaHorariaRecepcionMateriales_();
+
+  return {
+    fechaObjeto: ahora,
+    fecha: Utilities.formatDate(ahora, zona, "yyyy-MM-dd"),
+    hora: Utilities.formatDate(ahora, zona, "HH:mm:ss"),
+    fechaHora: ahora
+  };
+}
+
+/**
+ * Lee directamente la hoja Configuracion y devuelve
+ * sus parámetros como un objeto.
+ *
+ * No utiliza listarConfiguracion() porque esa función
+ * devuelve una respuesta HTTP de ContentService.
+ */
+function obtenerConfiguracionRecepcionMateriales_() {
+
+  const hoja =
+    getSheet(
+      SHEETS.CONFIGURACION
+    );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      "No existe la hoja Configuracion."
+    );
+
+  }
+
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (
+    datos.length <= 1
+  ) {
+
+    throw new Error(
+      "La hoja Configuracion no contiene parámetros."
+    );
+
+  }
+
+
+  const configuracion = {};
+
+
+  datos
+    .slice(1)
+    .forEach(
+      function(fila) {
+
+        const parametro =
+          normalizarTextoRecepcionMateriales_(
+            fila[0]
+          );
+
+
+        const valor =
+          normalizarTextoRecepcionMateriales_(
+            fila[1]
+          );
+
+
+        if (parametro) {
+
+          configuracion[
+            parametro
+          ] = valor;
+
+        }
+
+      }
+    );
+
+
+  return configuracion;
+
+}
+
+
+/**
+ * Convierte una hora HH:mm en minutos transcurridos
+ * desde las 00:00.
+ */
+function convertirHoraAMinutosRecepcionMateriales_(
+  valor
+) {
+
+  const texto =
+    normalizarTextoRecepcionMateriales_(
+      valor
+    );
+
+
+  const coincidencia =
+    texto.match(
+      /^(\d{1,2}):(\d{2})$/
+    );
+
+
+  if (!coincidencia) {
+
+    throw new Error(
+      'La hora "' +
+      texto +
+      '" no tiene el formato HH:mm.'
+    );
+
+  }
+
+
+  const hora =
+    Number(
+      coincidencia[1]
+    );
+
+
+  const minuto =
+    Number(
+      coincidencia[2]
+    );
+
+
+  if (
+    hora < 0 ||
+    hora > 23 ||
+    minuto < 0 ||
+    minuto > 59
+  ) {
+
+    throw new Error(
+      'La hora "' +
+      texto +
+      '" no es válida.'
+    );
+
+  }
+
+
+  return (
+    hora *
+    60
+  ) +
+  minuto;
+
+}
+
+
+/**
+ * Determina si una hora está dentro de un intervalo.
+ *
+ * También acepta intervalos que atraviesan medianoche,
+ * por ejemplo 21:30 hasta 06:00.
+ */
+function horaDentroIntervaloRecepcionMateriales_(
+  minutoActual,
+  minutoInicio,
+  minutoFinal
+) {
+
+  /*
+   * Intervalo normal:
+   * 06:00 -> 14:00
+   */
+  if (
+    minutoInicio <
+    minutoFinal
+  ) {
+
+    return (
+      minutoActual >=
+        minutoInicio &&
+      minutoActual <
+        minutoFinal
+    );
+
+  }
+
+
+  /*
+   * Intervalo que cruza medianoche:
+   * 21:30 -> 06:00
+   */
+  if (
+    minutoInicio >
+    minutoFinal
+  ) {
+
+    return (
+      minutoActual >=
+        minutoInicio ||
+      minutoActual <
+        minutoFinal
+    );
+
+  }
+
+
+  /*
+   * Inicio y final iguales significan cobertura
+   * completa de 24 horas.
+   */
+  return true;
+
+}
+
+
+/**
+ * Determina automáticamente el turno utilizando
+ * los parámetros de la hoja Configuracion.
+ */
+function determinarTurnoRecepcionMateriales_(
+  fechaHora
+) {
+
+  const configuracion =
+    obtenerConfiguracionRecepcionMateriales_();
+
+
+  const fecha =
+    fechaHora instanceof Date
+      ? fechaHora
+      : new Date();
+
+
+  const zonaHoraria =
+    obtenerZonaHorariaRecepcionMateriales_();
+
+
+  const horaActual =
+    Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      "HH:mm"
+    );
+
+
+  const minutoActual =
+    convertirHoraAMinutosRecepcionMateriales_(
+      horaActual
+    );
+
+
+  const letras = [
+    "A",
+    "B",
+    "C"
+  ];
+
+
+  for (
+    let i = 0;
+    i < letras.length;
+    i++
+  ) {
+
+    const letra =
+      letras[i];
+
+
+    const codigo =
+      normalizarTextoRecepcionMateriales_(
+        configuracion[
+          "Turno_" +
+          letra +
+          "_Codigo"
+        ]
+      );
+
+
+    const nombre =
+      normalizarTextoRecepcionMateriales_(
+        configuracion[
+          "Turno_" +
+          letra +
+          "_Nombre"
+        ]
+      );
+
+
+    const horaInicio =
+      normalizarTextoRecepcionMateriales_(
+        configuracion[
+          "Turno_" +
+          letra +
+          "_Hora_Inicio"
+        ]
+      );
+
+
+    const horaFinal =
+      normalizarTextoRecepcionMateriales_(
+        configuracion[
+          "Turno_" +
+          letra +
+          "_Hora_Final"
+        ]
+      );
+
+
+    if (
+      !codigo ||
+      !nombre ||
+      !horaInicio ||
+      !horaFinal
+    ) {
+
+      throw new Error(
+        "La configuración del Turno " +
+        letra +
+        " está incompleta."
+      );
+
+    }
+
+
+    const minutoInicio =
+      convertirHoraAMinutosRecepcionMateriales_(
+        horaInicio
+      );
+
+
+    const minutoFinal =
+      convertirHoraAMinutosRecepcionMateriales_(
+        horaFinal
+      );
+
+
+    if (
+      horaDentroIntervaloRecepcionMateriales_(
+        minutoActual,
+        minutoInicio,
+        minutoFinal
+      )
+    ) {
+
+      return {
+
+        codigo:
+          codigo,
+
+        nombre:
+          nombre,
+
+        texto:
+          codigo +
+          " - " +
+          nombre,
+
+        horaInicio:
+          horaInicio,
+
+        horaFinal:
+          horaFinal
+
+      };
+
+    }
+
+  }
+
+
+  throw new Error(
+    "La hora actual " +
+    horaActual +
+    " no pertenece a ningún turno configurado."
+  );
+
+}
+
+/**
+ * Normaliza valores provenientes de columnas de hora.
+ *
+ * Google Sheets puede devolver una hora como un objeto Date
+ * basado en 30/12/1899. Esta función devuelve únicamente
+ * HH:mm:ss.
+ */
+function normalizarHoraRecepcionMateriales_(
+  valor
+) {
+
+  if (
+    Object.prototype.toString.call(
+      valor
+    ) ===
+    "[object Date]" &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return Utilities.formatDate(
+      valor,
+      obtenerZonaHorariaRecepcionMateriales_(),
+      "HH:mm:ss"
+    );
+
+  }
+
+
+  const texto =
+    normalizarTextoRecepcionMateriales_(
+      valor
+    );
+
+
+  if (!texto) {
+
+    return "";
+
+  }
+
+
+  /*
+   * HH:mm o HH:mm:ss.
+   */
+  const coincidenciaHora =
+    texto.match(
+      /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/
+    );
+
+
+  if (
+    coincidenciaHora
+  ) {
+
+    return (
+      String(
+        coincidenciaHora[1]
+      ).padStart(
+        2,
+        "0"
+      ) +
+      ":" +
+      coincidenciaHora[2] +
+      ":" +
+      (
+        coincidenciaHora[3] ||
+        "00"
+      )
+    );
+
+  }
+
+
+  /*
+   * Último intento para valores convertibles a Date.
+   */
+  const fecha =
+    new Date(
+      valor
+    );
+
+
+  if (
+    !isNaN(
+      fecha.getTime()
+    )
+  ) {
+
+    return Utilities.formatDate(
+      fecha,
+      obtenerZonaHorariaRecepcionMateriales_(),
+      "HH:mm:ss"
+    );
+
+  }
+
+
+  return texto;
+
+}
+
+/**
+ * Prueba manual del Paso 1.
+ * No escribe en ninguna hoja.
+ */
+function probarRecepcionMaterialesUtilidades() {
+  const calculo = validarCantidadesRecepcionMateriales_({
+    tarimasCompletas: 3,
+    parcialUnidades: 30,
+    parcialOcupaPosicion: "SI",
+    cantidadEstandarPallet: 135
+  });
+
+  const resultado = {
+    idRecepcion: generarIDRecepcion_(),
+    idDetalle: generarIDDetalleRecepcion_(),
+    idMovimiento: generarIDMovimientoCamara_(),
+    idIncidencia: generarIDIncidenciaCamara_(),
+    calculo: calculo,
+    marcaTiempo: obtenerMarcaTiempoRecepcionMateriales_()
+  };
+
+  Logger.log(JSON.stringify(resultado, null, 2));
+  return resultado;
+}

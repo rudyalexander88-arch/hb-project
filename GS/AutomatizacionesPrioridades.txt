@@ -1,0 +1,574 @@
+/**
+ * ============================================================
+ * AUTOMATIZACIONESPRIORIDADES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Crear y administrar el temporizador diario del cierre
+ *   de Prioridades de Abastecimiento.
+ * - Leer la hora y los interruptores desde Configuracion.
+ * - Ejecutar registrarCierrePrioridadesHoy().
+ *
+ * Configuraciones:
+ * - Hora_Actualizacion_Prioridades
+ * - Actualizar_Prioridades_Automatico
+ * - Enviar_Reporte_Prioridades
+ *
+ * IMPORTANTE:
+ * Los disparadores de Apps Script no garantizan el minuto
+ * exacto. nearMinute() utiliza una ventana aproximada.
+ * ============================================================
+ */
+
+
+const FUNCION_TEMPORIZADOR_PRIORIDADES_ =
+  "temporizadorActualizacionPrioridades";
+
+
+/**
+ * Crea o recrea el temporizador diario.
+ *
+ * Debe ejecutarse manualmente una vez después de:
+ * - crear este archivo;
+ * - configurar la hora;
+ * - autorizar el proyecto.
+ *
+ * @return {Object}
+ */
+function configurarTemporizadorPrioridades() {
+
+  /*
+   * Evitamos temporizadores duplicados.
+   */
+  const eliminacion =
+    eliminarTemporizadorPrioridades();
+
+
+  const actualizacionActiva =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Actualizar_Prioridades_Automatico",
+        "SI"
+      )
+    );
+
+
+  if (!actualizacionActiva) {
+
+    const resultadoDesactivado = {
+
+      exito:
+        true,
+
+      creado:
+        false,
+
+      activo:
+        false,
+
+      eliminados:
+        eliminacion.eliminados,
+
+      mensaje:
+        "La actualización automática de prioridades está desactivada en Configuracion."
+
+    };
+
+
+    console.log(
+      JSON.stringify(
+        resultadoDesactivado,
+        null,
+        2
+      )
+    );
+
+
+    return resultadoDesactivado;
+
+  }
+
+
+  const zonaHoraria =
+    obtenerZonaHorariaAutomatizaciones_();
+
+
+  const hora =
+    obtenerHoraAutomatizacion_(
+      "Hora_Actualizacion_Prioridades",
+      "17:30"
+    );
+
+
+  const trigger =
+    ScriptApp
+      .newTrigger(
+        FUNCION_TEMPORIZADOR_PRIORIDADES_
+      )
+      .timeBased()
+      .atHour(
+        hora.hora
+      )
+      .nearMinute(
+        hora.minuto
+      )
+      .everyDays(1)
+      .inTimezone(
+        zonaHoraria
+      )
+      .create();
+
+
+  const resultado = {
+
+    exito:
+      true,
+
+    creado:
+      true,
+
+    activo:
+      true,
+
+    eliminados:
+      eliminacion.eliminados,
+
+    funcion:
+      FUNCION_TEMPORIZADOR_PRIORIDADES_,
+
+    hora:
+      String(
+        hora.hora
+      ).padStart(
+        2,
+        "0"
+      ) +
+      ":" +
+      String(
+        hora.minuto
+      ).padStart(
+        2,
+        "0"
+      ),
+
+    zonaHoraria:
+      zonaHoraria,
+
+    idUnico:
+      trigger.getUniqueId(),
+
+    mensaje:
+      "Temporizador de prioridades configurado correctamente."
+
+  };
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+
+/**
+ * Elimina únicamente el temporizador del módulo
+ * de Prioridades.
+ *
+ * No modifica los temporizadores de Despachos,
+ * Google Chat ni otros procesos.
+ *
+ * @return {Object}
+ */
+function eliminarTemporizadorPrioridades() {
+
+  const triggers =
+    ScriptApp.getProjectTriggers();
+
+
+  let eliminados =
+    0;
+
+
+  triggers.forEach(
+    function(trigger) {
+
+      if (
+        trigger.getHandlerFunction() ===
+        FUNCION_TEMPORIZADOR_PRIORIDADES_
+      ) {
+
+        ScriptApp.deleteTrigger(
+          trigger
+        );
+
+
+        eliminados++;
+
+      }
+
+    }
+  );
+
+
+  return {
+
+    exito:
+      true,
+
+    eliminados:
+      eliminados
+
+  };
+
+}
+
+
+/**
+ * Lista el temporizador actual de Prioridades.
+ *
+ * @return {Object}
+ */
+function listarTemporizadorPrioridades() {
+
+  const triggers =
+    ScriptApp.getProjectTriggers();
+
+
+  const temporizadores =
+    triggers
+      .filter(
+        function(trigger) {
+
+          return (
+            trigger.getHandlerFunction() ===
+            FUNCION_TEMPORIZADOR_PRIORIDADES_
+          );
+
+        }
+      )
+      .map(
+        function(trigger) {
+
+          return {
+
+            funcion:
+              trigger.getHandlerFunction(),
+
+            evento:
+              String(
+                trigger.getEventType()
+              ),
+
+            idUnico:
+              trigger.getUniqueId()
+
+          };
+
+        }
+      );
+
+
+  const resultado = {
+
+    exito:
+      true,
+
+    total:
+      temporizadores.length,
+
+    temporizadores:
+      temporizadores
+
+  };
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+
+/**
+ * Función llamada automáticamente por el trigger.
+ *
+ * No debe ejecutar lógica duplicada.
+ * Utiliza registrarCierrePrioridadesHoy(), que ya:
+ *
+ * - calcula las prioridades;
+ * - cruza los despachos a FrioBox;
+ * - actualiza Prioridades_Historico;
+ * - actualiza Prioridades_Diarias;
+ * - evita registros duplicados.
+ *
+ * @return {Object}
+ */
+function temporizadorActualizacionPrioridades() {
+
+  const actualizacionActiva =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Actualizar_Prioridades_Automatico",
+        "SI"
+      )
+    );
+
+
+  if (!actualizacionActiva) {
+
+    const resultadoInactivo = {
+
+      exito:
+        true,
+
+      ejecutado:
+        false,
+
+      motivo:
+        "La actualización automática de prioridades está desactivada."
+
+    };
+
+
+    console.log(
+      JSON.stringify(
+        resultadoInactivo,
+        null,
+        2
+      )
+    );
+
+
+    return resultadoInactivo;
+
+  }
+
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  try {
+
+    /*
+     * Evita que una ejecución manual y otra automática
+     * trabajen al mismo tiempo.
+     */
+    bloqueo.waitLock(
+      30000
+    );
+
+
+    const inicio =
+      new Date();
+
+
+    const resultadoCierre =
+      registrarCierrePrioridadesHoy();
+
+
+    const enviarReporte =
+      esConfiguracionActivaPrioridades_(
+        obtenerConfiguracionAutomatizaciones_(
+          "Enviar_Reporte_Prioridades",
+          "NO"
+        )
+      );
+
+
+    let resultadoReporte = {
+
+      solicitado:
+        enviarReporte,
+
+      enviado:
+        false,
+
+      mensaje:
+        enviarReporte
+          ? "El envío está activo, pero el reporte de prioridades todavía no ha sido implementado."
+          : "El envío automático del reporte está desactivado."
+
+    };
+
+
+    /*
+     * Cuando construyamos el reporte, la función podrá
+     * llamarse enviarReportePrioridadesDiario().
+     *
+     * Esta comprobación permite que la automatización
+     * empiece a utilizarla automáticamente cuando exista.
+     */
+    if (
+      enviarReporte &&
+      typeof enviarReportePrioridadesDiario ===
+        "function"
+    ) {
+
+      resultadoReporte =
+        enviarReportePrioridadesDiario(
+          resultadoCierre
+        );
+
+    }
+
+
+    const fin =
+      new Date();
+
+
+    const resultado = {
+
+      exito:
+        true,
+
+      ejecutado:
+        true,
+
+      cierre:
+        resultadoCierre,
+
+      reporte:
+        resultadoReporte,
+
+      duracionSegundos:
+        Math.round(
+          (
+            fin.getTime() -
+            inicio.getTime()
+          ) / 1000
+        )
+
+    };
+
+
+    console.log(
+      JSON.stringify(
+        resultado,
+        null,
+        2
+      )
+    );
+
+
+    return resultado;
+
+
+  } catch (error) {
+
+    console.error(
+      "Error en la actualización automática de prioridades:",
+      error
+    );
+
+
+    throw error;
+
+
+  } finally {
+
+    try {
+
+      bloqueo.releaseLock();
+
+    } catch (errorBloqueo) {
+
+      /*
+       * El bloqueo podría no haberse adquirido.
+       */
+
+    }
+
+  }
+
+}
+
+
+/**
+ * Convierte valores de Configuracion a booleano.
+ *
+ * Valores considerados activos:
+ * - SI
+ * - SÍ
+ * - YES
+ * - TRUE
+ * - 1
+ * - ACTIVO
+ *
+ * @param {*} valor
+ * @return {boolean}
+ */
+function esConfiguracionActivaPrioridades_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    )
+      .trim()
+      .toUpperCase()
+      .normalize(
+        "NFD"
+      )
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      );
+
+
+  return (
+    texto === "SI" ||
+    texto === "YES" ||
+    texto === "TRUE" ||
+    texto === "1" ||
+    texto === "ACTIVO"
+  );
+
+}
+
+
+/**
+ * Prueba manual del proceso que ejecutará el trigger.
+ *
+ * Esta prueba escribe o actualiza:
+ * - Prioridades_Historico
+ * - Prioridades_Diarias
+ *
+ * No duplica registros porque el cierre utiliza upsert.
+ *
+ * @return {Object}
+ */
+function probarTemporizadorPrioridades() {
+
+  const resultado =
+    temporizadorActualizacionPrioridades();
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}

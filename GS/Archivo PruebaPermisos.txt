@@ -1,0 +1,199 @@
+/**
+ * ============================================================
+ * PRUEBAS TEMPORALES DE PERMISOS
+ * Sistema Logístico PT
+ * ============================================================
+ *
+ * Ejecutar manualmente desde el editor de Apps Script.
+ *
+ * Cuando terminemos las pruebas, este archivo puede eliminarse.
+ */
+
+
+/**
+ * ------------------------------------------------------------
+ * 1. GOOGLE SHEETS
+ * ------------------------------------------------------------
+ *
+ * Comprueba autorización para acceder al libro principal.
+ */
+function pruebaPermisoSpreadsheet() {
+
+  const SHEET_ID =
+    "1c-oO232rbO3LY3tZnFbaQ0pg_8G6Gr5iYtFerj8hv1k";
+
+  const libro =
+    SpreadsheetApp.openById(SHEET_ID);
+
+  Logger.log(
+    "OK - Spreadsheet autorizado: " +
+    libro.getName()
+  );
+
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * 2. GOOGLE DRIVE
+ * ------------------------------------------------------------
+ *
+ * Solamente consulta información del Drive.
+ * No crea ni elimina archivos.
+ */
+function pruebaPermisoDrive() {
+
+  const archivos =
+    DriveApp.getFiles();
+
+  Logger.log(
+    "OK - Drive autorizado."
+  );
+
+  if (archivos.hasNext()) {
+
+    const archivo =
+      archivos.next();
+
+    Logger.log(
+      "Archivo encontrado: " +
+      archivo.getName()
+    );
+
+  }
+
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * 3. URL FETCH
+ * ------------------------------------------------------------
+ *
+ * Comprueba autorización para realizar peticiones externas
+ * desde Apps Script.
+ */
+function pruebaPermisoUrlFetch() {
+
+  const respuesta =
+    UrlFetchApp.fetch(
+      "https://www.google.com",
+      {
+        muteHttpExceptions: true
+      }
+    );
+
+  Logger.log(
+    "OK - UrlFetch autorizado. HTTP: " +
+    respuesta.getResponseCode()
+  );
+
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * 4. ENVÍO DE CORREO
+ * ------------------------------------------------------------
+ *
+ * IMPORTANTE:
+ * Esta prueba NO envía ningún correo.
+ *
+ * getRemainingDailyQuota() obliga a Apps Script a reconocer
+ * el servicio MailApp sin enviar mensajes.
+ */
+function pruebaPermisoCorreo() {
+
+  const cuota =
+    MailApp.getRemainingDailyQuota();
+
+  Logger.log(
+    "OK - MailApp autorizado. Cuota disponible: " +
+    cuota
+  );
+
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * 5. LOCK SERVICE
+ * ------------------------------------------------------------
+ *
+ * Utilizado por algunas operaciones concurrentes del sistema.
+ */
+function pruebaLockService() {
+
+  const lock =
+    LockService.getScriptLock();
+
+  lock.tryLock(1000);
+
+  if (lock.hasLock()) {
+
+    Logger.log(
+      "OK - LockService funcionando."
+    );
+
+    lock.releaseLock();
+
+  } else {
+
+    Logger.log(
+      "LockService disponible, pero no se obtuvo el bloqueo."
+    );
+
+  }
+
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * 6. SCRIPT PROPERTIES
+ * ------------------------------------------------------------
+ *
+ * Solo consulta las propiedades existentes.
+ * No modifica nada.
+ */
+function pruebaPropertiesService() {
+
+  const propiedades =
+    PropertiesService
+      .getScriptProperties()
+      .getProperties();
+
+  Logger.log(
+    "OK - PropertiesService funcionando."
+  );
+
+  Logger.log(
+    JSON.stringify(propiedades)
+  );
+
+}
+
+
+/**
+ * ------------------------------------------------------------
+ * 7. COMPROBAR TODOS LOS PERMISOS DEL PROYECTO
+ * ------------------------------------------------------------
+ *
+ * Esta es especialmente útil.
+ *
+ * Apps Script comprobará si la cuenta que está ejecutando
+ * tiene concedidos TODOS los scopes actualmente detectados
+ * por el proyecto.
+ */
+function pruebaTodosLosPermisos() {
+
+  ScriptApp.requireAllScopes(
+    ScriptApp.AuthMode.FULL
+  );
+
+  Logger.log(
+    "OK - Todos los permisos requeridos por el proyecto " +
+    "están autorizados."
+  );
+
+}

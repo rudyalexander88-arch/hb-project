@@ -1,0 +1,565 @@
+/** Centro de Exactitud de Despachos */
+function obtenerCentroExactitudDespachos(data) {
+  try {
+    data = data || {};
+    const limite = Math.min(Math.max(Number(data.limite || 10), 1), 50);
+    const desplazamiento = Math.max(Number(data.desplazamiento || 0), 0);
+    const hojaD = getSheet(SHEETS.DESPACHO);
+    const hojaV = getSheet(SHEETS.VERIFICACION_DESPACHOS);
+    const hojaVD = getSheet(SHEETS.VERIFICACION_DESPACHOS_DETALLE);
+    if (!hojaD || !hojaV || !hojaVD) {
+      return respuesta({ok:false,mensaje:'No se encontraron las hojas requeridas.'});
+    }
+
+    const despachos = leerHojaExactitud_(hojaD);
+    const verificaciones = leerHojaExactitud_(hojaV);
+    const detalles = leerHojaExactitud_(hojaVD);
+    const desde = fechaFiltroExactitud_(data.fechaDesde);
+    const hasta = fechaFiltroExactitud_(data.fechaHasta);
+    const texto = normalizarExactitud_(data.busqueda);
+    const supervisorFiltro = normalizarExactitud_(data.supervisor);
+    const estadoFiltro = normalizarExactitud_(data.estado);
+    const resultadoFiltro = normalizarExactitud_(data.resultado);
+    const tipoFiltro = normalizarExactitud_(data.tipoDiferencia);
+    const soloPendientes = data.soloPendientes === true;
+    const agrupacion = ['DIA','SEMANA','MES','ANIO'].includes(String(data.agrupacion||'DIA').toUpperCase()) ? String(data.agrupacion||'DIA').toUpperCase() : 'DIA';
+
+    const mapaV = {};
+    verificaciones.forEach(v => {
+      const id = String(v.ID_Conduce || '').trim();
+      if (id) mapaV[id] = v;
+    });
+    const mapaDetalle = {};
+    detalles.forEach(d => {
+      const id = String(d.ID_Verificacion || '').trim();
+      if (!id) return;
+      if (!mapaDetalle[id]) {
+        mapaDetalle[id] = [];
+      }
+
+      mapaDetalle[id].push(d);
+          });
+          
+    const supervisoresDisponibles =
+      obtenerSupervisoresActivosExactitud_();
+
+    const registros = [];
+    despachos.forEach(d => {
+      if (normalizarExactitud_(d.Estado) !== 'completado') return;
+      const idConduce = String(d.ID_Conduce || '').trim();
+      const v = mapaV[idConduce] || null;
+      const idV = v ? String(v.ID_Verificacion || '').trim() : '';
+      const detalle = idV ? (mapaDetalle[idV] || []) : [];
+      const fecha =
+  convertirFechaExactitud_(
+
+    (
+      v
+        ? v.Fecha_Verificacion
+        : ""
+    ) ||
+
+    d.Fecha_Completado ||
+
+    d.Fecha_Despacho ||
+
+    d.Fecha_Creacion
+
+  );
+      if (desde && (!fecha || normalizarFechaExactitud_(fecha) < desde)) return;
+      if (hasta && (!fecha || normalizarFechaExactitud_(fecha) > hasta)) return;
+
+      const supervisor =
+  String(
+
+    (
+      v
+        ? v.Supervisor_Despacho
+        : ""
+    ) ||
+
+    d.RealizadoPor ||
+
+    ""
+
+  ).trim();
+      const chofer =
+  String(
+
+    (
+      v
+        ? v.Chofer
+        : ""
+    ) ||
+
+    d.Chofer ||
+
+    ""
+
+  ).trim();
+      const centros =
+  String(
+
+    (
+      v
+        ? v.Centros_Destino
+        : ""
+    ) ||
+
+    [
+      d.Destino_1,
+      d.Destino_2
+    ]
+      .filter(Boolean)
+      .join(" / ")
+
+  ).trim();
+      const resultado =
+        v
+          ? String(
+              v.Resultado_Verificacion || ""
+            ).trim()
+          : "";
+
+      const materialesPendientes =
+        v
+          ? numeroExactitud_(
+              v.Total_Materiales
+            ) -
+            (
+              numeroExactitud_(
+                v.Materiales_Conformes
+              ) +
+              numeroExactitud_(
+                v.Materiales_Con_Diferencia
+              )
+            )
+          : 0;
+
+      const verificacionConforme =
+        Boolean(v) &&
+        materialesPendientes <= 0 &&
+        numeroExactitud_(
+          v.Materiales_Con_Diferencia
+        ) === 0 &&
+        normalizarExactitud_(
+          resultado
+        ) === "conforme";
+
+      const estado =
+        !v
+          ? "Pendiente"
+          : verificacionConforme
+            ? "Verificado"
+            : String(
+                v.Estado_Verificacion ||
+                "En proceso"
+              ).trim();
+      const buscable = normalizarExactitud_([d.No_Conduce,idConduce,supervisor,chofer,centros].join(' '));
+      if (texto && !buscable.includes(texto)) return;
+      if (supervisorFiltro && !normalizarExactitud_(supervisor).includes(supervisorFiltro)) return;
+      if (estadoFiltro && normalizarExactitud_(estado) !== estadoFiltro) return;
+      if (resultadoFiltro && normalizarExactitud_(resultado) !== resultadoFiltro) return;
+      if (soloPendientes && !['pendiente','en proceso'].includes(normalizarExactitud_(estado))) return;
+      if (tipoFiltro && !detalle.some(x => normalizarExactitud_(x.Tipo_Diferencia) === tipoFiltro)) return;
+
+     
+  const total =
+  numeroExactitud_(
+
+    (
+      v
+        ? v.Total_Unidades_Sistema
+        : ""
+    ) ||
+
+    d.Total_Unidades
+
+  );
+
+const faltante =
+  numeroExactitud_(
+
+    v
+      ? v.Total_Faltante
+      : 0
+
+  );
+
+const sobrante =
+  numeroExactitud_(
+
+    v
+      ? v.Total_Sobrante
+      : 0
+
+  );
+
+const corregidos =
+  numeroExactitud_(
+
+    v
+      ? v.Total_Cantidad_Corregida
+      : 0
+
+  );
+
+const pendientes =
+  numeroExactitud_(
+
+    v
+      ? v.Total_Diferencia_Pendiente
+      : 0
+
+  );  const desviados = faltante + sobrante;
+      const valorDesviacion = detalle.reduce((s,x)=>s+numeroExactitud_(x.Valor_Desviacion),0);
+      const valorCorregido = detalle.reduce((s,x)=>s+numeroExactitud_(x.Valor_Corregido),0);
+      const valorPendiente = detalle.reduce((s,x)=>s+numeroExactitud_(x.Valor_Pendiente),0);
+      const exactitud = total > 0 ? Math.max(0, ((total-desviados)/total)*100) : 0;
+
+      registros.push({
+        idConduce,idVerificacion:idV,noConduce:String(d.No_Conduce||''),
+        fecha: fecha ? Utilities.formatDate(fecha,Session.getScriptTimeZone(),'dd/MM/yyyy') : '',
+        fechaOrden: fecha ? fecha.getTime() : 0, supervisor,chofer,centros,
+        totalSistema:total,bultosDesviados:desviados,bultosCorregidos:corregidos,bultosPendientes:pendientes,
+        faltantes:faltante,sobrantes:sobrante,exactitud:redondearExactitud_(exactitud),tasaError:redondearExactitud_(100-exactitud),
+        valorDesviacion:redondearExactitud_(valorDesviacion),valorCorregido:redondearExactitud_(valorCorregido),valorPendiente:redondearExactitud_(valorPendiente),
+        estadoVerificacion:estado,resultadoVerificacion:resultado,
+        
+  estadoResolucion:
+  String(
+    v
+      ? v.Estado_Resolucion_General || ""
+      : ""
+  ),
+        accion:
+          !v
+            ? "VERIFICAR"
+            : [
+                "finalizada",
+                "verificado"
+              ].indexOf(
+                normalizarExactitud_(
+                  estado
+                )
+              ) !== -1
+                ? "CONSULTAR"
+                : "CONTINUAR" 
+      });
+    });
+
+    registros.sort((a,b)=>b.fechaOrden-a.fechaOrden);
+    const resumen = resumenExactitud_(registros);
+    const evolucion = evolucionExactitud_(registros,agrupacion);
+    const total = registros.length;
+    const pagina =
+  registros
+    .slice(
+      desplazamiento,
+      desplazamiento + limite
+    )
+    .map(function(item) {
+
+      const copia = {};
+
+      Object.keys(item).forEach(
+        function(clave) {
+
+          copia[clave] =
+            item[clave];
+
+        }
+      );
+
+      delete copia.fechaOrden;
+
+      return copia;
+
+    });
+    return respuesta({
+      ok:
+        true,
+
+      data: {
+
+        resumen:
+          resumen,
+
+        evolucion:
+          evolucion,
+
+        supervisores:
+          supervisoresDisponibles,
+
+        registros:
+          pagina,
+
+        total:
+          total,
+
+        limite:
+          limite,
+
+        desplazamiento:
+          desplazamiento,
+
+        siguienteDesplazamiento:
+          desplazamiento +
+          pagina.length,
+
+        hayMas:
+          desplazamiento +
+          pagina.length <
+          total,
+
+        agrupacion:
+          agrupacion
+
+      }
+
+    });
+  } catch (error) {
+    console.error(error);
+    return respuesta({ok:false,mensaje:error.message||String(error)});
+  }
+}
+
+function resumenExactitud_(lista){
+  const r={despachosCompletados:lista.length,despachosVerificados:0,bultosTraspasados:0,bultosDesviados:0,bultosCorregidos:0,bultosPendientes:0,faltantes:0,sobrantes:0,valorDesviaciones:0,valorCorregido:0,valorPendiente:0,tasaExactitud:0,tasaError:0};
+  lista.forEach(x=>{if(x.idVerificacion)r.despachosVerificados++;r.bultosTraspasados+=x.totalSistema;r.bultosDesviados+=x.bultosDesviados;r.bultosCorregidos+=x.bultosCorregidos;r.bultosPendientes+=x.bultosPendientes;r.faltantes+=x.faltantes;r.sobrantes+=x.sobrantes;r.valorDesviaciones+=x.valorDesviacion;r.valorCorregido+=x.valorCorregido;r.valorPendiente+=x.valorPendiente;});
+  r.tasaExactitud=r.bultosTraspasados?((r.bultosTraspasados-r.bultosDesviados)/r.bultosTraspasados)*100:0;
+  r.tasaError=r.bultosTraspasados?(r.bultosDesviados/r.bultosTraspasados)*100:0;
+  Object.keys(r).forEach(k=>{if(typeof r[k]==='number')r[k]=redondearExactitud_(r[k]);});return r;
+}
+function evolucionExactitud_(
+  lista,
+  agrupacion
+) {
+
+  const mapa = {};
+
+  lista.forEach(function(item) {
+
+    const fecha =
+      convertirFechaExactitud_(
+        item.fecha
+      );
+
+    if (!fecha) {
+      return;
+    }
+
+    const clave =
+      claveExactitud_(
+        fecha,
+        agrupacion
+      );
+
+    if (!mapa[clave]) {
+
+      mapa[clave] = {
+
+        etiqueta:
+          clave,
+
+        bultosTraspasados:
+          0,
+
+        bultosDesviados:
+          0,
+
+        exactitud:
+          0
+
+      };
+
+    }
+
+    mapa[clave].bultosTraspasados +=
+      numeroExactitud_(
+        item.totalSistema
+      );
+
+    mapa[clave].bultosDesviados +=
+      numeroExactitud_(
+        item.bultosDesviados
+      );
+
+  });
+
+  return Object
+    .keys(mapa)
+    .sort()
+    .map(function(clave) {
+
+      const item =
+        mapa[clave];
+
+      item.exactitud =
+        item.bultosTraspasados > 0
+
+          ? redondearExactitud_(
+              (
+                (
+                  item.bultosTraspasados -
+                  item.bultosDesviados
+                ) /
+                item.bultosTraspasados
+              ) * 100
+            )
+
+          : 0;
+
+      return item;
+
+    });
+
+}
+function claveExactitud_(f,a){const z=Session.getScriptTimeZone();if(a==='ANIO')return Utilities.formatDate(f,z,'yyyy');if(a==='MES')return Utilities.formatDate(f,z,'yyyy-MM');if(a==='SEMANA'){const d=normalizarFechaExactitud_(f),n=d.getDay();d.setDate(d.getDate()+(n===0?-6:1-n));return 'Semana '+Utilities.formatDate(d,z,'dd/MM/yyyy');}return Utilities.formatDate(f,z,'dd/MM/yyyy');}
+function leerHojaExactitud_(h){const r=h.getDataRange().getValues();if(r.length<=1)return[];const e=r[0].map(x=>String(x||'').trim());return r.slice(1).map(f=>{const o={};e.forEach((k,i)=>{if(k)o[k]=f[i];});return o;});}
+function normalizarExactitud_(v){return String(v||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').toLowerCase();}
+function numeroExactitud_(
+  valor
+) {
+
+  if (
+    typeof valor === "number" &&
+    isFinite(valor)
+  ) {
+
+    return valor;
+
+  }
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .replace(
+        /,/g,
+        ""
+      )
+      .trim();
+
+  const numero =
+    Number(
+      texto
+    );
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+
+}
+function redondearExactitud_(v){return Math.round(numeroExactitud_(v)*100)/100;}
+function fechaFiltroExactitud_(v){const t=String(v||'').trim();if(!t)return null;const m=t.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)throw new Error('Fecha inválida: '+t);return new Date(+m[1],+m[2]-1,+m[3]);}
+function convertirFechaExactitud_(v){if(v instanceof Date&&!isNaN(v))return new Date(v);const t=String(v||'').trim();let m=t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);m=t.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const f=new Date(t);return isNaN(f)?null:f;}
+function normalizarFechaExactitud_(f){return new Date(f.getFullYear(),f.getMonth(),f.getDate());}
+function probarCentroExactitudDespachos(){const r=obtenerCentroExactitudDespachos({limite:10,agrupacion:'DIA'});console.log(r.getContent());return r;}
+
+function obtenerSupervisoresActivosExactitud_() {
+
+  const hoja =
+    getSheet(
+      SHEETS.USUARIOS ||
+      "Usuarios"
+    );
+
+
+  if (!hoja) {
+    return [];
+  }
+
+
+  const registros =
+    leerHojaExactitud_(
+      hoja
+    );
+
+
+  const supervisores = [];
+
+
+  registros.forEach(
+    function(usuario) {
+
+      const rol =
+        normalizarExactitud_(
+          usuario.Rol ||
+          usuario.ROL ||
+          usuario.Perfil ||
+          usuario.Tipo_Usuario ||
+          usuario.Rol_Usuario ||
+          ""
+        );
+
+
+      const estado =
+        normalizarExactitud_(
+          usuario.Estado ||
+          usuario.ESTADO ||
+          usuario.Estado_Usuario ||
+          ""
+        );
+
+
+      const nombre =
+        String(
+          usuario.Nombre ||
+          usuario.Nombre_Completo ||
+          usuario.Nombre_Usuario ||
+          usuario.Usuario ||
+          ""
+        ).trim();
+
+
+      const esSupervisor =
+        rol === "supervisor" ||
+        rol === "supervisores" ||
+        rol.indexOf(
+          "supervisor"
+        ) !== -1;
+
+
+      const estaActivo =
+        estado === "activo" ||
+        estado === "activa";
+
+
+      if (
+        esSupervisor &&
+        estaActivo &&
+        nombre &&
+        supervisores.indexOf(
+          nombre
+        ) === -1
+      ) {
+
+        supervisores.push(
+          nombre
+        );
+
+      }
+
+    }
+  );
+
+
+  supervisores.sort(
+    function(a, b) {
+
+      return String(a).localeCompare(
+        String(b),
+        "es"
+      );
+
+    }
+  );
+
+
+  return supervisores;
+
+}

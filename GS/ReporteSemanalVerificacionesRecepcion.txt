@@ -1,0 +1,382 @@
+/**
+ * REPORTESSEMANALVERIFICACIONESRECEPCION.GS
+ * Reporte de desviaciones pendientes de corrección.
+ */
+
+function enviarReporteSemanalVerificacionesRecepcion() {
+  const activo = String(
+    obtenerConfiguracionAutomatizaciones_(
+      "Enviar_Reporte_Semanal_Verificacion",
+      "NO"
+    ) || ""
+  ).trim().toUpperCase();
+
+  if (!["SI", "SÍ", "TRUE", "1"].includes(activo)) {
+    return {exito:true, enviado:false, mensaje:"Reporte semanal desactivado."};
+  }
+
+  const correosTexto = obtenerConfiguracionAutomatizaciones_(
+    "Correos_Reporte_Semanal_Verificacion",
+    ""
+  );
+
+  const correos = rvrNormalizarCorreos_(correosTexto);
+  if (!correos.length) {
+    throw new Error(
+      'No existen correos válidos en "Correos_Reporte_Semanal_Verificacion".'
+    );
+  }
+
+  const datos = rvrObtenerPendientes_();
+  const fecha = Utilities.formatDate(
+    new Date(),
+    obtenerZonaHorariaAutomatizaciones_(),
+    "dd/MM/yyyy"
+  );
+
+  const asunto = datos.registros.length
+    ? "Verificación de Recepciones - Pendientes de corrección - " + fecha
+    : "Verificación de Recepciones - Sin pendientes - " + fecha;
+
+  const graficos = rvrCrearGraficos_(datos);
+  const html = rvrConstruirHtml_(datos, fecha, graficos);
+
+  const opciones = {
+    to:correos.join(","),
+    subject:asunto,
+    htmlBody:html,
+    name:"Sistema Logístico PT - Helados BON"
+  };
+
+  if (Object.keys(graficos.inlineImages).length) {
+    opciones.inlineImages = graficos.inlineImages;
+  }
+
+  MailApp.sendEmail(opciones);
+
+  return {
+    exito:true,
+    enviado:true,
+    destinatarios:correos,
+    pendientes:datos.registros.length,
+    valorTotal:datos.valorTotal
+  };
+}
+
+function enviarReporteSemanalVerificacionesRecepcionManual(data) {
+  try {
+    data = data || {};
+
+    if (!data.__sesionValidada) {
+      return respuesta({
+        ok:false,
+        mensaje:"La sesión no está autorizada para enviar el reporte."
+      });
+    }
+
+    const resultado =
+      enviarReporteSemanalVerificacionesRecepcion();
+
+    if (!resultado || resultado.enviado !== true) {
+      return respuesta({
+        ok:false,
+        mensaje:
+          resultado && resultado.mensaje
+            ? resultado.mensaje
+            : "El reporte no fue enviado."
+      });
+    }
+
+    return respuesta({
+      ok:true,
+      mensaje:"Reporte enviado correctamente.",
+      destinatarios:resultado.destinatarios || [],
+      pendientes:Number(resultado.pendientes || 0),
+      valorTotal:Number(resultado.valorTotal || 0)
+    });
+
+  } catch (error) {
+    return respuesta({
+      ok:false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+  }
+}
+
+function rvrObtenerPendientes_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName("Verificaciones_Recepciones");
+  if (!hoja) throw new Error('No existe la hoja "Verificaciones_Recepciones".');
+
+  const tabla = rvrLeerTabla_(hoja);
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+
+  const registros = tabla.filas.map(function(fila) {
+    const pendiente = rvrNumero_(rvrValor_(fila,tabla.mapa,"Desviacion_Pendiente"));
+    const valorPendiente = Math.abs(
+      rvrNumero_(rvrValor_(fila,tabla.mapa,"Valor_Pendiente"))
+    );
+
+    if (Math.abs(pendiente) <= 0 || valorPendiente <= 0) return null;
+
+    const fechaValor = rvrValor_(fila,tabla.mapa,"Fecha_Verificacion");
+    const fecha = rvrFecha_(fechaValor);
+    const dias = fecha
+      ? Math.max(0, Math.floor((hoy.getTime() - fecha.getTime()) / 86400000))
+      : 0;
+
+    return {
+      idVerificacion:rvrTexto_(rvrValor_(fila,tabla.mapa,"ID_Verificacion")),
+      idRecepcion:rvrTexto_(rvrValor_(fila,tabla.mapa,"ID_Recepcion")),
+      material:rvrTexto_(rvrValor_(fila,tabla.mapa,"Material")),
+      descripcion:rvrTexto_(rvrValor_(fila,tabla.mapa,"Descripcion")),
+      responsable:rvrTexto_(rvrValor_(fila,tabla.mapa,"Responsable_Produccion_Nombre")) ||
+        "Sin responsable",
+      supervisor:rvrTexto_(rvrValor_(fila,tabla.mapa,"Supervisor_PT_Nombre")) || "-",
+      tipo:rvrTexto_(rvrValor_(fila,tabla.mapa,"Tipo_Desviacion")) || "-",
+      desviacionOriginal:rvrNumero_(rvrValor_(fila,tabla.mapa,"Desviacion_Original")),
+      cantidadCorregida:rvrNumero_(rvrValor_(fila,tabla.mapa,"Cantidad_Corregida")),
+      desviacionPendiente:pendiente,
+      valorOriginal:Math.abs(rvrNumero_(rvrValor_(fila,tabla.mapa,"Valor_Desviacion_Original"))),
+      valorPendiente:valorPendiente,
+      diasPendiente:dias,
+      fecha:fecha
+    };
+  }).filter(Boolean).sort(function(a,b) {
+    return b.diasPendiente - a.diasPendiente || b.valorPendiente - a.valorPendiente;
+  });
+
+  const porResponsable = {};
+  const porMaterial = {};
+  let valorTotal = 0;
+
+  registros.forEach(function(item) {
+    valorTotal += item.valorPendiente;
+    porResponsable[item.responsable] =
+      (porResponsable[item.responsable] || 0) + item.valorPendiente;
+
+    const material = item.material + " - " + item.descripcion;
+    porMaterial[material] = (porMaterial[material] || 0) + item.valorPendiente;
+  });
+
+  return {
+    registros:registros,
+    valorTotal:rvrRedondear_(valorTotal),
+    porResponsable:porResponsable,
+    porMaterial:porMaterial
+  };
+}
+
+function rvrCrearGraficos_(datos) {
+  const inlineImages = {};
+
+  const responsables = rvrOrdenarAgrupacion_(datos.porResponsable).slice(0,10);
+  const materiales = rvrOrdenarAgrupacion_(datos.porMaterial).slice(0,10);
+
+  if (responsables.length) {
+    inlineImages.graficoResponsables = rvrGraficoColumnas_(
+      "Valor pendiente por responsable",
+      responsables,
+      "Responsable"
+    );
+  }
+
+  if (materiales.length) {
+    inlineImages.graficoMateriales = rvrGraficoBarras_(
+      "Top materiales por valor pendiente",
+      materiales,
+      "Material"
+    );
+  }
+
+  return {
+    inlineImages:inlineImages,
+    tieneResponsables:Boolean(inlineImages.graficoResponsables),
+    tieneMateriales:Boolean(inlineImages.graficoMateriales)
+  };
+}
+
+function rvrGraficoColumnas_(titulo, filas, etiqueta) {
+  const constructor = Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING, etiqueta)
+    .addColumn(Charts.ColumnType.NUMBER, "Valor pendiente");
+
+  filas.forEach(function(fila) {
+    constructor.addRow(fila);
+  });
+
+  const tabla = constructor.build();
+
+  return Charts.newColumnChart()
+    .setDataTable(tabla)
+    .setTitle(titulo)
+    .setDimensions(700,300)
+    .setColors(["#d71920"])
+    .setLegendPosition(Charts.Position.NONE)
+    .build()
+    .getAs("image/png");
+}
+
+function rvrGraficoBarras_(titulo, filas, etiqueta) {
+  const constructor = Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING, etiqueta)
+    .addColumn(Charts.ColumnType.NUMBER, "Valor pendiente");
+
+  filas.forEach(function(fila) {
+    constructor.addRow(fila);
+  });
+
+  const tabla = constructor.build();
+
+  return Charts.newBarChart()
+    .setDataTable(tabla)
+    .setTitle(titulo)
+    .setDimensions(700,340)
+    .setColors(["#1976d2"])
+    .setLegendPosition(Charts.Position.NONE)
+    .build()
+    .getAs("image/png");
+}
+
+function rvrConstruirHtml_(datos, fecha, graficos) {
+  const filas = datos.registros.map(function(item) {
+    const claseDias = item.diasPendiente >= 14
+      ? "color:#b4232a;font-weight:700;"
+      : item.diasPendiente >= 7
+        ? "color:#b26a00;font-weight:700;"
+        : "color:#374151;";
+
+    return "<tr>" +
+      "<td>" + rvrHtml_(item.material) + "<br><small>" + rvrHtml_(item.descripcion) + "</small></td>" +
+      "<td>" + rvrHtml_(item.responsable) + "</td>" +
+      "<td>" + rvrHtml_(item.supervisor) + "</td>" +
+      "<td>" + rvrHtml_(item.tipo) + "</td>" +
+      "<td style='text-align:right'>" + rvrNumeroTexto_(item.desviacionOriginal) + "</td>" +
+      "<td style='text-align:right'>" + rvrMoneda_(item.valorOriginal) + "</td>" +
+      "<td style='text-align:right'>" + rvrNumeroTexto_(item.desviacionPendiente) + "</td>" +
+      "<td style='text-align:right;font-weight:700'>" + rvrMoneda_(item.valorPendiente) + "</td>" +
+      "<td style='text-align:center;" + claseDias + "'>" + item.diasPendiente + "</td>" +
+    "</tr>";
+  }).join("");
+
+  const cuerpoTabla = filas ||
+    "<tr><td colspan='9' style='padding:24px;text-align:center;color:#6b7280'>" +
+    "No existen verificaciones pendientes de corrección.</td></tr>";
+
+  const imagenes =
+    (graficos.tieneResponsables
+      ? "<img src='cid:graficoResponsables' style='width:100%;max-width:700px;margin:12px 0'>"
+      : "") +
+    (graficos.tieneMateriales
+      ? "<img src='cid:graficoMateriales' style='width:100%;max-width:700px;margin:12px 0'>"
+      : "");
+
+  return "<!doctype html><html><body style='margin:0;background:#f4f5f7;font-family:Arial,sans-serif;color:#202124'>" +
+    "<div style='max-width:1100px;margin:auto;padding:22px'>" +
+      "<div style='background:#fff;border-top:5px solid #d71920;border-radius:12px;padding:20px'>" +
+        "<h2 style='margin:0'>Reporte semanal de Verificación de Recepciones</h2>" +
+        "<p style='color:#6b7280'>Corte: " + rvrHtml_(fecha) + "</p>" +
+        "<div style='display:inline-block;padding:12px 18px;background:#fff1f2;border-radius:10px'>" +
+          "<span style='font-size:11px;color:#6b7280'>VALOR TOTAL PENDIENTE</span><br>" +
+          "<strong style='font-size:24px;color:#d71920'>" + rvrMoneda_(datos.valorTotal) + "</strong>" +
+        "</div>" +
+        "<div style='display:inline-block;margin-left:10px;padding:12px 18px;background:#f3f5f7;border-radius:10px'>" +
+          "<span style='font-size:11px;color:#6b7280'>REGISTROS PENDIENTES</span><br>" +
+          "<strong style='font-size:24px'>" + datos.registros.length + "</strong>" +
+        "</div>" +
+        imagenes +
+        "<div style='overflow-x:auto;margin-top:18px'><table style='width:100%;border-collapse:collapse;font-size:12px'>" +
+          "<thead><tr style='background:#202124;color:#fff'>" +
+            "<th style='padding:9px;text-align:left'>Material</th>" +
+            "<th style='padding:9px;text-align:left'>Responsable Producción</th>" +
+            "<th style='padding:9px;text-align:left'>Supervisor PT</th>" +
+            "<th style='padding:9px;text-align:left'>Tipo</th>" +
+            "<th style='padding:9px'>Desv. original</th>" +
+            "<th style='padding:9px'>Valor original</th>" +
+            "<th style='padding:9px'>Pendiente</th>" +
+            "<th style='padding:9px'>Valor pendiente</th>" +
+            "<th style='padding:9px'>Días atraso</th>" +
+          "</tr></thead><tbody>" + cuerpoTabla + "</tbody>" +
+        "</table></div>" +
+      "</div>" +
+    "</div></body></html>";
+}
+
+function rvrOrdenarAgrupacion_(objeto) {
+  return Object.keys(objeto || {})
+    .map(function(clave) { return [clave, rvrRedondear_(objeto[clave])]; })
+    .sort(function(a,b) { return b[1] - a[1]; });
+}
+
+function rvrNormalizarCorreos_(valor) {
+  return String(valor || "")
+    .split(/[;,\n]+/)
+    .map(function(x) { return x.trim(); })
+    .filter(function(x) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x); });
+}
+
+function rvrLeerTabla_(hoja) {
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores.length ? valores[0].map(rvrTexto_) : [];
+  const mapa = {};
+  encabezados.forEach(function(x,i) { if (x) mapa[x] = i; });
+  return {mapa:mapa, filas:valores.slice(1)};
+}
+
+function rvrValor_(fila,mapa,encabezado) {
+  return mapa[encabezado] === undefined ? "" : fila[mapa[encabezado]];
+}
+
+function rvrTexto_(valor) {
+  return valor === null || valor === undefined ? "" : String(valor).trim();
+}
+
+function rvrNumero_(valor) {
+  if (typeof valor === "number") return isFinite(valor) ? valor : 0;
+  let texto = String(valor === null || valor === undefined ? "" : valor)
+    .trim().replace(/\s/g,"");
+  if (texto.includes(",") && texto.includes(".")) texto = texto.replace(/,/g,"");
+  else if (texto.includes(",")) texto = texto.replace(",",".");
+  const numero = Number(texto);
+  return isFinite(numero) ? numero : 0;
+}
+
+function rvrRedondear_(valor) {
+  return Math.round((rvrNumero_(valor) + Number.EPSILON) * 100) / 100;
+}
+
+function rvrFecha_(valor) {
+  if (valor instanceof Date && !isNaN(valor.getTime())) {
+    const fecha = new Date(valor.getTime());
+    fecha.setHours(0,0,0,0);
+    return fecha;
+  }
+  const fecha = new Date(String(valor || "").replace(" ","T"));
+  if (isNaN(fecha.getTime())) return null;
+  fecha.setHours(0,0,0,0);
+  return fecha;
+}
+
+function rvrNumeroTexto_(valor) {
+  return rvrNumero_(valor).toLocaleString("es-DO", {maximumFractionDigits:2});
+}
+
+function rvrMoneda_(valor) {
+  return "RD$" + rvrNumero_(valor).toLocaleString("es-DO", {
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+
+function rvrHtml_(valor) {
+  return String(valor === null || valor === undefined ? "" : valor)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/\"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}

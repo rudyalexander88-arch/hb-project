@@ -1,0 +1,550 @@
+/**
+ * ANALITICARECEPCIONES.GS
+ * Histórico, analítica operativa y desempeño personal de recepciones.
+ */
+
+function obtenerHistoricoRecepciones(data) {
+  try {
+    data = data || {};
+    const limite = [10, 30].indexOf(Number(data.limite)) >= 0
+      ? Number(data.limite)
+      : 10;
+    const offset = Math.max(0, Math.floor(Number(data.offset || 0)));
+    const tabla = arLeerHoja_("Recepciones_Encabezado");
+
+    const registros = tabla.filas.map(function(fila) {
+      const estado = arTexto_(arValor_(fila, tabla.mapa, "Estado"));
+      const fecha = arFecha_(arValor_(fila, tabla.mapa, "Fecha"));
+      return {
+        idRecepcion:arTexto_(arValor_(fila, tabla.mapa, "ID_Recepcion")),
+        material:arTexto_(arValor_(fila, tabla.mapa, "Material")),
+        detalle:arTexto_(arValor_(fila, tabla.mapa, "Detalle")),
+        fecha:arFechaTexto_(fecha),
+        fechaMs:fecha ? fecha.getTime() : 0,
+        horaInicio:arHoraTexto_(arValor_(fila, tabla.mapa, "Hora_Inicio")),
+        horaFinal:arHoraTexto_(arValor_(fila, tabla.mapa, "Hora_Final")),
+        duracionMinutos:arNumero_(arValor_(fila, tabla.mapa, "Duracion_Minutos")),
+        usuarioNombre:arTexto_(arValor_(fila, tabla.mapa, "Usuario_Nombre")),
+        turno:arTexto_(arValor_(fila, tabla.mapa, "Turno")),
+        totalMateriales:arNumero_(arValor_(fila, tabla.mapa, "Total_Materiales")),
+        totalTarimas:arNumero_(arValor_(fila, tabla.mapa, "Total_Tarimas")),
+        totalParciales:arNumero_(arValor_(fila, tabla.mapa, "Total_Parciales")),
+        totalPosiciones:arNumero_(arValor_(fila, tabla.mapa, "Total_Posiciones_Ocupadas")),
+        totalUnidades:arNumero_(arValor_(fila, tabla.mapa, "Total_Unidades")),
+        estado:estado || "SIN ESTADO",
+        grupoEstado:arEsFinalizada_(estado) ? "FINALIZADAS" : "ABIERTAS"
+      };
+    }).filter(function(item) {
+      return item.idRecepcion;
+    });
+
+    registros.sort(function(a, b) {
+      if (a.grupoEstado !== b.grupoEstado) {
+        return a.grupoEstado === "ABIERTAS" ? -1 : 1;
+      }
+      if (b.fechaMs !== a.fechaMs) return b.fechaMs - a.fechaMs;
+      return String(b.idRecepcion).localeCompare(String(a.idRecepcion), "es", {numeric:true});
+    });
+
+    const pagina = registros.slice(offset, offset + limite).map(function(item) {
+      delete item.fechaMs;
+      return item;
+    });
+
+    return respuesta({
+      ok:true,
+      data:{
+        registros:pagina,
+        offset:offset,
+        limite:limite,
+        total:registros.length,
+        hayMas:offset + pagina.length < registros.length
+      }
+    });
+  } catch (error) {
+    return respuesta({ok:false,mensaje:arMensajeError_(error)});
+  }
+}
+
+
+function obtenerAnaliticaOperativaRecepciones(data) {
+  try {
+    data = data || {};
+    const frecuencia = arFrecuencia_(data.frecuencia);
+    const encabezados = arLeerHoja_("Recepciones_Encabezado");
+    const detalles = arLeerHoja_("Recepciones_Detalle");
+    const finalizadas = {};
+
+    encabezados.filas.forEach(function(fila) {
+      const id = arTexto_(arValor_(fila, encabezados.mapa, "ID_Recepcion"));
+      const estado = arTexto_(arValor_(fila, encabezados.mapa, "Estado"));
+      if (!id || !arEsFinalizada_(estado)) return;
+      finalizadas[id] = arFecha_(arValor_(fila, encabezados.mapa, "Fecha"));
+    });
+
+    const acumulado = {};
+
+    detalles.filas.forEach(function(fila) {
+      const id = arTexto_(arValor_(fila, detalles.mapa, "ID_Recepcion"));
+      const fecha = finalizadas[id];
+      if (!fecha) return;
+
+      const bucket = arBucket_(fecha, frecuencia);
+      if (!acumulado[bucket.clave]) {
+        acumulado[bucket.clave] = {
+          clave:bucket.clave,
+          etiqueta:bucket.etiqueta,
+          orden:bucket.orden,
+          tarimas:0,
+          unidades:0,
+          posiciones:0
+        };
+      }
+
+      acumulado[bucket.clave].tarimas += arNumero_(
+        arValor_(fila, detalles.mapa, "Tarimas_Completas")
+      );
+      acumulado[bucket.clave].unidades += arNumero_(
+        arValor_(fila, detalles.mapa, "Total_Unidades")
+      );
+      acumulado[bucket.clave].posiciones += arNumero_(
+        arValor_(fila, detalles.mapa, "Posiciones_Ocupadas")
+      );
+    });
+
+    const limite = frecuencia === "DIA" ? 14 : (frecuencia === "SEMANA" ? 12 : 12);
+    const serie = Object.keys(acumulado)
+      .map(function(clave) { return acumulado[clave]; })
+      .sort(function(a,b) { return a.orden - b.orden; })
+      .slice(-limite)
+      .map(function(item) {
+        delete item.orden;
+        return item;
+      });
+
+    return respuesta({ok:true,data:{frecuencia:frecuencia,serie:serie}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:arMensajeError_(error)});
+  }
+}
+
+
+function obtenerDesempenoRecepcionesUsuario(data) {
+  try {
+    data = data || {};
+    const idEmpleado = arTexto_(data.idEmpleado);
+
+    if (!idEmpleado) {
+      return respuesta({ok:false,mensaje:"No fue posible identificar al colaborador."});
+    }
+
+    const encabezados = arLeerHoja_("Recepciones_Encabezado");
+    const detalles = arLeerHoja_("Recepciones_Detalle");
+    const finalizadas = {};
+
+    encabezados.filas.forEach(function(fila) {
+      const id = arTexto_(arValor_(fila, encabezados.mapa, "ID_Recepcion"));
+      const estado = arTexto_(arValor_(fila, encabezados.mapa, "Estado"));
+      if (!id || !arEsFinalizada_(estado)) return;
+      finalizadas[id] = arFecha_(arValor_(fila, encabezados.mapa, "Fecha"));
+    });
+
+    const meses = {};
+    const recepcionesMesActual = {};
+    const ahora = new Date();
+    const claveActual = Utilities.formatDate(ahora, Session.getScriptTimeZone(), "yyyy-MM");
+
+    detalles.filas.forEach(function(fila) {
+      const participantes = arParticipantesRecepcion_(fila, detalles.mapa);
+      const posicionParticipante = participantes.ids.indexOf(idEmpleado);
+      if (posicionParticipante < 0) return;
+
+      const idRecepcion = arTexto_(arValor_(fila, detalles.mapa, "ID_Recepcion"));
+      const fecha = finalizadas[idRecepcion];
+      if (!fecha) return;
+
+      const clave = Utilities.formatDate(fecha, Session.getScriptTimeZone(), "yyyy-MM");
+      if (!meses[clave]) {
+        meses[clave] = {
+          clave:clave,
+          etiqueta:Utilities.formatDate(fecha, Session.getScriptTimeZone(), "MMM yy"),
+          orden:fecha.getFullYear() * 12 + fecha.getMonth(),
+          tarimas:0,
+          unidades:0,
+          posiciones:0,
+          recepciones:{}
+        };
+      }
+
+      meses[clave].tarimas += arRepartirEnteroRecepcion_(arNumero_(arValor_(fila, detalles.mapa, "Tarimas_Completas")), participantes.ids.length, posicionParticipante);
+      meses[clave].unidades += arRepartirEnteroRecepcion_(arNumero_(arValor_(fila, detalles.mapa, "Total_Unidades")), participantes.ids.length, posicionParticipante);
+      meses[clave].posiciones += arNumero_(arValor_(fila, detalles.mapa, "Posiciones_Ocupadas"));
+      meses[clave].recepciones[idRecepcion] = true;
+      if (clave === claveActual) recepcionesMesActual[idRecepcion] = true;
+    });
+
+    const evolucion = Object.keys(meses)
+      .map(function(clave) {
+        const item = meses[clave];
+        return {
+          clave:item.clave,
+          etiqueta:item.etiqueta,
+          orden:item.orden,
+          tarimas:item.tarimas,
+          unidades:item.unidades,
+          posiciones:item.posiciones,
+          recepciones:Object.keys(item.recepciones).length
+        };
+      })
+      .sort(function(a,b) { return a.orden - b.orden; })
+      .slice(-12)
+      .map(function(item) { delete item.orden; return item; });
+
+    const actual = evolucion.filter(function(item) { return item.clave === claveActual; })[0] || {
+      tarimas:0,unidades:0,posiciones:0,recepciones:0
+    };
+    const horasExtras = arHorasExtrasColaboradorMes_(idEmpleado, claveActual);
+
+    return respuesta({
+      ok:true,
+      data:{
+        mes:claveActual,
+        resumen:{
+          tarimas:actual.tarimas || 0,
+          unidades:actual.unidades || 0,
+          posiciones:actual.posiciones || 0,
+          recepciones:Object.keys(recepcionesMesActual).length,
+          tareasAdicionales:0,
+          horasExtrasRojas:horasExtras.rojas,
+          horasExtrasNormales:horasExtras.normales
+        },
+        evolucion:evolucion
+      }
+    });
+  } catch (error) {
+    return respuesta({ok:false,mensaje:arMensajeError_(error)});
+  }
+}
+
+
+/**
+ * Resume únicamente las horas extraordinarias realmente trabajadas durante
+ * el mes actual. Las jornadas programadas o canceladas no suman rendimiento.
+ */
+function arHorasExtrasColaboradorMes_(idEmpleado, claveMes) {
+  const totales = {rojas:0,normales:0};
+  let tabla;
+
+  try {
+    tabla = arLeerHoja_("Horas_Extras");
+  } catch (error) {
+    console.warn("No fue posible consultar Horas_Extras: " + arMensajeError_(error));
+    return totales;
+  }
+
+  tabla.filas.forEach(function(fila) {
+    if (arTexto_(arValor_(fila, tabla.mapa, "Empleado_ID")) !== idEmpleado) return;
+
+    const fecha = arFecha_(arValor_(fila, tabla.mapa, "Fecha")) ||
+      arFecha_(arValor_(fila, tabla.mapa, "Fecha_Trabajo"));
+    if (!fecha || Utilities.formatDate(fecha, Session.getScriptTimeZone(), "yyyy-MM") !== claveMes) return;
+
+    const estado = arClave_(arValor_(fila, tabla.mapa, "Estado"));
+    if (["CANCELADA","CANCELADO","ANULADA","ANULADO","RECHAZADA","RECHAZADO"].indexOf(estado) >= 0) return;
+
+    const horas = arNumero_(arValor_(fila, tabla.mapa, "Horas_Trabajadas"));
+    if (horas <= 0) return;
+
+    const tipo = arClave_(arValor_(fila, tabla.mapa, "Tipo_Hora_Extra"));
+    const porcentaje = arNumero_(arValor_(fila, tabla.mapa, "Porcentaje_Adicional"));
+    const esRoja = tipo.indexOf("ROJA") >= 0 || tipo.indexOf("FERIAD") >= 0 ||
+      tipo.indexOf("FIN_DE_SEMANA") >= 0 || porcentaje >= 100;
+
+    if (esRoja) {
+      totales.rojas += horas;
+    } else {
+      totales.normales += horas;
+    }
+  });
+
+  totales.rojas = Math.round(totales.rojas * 100) / 100;
+  totales.normales = Math.round(totales.normales * 100) / 100;
+  return totales;
+}
+
+
+/**
+ * Panel de rendimiento para Encargados, Administradores y Supervisores.
+ * La comparacion global nunca se entrega a Analistas ni Auxiliares.
+ */
+function obtenerPanelDesempenoOperativo(data) {
+  try {
+    data = data || {};
+    const usuario = arUsuarioSolicitante_(data.idEmpleado);
+    const rol = arClave_(usuario.rol);
+    const esGerencia = rol.indexOf("ADMINISTRADOR") >= 0 || rol.indexOf("ENCARGADO") >= 0;
+    const esSupervisor = rol.indexOf("SUPERVISOR") >= 0;
+
+    if (!esGerencia && !esSupervisor) {
+      return respuesta({ok:false,codigo:"ACCESO_DENEGADO",mensaje:"Su rol no tiene acceso al panel comparativo."});
+    }
+
+    const periodo = arClave_(data.periodo || "MES") === "SEMANA" ? "SEMANA" : "MES";
+    const rango = arRangoActual_(periodo);
+    const despachos = arLeerHoja_("Despacho");
+    const verificaciones = arLeerHoja_("Verificacion_Despachos");
+    const porConduce = {};
+
+    verificaciones.filas.forEach(function(fila) {
+      const idConduce = arTexto_(arValor_(fila, verificaciones.mapa, "ID_Conduce"));
+      if (idConduce) porConduce[idConduce] = fila;
+    });
+
+    const supervisores = {};
+    despachos.filas.forEach(function(fila) {
+      if (arClave_(arValor_(fila, despachos.mapa, "Estado")) !== "COMPLETADO") return;
+      const idConduce = arTexto_(arValor_(fila, despachos.mapa, "ID_Conduce"));
+      const verificacion = porConduce[idConduce] || null;
+      const fecha = arFecha_(
+        verificacion
+          ? arValor_(verificacion, verificaciones.mapa, "Fecha_Verificacion")
+          : arValor_(fila, despachos.mapa, "Fecha_Completado")
+      ) || arFecha_(arValor_(fila, despachos.mapa, "Fecha_Despacho"));
+      if (!arDentroRango_(fecha, rango)) return;
+
+      const nombre = arTexto_(
+        verificacion
+          ? arValor_(verificacion, verificaciones.mapa, "Supervisor_Despacho")
+          : ""
+      ) || arTexto_(arValor_(fila, despachos.mapa, "RealizadoPor")) || "Sin identificar";
+      const clave = arClave_(nombre);
+      if (!supervisores[clave]) {
+        supervisores[clave] = {nombre:nombre,despachos:0,verificados:0,unidadesSistema:0,unidadesDesviadas:0,tasaExactitud:0};
+      }
+      const item = supervisores[clave];
+      item.despachos++;
+      if (verificacion) {
+        item.verificados++;
+        item.unidadesSistema += arNumero_(arValor_(verificacion, verificaciones.mapa, "Total_Unidades_Sistema"));
+        item.unidadesDesviadas += Math.abs(arNumero_(arValor_(verificacion, verificaciones.mapa, "Total_Faltante"))) +
+          Math.abs(arNumero_(arValor_(verificacion, verificaciones.mapa, "Total_Sobrante")));
+      }
+    });
+
+    let listaSupervisores = Object.keys(supervisores).map(function(clave) {
+      const item = supervisores[clave];
+      item.tasaExactitud = item.unidadesSistema
+        ? Math.max(0, ((item.unidadesSistema - item.unidadesDesviadas) / item.unidadesSistema) * 100)
+        : 0;
+      item.tasaExactitud = Math.round(item.tasaExactitud * 100) / 100;
+      return item;
+    }).sort(function(a,b) { return b.despachos - a.despachos || b.tasaExactitud - a.tasaExactitud; });
+
+    /*
+     * La comparación completa se comparte entre Supervisores,
+     * Encargados y Administradores para fomentar una competencia sana.
+     * Analistas y colaboradores continúan excluidos por la validación superior.
+     */
+    const auxiliares = arDesempenoAuxiliares_(rango);
+    return respuesta({
+      ok:true,
+      data:{
+        periodo:periodo,
+        desde:arFechaTexto_(rango.desde),
+        hasta:arFechaTexto_(rango.hasta),
+        alcance:"GERENCIA",
+        supervisores:listaSupervisores,
+        auxiliares:auxiliares
+      }
+    });
+  } catch (error) {
+    return respuesta({ok:false,mensaje:arMensajeError_(error)});
+  }
+}
+
+
+function arDesempenoAuxiliares_(rango) {
+  const encabezados = arLeerHoja_("Recepciones_Encabezado");
+  const detalles = arLeerHoja_("Recepciones_Detalle");
+  const fechas = {};
+  encabezados.filas.forEach(function(fila) {
+    const id = arTexto_(arValor_(fila, encabezados.mapa, "ID_Recepcion"));
+    const estado = arTexto_(arValor_(fila, encabezados.mapa, "Estado"));
+    const fecha = arFecha_(arValor_(fila, encabezados.mapa, "Fecha"));
+    if (id && arEsFinalizada_(estado) && arDentroRango_(fecha, rango)) fechas[id] = fecha;
+  });
+
+  const mapa = {};
+  detalles.filas.forEach(function(fila) {
+    const idRecepcion = arTexto_(arValor_(fila, detalles.mapa, "ID_Recepcion"));
+    if (!fechas[idRecepcion]) return;
+    const participantes = arParticipantesRecepcion_(fila, detalles.mapa);
+    participantes.ids.forEach(function(id, indice) {
+      const nombre = participantes.nombres[indice] || id;
+      const clave = id || arClave_(nombre);
+      if (!mapa[clave]) mapa[clave] = {idEmpleado:id,nombre:nombre,tarimas:0,unidades:0,posiciones:0,recepciones:{}};
+      mapa[clave].tarimas += arRepartirEnteroRecepcion_(arNumero_(arValor_(fila, detalles.mapa, "Tarimas_Completas")), participantes.ids.length, indice);
+      mapa[clave].unidades += arRepartirEnteroRecepcion_(arNumero_(arValor_(fila, detalles.mapa, "Total_Unidades")), participantes.ids.length, indice);
+      mapa[clave].posiciones += arRepartirEnteroRecepcion_(arNumero_(arValor_(fila, detalles.mapa, "Posiciones_Ocupadas")), participantes.ids.length, indice);
+      mapa[clave].recepciones[idRecepcion] = true;
+    });
+  });
+
+  return Object.keys(mapa).map(function(clave) {
+    const item = mapa[clave];
+    return {idEmpleado:item.idEmpleado,nombre:item.nombre,tarimas:item.tarimas,unidades:item.unidades,posiciones:item.posiciones,recepciones:Object.keys(item.recepciones).length};
+  }).sort(function(a,b) { return b.tarimas - a.tarimas || b.unidades - a.unidades || a.nombre.localeCompare(b.nombre,"es"); });
+}
+
+
+function arParticipantesRecepcion_(fila, mapa) {
+  const idsTexto = arTexto_(arValor_(fila, mapa, "Participantes_ID")) || arTexto_(arValor_(fila, mapa, "Auxiliar_ID"));
+  const nombresTexto = arTexto_(arValor_(fila, mapa, "Participantes_Nombres")) || arTexto_(arValor_(fila, mapa, "Auxiliar_Nombre"));
+  const ids = idsTexto.split(",").map(function(valor) { return arTexto_(valor); }).filter(Boolean).slice(0, 5);
+  const nombres = nombresTexto.split(",").map(function(valor) { return arTexto_(valor); });
+  return {ids:ids,nombres:nombres};
+}
+
+function arRepartirEnteroRecepcion_(total, cantidad, indice) {
+  const entero = Math.max(0, Math.round(Number(total) || 0));
+  const participantes = Math.max(1, Number(cantidad) || 1);
+  return Math.floor(entero / participantes) + (indice < entero % participantes ? 1 : 0);
+}
+
+
+function arUsuarioSolicitante_(idEmpleado) {
+  const id = arTexto_(idEmpleado);
+  if (!id) throw new Error("No fue posible identificar al usuario.");
+  const usuarios = arLeerHoja_("Usuarios");
+  for (let i = 0; i < usuarios.filas.length; i++) {
+    const fila = usuarios.filas[i];
+    if (arTexto_(arValor_(fila, usuarios.mapa, "IDEmpleado")) === id) {
+      return {idEmpleado:id,nombre:arTexto_(arValor_(fila, usuarios.mapa, "Nombre")),rol:arTexto_(arValor_(fila, usuarios.mapa, "Rol"))};
+    }
+  }
+  throw new Error("El usuario de la sesion no existe en la tabla Usuarios.");
+}
+
+
+function arRangoActual_(periodo) {
+  const ahora = new Date();
+  let desde;
+  if (periodo === "SEMANA") {
+    desde = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+    desde.setDate(desde.getDate() - ((desde.getDay() + 6) % 7));
+  } else {
+    desde = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  }
+  const hasta = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 23, 59, 59, 999);
+  return {desde:desde,hasta:hasta};
+}
+
+
+function arDentroRango_(fecha, rango) {
+  return Boolean(fecha) && fecha.getTime() >= rango.desde.getTime() && fecha.getTime() <= rango.hasta.getTime();
+}
+
+
+function arLeerHoja_(nombre) {
+  const hoja = getSheet(nombre);
+  if (!hoja) throw new Error("No existe la hoja " + nombre + ".");
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores.length ? valores[0] : [];
+  const mapa = {};
+  encabezados.forEach(function(valor, indice) {
+    mapa[arClave_(valor)] = indice;
+  });
+  return {hoja:hoja,mapa:mapa,filas:valores.slice(1)};
+}
+
+
+function arValor_(fila, mapa, encabezado) {
+  const indice = mapa[arClave_(encabezado)];
+  return indice === undefined ? "" : fila[indice];
+}
+
+
+function arClave_(valor) {
+  return String(valor || "").trim().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").toUpperCase();
+}
+
+
+function arTexto_(valor) {
+  return String(valor == null ? "" : valor).trim();
+}
+
+
+function arNumero_(valor) {
+  const numero = Number(String(valor == null ? "" : valor).replace(/,/g, ""));
+  return isFinite(numero) ? numero : 0;
+}
+
+
+function arFecha_(valor) {
+  if (valor instanceof Date && !isNaN(valor.getTime())) return new Date(valor);
+  const texto = arTexto_(valor);
+  let m = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m = texto.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+  const fecha = new Date(texto);
+  return isNaN(fecha.getTime()) ? null : fecha;
+}
+
+
+function arFechaTexto_(fecha) {
+  return fecha ? Utilities.formatDate(fecha, Session.getScriptTimeZone(), "yyyy-MM-dd") : "";
+}
+
+
+function arHoraTexto_(valor) {
+  if (valor instanceof Date && !isNaN(valor.getTime())) {
+    return Utilities.formatDate(valor, Session.getScriptTimeZone(), "HH:mm:ss");
+  }
+  return arTexto_(valor);
+}
+
+
+function arEsFinalizada_(estado) {
+  const clave = arClave_(estado);
+  return ["FINALIZADA","FINALIZADO","CERRADA","CERRADO","COMPLETADA","COMPLETADO"].indexOf(clave) >= 0;
+}
+
+
+function arFrecuencia_(valor) {
+  const clave = arClave_(valor || "DIA");
+  return ["DIA","SEMANA","MES"].indexOf(clave) >= 0 ? clave : "DIA";
+}
+
+
+function arBucket_(fecha, frecuencia) {
+  const zona = Session.getScriptTimeZone();
+  if (frecuencia === "MES") {
+    return {
+      clave:Utilities.formatDate(fecha, zona, "yyyy-MM"),
+      etiqueta:Utilities.formatDate(fecha, zona, "MMM yy"),
+      orden:fecha.getFullYear() * 12 + fecha.getMonth()
+    };
+  }
+  if (frecuencia === "SEMANA") {
+    const lunes = new Date(fecha);
+    lunes.setHours(0,0,0,0);
+    lunes.setDate(lunes.getDate() - ((lunes.getDay()+6)%7));
+    return {
+      clave:Utilities.formatDate(lunes, zona, "yyyy-MM-dd"),
+      etiqueta:"Sem. " + Utilities.formatDate(lunes, zona, "dd/MM"),
+      orden:lunes.getTime()
+    };
+  }
+  return {
+    clave:Utilities.formatDate(fecha, zona, "yyyy-MM-dd"),
+    etiqueta:Utilities.formatDate(fecha, zona, "dd/MM"),
+    orden:new Date(fecha.getFullYear(),fecha.getMonth(),fecha.getDate()).getTime()
+  };
+}
+
+
+function arMensajeError_(error) {
+  return error && error.message ? error.message : String(error);
+}

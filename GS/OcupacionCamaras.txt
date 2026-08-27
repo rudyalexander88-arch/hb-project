@@ -1,0 +1,1141 @@
+/**
+ * ============================================================
+ * OCUPACIONCAMARAS.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Fuentes:
+ * - Config_Camaras
+ * - Inventario_Camaras
+ * - Movimientos_Camaras
+ *
+ * No crea tablas resumen ni duplica información.
+ * ============================================================
+ */
+
+
+function obtenerIndicadorOcupacionCamaras(data) {
+
+  try {
+
+    const resultado =
+      calcularOcupacionActualCamaras_();
+
+    return respuesta({
+      ok: true,
+      exito: true,
+      data: resultado.general
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      exito: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  }
+
+}
+
+
+function obtenerDetalleOcupacionCamaras(data) {
+
+  try {
+
+    const resultado =
+      calcularOcupacionActualCamaras_();
+
+    return respuesta({
+      ok: true,
+      exito: true,
+      data: resultado
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      exito: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  }
+
+}
+
+
+function obtenerHistoricoOcupacionCamaras(data) {
+
+  try {
+
+    const parametros = data || {};
+
+    const periodo =
+      normalizarClaveOcupacion_(
+        parametros.periodo || "SEMANA"
+      );
+
+    const idCamara =
+      normalizarTextoOcupacion_(
+        parametros.idCamara || "GENERAL"
+      );
+
+    const rango =
+      obtenerRangoHistoricoOcupacion_(
+        periodo,
+        parametros.fechaReferencia
+      );
+
+    const actual =
+      calcularOcupacionActualCamaras_();
+
+    const movimientos =
+      leerMovimientosCamarasOcupacion_(
+        rango.fechaInicio
+      );
+
+    const puntos =
+      construirPuntosHistoricoOcupacion_({
+        periodo: periodo,
+        idCamara: idCamara,
+        rango: rango,
+        actual: actual,
+        movimientos: movimientos
+      });
+
+    const series =
+      construirSeriesHistoricoOcupacion_({
+        periodo: periodo,
+        idCamara: idCamara,
+        rango: rango,
+        actual: actual,
+        movimientos: movimientos
+      });
+
+    return respuesta({
+      ok: true,
+      exito: true,
+      data: {
+        periodo: periodo,
+        idCamara: idCamara,
+        fechaDesde:
+          formatearFechaOcupacion_(
+            rango.fechaInicio
+          ),
+        fechaHasta:
+          formatearFechaOcupacion_(
+            rango.fechaFin
+          ),
+        puntos: puntos,
+        series: series
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      exito: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  }
+
+}
+
+
+/* ============================================================
+ * OCUPACIÓN ACTUAL
+ * ============================================================ */
+
+function calcularOcupacionActualCamaras_() {
+
+  const libro =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const hojaConfig =
+    libro.getSheetByName("Config_Camaras");
+
+  const hojaInventario =
+    libro.getSheetByName("Inventario_Camaras");
+
+  if (!hojaConfig) {
+    throw new Error(
+      "No existe la hoja Config_Camaras."
+    );
+  }
+
+  if (!hojaInventario) {
+    throw new Error(
+      "No existe la hoja Inventario_Camaras."
+    );
+  }
+
+  const config =
+    leerTablaOcupacion_(hojaConfig);
+
+  const inventario =
+    leerTablaOcupacion_(hojaInventario);
+
+  const camaras = {};
+  const orden = [];
+
+  config.filas.forEach(function(fila) {
+
+    const id =
+      normalizarTextoOcupacion_(
+        valorOcupacion_(
+          fila,
+          config.mapa,
+          "ID_Camara"
+        )
+      );
+
+    const estado =
+      normalizarClaveOcupacion_(
+        valorOcupacion_(
+          fila,
+          config.mapa,
+          "Estado"
+        )
+      );
+
+    if (
+      !id ||
+      (
+        estado &&
+        estado !== "ACTIVA" &&
+        estado !== "ACTIVO"
+      )
+    ) {
+      return;
+    }
+
+    camaras[id] = {
+      idCamara: id,
+      codigo:
+        normalizarTextoOcupacion_(
+          valorOcupacion_(
+            fila,
+            config.mapa,
+            "Codigo"
+          )
+        ),
+      nombre:
+        normalizarTextoOcupacion_(
+          valorOcupacion_(
+            fila,
+            config.mapa,
+            "Nombre"
+          )
+        ),
+      capacidad:
+        numeroOcupacion_(
+          valorOcupacion_(
+            fila,
+            config.mapa,
+            "Capacidad_Posiciones"
+          )
+        ),
+      temperaturaObjetivo:
+        normalizarTextoOcupacion_(
+          valorOcupacion_(
+            fila,
+            config.mapa,
+            "Temperatura_Objetivo"
+          )
+        ),
+      orden:
+        numeroOcupacion_(
+          valorOcupacion_(
+            fila,
+            config.mapa,
+            "Orden"
+          )
+        ),
+      posicionesOcupadas: 0,
+      posicionesDisponibles: 0,
+      porcentajeOcupacion: 0,
+      materialesDistintos: 0,
+      tarimasCompletas: 0,
+      parcialesConPosicion: 0,
+      totalUnidades: 0,
+      _materiales: {}
+    };
+
+    orden.push(id);
+
+  });
+
+  inventario.filas.forEach(function(fila) {
+
+    const id =
+      normalizarTextoOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "ID_Camara"
+        )
+      );
+
+    const camara = camaras[id];
+
+    if (!camara) {
+      return;
+    }
+
+    const estado =
+      normalizarClaveOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "Estado"
+        )
+      );
+
+    if (
+      estado === "INACTIVO" ||
+      estado === "ANULADO" ||
+      estado === "ANULADA"
+    ) {
+      return;
+    }
+
+    const material =
+      normalizarTextoOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "Material"
+        )
+      );
+
+    if (material) {
+      camara._materiales[material] = true;
+    }
+
+    camara.tarimasCompletas +=
+      numeroOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "Tarimas_Completas"
+        )
+      );
+
+    const parcial =
+      numeroOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "Parcial_Unidades"
+        )
+      );
+
+    const posiciones =
+      numeroOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "Posiciones_Ocupadas"
+        )
+      );
+
+    camara.posicionesOcupadas +=
+      posiciones;
+
+    if (
+      parcial > 0 &&
+      posiciones > 0
+    ) {
+      camara.parcialesConPosicion++;
+    }
+
+    camara.totalUnidades +=
+      numeroOcupacion_(
+        valorOcupacion_(
+          fila,
+          inventario.mapa,
+          "Total_Unidades"
+        )
+      );
+
+  });
+
+  // Las posiciones especiales ocupan una posición por encabezado activo,
+  // independientemente de la cantidad de materiales contenidos en ella.
+  const hojaEspeciales = libro.getSheetByName("Posiciones_Especiales");
+  if (hojaEspeciales && hojaEspeciales.getLastRow() > 1) {
+    const especiales = leerTablaOcupacion_(hojaEspeciales);
+    especiales.filas.forEach(function(fila) {
+      const id = normalizarTextoOcupacion_(valorOcupacion_(fila, especiales.mapa, "ID_Camara"));
+      const estado = normalizarClaveOcupacion_(valorOcupacion_(fila, especiales.mapa, "Estado"));
+      if (camaras[id] && estado === "ACTIVA") camaras[id].posicionesOcupadas++;
+    });
+  }
+
+  // Los ajustes de ocupación son independientes del inventario PT y deben
+  // sobrevivir a cualquier reconstrucción de Inventario_Camaras.
+  const hojaMovimientos = libro.getSheetByName("Movimientos_Camaras");
+  if (hojaMovimientos && hojaMovimientos.getLastRow() > 1) {
+    const ajustes = leerTablaOcupacion_(hojaMovimientos);
+    ajustes.filas.forEach(function(fila) {
+      const tipo = normalizarClaveOcupacion_(valorOcupacion_(fila, ajustes.mapa, "Tipo_Movimiento"));
+      const estado = normalizarClaveOcupacion_(valorOcupacion_(fila, ajustes.mapa, "Estado"));
+      const id = normalizarTextoOcupacion_(valorOcupacion_(fila, ajustes.mapa, "ID_Camara"));
+      if (tipo === "AJUSTE OCUPACION" && camaras[id] && estado !== "ANULADO") {
+        camaras[id].posicionesOcupadas += numeroOcupacion_(valorOcupacion_(fila, ajustes.mapa, "Posiciones"));
+        camaras[id].posicionesOcupadas = Math.max(0, camaras[id].posicionesOcupadas);
+      }
+    });
+  }
+
+  let capacidadTotal = 0;
+  let posicionesOcupadas = 0;
+
+  const detalle = orden
+    .map(function(id) {
+      return camaras[id];
+    })
+    .filter(Boolean)
+    .sort(function(a, b) {
+      return (
+        a.orden - b.orden ||
+        a.codigo.localeCompare(b.codigo)
+      );
+    })
+    .map(function(camara) {
+
+      camara.materialesDistintos =
+        Object.keys(
+          camara._materiales
+        ).length;
+
+      delete camara._materiales;
+
+      camara.posicionesDisponibles =
+        Math.max(
+          0,
+          camara.capacidad -
+          camara.posicionesOcupadas
+        );
+
+      camara.porcentajeOcupacion =
+        camara.capacidad > 0
+          ? redondearOcupacion_(
+              (
+                camara.posicionesOcupadas /
+                camara.capacidad
+              ) * 100,
+              2
+            )
+          : 0;
+
+      capacidadTotal +=
+        camara.capacidad;
+
+      posicionesOcupadas +=
+        camara.posicionesOcupadas;
+
+      return camara;
+
+    });
+
+  const posicionesDisponibles =
+    Math.max(
+      0,
+      capacidadTotal -
+      posicionesOcupadas
+    );
+
+  return {
+    general: {
+      capacidadTotal: capacidadTotal,
+      posicionesOcupadas:
+        posicionesOcupadas,
+      posicionesDisponibles:
+        posicionesDisponibles,
+      porcentajeOcupacion:
+        capacidadTotal > 0
+          ? redondearOcupacion_(
+              (
+                posicionesOcupadas /
+                capacidadTotal
+              ) * 100,
+              2
+            )
+          : 0,
+      camarasActivas: detalle.length
+    },
+    camaras: detalle
+  };
+
+}
+
+
+/* ============================================================
+ * HISTÓRICO
+ * ============================================================ */
+
+function leerMovimientosCamarasOcupacion_(
+  fechaInicio
+) {
+
+  const libro =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const hoja =
+    libro.getSheetByName(
+      "Movimientos_Camaras"
+    );
+
+  if (!hoja || hoja.getLastRow() <= 1) {
+    return [];
+  }
+
+  const tabla =
+    leerTablaOcupacion_(hoja);
+
+  return tabla.filas
+    .map(function(fila) {
+
+      const estado =
+        normalizarClaveOcupacion_(
+          valorOcupacion_(
+            fila,
+            tabla.mapa,
+            "Estado"
+          )
+        );
+
+      if (
+        estado === "ANULADO" ||
+        estado === "ANULADA" ||
+        estado === "INACTIVO"
+      ) {
+        return null;
+      }
+
+      const fecha =
+        convertirFechaOcupacion_(
+          valorOcupacion_(
+            fila,
+            tabla.mapa,
+            "Fecha"
+          )
+        );
+
+      if (!fecha) {
+        return null;
+      }
+
+      /*
+       * Solo necesitamos movimientos desde el inicio
+       * del período hasta el momento actual, porque
+       * reconstruimos hacia atrás desde el inventario actual.
+       */
+      if (fecha < fechaInicio) {
+        return null;
+      }
+
+      const tipo =
+        normalizarClaveOcupacion_(
+          valorOcupacion_(
+            fila,
+            tabla.mapa,
+            "Tipo_Movimiento"
+          )
+        );
+
+      const posiciones =
+        numeroOcupacion_(
+          valorOcupacion_(
+            fila,
+            tabla.mapa,
+            "Posiciones"
+          )
+        );
+
+      return {
+        fecha: fecha,
+        idCamara:
+          normalizarTextoOcupacion_(
+            valorOcupacion_(
+              fila,
+              tabla.mapa,
+              "ID_Camara"
+            )
+          ),
+        tipo: tipo,
+        posicionesFirmadas:
+          obtenerSignoMovimientoOcupacion_(
+            tipo
+          ) * posiciones
+      };
+
+    })
+    .filter(Boolean);
+
+}
+
+
+function construirPuntosHistoricoOcupacion_(
+  opciones
+) {
+
+  const rango = opciones.rango;
+  const periodo = opciones.periodo;
+  const idCamara =
+    opciones.idCamara || "GENERAL";
+  const actual = opciones.actual;
+  const movimientos = opciones.movimientos;
+
+  const capacidad =
+    idCamara === "GENERAL"
+      ? actual.general.capacidadTotal
+      : (
+          actual.camaras.find(function(camara) {
+            return camara.idCamara === idCamara;
+          }) || {}
+        ).capacidad || 0;
+
+  const ocupacionActual =
+    idCamara === "GENERAL"
+      ? actual.general.posicionesOcupadas
+      : (
+          actual.camaras.find(function(camara) {
+            return camara.idCamara === idCamara;
+          }) || {}
+        ).posicionesOcupadas || 0;
+
+  const fechas =
+    construirFechasPuntosOcupacion_(
+      rango,
+      periodo
+    );
+
+  return fechas.map(function(punto) {
+
+    let movimientosPosteriores = 0;
+
+    movimientos.forEach(function(movimiento) {
+
+      if (
+        idCamara !== "GENERAL" &&
+        movimiento.idCamara !== idCamara
+      ) {
+        return;
+      }
+
+      if (
+        movimiento.fecha >
+        punto.fechaCorte
+      ) {
+        movimientosPosteriores +=
+          movimiento.posicionesFirmadas;
+      }
+
+    });
+
+    const ocupadas =
+      Math.max(
+        0,
+        ocupacionActual -
+        movimientosPosteriores
+      );
+
+    return {
+      fecha:
+        formatearFechaOcupacion_(
+          punto.fechaCorte
+        ),
+      etiqueta: punto.etiqueta,
+      ocupadas: ocupadas,
+      capacidad: capacidad,
+      porcentaje:
+        capacidad > 0
+          ? redondearOcupacion_(
+              (
+                ocupadas /
+                capacidad
+              ) * 100,
+              2
+            )
+          : 0
+    };
+
+  });
+
+}
+
+
+function construirSeriesHistoricoOcupacion_(
+  opciones
+) {
+
+  const actual = opciones.actual || {};
+  const idCamara =
+    opciones.idCamara || "GENERAL";
+
+  const camaras =
+    Array.isArray(actual.camaras)
+      ? actual.camaras.filter(function(camara) {
+
+          return idCamara === "GENERAL" ||
+            normalizarTextoOcupacion_(
+              camara.idCamara
+            ) === idCamara;
+
+        })
+      : [];
+
+  return camaras.map(function(camara) {
+
+    return {
+      idCamara:
+        normalizarTextoOcupacion_(
+          camara.idCamara
+        ),
+      codigo:
+        normalizarTextoOcupacion_(
+          camara.codigo
+        ) ||
+        normalizarTextoOcupacion_(
+          camara.idCamara
+        ),
+      nombre:
+        normalizarTextoOcupacion_(
+          camara.nombre
+        ) || "Cámara",
+      puntos:
+        construirPuntosHistoricoOcupacion_({
+          periodo: opciones.periodo,
+          idCamara: camara.idCamara,
+          rango: opciones.rango,
+          actual: actual,
+          movimientos: opciones.movimientos
+        })
+    };
+
+  });
+
+}
+
+
+function construirFechasPuntosOcupacion_(
+  rango,
+  periodo
+) {
+
+  const puntos = [];
+
+  if (periodo === "ANO") {
+
+    let cursor = new Date(
+      rango.fechaInicio.getFullYear(),
+      0,
+      1
+    );
+
+    while (cursor <= rango.fechaFin) {
+
+      const corte = new Date(
+        cursor.getFullYear(),
+        cursor.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
+
+      if (corte > rango.fechaFin) {
+        corte.setTime(
+          rango.fechaFin.getTime()
+        );
+      }
+
+      puntos.push({
+        fechaCorte: corte,
+        etiqueta:
+          corte.toLocaleDateString(
+            "es-DO",
+            {
+              month: "short"
+            }
+          )
+      });
+
+      cursor = new Date(
+        cursor.getFullYear(),
+        cursor.getMonth() + 1,
+        1
+      );
+
+    }
+
+    return puntos;
+
+  }
+
+  const cursor = new Date(
+    rango.fechaInicio
+  );
+
+  while (cursor <= rango.fechaFin) {
+
+    const corte = new Date(cursor);
+
+    corte.setHours(
+      23,
+      59,
+      59,
+      999
+    );
+
+    if (corte > rango.fechaFin) {
+      corte.setTime(
+        rango.fechaFin.getTime()
+      );
+    }
+
+    puntos.push({
+      fechaCorte: corte,
+      etiqueta:
+        Utilities.formatDate(
+          corte,
+          Session.getScriptTimeZone(),
+          periodo === "SEMANA"
+            ? "EEE dd"
+            : "dd/MM"
+        )
+    });
+
+    cursor.setDate(
+      cursor.getDate() + 1
+    );
+
+  }
+
+  return puntos;
+
+}
+
+
+function obtenerRangoHistoricoOcupacion_(
+  periodo,
+  fechaReferencia
+) {
+
+  const referencia =
+    convertirFechaOcupacion_(
+      fechaReferencia
+    ) ||
+    new Date();
+
+  referencia.setHours(
+    23,
+    59,
+    59,
+    999
+  );
+
+  let inicio;
+
+  if (periodo === "ANO") {
+
+    inicio = new Date(
+      referencia.getFullYear(),
+      0,
+      1
+    );
+
+  } else if (periodo === "MES") {
+
+    inicio = new Date(
+      referencia.getFullYear(),
+      referencia.getMonth(),
+      1
+    );
+
+  } else {
+
+    inicio = new Date(referencia);
+
+    const dia = inicio.getDay();
+
+    inicio.setDate(
+      inicio.getDate() -
+      (
+        dia === 0
+          ? 6
+          : dia - 1
+      )
+    );
+
+  }
+
+  inicio.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  return {
+    fechaInicio: inicio,
+    fechaFin: referencia
+  };
+
+}
+
+
+function obtenerSignoMovimientoOcupacion_(
+  tipo
+) {
+
+  const clave =
+    normalizarClaveOcupacion_(
+      tipo
+    );
+
+  const negativos = [
+    "SALIDA",
+    "DESPACHO",
+    "CONSUMO",
+    "CARGA",
+    "ROTACION SALIDA",
+    "ROTACIÓN SALIDA",
+    "TRASLADO SALIDA"
+  ];
+
+  for (
+    let i = 0;
+    i < negativos.length;
+    i++
+  ) {
+
+    if (
+      clave.indexOf(
+        normalizarClaveOcupacion_(
+          negativos[i]
+        )
+      ) !== -1
+    ) {
+      return -1;
+    }
+
+  }
+
+  return 1;
+
+}
+
+
+/* ============================================================
+ * AUXILIARES
+ * ============================================================ */
+
+function leerTablaOcupacion_(hoja) {
+
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (!datos.length) {
+    return {
+      mapa: {},
+      filas: []
+    };
+  }
+
+  const mapa = {};
+
+  datos[0].forEach(function(encabezado, indice) {
+
+    mapa[
+      normalizarTextoOcupacion_(
+        encabezado
+      )
+    ] = indice;
+
+  });
+
+  return {
+    mapa: mapa,
+    filas: datos.slice(1)
+  };
+
+}
+
+
+function valorOcupacion_(
+  fila,
+  mapa,
+  encabezado
+) {
+
+  const indice = mapa[encabezado];
+
+  if (typeof indice === "undefined") {
+    return "";
+  }
+
+  return fila[indice];
+
+}
+
+
+function normalizarTextoOcupacion_(valor) {
+
+  return valor === null ||
+    valor === undefined
+      ? ""
+      : String(valor).trim();
+
+}
+
+
+function normalizarClaveOcupacion_(valor) {
+
+  return normalizarTextoOcupacion_(valor)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[_-]+/g,
+      " "
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+
+}
+
+
+function numeroOcupacion_(valor) {
+
+  const numero = Number(valor);
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+
+}
+
+
+function redondearOcupacion_(
+  valor,
+  decimales
+) {
+
+  const factor =
+    Math.pow(
+      10,
+      decimales || 0
+    );
+
+  return Math.round(
+    (
+      numeroOcupacion_(valor) +
+      Number.EPSILON
+    ) *
+    factor
+  ) / factor;
+
+}
+
+
+function convertirFechaOcupacion_(valor) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(valor.getTime())
+  ) {
+    return new Date(valor);
+  }
+
+  const texto =
+    normalizarTextoOcupacion_(valor);
+
+  if (!texto) {
+    return null;
+  }
+
+  let partes =
+    texto.match(
+      /^(\d{4})-(\d{2})-(\d{2})/
+    );
+
+  if (partes) {
+    return new Date(
+      Number(partes[1]),
+      Number(partes[2]) - 1,
+      Number(partes[3])
+    );
+  }
+
+  partes =
+    texto.match(
+      /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/
+    );
+
+  if (partes) {
+    return new Date(
+      Number(partes[3]),
+      Number(partes[2]) - 1,
+      Number(partes[1])
+    );
+  }
+
+  const fecha = new Date(texto);
+
+  return isNaN(fecha.getTime())
+    ? null
+    : fecha;
+
+}
+
+
+function formatearFechaOcupacion_(fecha) {
+
+  if (!fecha) {
+    return "";
+  }
+
+  return Utilities.formatDate(
+    fecha,
+    Session.getScriptTimeZone(),
+    "dd/MM/yyyy"
+  );
+
+}
+
+
+/**
+ * Agregar antes del default del switch principal:
+ *
+ * case "obtenerIndicadorOcupacionCamaras":
+ *   return obtenerIndicadorOcupacionCamaras(data);
+ *
+ * case "obtenerDetalleOcupacionCamaras":
+ *   return obtenerDetalleOcupacionCamaras(data);
+ *
+ * case "obtenerHistoricoOcupacionCamaras":
+ *   return obtenerHistoricoOcupacionCamaras(data);
+ */

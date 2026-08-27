@@ -351,6 +351,46 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
 .rk-velocimetro-texto > strong { color: var(--rk-medidor-color); font-size: 1.65rem; }
 .rk-velocimetro-texto p { margin-top: 5px; color: var(--rk-texto); font-size: .72rem; }
 .rk-velocimetro-texto small { display: block; margin-top: 4px; color: var(--rk-secundario); font-size: .65rem; }
+.rk-selector-reduccion {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin: 8px 0 10px;
+}
+.rk-selector-reduccion button {
+  min-height: 30px;
+  padding: 5px 7px;
+  border: 1px solid var(--rk-borde);
+  border-radius: 8px;
+  background: var(--rk-superficie-suave);
+  color: var(--rk-texto);
+  font: inherit;
+  font-size: .64rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.rk-selector-reduccion button:hover:not(:disabled) {
+  border-color: var(--rk-rojo);
+  color: var(--rk-rojo);
+}
+.rk-selector-reduccion button.activo {
+  border-color: var(--rk-rojo);
+  background: var(--rk-rojo);
+  color: #fff;
+}
+.rk-selector-reduccion button:disabled {
+  cursor: not-allowed;
+  opacity: .46;
+}
+.rk-reduccion-montos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 8px;
+  color: var(--rk-secundario);
+  font-size: .62rem;
+}
+.rk-reduccion-montos b { color: var(--rk-texto); }
 .rk-medidor svg { display: block; width: 100%; overflow: visible; }
 .rk-medidor path { fill: none; stroke-width: 15; stroke-linecap: round; }
 .rk-medidor-fondo { stroke: var(--rk-superficie-suave); }
@@ -462,6 +502,7 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   .rk-kpis-principales { grid-template-columns: 1fr 1fr; gap: 8px; }
   .rk-kpi { min-height: 116px; padding: 12px; }
   .rk-velocimetro { grid-template-columns: 1fr; }
+  .rk-selector-reduccion { grid-template-columns: 1fr; }
   .rk-medidor { max-width: 250px; margin: 0 auto; }
   .rk-bloque-titulo { flex-direction: column; }
   .rk-decomiso-resumen { grid-template-columns: 1fr; }
@@ -495,4 +536,5 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   .rk-documento-codigo span { font-size: 8px; }
   .rk-documento-codigo strong { margin-top: 3px; font-size: 9px; }
   .rk-kpi, .rk-velocimetro, .rk-bloque { break-inside: avoid; box-shadow: none; }
+  .rk-selector-reduccion { display: none; }
 }

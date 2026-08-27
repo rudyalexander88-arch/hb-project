@@ -1,0 +1,3501 @@
+// ======================================================
+// INVENTARIOS.GS
+// Análisis de inventarios por centros
+// Sistema Logístico PT - Helados Bon
+// ======================================================
+//
+// Fuentes:
+// - Materiales
+// - Inventario_HB
+// - Inventario_FB
+// - Configuracion / Configuración
+//
+// Objetivo:
+// Consolidar inventarios por material y devolver
+// indicadores operativos y KPIs listos para frontend.
+//
+// ======================================================
+
+
+// ======================================================
+// FUNCIÓN PRINCIPAL
+// ======================================================
+
+function obtenerAnalisisInventario() {
+
+  try {
+
+    const ss =
+      SpreadsheetApp.getActiveSpreadsheet();
+
+    const hojaMateriales =
+      ss.getSheetByName("Materiales");
+
+    const hojaHB =
+      ss.getSheetByName("Inventario_HB");
+
+    const hojaFB =
+      ss.getSheetByName("Inventario_FB");
+
+
+    if (!hojaMateriales) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Materiales".'
+      });
+
+    }
+
+
+    if (!hojaHB) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Inventario_HB".'
+      });
+
+    }
+
+
+    if (!hojaFB) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Inventario_FB".'
+      });
+
+    }
+
+
+    // ==================================================
+    // CONFIGURACIÓN
+    // ==================================================
+
+    const configuracion =
+      obtenerConfiguracionInventarios_();
+
+
+    // ==================================================
+    // LEER MATERIALES
+    // ==================================================
+
+    const materiales =
+      leerMaterialesInventario_(
+        hojaMateriales
+      );
+
+
+    // ==================================================
+    // LEER INVENTARIOS
+    // ==================================================
+
+    const inventarioHB =
+      leerInventarioCentro_(
+        hojaHB
+      );
+
+    const inventarioFB =
+      leerInventarioCentro_(
+        hojaFB
+      );
+
+
+    // ==================================================
+    // CONSTRUIR ANÁLISIS
+    // ==================================================
+
+    const registros = [];
+
+    materiales.forEach(material => {
+
+      const idMaterial =
+        String(
+          material.idMaterial || ""
+        ).trim();
+
+
+      if (!idMaterial) {
+        return;
+      }
+
+
+      /*
+       * Solo consideramos materiales activos.
+       * Si Estado está vacío, no lo excluimos.
+       */
+      const estadoMaterial =
+        String(
+          material.estado || ""
+        )
+          .trim()
+          .toLowerCase();
+
+
+      if (
+        estadoMaterial &&
+        estadoMaterial !== "activo"
+      ) {
+
+        return;
+
+      }
+
+
+      const hb =
+        inventarioHB[idMaterial] ||
+        crearInventarioCentroVacio_();
+
+
+      const fb =
+        inventarioFB[idMaterial] ||
+        crearInventarioCentroVacio_();
+
+
+      // ================================================
+      // INVENTARIO LIBRE
+      // ================================================
+
+      const libreHB =
+        numeroInventario_(
+          hb.libre
+        );
+
+      const libreFB =
+        numeroInventario_(
+          fb.libre
+        );
+
+      const libreTotal =
+        libreHB +
+        libreFB;
+
+
+      // ================================================
+      // CONTROL DE CALIDAD
+      // ================================================
+
+      const calidadHB =
+        numeroInventario_(
+          hb.calidad
+        );
+
+      const calidadFB =
+        numeroInventario_(
+          fb.calidad
+        );
+
+      const calidadTotal =
+        calidadHB +
+        calidadFB;
+
+
+      // ================================================
+      // BLOQUEADO
+      // ================================================
+
+      const bloqueadoHB =
+        numeroInventario_(
+          hb.bloqueado
+        );
+
+      const bloqueadoFB =
+        numeroInventario_(
+          fb.bloqueado
+        );
+
+      const bloqueadoTotal =
+        bloqueadoHB +
+        bloqueadoFB;
+
+
+      // ================================================
+      // INVENTARIO FÍSICO
+      // ================================================
+
+      const fisicoHB =
+        libreHB +
+        calidadHB +
+        bloqueadoHB;
+
+      const fisicoFB =
+        libreFB +
+        calidadFB +
+        bloqueadoFB;
+
+      const fisicoTotal =
+        fisicoHB +
+        fisicoFB;
+
+
+      // ================================================
+      // UMB
+      // ================================================
+
+      const umb =
+        numeroInventario_(
+          material.umb
+        );
+
+
+      // ================================================
+      // CAJAS
+      // ================================================
+
+      const cajasLibresHB =
+        umb > 0
+          ? libreHB / umb
+          : 0;
+
+      const cajasLibresFB =
+        umb > 0
+          ? libreFB / umb
+          : 0;
+
+      const cajasLibresTotal =
+        umb > 0
+          ? libreTotal / umb
+          : 0;
+
+
+      // ================================================
+      // PROMEDIO DE VENTAS
+      // ================================================
+
+      const promedioVentas =
+        numeroInventario_(
+          material.promedioVentas
+        );
+
+
+      const promedioVentasCajas =
+        umb > 0
+          ? promedioVentas / umb
+          : 0;
+
+
+      // ================================================
+      // DÍAS DE COBERTURA
+      // ================================================
+
+      let diasCobertura = null;
+
+      if (
+        promedioVentas > 0
+      ) {
+
+        diasCobertura =
+          libreTotal /
+          promedioVentas;
+
+      }
+
+
+      // ================================================
+      // VALOR
+      // ================================================
+
+      const valorUnidad =
+        numeroInventario_(
+          material.valorUnidadVenta
+        );
+
+
+      const valorCaja =
+        umb > 0
+          ? valorUnidad * umb
+          : 0;
+
+
+      const valorInventarioLibre =
+        libreTotal *
+        valorUnidad;
+
+
+      const valorInventarioFisico =
+        fisicoTotal *
+        valorUnidad;
+
+
+      const valorInventarioBloqueado =
+        bloqueadoTotal *
+        valorUnidad;
+
+
+      const valorInventarioCalidad =
+        calidadTotal *
+        valorUnidad;
+
+
+      // ================================================
+      // PORCENTAJES
+      // ================================================
+
+      const porcentajeBloqueado =
+        fisicoTotal > 0
+          ? (
+              bloqueadoTotal /
+              fisicoTotal
+            ) * 100
+          : 0;
+
+
+      const porcentajeCalidad =
+        fisicoTotal > 0
+          ? (
+              calidadTotal /
+              fisicoTotal
+            ) * 100
+          : 0;
+
+
+      // ================================================
+      // ESTADO COBERTURA
+      // ================================================
+
+      const clasificacion =
+        clasificarCoberturaInventario_({
+
+          libreTotal:
+            libreTotal,
+
+          promedioVentas:
+            promedioVentas,
+
+          diasCobertura:
+            diasCobertura,
+
+          porcentajeBloqueado:
+            porcentajeBloqueado,
+
+          configuracion:
+            configuracion
+
+        });
+
+
+      // ================================================
+      // REGISTRO FINAL
+      // ================================================
+
+      registros.push({
+
+        idMaterial:
+          idMaterial,
+
+        descripcion:
+          material.descripcion || "",
+
+        unidadMedida:
+          material.unidadMedida || "",
+
+        um:
+          material.um || "",
+
+        umb:
+          umb,
+
+
+        // ----------------------------------------------
+        // HB
+        // ----------------------------------------------
+
+        hb: {
+
+          libre:
+            libreHB,
+
+          calidad:
+            calidadHB,
+
+          bloqueado:
+            bloqueadoHB,
+
+          fisico:
+            fisicoHB,
+
+          cajasLibres:
+            redondearInventario_(
+              cajasLibresHB,
+              2
+            )
+
+        },
+
+
+        // ----------------------------------------------
+        // FB
+        // ----------------------------------------------
+
+        fb: {
+
+          libre:
+            libreFB,
+
+          calidad:
+            calidadFB,
+
+          bloqueado:
+            bloqueadoFB,
+
+          fisico:
+            fisicoFB,
+
+          cajasLibres:
+            redondearInventario_(
+              cajasLibresFB,
+              2
+            )
+
+        },
+
+
+        // ----------------------------------------------
+        // CONSOLIDADO
+        // ----------------------------------------------
+
+        total: {
+
+          libre:
+            libreTotal,
+
+          calidad:
+            calidadTotal,
+
+          bloqueado:
+            bloqueadoTotal,
+
+          fisico:
+            fisicoTotal,
+
+          cajasLibres:
+            redondearInventario_(
+              cajasLibresTotal,
+              2
+            )
+
+        },
+
+
+        // ----------------------------------------------
+        // VENTAS
+        // ----------------------------------------------
+
+        promedioVentas:
+          promedioVentas,
+
+        promedioVentasCajas:
+          redondearInventario_(
+            promedioVentasCajas,
+            2
+          ),
+
+
+        // ----------------------------------------------
+        // COBERTURA
+        // ----------------------------------------------
+
+        diasCobertura:
+          diasCobertura === null
+            ? null
+            : redondearInventario_(
+                diasCobertura,
+                2
+              ),
+
+        estadoCobertura:
+          clasificacion.estado,
+
+        prioridad:
+          clasificacion.prioridad,
+
+        color:
+          clasificacion.color,
+
+        alerta:
+          clasificacion.alerta,
+
+        sinRotacion:
+          clasificacion.sinRotacion,
+
+        agotado:
+          clasificacion.agotado,
+
+        alertaBloqueado:
+          clasificacion.alertaBloqueado,
+
+
+        // ----------------------------------------------
+        // VALORES
+        // ----------------------------------------------
+
+        valorUnidadVenta:
+          valorUnidad,
+
+        valorCaja:
+          redondearInventario_(
+            valorCaja,
+            2
+          ),
+
+        valorInventarioLibre:
+          redondearInventario_(
+            valorInventarioLibre,
+            2
+          ),
+
+        valorInventarioFisico:
+          redondearInventario_(
+            valorInventarioFisico,
+            2
+          ),
+
+        valorInventarioBloqueado:
+          redondearInventario_(
+            valorInventarioBloqueado,
+            2
+          ),
+
+        valorInventarioCalidad:
+          redondearInventario_(
+            valorInventarioCalidad,
+            2
+          ),
+
+
+        // ----------------------------------------------
+        // PORCENTAJES
+        // ----------------------------------------------
+
+        porcentajeBloqueado:
+          redondearInventario_(
+            porcentajeBloqueado,
+            2
+          ),
+
+        porcentajeCalidad:
+          redondearInventario_(
+            porcentajeCalidad,
+            2
+          )
+
+      });
+
+    });
+
+
+    // ==================================================
+    // ORDENAR POR PRIORIDAD
+    // ==================================================
+
+    registros.sort(
+      (a, b) => {
+
+        if (
+          a.prioridad !==
+          b.prioridad
+        ) {
+
+          return (
+            a.prioridad -
+            b.prioridad
+          );
+
+        }
+
+
+        const diasA =
+          a.diasCobertura === null
+            ? Number.MAX_SAFE_INTEGER
+            : a.diasCobertura;
+
+        const diasB =
+          b.diasCobertura === null
+            ? Number.MAX_SAFE_INTEGER
+            : b.diasCobertura;
+
+
+        if (
+          diasA !==
+          diasB
+        ) {
+
+          return (
+            diasA -
+            diasB
+          );
+
+        }
+
+
+        return String(
+          a.descripcion || ""
+        ).localeCompare(
+          String(
+            b.descripcion || ""
+          ),
+          "es"
+        );
+
+      }
+    );
+
+
+    // ==================================================
+    // KPIs
+    // ==================================================
+
+    const kpis =
+      calcularKPIsInventario_(
+        registros
+      );
+
+
+    // ==================================================
+    // RESPUESTA
+    // ==================================================
+
+    return respuesta({
+
+      ok: true,
+
+      mensaje:
+        "Análisis de inventario cargado correctamente.",
+
+      data: {
+
+        configuracion:
+          configuracion,
+
+        kpis:
+          kpis,
+
+        registros:
+          registros
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error obtenerAnalisisInventario:",
+      error
+    );
+
+    return respuesta({
+
+      ok: false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    });
+
+  }
+
+}
+
+// ======================================================
+// PRIORIDADES DE DESPACHO A FRIOBOX
+// Consulta paginada para tarjeta y ventana
+// ======================================================
+
+function obtenerPrioridadesDespacho(data) {
+
+  try {
+
+    const parametros =
+      data || {};
+
+
+    // ==================================================
+    // PAGINACIÓN
+    // ==================================================
+
+    const limite =
+      Math.min(
+        Math.max(
+          Math.trunc(
+            Number(
+              parametros.limite || 10
+            )
+          ) || 10,
+          1
+        ),
+        50
+      );
+
+
+    const desplazamiento =
+      Math.max(
+        Math.trunc(
+          Number(
+            parametros.desplazamiento || 0
+          )
+        ) || 0,
+        0
+      );
+
+
+    // ==================================================
+    // FILTROS
+    // ==================================================
+
+    const busqueda =
+      normalizarTextoPrioridades_(
+        parametros.busqueda
+      );
+
+
+    const prioridadFiltro =
+      normalizarTextoPrioridades_(
+        parametros.prioridad
+      );
+
+
+    const umFiltro =
+      normalizarTextoPrioridades_(
+        parametros.um
+      );
+
+    const reposicionFiltro =
+    normalizarTextoPrioridades_(
+      parametros.reposicion
+    );  
+
+    const orden =
+      String(
+        parametros.orden || "prioridad"
+      )
+        .trim()
+        .toLowerCase();
+
+
+    // ==================================================
+    // HOJAS
+    // ==================================================
+
+    const ss =
+      SpreadsheetApp.getActiveSpreadsheet();
+
+
+    const hojaMateriales =
+      ss.getSheetByName(
+        "Materiales"
+      );
+
+
+    const hojaHB =
+      ss.getSheetByName(
+        "Inventario_HB"
+      );
+
+
+    const hojaFB =
+      ss.getSheetByName(
+        "Inventario_FB"
+      );
+
+
+    if (!hojaMateriales) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Materiales".'
+      });
+
+    }
+
+
+    if (!hojaHB) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Inventario_HB".'
+      });
+
+    }
+
+
+    if (!hojaFB) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Inventario_FB".'
+      });
+
+    }
+
+
+    // ==================================================
+    // DATOS BASE
+    // ==================================================
+
+    const configuracion =
+      obtenerConfiguracionInventarios_();
+
+
+    const materiales =
+      leerMaterialesInventario_(
+        hojaMateriales
+      );
+
+
+    const inventarioHB =
+      leerInventarioCentro_(
+        hojaHB
+      );
+
+
+    const inventarioFB =
+      leerInventarioCentro_(
+        hojaFB
+      );
+
+
+    const registros =
+      [];
+
+
+    const opcionesUM =
+      new Set();
+
+
+    // ==================================================
+    // CONSTRUIR PRIORIDADES
+    // ==================================================
+
+    materiales.forEach(
+      function(material) {
+
+        const idMaterial =
+          String(
+            material.idMaterial || ""
+          ).trim();
+
+
+        if (!idMaterial) {
+          return;
+        }
+
+
+        const estadoMaterial =
+          normalizarTextoPrioridades_(
+            material.estado
+          );
+
+
+        /*
+         * Si Estado está vacío, se admite.
+         * Si contiene un valor, debe ser Activo.
+         */
+        if (
+          estadoMaterial &&
+          estadoMaterial !== "activo"
+        ) {
+          return;
+        }
+
+
+        const hb =
+          inventarioHB[idMaterial] ||
+          crearInventarioCentroVacio_();
+
+
+        const fb =
+          inventarioFB[idMaterial] ||
+          crearInventarioCentroVacio_();
+
+
+        const umb =
+          numeroInventario_(
+            material.umb
+          );
+
+
+        const libreHB =
+        numeroInventario_(
+          hb.libre
+        );
+
+
+        const calidadHB =
+          numeroInventario_(
+            hb.calidad
+          );
+
+
+        const bloqueadoHB =
+          numeroInventario_(
+            hb.bloqueado
+          );
+
+
+        const libreFB =
+          numeroInventario_(
+            fb.libre
+          );
+
+
+        const calidadFB =
+          numeroInventario_(
+            fb.calidad
+          );
+
+
+        const bloqueadoFB =
+          numeroInventario_(
+            fb.bloqueado
+          );
+
+
+        const promedioVentas =
+          numeroInventario_(
+            material.promedioVentas
+          );
+
+
+        /*
+         * Cálculo correcto para Prioridades:
+         * únicamente inventario libre de FrioBox.
+         */
+        const diasStockFB =
+          promedioVentas > 0
+            ? libreFB / promedioVentas
+            : null;
+
+
+        const clasificacion =
+        clasificarPrioridadFrioBox_({
+
+          libreFB:
+            libreFB,
+
+          promedioVentas:
+            promedioVentas,
+
+          diasStockFB:
+            diasStockFB,
+
+          configuracion:
+            configuracion
+
+        });
+
+
+      /*
+      * Cantidad necesaria para llevar FrioBox
+      * hasta el límite de inventario bajo.
+      *
+      * Ejemplo:
+      * Meta = 5 días
+      * Promedio = 100 unidades/día
+      * Stock FB = 120
+      * Necesidad = 380 unidades
+      */
+      const stockObjetivoFB =
+        promedioVentas > 0
+          ? promedioVentas *
+            configuracion.diasBajo
+          : 0;
+
+
+      const cantidadSugerida =
+        Math.max(
+          stockObjetivoFB -
+          libreFB,
+          0
+        );
+
+
+      const capacidadReposicion =
+        clasificarCapacidadReposicionFB_({
+
+          libreHB:
+            libreHB,
+
+          calidadHB:
+            calidadHB,
+
+          bloqueadoHB:
+            bloqueadoHB,
+
+          cantidadSugerida:
+            cantidadSugerida,
+
+          estadoPrioridad:
+            clasificacion.estado
+
+        });
+
+
+        /*
+         * La ventana de prioridades muestra solamente:
+         *
+         * - Agotados
+         * - Críticos
+         * - Bajos
+         *
+         * Los materiales normales o con cobertura alta
+         * no incrementan la tarjeta del dashboard.
+         */
+        if (
+          clasificacion.esPrioridad !==
+          true
+        ) {
+          return;
+        }
+
+
+        const um =
+          String(
+            material.um ||
+            material.unidadMedida ||
+            ""
+          ).trim();
+
+
+        if (um) {
+          opcionesUM.add(um);
+        }
+
+
+        const cajasLibresFB =
+          umb > 0
+            ? libreFB / umb
+            : 0;
+
+
+        const cajasLibresHB =
+          umb > 0
+            ? libreHB / umb
+            : 0;
+
+
+        const promedioVentasCajas =
+          umb > 0
+            ? promedioVentas / umb
+            : 0;
+
+
+        const registro = {
+
+          idMaterial:
+            idMaterial,
+
+          descripcion:
+            String(
+              material.descripcion || ""
+            ).trim(),
+
+          unidadMedida:
+            String(
+              material.unidadMedida || ""
+            ).trim(),
+
+          um:
+            um,
+
+          umb:
+            umb,
+
+
+          // --------------------------------------------
+          // FRIOBOX
+          // --------------------------------------------
+
+          stockLibreFB:
+            libreFB,
+
+          stockCalidadFB:
+            calidadFB,
+
+          stockBloqueadoFB:
+            bloqueadoFB,
+
+          cajasLibresFB:
+            redondearInventario_(
+              cajasLibresFB,
+              2
+            ),
+
+
+          // --------------------------------------------
+          // HELADOS BON
+          // --------------------------------------------
+
+          stockLibreHB:
+            libreHB,
+
+          stockCalidadHB:
+            calidadHB,
+
+          stockBloqueadoHB:
+            bloqueadoHB,
+
+          cajasLibresHB:
+            redondearInventario_(
+              cajasLibresHB,
+              2
+            ),
+
+          cajasCalidadHB:
+            umb > 0
+              ? redondearInventario_(
+                  calidadHB / umb,
+                  2
+                )
+              : 0,
+
+          cajasBloqueadasHB:
+            umb > 0
+              ? redondearInventario_(
+                  bloqueadoHB / umb,
+                  2
+                )
+              : 0,
+
+
+          // --------------------------------------------
+          // CONSUMO
+          // --------------------------------------------
+
+          promedioVentas:
+            promedioVentas,
+
+          promedioVentasCajas:
+            redondearInventario_(
+              promedioVentasCajas,
+              2
+            ),
+
+
+          // --------------------------------------------
+          // COBERTURA FB
+          // --------------------------------------------
+
+          diasStockFB:
+            diasStockFB === null
+              ? null
+              : redondearInventario_(
+                  diasStockFB,
+                  2
+                ),
+
+          estadoPrioridad:
+            clasificacion.estado,
+
+          prioridad:
+            clasificacion.prioridad,
+
+          color:
+            clasificacion.color,
+
+          alerta:
+            clasificacion.alerta,
+
+          agotado:
+            clasificacion.agotado,
+
+
+          // --------------------------------------------
+          // CAPACIDAD DE REPOSICIÓN
+          // --------------------------------------------
+
+          stockObjetivoFB:
+            redondearInventario_(
+              stockObjetivoFB,
+              2
+            ),
+
+          cantidadSugerida:
+            redondearInventario_(
+              cantidadSugerida,
+              2
+            ),
+
+          cajasSugeridas:
+            umb > 0
+              ? redondearInventario_(
+                  cantidadSugerida / umb,
+                  2
+                )
+              : 0,
+
+          puedeReponerDesdeHB:
+            capacidadReposicion
+              .puedeReponer,
+
+          puedeReponerInmediato:
+            capacidadReposicion
+              .puedeReponerInmediato,
+
+          requiereLiberacionQA:
+            capacidadReposicion
+              .requiereLiberacionQA,
+
+          reposicionParcial:
+            capacidadReposicion
+              .reposicionParcial,
+
+          estadoReposicion:
+            capacidadReposicion
+              .estado,
+
+          prioridadReposicion:
+            capacidadReposicion
+              .prioridad,
+
+          colorReposicion:
+            capacidadReposicion
+              .color,
+
+          accionRecomendada:
+            capacidadReposicion
+              .accionRecomendada,
+
+          cantidadDisponibleReposicion:
+            capacidadReposicion
+              .cantidadDisponible,
+
+          cantidadPendienteQA:
+            capacidadReposicion
+              .cantidadPendienteQA,
+
+          coberturaReposicionHB:
+            promedioVentas > 0
+              ? redondearInventario_(
+                  libreHB /
+                  promedioVentas,
+                  2
+                )
+              : null
+
+        };
+
+
+        registro.textoBusqueda =
+          normalizarTextoPrioridades_(
+            [
+              registro.idMaterial,
+              registro.descripcion,
+              registro.um,
+              registro.unidadMedida,
+              registro.estadoPrioridad
+            ].join(" ")
+          );
+
+
+        registros.push(
+          registro
+        );
+
+      }
+    );
+
+
+    // ==================================================
+    // RESUMEN GENERAL SIN FILTROS VISUALES
+    // ==================================================
+
+    const resumenGeneral = {
+
+      totalPrioridades:
+        registros.length,
+
+      agotados:
+        0,
+
+      criticos:
+        0,
+
+      bajos:
+        0,
+
+      reposicionInmediata:
+        0,
+
+      pendienteQA:
+        0,
+
+      reposicionParcial:
+        0,
+
+      sinReposicion:
+        0,
+
+      oportunidadesAtendibles:
+        0
+
+    };
+
+
+    registros.forEach(
+      function(item) {
+
+        const estado =
+          normalizarTextoPrioridades_(
+            item.estadoPrioridad
+          );
+
+
+        if (estado === "agotado") {
+
+          resumenGeneral.agotados++;
+
+        } else if (
+          estado === "critico"
+        ) {
+
+          resumenGeneral.criticos++;
+
+        } else if (
+          estado === "bajo"
+        ) {
+
+          resumenGeneral.bajos++;
+
+        }
+
+
+        const reposicion =
+  normalizarTextoPrioridades_(
+    item.estadoReposicion
+  );
+
+
+if (
+  reposicion ===
+  "reposicion inmediata"
+) {
+
+  resumenGeneral
+    .reposicionInmediata++;
+
+  resumenGeneral
+    .oportunidadesAtendibles++;
+
+}
+
+
+else if (
+  reposicion ===
+  "reposicion parcial"
+) {
+
+  resumenGeneral
+    .reposicionParcial++;
+
+  resumenGeneral
+    .oportunidadesAtendibles++;
+
+}
+
+
+else if (
+  reposicion ===
+  "pendiente liberacion qa"
+) {
+
+  resumenGeneral
+    .pendienteQA++;
+
+}
+
+
+else {
+
+  resumenGeneral
+    .sinReposicion++;
+
+}
+
+      }
+    );
+
+
+    // ==================================================
+    // APLICAR FILTROS DE LA VENTANA
+    // ==================================================
+
+    const filtrados =
+      registros.filter(
+        function(item) {
+
+          if (
+            busqueda &&
+            item.textoBusqueda.indexOf(
+              busqueda
+            ) === -1
+          ) {
+            return false;
+          }
+
+
+          if (
+            prioridadFiltro &&
+            normalizarTextoPrioridades_(
+              item.estadoPrioridad
+            ) !== prioridadFiltro
+          ) {
+            return false;
+          }
+
+
+          if (
+              umFiltro &&
+              normalizarTextoPrioridades_(
+                item.um
+              ) !== umFiltro
+            ) {
+              return false;
+            }
+
+
+            if (
+              reposicionFiltro &&
+              normalizarTextoPrioridades_(
+                item.estadoReposicion
+              ) !== reposicionFiltro
+            ) {
+              return false;
+            }
+
+
+            return true;
+
+                    }
+                  );
+
+
+    // ==================================================
+    // ORDEN
+    // ==================================================
+
+    filtrados.sort(
+      function(a, b) {
+
+        if (
+          orden === "material"
+        ) {
+
+          return String(
+            a.idMaterial || ""
+          ).localeCompare(
+            String(
+              b.idMaterial || ""
+            ),
+            "es",
+            {
+              numeric: true,
+              sensitivity: "base"
+            }
+          );
+
+        }
+
+
+        if (
+          orden === "descripcion"
+        ) {
+
+          return String(
+            a.descripcion || ""
+          ).localeCompare(
+            String(
+              b.descripcion || ""
+            ),
+            "es",
+            {
+              sensitivity: "base"
+            }
+          );
+
+        }
+
+
+        if (
+          orden === "stock_fb"
+        ) {
+
+          return (
+            numeroInventario_(
+              a.stockLibreFB
+            ) -
+            numeroInventario_(
+              b.stockLibreFB
+            )
+          );
+
+        }
+
+
+        if (
+          orden === "stock_hb"
+        ) {
+
+          return (
+            numeroInventario_(
+              b.stockLibreHB
+            ) -
+            numeroInventario_(
+              a.stockLibreHB
+            )
+          );
+
+        }
+
+
+        if (
+          orden === "dias"
+        ) {
+
+          const diasA =
+            a.diasStockFB === null
+              ? Number.MAX_SAFE_INTEGER
+              : a.diasStockFB;
+
+
+          const diasB =
+            b.diasStockFB === null
+              ? Number.MAX_SAFE_INTEGER
+              : b.diasStockFB;
+
+
+          return diasA - diasB;
+
+        }
+
+
+        /*
+         * Orden predeterminado:
+         * prioridad y luego menor cobertura.
+         */
+
+        if (
+          a.prioridadReposicion !==
+          b.prioridadReposicion
+        ) {
+
+          return (
+            a.prioridadReposicion -
+            b.prioridadReposicion
+          );
+
+        }
+
+        if (
+          a.prioridad !==
+          b.prioridad
+        ) {
+
+          return (
+            a.prioridad -
+            b.prioridad
+          );
+
+        }
+
+
+        const diasA =
+          a.diasStockFB === null
+            ? Number.MAX_SAFE_INTEGER
+            : a.diasStockFB;
+
+
+        const diasB =
+          b.diasStockFB === null
+            ? Number.MAX_SAFE_INTEGER
+            : b.diasStockFB;
+
+
+        if (diasA !== diasB) {
+          return diasA - diasB;
+        }
+
+
+        return String(
+          a.descripcion || ""
+        ).localeCompare(
+          String(
+            b.descripcion || ""
+          ),
+          "es",
+          {
+            sensitivity:
+              "base"
+          }
+        );
+
+      }
+    );
+
+
+    // ==================================================
+    // PAGINACIÓN
+    // ==================================================
+
+    const totalFiltrado =
+      filtrados.length;
+
+
+    const registrosPagina =
+      filtrados
+        .slice(
+          desplazamiento,
+          desplazamiento + limite
+        )
+        .map(
+          function(item) {
+
+            delete item.textoBusqueda;
+
+            return item;
+
+          }
+        );
+
+
+    const siguienteDesplazamiento =
+      desplazamiento +
+      registrosPagina.length;
+
+
+    const hayMas =
+      siguienteDesplazamiento <
+      totalFiltrado;
+
+
+    // ==================================================
+    // RESPUESTA
+    // ==================================================
+
+    return respuesta({
+
+      ok: true,
+
+      mensaje:
+        "Prioridades de despacho cargadas correctamente.",
+
+      data: {
+
+        registros:
+          registrosPagina,
+
+        total:
+          totalFiltrado,
+
+        totalPrioridades:
+          resumenGeneral.totalPrioridades,
+
+        limite:
+          limite,
+
+        desplazamiento:
+          desplazamiento,
+
+        siguienteDesplazamiento:
+          siguienteDesplazamiento,
+
+        hayMas:
+          hayMas,
+
+        resumen:
+          resumenGeneral,
+
+
+        alertaDespacho: {
+
+          mostrar:
+            resumenGeneral
+              .oportunidadesAtendibles > 0 ||
+            resumenGeneral
+              .pendienteQA > 0,
+
+          totalPrioridades:
+            resumenGeneral
+              .totalPrioridades,
+
+          reposicionInmediata:
+            resumenGeneral
+              .reposicionInmediata,
+
+          reposicionParcial:
+            resumenGeneral
+              .reposicionParcial,
+
+          pendienteQA:
+            resumenGeneral
+              .pendienteQA,
+
+          oportunidadesAtendibles:
+            resumenGeneral
+              .oportunidadesAtendibles
+
+        },
+
+
+        configuracion: {
+
+          diasCritico:
+            configuracion.diasCritico,
+
+          diasBajo:
+            configuracion.diasBajo
+
+        },
+
+        opcionesUM:
+          Array
+            .from(
+              opcionesUM
+            )
+            .sort(
+              function(a, b) {
+
+                return a.localeCompare(
+                  b,
+                  "es",
+                  {
+                    sensitivity:
+                      "base"
+                  }
+                );
+
+              }
+            )
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error obtenerPrioridadesDespacho:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok: false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    });
+
+  }
+
+}
+
+
+// ======================================================
+// CLASIFICAR PRIORIDAD DE FRIOBOX
+// ======================================================
+
+function clasificarPrioridadFrioBox_(  datos) {
+
+  const libreFB =
+    numeroInventario_(
+      datos.libreFB
+    );
+
+
+  const promedioVentas =
+    numeroInventario_(
+      datos.promedioVentas
+    );
+
+
+  const diasStockFB =
+    datos.diasStockFB;
+
+
+  const configuracion =
+    datos.configuracion || {};
+
+
+  const resultado = {
+
+    estado:
+      "Correcto",
+
+    prioridad:
+      99,
+
+    color:
+      "verde",
+
+    alerta:
+      "",
+
+    agotado:
+      false,
+
+    esPrioridad:
+      false
+
+  };
+
+
+  // ==================================================
+  // AGOTADO
+  // ==================================================
+
+  if (
+    libreFB <= 0 &&
+    promedioVentas > 0
+  ) {
+
+    resultado.estado =
+      "Agotado";
+
+    resultado.prioridad =
+      1;
+
+    resultado.color =
+      "rojo";
+
+    resultado.alerta =
+      "FrioBox no tiene inventario libre disponible.";
+
+    resultado.agotado =
+      true;
+
+    resultado.esPrioridad =
+      true;
+
+    return resultado;
+
+  }
+
+
+  // ==================================================
+  // SIN PROMEDIO
+  // No se muestra como prioridad automática.
+  // ==================================================
+
+  if (
+    promedioVentas <= 0
+  ) {
+
+    resultado.estado =
+      "Sin promedio";
+
+    resultado.prioridad =
+      98;
+
+    resultado.color =
+      "gris";
+
+    resultado.alerta =
+      "No existe promedio de ventas para calcular cobertura.";
+
+    return resultado;
+
+  }
+
+
+  // ==================================================
+  // CRÍTICO
+  // ==================================================
+
+  if (
+    diasStockFB !== null &&
+    diasStockFB <=
+      numeroInventario_(
+        configuracion.diasCritico
+      )
+  ) {
+
+    resultado.estado =
+      "Crítico";
+
+    resultado.prioridad =
+      2;
+
+    resultado.color =
+      "rojo";
+
+    resultado.alerta =
+      "Cobertura crítica en FrioBox.";
+
+    resultado.esPrioridad =
+      true;
+
+    return resultado;
+
+  }
+
+
+  // ==================================================
+  // BAJO
+  // ==================================================
+
+  if (
+    diasStockFB !== null &&
+    diasStockFB <=
+      numeroInventario_(
+        configuracion.diasBajo
+      )
+  ) {
+
+    resultado.estado =
+      "Bajo";
+
+    resultado.prioridad =
+      3;
+
+    resultado.color =
+      "naranja";
+
+    resultado.alerta =
+      "Cobertura baja en FrioBox.";
+
+    resultado.esPrioridad =
+      true;
+
+    return resultado;
+
+  }
+
+
+  return resultado;
+
+}
+
+// ======================================================
+// CLASIFICAR CAPACIDAD DE REPOSICIÓN DESDE HB
+// ======================================================
+
+function clasificarCapacidadReposicionFB_(
+  datos
+) {
+
+  const libreHB =
+    numeroInventario_(
+      datos.libreHB
+    );
+
+
+  const calidadHB =
+    numeroInventario_(
+      datos.calidadHB
+    );
+
+
+  const bloqueadoHB =
+    numeroInventario_(
+      datos.bloqueadoHB
+    );
+
+
+  const cantidadSugerida =
+    Math.max(
+      numeroInventario_(
+        datos.cantidadSugerida
+      ),
+      0
+    );
+
+
+  const resultado = {
+
+    estado:
+      "Sin reposición",
+
+    prioridad:
+      4,
+
+    color:
+      "gris",
+
+    puedeReponer:
+      false,
+
+    puedeReponerInmediato:
+      false,
+
+    requiereLiberacionQA:
+      false,
+
+    reposicionParcial:
+      false,
+
+    cantidadDisponible:
+      0,
+
+    cantidadPendienteQA:
+      calidadHB,
+
+    cantidadBloqueada:
+      bloqueadoHB,
+
+    accionRecomendada:
+      "Sin inventario disponible para abastecer FrioBox."
+
+  };
+
+
+  // ==================================================
+  // REPOSICIÓN INMEDIATA COMPLETA
+  // ==================================================
+
+  if (
+    libreHB > 0 &&
+    (
+      cantidadSugerida <= 0 ||
+      libreHB >= cantidadSugerida
+    )
+  ) {
+
+    resultado.estado =
+      "Reposición inmediata";
+
+    resultado.prioridad =
+      1;
+
+    resultado.color =
+      "verde";
+
+    resultado.puedeReponer =
+      true;
+
+    resultado.puedeReponerInmediato =
+      true;
+
+    resultado.cantidadDisponible =
+      libreHB;
+
+    resultado.accionRecomendada =
+      "Despachar desde HB para abastecer FrioBox.";
+
+    return resultado;
+
+  }
+
+
+  // ==================================================
+  // REPOSICIÓN PARCIAL
+  // ==================================================
+
+  if (
+    libreHB > 0 &&
+    cantidadSugerida > libreHB
+  ) {
+
+    resultado.estado =
+      "Reposición parcial";
+
+    resultado.prioridad =
+      2;
+
+    resultado.color =
+      "naranja";
+
+    resultado.puedeReponer =
+      true;
+
+    resultado.puedeReponerInmediato =
+      true;
+
+    resultado.reposicionParcial =
+      true;
+
+    resultado.cantidadDisponible =
+      libreHB;
+
+    resultado.accionRecomendada =
+      "Despachar el inventario libre disponible y mantener seguimiento.";
+
+    return resultado;
+
+  }
+
+
+  // ==================================================
+  // PENDIENTE DE LIBERACIÓN QA
+  // ==================================================
+
+  if (
+    libreHB <= 0 &&
+    calidadHB > 0
+  ) {
+
+    resultado.estado =
+      "Pendiente liberación QA";
+
+    resultado.prioridad =
+      3;
+
+    resultado.color =
+      "amarillo";
+
+    resultado.puedeReponer =
+      true;
+
+    resultado.requiereLiberacionQA =
+      true;
+
+    resultado.cantidadPendienteQA =
+      calidadHB;
+
+    resultado.accionRecomendada =
+      "Gestionar con Calidad la liberación del inventario retenido.";
+
+    return resultado;
+
+  }
+
+
+  /*
+   * El inventario bloqueado no cambia el estado:
+   * se muestra como referencia, pero no está disponible.
+   */
+  return resultado;
+
+}
+
+// ======================================================
+// NORMALIZAR TEXTO DE PRIORIDADES
+// ======================================================
+
+function normalizarTextoPrioridades_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .trim()
+    .toLowerCase()
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    );
+
+}
+
+// ======================================================
+// LEER MATERIALES
+// ======================================================
+
+function leerMaterialesInventario_(
+  hoja
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (
+    datos.length < 2
+  ) {
+
+    return [];
+
+  }
+
+
+  const encabezados =
+    datos[0]
+      .map(valor =>
+        String(
+          valor || ""
+        ).trim()
+      );
+
+
+  const columnas = {
+
+    idMaterial:
+      encabezados.indexOf(
+        "ID_Material"
+      ),
+
+    descripcion:
+      encabezados.indexOf(
+        "Descripcion"
+      ),
+
+    estado:
+      encabezados.indexOf(
+        "Estado"
+      ),
+
+    unidadMedida:
+      encabezados.indexOf(
+        "Unidad_Medida"
+      ),
+
+    umb:
+      encabezados.indexOf(
+        "UMB"
+      ),
+
+    um:
+      encabezados.indexOf(
+        "UM"
+      ),
+
+    promedioVentas:
+      encabezados.indexOf(
+        "Promedio_Ventas"
+      ),
+
+    valorUnidadVenta:
+      encabezados.indexOf(
+        "Valor_Unidad_Venta"
+      )
+
+  };
+
+
+  const obligatorias = [
+
+    "ID_Material",
+    "Descripcion",
+    "UMB",
+    "Promedio_Ventas",
+    "Valor_Unidad_Venta"
+
+  ];
+
+
+  obligatorias.forEach(
+    nombre => {
+
+      if (
+        encabezados.indexOf(
+          nombre
+        ) === -1
+      ) {
+
+        throw new Error(
+          'No existe la columna "' +
+          nombre +
+          '" en Materiales.'
+        );
+
+      }
+
+    }
+  );
+
+
+  return datos
+    .slice(1)
+    .map(fila => {
+
+      return {
+
+        idMaterial:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.idMaterial
+          ),
+
+        descripcion:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.descripcion
+          ),
+
+        estado:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.estado
+          ),
+
+        unidadMedida:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.unidadMedida
+          ),
+
+        umb:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.umb
+          ),
+
+        um:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.um
+          ),
+
+        promedioVentas:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.promedioVentas
+          ),
+
+        valorUnidadVenta:
+          obtenerValorColumnaInventario_(
+            fila,
+            columnas.valorUnidadVenta
+          )
+
+      };
+
+    })
+    .filter(item =>
+      String(
+        item.idMaterial || ""
+      ).trim() !== ""
+    );
+
+}
+
+
+// ======================================================
+// LEER INVENTARIO POR CENTRO
+// ======================================================
+
+function leerInventarioCentro_(
+  hoja
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  const mapa = {};
+
+
+  if (
+    datos.length < 2
+  ) {
+
+    return mapa;
+
+  }
+
+
+  const encabezados =
+    datos[0]
+      .map(valor =>
+        String(
+          valor || ""
+        ).trim()
+      );
+
+
+  const idxMaterial =
+    encabezados.indexOf(
+      "Material"
+    );
+
+  const idxDescripcion =
+    encabezados.indexOf(
+      "Descripcion"
+    );
+
+  const idxUMB =
+    encabezados.indexOf(
+      "UMB"
+    );
+
+  const idxLibre =
+    encabezados.indexOf(
+      "Libre_utilización"
+    );
+
+  const idxCalidad =
+    encabezados.indexOf(
+      "En_control_calidad"
+    );
+
+  const idxBloqueado =
+    encabezados.indexOf(
+      "Bloqueado"
+    );
+
+
+  const obligatorias = [
+
+    {
+      nombre:
+        "Material",
+
+      indice:
+        idxMaterial
+    },
+
+    {
+      nombre:
+        "Libre_utilización",
+
+      indice:
+        idxLibre
+    },
+
+    {
+      nombre:
+        "En_control_calidad",
+
+      indice:
+        idxCalidad
+    },
+
+    {
+      nombre:
+        "Bloqueado",
+
+      indice:
+        idxBloqueado
+    }
+
+  ];
+
+
+  obligatorias.forEach(item => {
+
+    if (
+      item.indice === -1
+    ) {
+
+      throw new Error(
+        'No existe la columna "' +
+        item.nombre +
+        '" en la hoja ' +
+        hoja.getName() +
+        "."
+      );
+
+    }
+
+  });
+
+
+  datos
+    .slice(1)
+    .forEach(fila => {
+
+      const material =
+        String(
+          fila[idxMaterial] || ""
+        ).trim();
+
+
+      if (!material) {
+        return;
+      }
+
+
+      /*
+       * Aunque la hoja debería estar totalizada,
+       * acumulamos por seguridad.
+       *
+       * Así el sistema sigue funcionando si por error
+       * aparece el mismo material más de una vez.
+       */
+      if (
+        !mapa[material]
+      ) {
+
+        mapa[material] = {
+
+          material:
+            material,
+
+          descripcion:
+            idxDescripcion !== -1
+              ? String(
+                  fila[idxDescripcion] ||
+                  ""
+                ).trim()
+              : "",
+
+          umb:
+            idxUMB !== -1
+              ? numeroInventario_(
+                  fila[idxUMB]
+                )
+              : 0,
+
+          libre:
+            0,
+
+          calidad:
+            0,
+
+          bloqueado:
+            0
+
+        };
+
+      }
+
+
+      mapa[material].libre +=
+        numeroInventario_(
+          fila[idxLibre]
+        );
+
+
+      mapa[material].calidad +=
+        numeroInventario_(
+          fila[idxCalidad]
+        );
+
+
+      mapa[material].bloqueado +=
+        numeroInventario_(
+          fila[idxBloqueado]
+        );
+
+    });
+
+
+  return mapa;
+
+}
+
+
+// ======================================================
+// CONFIGURACIÓN
+// ======================================================
+
+function obtenerConfiguracionInventarios_() {
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+
+  const hoja =
+    ss.getSheetByName(
+      "Configuracion"
+    ) ||
+    ss.getSheetByName(
+      "Configuración"
+    );
+
+
+  const valoresDefecto = {
+
+    diasCritico:
+      2,
+
+    diasBajo:
+      5,
+
+    diasNormal:
+      10,
+
+    diasSobreStock:
+      30,
+
+    porcentajeBloqueadoAlerta:
+      25
+
+  };
+
+
+  if (!hoja) {
+
+    return valoresDefecto;
+
+  }
+
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  const mapa = {};
+
+
+  datos.forEach(fila => {
+
+    const clave =
+      String(
+        fila[0] || ""
+      ).trim();
+
+    const valor =
+      String(
+        fila[1] || ""
+      ).trim();
+
+
+    if (
+      clave
+    ) {
+
+      mapa[clave] =
+        valor;
+
+    }
+
+  });
+
+
+  return {
+
+    diasCritico:
+      numeroConfiguracionInventario_(
+        mapa[
+          "Inventario_Dias_Critico"
+        ],
+        valoresDefecto.diasCritico
+      ),
+
+    diasBajo:
+      numeroConfiguracionInventario_(
+        mapa[
+          "Inventario_Dias_Bajo"
+        ],
+        valoresDefecto.diasBajo
+      ),
+
+    diasNormal:
+      numeroConfiguracionInventario_(
+        mapa[
+          "Inventario_Dias_Normal"
+        ],
+        valoresDefecto.diasNormal
+      ),
+
+    diasSobreStock:
+      numeroConfiguracionInventario_(
+        mapa[
+          "Inventario_Dias_SobreStock"
+        ],
+        valoresDefecto.diasSobreStock
+      ),
+
+    porcentajeBloqueadoAlerta:
+      numeroConfiguracionInventario_(
+        mapa[
+          "Inventario_Porcentaje_Bloqueado_Alerta"
+        ],
+        valoresDefecto
+          .porcentajeBloqueadoAlerta
+      )
+
+  };
+
+}
+
+
+// ======================================================
+// CLASIFICAR COBERTURA
+// ======================================================
+
+function clasificarCoberturaInventario_(
+  datos
+) {
+
+  const libreTotal =
+    numeroInventario_(
+      datos.libreTotal
+    );
+
+  const promedioVentas =
+    numeroInventario_(
+      datos.promedioVentas
+    );
+
+  const diasCobertura =
+    datos.diasCobertura;
+
+  const porcentajeBloqueado =
+    numeroInventario_(
+      datos.porcentajeBloqueado
+    );
+
+  const config =
+    datos.configuracion || {};
+
+
+  const resultado = {
+
+    estado:
+      "Normal",
+
+    prioridad:
+      5,
+
+    color:
+      "verde",
+
+    alerta:
+      "",
+
+    sinRotacion:
+      false,
+
+    agotado:
+      false,
+
+    alertaBloqueado:
+      false
+
+  };
+
+
+  // ==================================================
+  // AGOTADO
+  // ==================================================
+
+  if (
+    libreTotal <= 0 &&
+    promedioVentas > 0
+  ) {
+
+    resultado.estado =
+      "Agotado";
+
+    resultado.prioridad =
+      1;
+
+    resultado.color =
+      "rojo";
+
+    resultado.alerta =
+      "Sin inventario disponible.";
+
+    resultado.agotado =
+      true;
+
+  }
+
+
+  // ==================================================
+  // SIN ROTACIÓN
+  // ==================================================
+
+  else if (
+    promedioVentas <= 0 &&
+    libreTotal > 0
+  ) {
+
+    resultado.estado =
+      "Sin rotación";
+
+    resultado.prioridad =
+      7;
+
+    resultado.color =
+      "gris";
+
+    resultado.alerta =
+      "Inventario disponible sin promedio de ventas.";
+
+    resultado.sinRotacion =
+      true;
+
+  }
+
+
+  // ==================================================
+  // SIN INVENTARIO Y SIN PROMEDIO
+  // ==================================================
+
+  else if (
+    promedioVentas <= 0 &&
+    libreTotal <= 0
+  ) {
+
+    resultado.estado =
+      "Sin movimiento";
+
+    resultado.prioridad =
+      8;
+
+    resultado.color =
+      "gris";
+
+    resultado.alerta =
+      "Material sin inventario ni promedio de ventas.";
+
+  }
+
+
+  // ==================================================
+  // COBERTURA
+  // ==================================================
+
+  else if (
+    diasCobertura !== null
+  ) {
+
+
+    if (
+      diasCobertura <=
+      config.diasCritico
+    ) {
+
+      resultado.estado =
+        "Crítico";
+
+      resultado.prioridad =
+        2;
+
+      resultado.color =
+        "rojo";
+
+      resultado.alerta =
+        "Cobertura crítica de inventario.";
+
+    }
+
+
+    else if (
+      diasCobertura <=
+      config.diasBajo
+    ) {
+
+      resultado.estado =
+        "Bajo";
+
+      resultado.prioridad =
+        3;
+
+      resultado.color =
+        "naranja";
+
+      resultado.alerta =
+        "Cobertura baja de inventario.";
+
+    }
+
+
+    else if (
+      diasCobertura <=
+      config.diasNormal
+    ) {
+
+      resultado.estado =
+        "Normal";
+
+      resultado.prioridad =
+        4;
+
+      resultado.color =
+        "verde";
+
+    }
+
+
+    else if (
+      diasCobertura >
+      config.diasSobreStock
+    ) {
+
+      resultado.estado =
+        "Sobrestock";
+
+      resultado.prioridad =
+        6;
+
+      resultado.color =
+        "azul";
+
+      resultado.alerta =
+        "Cobertura superior al límite de sobrestock.";
+
+    }
+
+
+    else {
+
+      resultado.estado =
+        "Cobertura alta";
+
+      resultado.prioridad =
+        5;
+
+      resultado.color =
+        "azul";
+
+    }
+
+  }
+
+
+  // ==================================================
+  // ALERTA DE BLOQUEADO
+  // ==================================================
+
+  if (
+    porcentajeBloqueado >=
+    config.porcentajeBloqueadoAlerta
+  ) {
+
+    resultado.alertaBloqueado =
+      true;
+
+  }
+
+
+  return resultado;
+
+}
+
+
+// ======================================================
+// KPIs
+// ======================================================
+
+function calcularKPIsInventario_(
+  registros
+) {
+
+  const kpis = {
+
+    totalMateriales:
+      registros.length,
+
+    agotados:
+      0,
+
+    criticos:
+      0,
+
+    bajos:
+      0,
+
+    normales:
+      0,
+
+    coberturaAlta:
+      0,
+
+    sobrestock:
+      0,
+
+    sinRotacion:
+      0,
+
+    alertaBloqueado:
+      0,
+
+
+    // ----------------------------------------------
+    // UNIDADES
+    // ----------------------------------------------
+
+    unidadesLibres:
+      0,
+
+    unidadesCalidad:
+      0,
+
+    unidadesBloqueadas:
+      0,
+
+    unidadesFisicas:
+      0,
+
+
+    // ----------------------------------------------
+    // CAJAS
+    // ----------------------------------------------
+
+    cajasLibres:
+      0,
+
+
+    // ----------------------------------------------
+    // VALORES
+    // ----------------------------------------------
+
+    valorInventarioLibre:
+      0,
+
+    valorInventarioFisico:
+      0,
+
+    valorInventarioBloqueado:
+      0,
+
+    valorInventarioCalidad:
+      0
+
+  };
+
+
+  registros.forEach(item => {
+
+    const estado =
+      String(
+        item.estadoCobertura || ""
+      ).trim();
+
+
+    switch (
+      estado
+    ) {
+
+      case "Agotado":
+
+        kpis.agotados++;
+
+        break;
+
+
+      case "Crítico":
+
+        kpis.criticos++;
+
+        break;
+
+
+      case "Bajo":
+
+        kpis.bajos++;
+
+        break;
+
+
+      case "Normal":
+
+        kpis.normales++;
+
+        break;
+
+
+      case "Cobertura alta":
+
+        kpis.coberturaAlta++;
+
+        break;
+
+
+      case "Sobrestock":
+
+        kpis.sobrestock++;
+
+        break;
+
+
+      case "Sin rotación":
+
+        kpis.sinRotacion++;
+
+        break;
+
+    }
+
+
+    if (
+      item.alertaBloqueado
+    ) {
+
+      kpis.alertaBloqueado++;
+
+    }
+
+
+    kpis.unidadesLibres +=
+      numeroInventario_(
+        item.total.libre
+      );
+
+
+    kpis.unidadesCalidad +=
+      numeroInventario_(
+        item.total.calidad
+      );
+
+
+    kpis.unidadesBloqueadas +=
+      numeroInventario_(
+        item.total.bloqueado
+      );
+
+
+    kpis.unidadesFisicas +=
+      numeroInventario_(
+        item.total.fisico
+      );
+
+
+    kpis.cajasLibres +=
+      numeroInventario_(
+        item.total.cajasLibres
+      );
+
+
+    kpis.valorInventarioLibre +=
+      numeroInventario_(
+        item.valorInventarioLibre
+      );
+
+
+    kpis.valorInventarioFisico +=
+      numeroInventario_(
+        item.valorInventarioFisico
+      );
+
+
+    kpis.valorInventarioBloqueado +=
+      numeroInventario_(
+        item.valorInventarioBloqueado
+      );
+
+
+    kpis.valorInventarioCalidad +=
+      numeroInventario_(
+        item.valorInventarioCalidad
+      );
+
+  });
+
+
+  kpis.cajasLibres =
+    redondearInventario_(
+      kpis.cajasLibres,
+      2
+    );
+
+
+  kpis.valorInventarioLibre =
+    redondearInventario_(
+      kpis.valorInventarioLibre,
+      2
+    );
+
+
+  kpis.valorInventarioFisico =
+    redondearInventario_(
+      kpis.valorInventarioFisico,
+      2
+    );
+
+
+  kpis.valorInventarioBloqueado =
+    redondearInventario_(
+      kpis.valorInventarioBloqueado,
+      2
+    );
+
+
+  kpis.valorInventarioCalidad =
+    redondearInventario_(
+      kpis.valorInventarioCalidad,
+      2
+    );
+
+
+  return kpis;
+
+}
+
+
+// ======================================================
+// INVENTARIO VACÍO
+// ======================================================
+
+function crearInventarioCentroVacio_() {
+
+  return {
+
+    material:
+      "",
+
+    descripcion:
+      "",
+
+    umb:
+      0,
+
+    libre:
+      0,
+
+    calidad:
+      0,
+
+    bloqueado:
+      0
+
+  };
+
+}
+
+
+// ======================================================
+// UTILIDADES
+// ======================================================
+
+function numeroInventario_(
+  valor
+) {
+
+  if (
+    valor === null ||
+    valor === undefined ||
+    valor === ""
+  ) {
+
+    return 0;
+
+  }
+
+
+  if (
+    typeof valor === "number"
+  ) {
+
+    return Number.isFinite(
+      valor
+    )
+      ? valor
+      : 0;
+
+  }
+
+
+  let texto =
+    String(
+      valor
+    )
+      .trim()
+      .replace(/\s/g, "");
+
+
+  if (!texto) {
+
+    return 0;
+
+  }
+
+
+  /*
+   * Si tiene coma y punto, asumimos:
+   * 1,234.56
+   */
+  if (
+    texto.includes(",") &&
+    texto.includes(".")
+  ) {
+
+    texto =
+      texto.replace(
+        /,/g,
+        ""
+      );
+
+  }
+
+
+  /*
+   * Si solo tiene coma, puede venir como
+   * decimal en formato regional.
+   */
+  else if (
+    texto.includes(",") &&
+    !texto.includes(".")
+  ) {
+
+    texto =
+      texto.replace(
+        ",",
+        "."
+      );
+
+  }
+
+
+  const numero =
+    Number(
+      texto
+    );
+
+
+  return Number.isFinite(
+    numero
+  )
+    ? numero
+    : 0;
+
+}
+
+
+function numeroConfiguracionInventario_(
+  valor,
+  defecto
+) {
+
+  const numero =
+    numeroInventario_(
+      valor
+    );
+
+
+  return numero > 0
+    ? numero
+    : defecto;
+
+}
+
+
+function redondearInventario_(
+  valor,
+  decimales
+) {
+
+  const numero =
+    numeroInventario_(
+      valor
+    );
+
+
+  const precision =
+    Number.isFinite(
+      Number(decimales)
+    )
+      ? Number(decimales)
+      : 2;
+
+
+  const factor =
+    Math.pow(
+      10,
+      precision
+    );
+
+
+  return (
+    Math.round(
+      numero *
+      factor
+    ) /
+    factor
+  );
+
+}
+
+
+function obtenerValorColumnaInventario_(
+  fila,
+  indice
+) {
+
+  if (
+    indice === -1 ||
+    indice === null ||
+    indice === undefined
+  ) {
+
+    return "";
+
+  }
+
+
+  return fila[indice];
+
+}
+
+function probarPrioridadesDespachoPaginadas() {
+
+  const resultado =
+    obtenerPrioridadesDespacho({
+
+      limite:
+        10,
+
+      desplazamiento:
+        0,
+
+      busqueda:
+        "",
+
+      prioridad:
+        "",
+
+      um:
+        "",
+
+      orden:
+        "prioridad"
+
+    });
+
+
+  const contenido =
+    JSON.parse(
+      resultado.getContent()
+    );
+
+
+  console.log(
+    JSON.stringify(
+      {
+
+        cantidad:
+          contenido.data.registros.length,
+
+        total:
+          contenido.data.total,
+
+        totalPrioridades:
+          contenido.data.totalPrioridades,
+
+        limite:
+          contenido.data.limite,
+
+        desplazamiento:
+          contenido.data.desplazamiento,
+
+        siguienteDesplazamiento:
+          contenido.data
+            .siguienteDesplazamiento,
+
+        hayMas:
+          contenido.data.hayMas,
+
+        resumen:
+          contenido.data.resumen,
+
+        alertaDespacho:
+          contenido.data.alertaDespacho,
+
+        configuracion:
+          contenido.data.configuracion,
+
+        primerRegistro:
+          contenido.data.registros[0] ||
+          null
+
+      },
+      null,
+      2
+    )
+  );
+
+}

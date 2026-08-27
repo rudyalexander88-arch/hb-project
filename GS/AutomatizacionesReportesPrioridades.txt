@@ -1,0 +1,797 @@
+/**
+ * ============================================================
+ * AUTOMATIZACIONESREPORTESPRIORIDADES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Crear y eliminar los triggers de reportes de Prioridades.
+ * - Enviar el reporte semanal.
+ * - Comprobar y enviar el reporte mensual el último día del mes.
+ *
+ * Configuraciones:
+ * - Enviar_Reporte_Prioridades
+ * - Correos_Reportes_Prioridades
+ *
+ * - Enviar_Reporte_Prioridades_Semanal
+ * - Dia_Reporte_Prioridades_Semanal
+ * - Hora_Reporte_Prioridades_Semanal
+ *
+ * - Enviar_Reporte_Prioridades_Mensual
+ * - Dia_Reporte_Prioridades_Mensual
+ * - Hora_Reporte_Prioridades_Mensual
+ * ============================================================
+ */
+
+
+const FUNCIONES_REPORTES_PRIORIDADES_ = [
+
+  "temporizadorReportePrioridadesSemanal",
+
+  "temporizadorReportePrioridadesMensual"
+
+];
+
+
+/**
+ * Crea o recrea los temporizadores semanal y mensual.
+ *
+ * Ejecutar manualmente una vez.
+ *
+ * @return {Object}
+ */
+function configurarTemporizadoresReportesPrioridades() {
+
+  const eliminacion =
+    eliminarTemporizadoresReportesPrioridades();
+
+
+  const generalActivo =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Prioridades",
+        "NO"
+      )
+    );
+
+
+  if (!generalActivo) {
+
+    const resultado = {
+
+      exito:
+        true,
+
+      creados:
+        [],
+
+      eliminados:
+        eliminacion.eliminados,
+
+      mensaje:
+        "Los reportes de Prioridades están desactivados mediante Enviar_Reporte_Prioridades."
+
+    };
+
+
+    console.log(
+      JSON.stringify(
+        resultado,
+        null,
+        2
+      )
+    );
+
+
+    return resultado;
+
+  }
+
+
+  const zonaHoraria =
+    obtenerZonaHorariaAutomatizaciones_();
+
+
+  const creados =
+    [];
+
+
+  // ========================================================
+  // REPORTE SEMANAL
+  // ========================================================
+
+  const semanalActivo =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Prioridades_Semanal",
+        "NO"
+      )
+    );
+
+
+  if (semanalActivo) {
+
+    const diaSemanal =
+      obtenerConfiguracionAutomatizaciones_(
+        "Dia_Reporte_Prioridades_Semanal",
+        "VIERNES"
+      );
+
+
+    const horaSemanal =
+      obtenerHoraAutomatizacion_(
+        "Hora_Reporte_Prioridades_Semanal",
+        "18:00"
+      );
+
+
+    const diaSemana =
+      convertirDiaSemanaPrioridades_(
+        diaSemanal
+      );
+
+
+    const triggerSemanal =
+      ScriptApp
+        .newTrigger(
+          "temporizadorReportePrioridadesSemanal"
+        )
+        .timeBased()
+        .onWeekDay(
+          diaSemana
+        )
+        .atHour(
+          horaSemanal.hora
+        )
+        .nearMinute(
+          horaSemanal.minuto
+        )
+        .everyWeeks(1)
+        .inTimezone(
+          zonaHoraria
+        )
+        .create();
+
+
+    creados.push({
+
+      tipo:
+        "SEMANAL",
+
+      funcion:
+        "temporizadorReportePrioridadesSemanal",
+
+      dia:
+        String(
+          diaSemanal || ""
+        ).trim(),
+
+      hora:
+        formatearHoraTemporizadorPrioridades_(
+          horaSemanal
+        ),
+
+      idUnico:
+        triggerSemanal.getUniqueId()
+
+    });
+
+  }
+
+
+  // ========================================================
+  // REPORTE MENSUAL
+  // ========================================================
+
+  const mensualActivo =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Prioridades_Mensual",
+        "NO"
+      )
+    );
+
+
+  if (mensualActivo) {
+
+    const horaMensual =
+      obtenerHoraAutomatizacion_(
+        "Hora_Reporte_Prioridades_Mensual",
+        "18:00"
+      );
+
+
+    /*
+     * El último día cambia entre 28, 29, 30 y 31.
+     *
+     * Por eso el trigger se ejecuta diariamente,
+     * pero la función solo envía si hoy es el último
+     * día del mes.
+     */
+    const triggerMensual =
+      ScriptApp
+        .newTrigger(
+          "temporizadorReportePrioridadesMensual"
+        )
+        .timeBased()
+        .atHour(
+          horaMensual.hora
+        )
+        .nearMinute(
+          horaMensual.minuto
+        )
+        .everyDays(1)
+        .inTimezone(
+          zonaHoraria
+        )
+        .create();
+
+
+    creados.push({
+
+      tipo:
+        "MENSUAL",
+
+      funcion:
+        "temporizadorReportePrioridadesMensual",
+
+      dia:
+        "ULTIMO_DIA",
+
+      hora:
+        formatearHoraTemporizadorPrioridades_(
+          horaMensual
+        ),
+
+      idUnico:
+        triggerMensual.getUniqueId()
+
+    });
+
+  }
+
+
+  const resultado = {
+
+    exito:
+      true,
+
+    eliminados:
+      eliminacion.eliminados,
+
+    totalCreados:
+      creados.length,
+
+    zonaHoraria:
+      zonaHoraria,
+
+    creados:
+      creados
+
+  };
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+
+/**
+ * Elimina únicamente los triggers de reportes
+ * de Prioridades.
+ *
+ * No elimina el trigger del cierre de las 17:30.
+ *
+ * @return {Object}
+ */
+function eliminarTemporizadoresReportesPrioridades() {
+
+  const triggers =
+    ScriptApp.getProjectTriggers();
+
+
+  let eliminados =
+    0;
+
+
+  triggers.forEach(
+    function(trigger) {
+
+      const funcion =
+        trigger.getHandlerFunction();
+
+
+      if (
+        FUNCIONES_REPORTES_PRIORIDADES_
+          .indexOf(
+            funcion
+          ) !== -1
+      ) {
+
+        ScriptApp.deleteTrigger(
+          trigger
+        );
+
+
+        eliminados++;
+
+      }
+
+    }
+  );
+
+
+  return {
+
+    exito:
+      true,
+
+    eliminados:
+      eliminados
+
+  };
+
+}
+
+
+/**
+ * Lista los triggers automáticos de los reportes.
+ *
+ * @return {Object}
+ */
+function listarTemporizadoresReportesPrioridades() {
+
+  const lista =
+    ScriptApp
+      .getProjectTriggers()
+      .filter(
+        function(trigger) {
+
+          return (
+            FUNCIONES_REPORTES_PRIORIDADES_
+              .indexOf(
+                trigger.getHandlerFunction()
+              ) !== -1
+          );
+
+        }
+      )
+      .map(
+        function(trigger) {
+
+          return {
+
+            funcion:
+              trigger.getHandlerFunction(),
+
+            evento:
+              String(
+                trigger.getEventType()
+              ),
+
+            idUnico:
+              trigger.getUniqueId()
+
+          };
+
+        }
+      );
+
+
+  const resultado = {
+
+    exito:
+      true,
+
+    total:
+      lista.length,
+
+    temporizadores:
+      lista
+
+  };
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+
+/**
+ * Trigger del reporte semanal.
+ *
+ * Envía desde el lunes hasta el día actual.
+ *
+ * @return {Object}
+ */
+function temporizadorReportePrioridadesSemanal() {
+
+  validarEnvioGeneralReportePrioridades_();
+
+
+  const semanalActivo =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Prioridades_Semanal",
+        "NO"
+      )
+    );
+
+
+  if (!semanalActivo) {
+
+    return {
+
+      exito:
+        true,
+
+      enviado:
+        false,
+
+      motivo:
+        "El reporte semanal está desactivado."
+
+    };
+
+  }
+
+
+  const resultado =
+    enviarReportePrioridadesInterno_({
+
+      periodo:
+        "semana"
+
+    });
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+
+/**
+ * Trigger de comprobación mensual.
+ *
+ * Se ejecuta cada día a la hora configurada,
+ * pero solamente envía el último día del mes.
+ *
+ * @return {Object}
+ */
+function temporizadorReportePrioridadesMensual() {
+
+  validarEnvioGeneralReportePrioridades_();
+
+
+  const mensualActivo =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Prioridades_Mensual",
+        "NO"
+      )
+    );
+
+
+  if (!mensualActivo) {
+
+    return {
+
+      exito:
+        true,
+
+      enviado:
+        false,
+
+      motivo:
+        "El reporte mensual está desactivado."
+
+    };
+
+  }
+
+
+  const zonaHoraria =
+    obtenerZonaHorariaAutomatizaciones_();
+
+
+  const ahora =
+    new Date();
+
+
+  const hoy =
+    Number(
+      Utilities.formatDate(
+        ahora,
+        zonaHoraria,
+        "d"
+      )
+    );
+
+
+  const ultimoDiaMes =
+    Number(
+      Utilities.formatDate(
+        new Date(
+          ahora.getFullYear(),
+          ahora.getMonth() + 1,
+          0
+        ),
+        zonaHoraria,
+        "d"
+      )
+    );
+
+
+  if (
+    hoy !== ultimoDiaMes
+  ) {
+
+    const resultadoNoAplica = {
+
+      exito:
+        true,
+
+      enviado:
+        false,
+
+      fecha:
+        Utilities.formatDate(
+          ahora,
+          zonaHoraria,
+          "dd/MM/yyyy"
+        ),
+
+      motivo:
+        "Hoy no es el último día del mes."
+
+    };
+
+
+    console.log(
+      JSON.stringify(
+        resultadoNoAplica,
+        null,
+        2
+      )
+    );
+
+
+    return resultadoNoAplica;
+
+  }
+
+
+  const resultado =
+    enviarReportePrioridadesInterno_({
+
+      periodo:
+        "mes"
+
+    });
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+
+/**
+ * Comprueba el interruptor general y los destinatarios.
+ */
+function validarEnvioGeneralReportePrioridades_() {
+
+  const generalActivo =
+    esConfiguracionActivaPrioridades_(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_Prioridades",
+        "NO"
+      )
+    );
+
+
+  if (!generalActivo) {
+
+    throw new Error(
+      'El envío está desactivado mediante "Enviar_Reporte_Prioridades".'
+    );
+
+  }
+
+
+  const correos =
+    obtenerConfiguracionAutomatizaciones_(
+      "Correos_Reportes_Prioridades",
+      ""
+    );
+
+
+  const destinatarios =
+    normalizarCorreosReportePrioridades_(
+      correos
+    );
+
+
+  if (
+    destinatarios.length === 0
+  ) {
+
+    throw new Error(
+      'No existen correos válidos en "Correos_Reportes_Prioridades".'
+    );
+
+  }
+
+}
+
+
+/**
+ * Convierte el nombre del día a ScriptApp.WeekDay.
+ *
+ * @param {*} valor
+ * @return {ScriptApp.WeekDay}
+ */
+function convertirDiaSemanaPrioridades_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    )
+      .trim()
+      .toUpperCase()
+      .normalize(
+        "NFD"
+      )
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      );
+
+
+  const dias = {
+
+    DOMINGO:
+      ScriptApp.WeekDay.SUNDAY,
+
+    LUNES:
+      ScriptApp.WeekDay.MONDAY,
+
+    MARTES:
+      ScriptApp.WeekDay.TUESDAY,
+
+    MIERCOLES:
+      ScriptApp.WeekDay.WEDNESDAY,
+
+    JUEVES:
+      ScriptApp.WeekDay.THURSDAY,
+
+    VIERNES:
+      ScriptApp.WeekDay.FRIDAY,
+
+    SABADO:
+      ScriptApp.WeekDay.SATURDAY
+
+  };
+
+
+  if (!dias[texto]) {
+
+    throw new Error(
+      'El día "' +
+      valor +
+      '" no es válido para el reporte semanal.'
+    );
+
+  }
+
+
+  return dias[texto];
+
+}
+
+
+/**
+ * Formatea un objeto de hora.
+ */
+function formatearHoraTemporizadorPrioridades_(
+  hora
+) {
+
+  return String(
+    hora.hora
+  ).padStart(
+    2,
+    "0"
+  ) +
+  ":" +
+  String(
+    hora.minuto
+  ).padStart(
+    2,
+    "0"
+  );
+
+}
+
+
+/**
+ * Prueba manual del reporte semanal.
+ *
+ * Envía un correo real.
+ */
+function probarReportePrioridadesSemanal() {
+
+  return temporizadorReportePrioridadesSemanal();
+
+}
+
+
+/**
+ * Prueba manual mensual.
+ *
+ * Esta prueba fuerza el envío sin comprobar
+ * si hoy es el último día del mes.
+ */
+function probarReportePrioridadesMensualForzado() {
+
+  validarEnvioGeneralReportePrioridades_();
+
+
+  const resultado =
+    enviarReportePrioridadesInterno_({
+
+      periodo:
+        "mes"
+
+    });
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}

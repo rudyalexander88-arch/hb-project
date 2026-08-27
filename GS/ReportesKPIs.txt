@@ -1,0 +1,955 @@
+/**
+ * REPORTESKPIS.GS
+ * Resumen complementario para Reportes & KPIs.
+ *
+ * Lee las verificaciones de recepción y prepara salidas PDF/PPTX.
+ * Los documentos temporales usados para exportar se eliminan al terminar.
+ */
+
+function obtenerComplementoReportesKPI(data) {
+  try {
+    data = data || {};
+    const usuario = reportesKpiValidarAcceso_(data);
+    const correosConfigurados = reportesKpiCorreosConfigurados_();
+    const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+    const hoja = libro.getSheetByName("Verificaciones_Recepciones");
+
+    if (!hoja || hoja.getLastRow() < 2) {
+      return respuesta({
+        ok: true,
+        data: reportesKpiRespuestaVacia_(usuario, correosConfigurados)
+      });
+    }
+
+    const tabla = reportesKpiLeerTabla_(hoja);
+    const desde = reportesKpiFechaLimite_(data.fechaDesde, false);
+    const hasta = reportesKpiFechaLimite_(data.fechaHasta, true);
+    const filas = tabla.filas.filter(function (fila) {
+      if (!desde && !hasta) return true;
+      const valor = reportesKpiValor_(fila, tabla.mapa, [
+        "Fecha_Verificacion",
+        "Fecha_Creacion",
+        "Fecha"
+      ]);
+      const fecha = reportesKpiFecha_(valor);
+      if (!fecha) return false;
+      return (!desde || fecha >= desde) && (!hasta || fecha <= hasta);
+    });
+
+    const resumen = {
+      totalVerificaciones: filas.length,
+      conDesviacion: 0,
+      montoTotal: 0,
+      montoCorregido: 0,
+      montoPendiente: 0,
+      tasaError: 0,
+      resolucionPorcentaje: 0
+    };
+    const responsablesProduccion = {};
+    const responsablesPT = {};
+    const evolucion = {};
+
+    filas.forEach(function (fila) {
+      const montoOriginal = Math.abs(reportesKpiNumero_(reportesKpiValor_(fila, tabla.mapa, [
+        "Valor_Desviacion_Original",
+        "Valor_Desviacion",
+        "Monto_Desviacion"
+      ])));
+      let montoCorregido = Math.abs(reportesKpiNumero_(reportesKpiValor_(fila, tabla.mapa, [
+        "Valor_Corregido",
+        "Monto_Corregido"
+      ])));
+      let montoPendiente = Math.abs(reportesKpiNumero_(reportesKpiValor_(fila, tabla.mapa, [
+        "Valor_Pendiente",
+        "Monto_Pendiente"
+      ])));
+
+      if (montoOriginal > 0 && montoCorregido <= 0 && montoPendiente <= montoOriginal) {
+        montoCorregido = Math.max(0, montoOriginal - montoPendiente);
+      }
+      if (montoOriginal > 0 && montoPendiente <= 0 && montoCorregido <= montoOriginal) {
+        montoPendiente = Math.max(0, montoOriginal - montoCorregido);
+      }
+
+      const montoTotal = montoCorregido > 0 || montoPendiente > 0
+        ? montoCorregido + montoPendiente
+        : montoOriginal;
+
+      resumen.montoTotal += montoTotal;
+      resumen.montoCorregido += montoCorregido;
+      resumen.montoPendiente += montoPendiente;
+      if (montoTotal > 0) resumen.conDesviacion += 1;
+
+      reportesKpiAcumularResponsable_(
+        responsablesProduccion,
+        reportesKpiTexto_(reportesKpiValor_(fila, tabla.mapa, ["Responsable_Produccion_ID"])),
+        reportesKpiTexto_(reportesKpiValor_(fila, tabla.mapa, ["Responsable_Produccion_Nombre"])),
+        reportesKpiTexto_(reportesKpiValor_(fila, tabla.mapa, ["Linea_Produccion"])),
+        montoTotal,
+        montoCorregido,
+        montoPendiente
+      );
+
+      reportesKpiAcumularResponsable_(
+        responsablesPT,
+        reportesKpiTexto_(reportesKpiValor_(fila, tabla.mapa, ["Supervisor_PT_ID"])),
+        reportesKpiTexto_(reportesKpiValor_(fila, tabla.mapa, ["Supervisor_PT_Nombre"])),
+        "PT",
+        montoTotal,
+        montoCorregido,
+        montoPendiente
+      );
+
+      const fechaValor = reportesKpiValor_(fila, tabla.mapa, ["Fecha_Verificacion", "Fecha_Creacion", "Fecha"]);
+      const fecha = reportesKpiFecha_(fechaValor);
+      if (fecha) {
+        const clave = Utilities.formatDate(fecha, Session.getScriptTimeZone(), "yyyy-MM-dd");
+        if (!evolucion[clave]) evolucion[clave] = {fecha: clave, total: 0, corregido: 0, pendiente: 0};
+        evolucion[clave].total += montoTotal;
+        evolucion[clave].corregido += montoCorregido;
+        evolucion[clave].pendiente += montoPendiente;
+      }
+    });
+
+    resumen.montoTotal = reportesKpiRedondear_(resumen.montoTotal);
+    resumen.montoCorregido = reportesKpiRedondear_(resumen.montoCorregido);
+    resumen.montoPendiente = reportesKpiRedondear_(resumen.montoPendiente);
+    resumen.tasaError = resumen.totalVerificaciones
+      ? reportesKpiRedondear_(resumen.conDesviacion / resumen.totalVerificaciones * 100)
+      : 0;
+    resumen.resolucionPorcentaje = resumen.montoTotal
+      ? reportesKpiRedondear_(resumen.montoCorregido / resumen.montoTotal * 100)
+      : 0;
+
+    return respuesta({
+      ok: true,
+      data: {
+        resumenRecepciones: resumen,
+        responsablesProduccion: reportesKpiOrdenarResponsables_(responsablesProduccion),
+        responsablesPT: reportesKpiOrdenarResponsables_(responsablesPT),
+        evolucionRecepciones: Object.keys(evolucion).sort().map(function (clave) {
+          const item = evolucion[clave];
+          item.total = reportesKpiRedondear_(item.total);
+          item.corregido = reportesKpiRedondear_(item.corregido);
+          item.pendiente = reportesKpiRedondear_(item.pendiente);
+          return item;
+        }),
+        periodo: {
+          fechaDesde: data.fechaDesde || "",
+          fechaHasta: data.fechaHasta || ""
+        },
+        correosConfigurados: correosConfigurados,
+        consultadoPor: usuario.nombre
+      }
+    });
+  } catch (error) {
+    console.error("Error en obtenerComplementoReportesKPI:", error);
+    return respuesta({ok: false, mensaje: error.message || String(error)});
+  }
+}
+
+/** Genera el resumen visible del tablero en PDF o PowerPoint. */
+function generarArchivoReportesKPI(data) {
+  try {
+    data = data || {};
+    reportesKpiValidarAcceso_(data);
+    const archivo = reportesKpiCrearArchivo_(data);
+    return respuesta({
+      ok: true,
+      archivo: {
+        nombre: archivo.getName(),
+        mimeType: archivo.getContentType(),
+        base64: Utilities.base64Encode(archivo.getBytes())
+      }
+    });
+  } catch (error) {
+    console.error("Error en generarArchivoReportesKPI:", error);
+    return respuesta({ok: false, mensaje: error.message || String(error)});
+  }
+}
+
+/** Envía el PDF o PPTX al correo indicado o al correo definido en Configuración. */
+function enviarArchivoReportesKPI(data) {
+  try {
+    data = data || {};
+    const usuario = reportesKpiValidarAcceso_(data);
+    const correo = reportesKpiResolverCorreo_(data.correo);
+    const archivo = reportesKpiCrearArchivo_(data);
+    const resumen = reportesKpiNormalizarResumen_(data.resumen);
+    MailApp.sendEmail({
+      to: correo,
+      name: "Sistema Logístico PT",
+      subject: "Reportes & KPIs - " + (resumen.periodo || "corte actual"),
+      htmlBody: reportesKpiCuerpoCorreo_(resumen, usuario),
+      attachments: [archivo]
+    });
+    return respuesta({ok: true, correo: correo, nombre: archivo.getName()});
+  } catch (error) {
+    console.error("Error en enviarArchivoReportesKPI:", error);
+    return respuesta({ok: false, mensaje: error.message || String(error)});
+  }
+}
+
+function reportesKpiCuerpoCorreo_(resumen, usuario) {
+  const logo = reportesKpiValorConfiguracion_(["LOGOURL", "LOGO URL", "LOGO DOCUMENTOS", "LOGO"]);
+  const marca = logo
+    ? '<img src="' + reportesKpiEscaparHtml_(logo) + '" alt="Helados BON" style="width:64px;max-height:64px;object-fit:contain">'
+    : '<div style="display:inline-block;padding:14px 12px;border-radius:50%;background:#d71920;color:#fff;font-weight:900">BON</div>';
+  return '<div style="margin:0;background:#eef1f4;padding:22px;font-family:Arial,sans-serif;color:#202a35">' +
+    '<table role="presentation" style="width:100%;max-width:680px;margin:auto;border-collapse:collapse;background:#fff;border-top:7px solid #d71920">' +
+    '<tr><td style="padding:18px 20px;width:78px">' + marca + '</td>' +
+    '<td style="padding:18px 10px"><div style="font-size:12px;color:#d71920;font-weight:800;letter-spacing:.08em">SISTEMA LOGÍSTICO PT</div>' +
+    '<h1 style="margin:5px 0 0;font-size:22px">Reportes &amp; KPIs</h1></td>' +
+    '<td style="padding:18px 20px;text-align:right;font-size:11px;color:#687386">Período<br><b style="color:#202a35">' + reportesKpiEscaparHtml_(resumen.periodo || "Corte actual") + '</b></td></tr>' +
+    '<tr><td colspan="3" style="padding:0 20px"><div style="height:2px;background:linear-gradient(90deg,#d71920,#f7941d,#008f4c)"></div></td></tr>' +
+    '<tr><td colspan="3" style="padding:22px 20px"><p style="margin:0 0 10px">Saludos,</p>' +
+    '<p style="margin:0;line-height:1.55">Se adjunta el reporte departamental con los indicadores, gráficos y detalle correspondientes al corte <b>' +
+    reportesKpiEscaparHtml_(resumen.corte || resumen.periodo || "actual") + '</b>.</p>' +
+    '<p style="margin:18px 0 0;color:#687386;font-size:11px">Generado por ' + reportesKpiEscaparHtml_(usuario.nombre) + ' desde el Sistema Logístico Productos Terminados.</p></td></tr>' +
+    '</table></div>';
+}
+
+function reportesKpiCrearArchivo_(data) {
+  const formato = reportesKpiClave_(data.formato || "PDF").replace(/\s/g, "");
+  const resumen = reportesKpiNormalizarResumen_(data.resumen);
+  if (formato === "PDF") return reportesKpiCrearPdf_(resumen);
+  if (formato === "PPT" || formato === "PPTX" || formato === "POWERPOINT") {
+    return reportesKpiCrearPptx_(resumen);
+  }
+  throw new Error("Formato no permitido. Seleccione PDF o PowerPoint.");
+}
+
+function reportesKpiNormalizarResumen_(valor) {
+  const origen = valor && typeof valor === "object" ? valor : {};
+  const limpiar = function (texto, limite) {
+    return reportesKpiTexto_(texto).replace(/[\u0000-\u001F\u007F]/g, " ").slice(0, limite);
+  };
+  const indicadores = Array.isArray(origen.indicadores) ? origen.indicadores.slice(0, 40) : [];
+  const responsables = function (lista) {
+    return (Array.isArray(lista) ? lista : []).slice(0, 12).map(function (item) {
+      return {
+        nombre: limpiar(item && item.nombre, 100) || "Sin asignar",
+        montoTotal: reportesKpiNumero_(item && item.montoTotal),
+        montoCorregido: reportesKpiNumero_(item && item.montoCorregido),
+        montoPendiente: reportesKpiNumero_(item && item.montoPendiente),
+        casos: reportesKpiNumero_(item && item.casos)
+      };
+    });
+  };
+  const numero = function (valorNumero) { return reportesKpiNumero_(valorNumero); };
+  const origenMetricas = origen.metricas && typeof origen.metricas === "object" ? origen.metricas : {};
+  const normalizarMontos = function (montos) {
+    montos = montos && typeof montos === "object" ? montos : {};
+    return {total: numero(montos.total), corregido: numero(montos.corregido), pendiente: numero(montos.pendiente)};
+  };
+  const evolucion = function (lista, tipo) {
+    return (Array.isArray(lista) ? lista : []).slice(-16).map(function (item) {
+      item = item && typeof item === "object" ? item : {};
+      return tipo === "despacho" ? {
+        etiqueta: limpiar(item.etiqueta || item.fecha || item.periodo, 24),
+        exactitud: numero(item.tasaExactitud || item.exactitud),
+        error: numero(item.tasaError || item.error)
+      } : {
+        etiqueta: limpiar(item.fecha || item.etiqueta, 24),
+        total: numero(item.total),
+        corregido: numero(item.corregido),
+        pendiente: numero(item.pendiente)
+      };
+    }).filter(function (item) { return item.etiqueta; });
+  };
+  return {
+    titulo: limpiar(origen.titulo, 100) || "Reportes & KPIs",
+    periodo: limpiar(origen.periodo, 30),
+    corte: limpiar(origen.corte, 30),
+    generadoPor: limpiar(origen.generadoPor, 100),
+    generadoEn: limpiar(origen.generadoEn, 40),
+    metricas: {
+      exactitudDespacho: numero(origenMetricas.exactitudDespacho),
+      errorDespacho: numero(origenMetricas.errorDespacho),
+      errorRecepcion: numero(origenMetricas.errorRecepcion),
+      ocupacionCamaras: numero(origenMetricas.ocupacionCamaras),
+      metaDespachos: numero(origenMetricas.metaDespachos),
+      metaDecomiso: numero(origenMetricas.metaDecomiso),
+      desviacionesDespacho: normalizarMontos(origenMetricas.desviacionesDespacho),
+      desviacionesRecepcion: normalizarMontos(origenMetricas.desviacionesRecepcion)
+    },
+    evolucionDespacho: evolucion(origen.evolucionDespacho, "despacho"),
+    evolucionRecepcion: evolucion(origen.evolucionRecepcion, "recepcion"),
+    indicadores: indicadores.map(function (item) {
+      return {
+        nombre: limpiar(item && item.nombre, 120),
+        valor: limpiar(item && item.valor, 60),
+        detalle: limpiar(item && item.detalle, 180)
+      };
+    }).filter(function (item) { return item.nombre; }),
+    responsablesProduccion: responsables(origen.responsablesProduccion),
+    responsablesPT: responsables(origen.responsablesPT)
+  };
+}
+
+function reportesKpiCrearPdf_(resumen) {
+  if (typeof Documentos === "undefined" || !Documentos.crearDocumentoHTML) {
+    throw new Error("El motor Documentos.gs no está disponible.");
+  }
+
+  const configuracion = Documentos.obtenerConfiguracion();
+  const zonaHoraria = Session.getScriptTimeZone() || "America/Santo_Domingo";
+  const ahora = new Date();
+  const numeroDocumento = "KPI-" + Utilities.formatDate(ahora, zonaHoraria, "yyyyMMdd-HHmmss");
+  const logoEmpresa = Documentos.obtenerImagenDataUri(
+    configuracion.LogoURL || configuracion.LogoEmpresa || ""
+  );
+
+  const encabezado = Documentos.crearEncabezado({
+    empresa: configuracion.Empresa || "Helados Bon SRL",
+    direccion: configuracion.Ubicacion || configuracion.Direccion || "",
+    titulo: "REPORTE DE INDICADORES DEPARTAMENTALES",
+    version: "Reportes & KPIs",
+    referencia: "Período: " + (resumen.periodo || "Corte actual") +
+      " · Corte: " + (resumen.corte || "No informado"),
+    numeroDocumento: numeroDocumento,
+    etiquetaNumero: "No. Reporte",
+    logoPrincipal: logoEmpresa
+  });
+
+  const metricas = Documentos.crearMetricas([
+    {etiqueta: "Exactitud de despacho", valor: reportesKpiPorcentaje_(resumen.metricas.exactitudDespacho)},
+    {etiqueta: "Error en despacho", valor: reportesKpiPorcentaje_(resumen.metricas.errorDespacho)},
+    {etiqueta: "Error en recepción", valor: reportesKpiPorcentaje_(resumen.metricas.errorRecepcion)},
+    {etiqueta: "Ocupación de cámaras", valor: reportesKpiPorcentaje_(resumen.metricas.ocupacionCamaras)},
+    {etiqueta: "Meta de despachos", valor: reportesKpiPorcentaje_(resumen.metricas.metaDespachos)},
+    {etiqueta: "Meta de decomiso", valor: reportesKpiPorcentaje_(resumen.metricas.metaDecomiso)}
+  ], 3, "rk-doc-metricas");
+
+  const tarjetaMontos = function (titulo, montos) {
+    return Documentos.crearTarjeta(
+      titulo,
+      Documentos.crearDato("Monto total de desviaciones", reportesKpiMoneda_(montos.total)) +
+      Documentos.crearDato("Monto corregido", reportesKpiMoneda_(montos.corregido)) +
+      Documentos.crearDato("Monto pendiente", reportesKpiMoneda_(montos.pendiente)),
+      "rk-doc-control"
+    );
+  };
+
+  const controlMonetario = Documentos.crearTarjeta(
+    "Control monetario",
+    Documentos.crearGrid(
+      tarjetaMontos("Desviaciones de despacho", resumen.metricas.desviacionesDespacho) +
+      tarjetaMontos("Desviaciones de recepción", resumen.metricas.desviacionesRecepcion),
+      2
+    )
+  );
+
+  const graficasDefinidas = [
+    {titulo: "Indicadores porcentuales", grafica: reportesKpiGraficaPorcentajes_(resumen)},
+    {titulo: "Desviaciones monetarias", grafica: reportesKpiGraficaMontos_(resumen)},
+    {titulo: "Responsables de Producción", grafica: reportesKpiGraficaResponsables_(resumen.responsablesProduccion)},
+    {titulo: "Evolución de exactitud de despacho", grafica: reportesKpiGraficaEvolucion_(resumen.evolucionDespacho)}
+  ].filter(function (item) { return Boolean(item.grafica); });
+
+  const graficas = Documentos.crearTarjeta(
+    "Gráficas de desempeño",
+    '<div class="rk-doc-graficas">' + graficasDefinidas.map(function (item) {
+      return Documentos.crearTarjeta(
+        item.titulo,
+        Documentos.crearImagen(reportesKpiGraficaDataUri_(item.grafica), {
+          esDataUri: true,
+          textoAlterno: item.titulo,
+          claseAdicional: "rk-doc-grafica"
+        })
+      );
+    }).join("") + "</div>"
+  );
+
+  const filasIndicadores = resumen.indicadores.map(function (item) {
+    return [
+      item.nombre,
+      item.valor,
+      item.detalle
+    ];
+  });
+  const tablaIndicadores = Documentos.crearTarjeta(
+    "Detalle de indicadores",
+    Documentos.crearTabla(["Indicador", "Valor", "Detalle"], filasIndicadores, {
+      claseAdicional: "rk-doc-tabla-indicadores"
+    })
+  );
+
+  const tablaResponsables = function (titulo, lista) {
+    const filas = lista.map(function (item) {
+      return [
+        item.nombre,
+        reportesKpiMoneda_(item.montoTotal),
+        reportesKpiMoneda_(item.montoCorregido),
+        reportesKpiMoneda_(item.montoPendiente)
+      ];
+    });
+    return Documentos.crearTarjeta(
+      titulo,
+      filas.length
+        ? Documentos.crearTabla(["Responsable", "Monto total", "Corregido", "Pendiente"], filas, {
+            claseAdicional: "rk-doc-tabla-responsables"
+          })
+        : Documentos.crearDato("Resultado", "Sin registros para el período")
+    );
+  };
+
+  const detalleResponsables = Documentos.crearGrid(
+    tablaResponsables("Responsables de Producción", resumen.responsablesProduccion) +
+    tablaResponsables("Responsables PT", resumen.responsablesPT),
+    2
+  );
+
+  const firma = '<section class="rk-doc-firma">' +
+    '<span>Documento generado automáticamente</span>' +
+    '<strong>Generado por el Sistema Logístico PT</strong>' +
+    '<small>' + Documentos.escaparHTML(
+      Utilities.formatDate(ahora, zonaHoraria, "dd/MM/yyyy HH:mm")
+    ) + '</small></section>';
+
+  const pie = Documentos.crearPie({
+    empresa: configuracion.Empresa || "Helados Bon SRL",
+    sistema: "Sistema Logístico PT",
+    codigoDocumento: numeroDocumento,
+    textoAdicional: "Reporte departamental para consulta y toma de decisiones"
+  });
+
+  const contenido = encabezado + metricas + Documentos.crearEspaciador(7) +
+    controlMonetario + Documentos.crearEspaciador(7) + graficas +
+    '<div class="rk-doc-salto"></div>' + tablaIndicadores +
+    Documentos.crearEspaciador(7) + detalleResponsables + firma + pie;
+
+  const html = Documentos.crearDocumentoHTML({
+    tamano: "Letter",
+    orientacion: "horizontal",
+    contenido: contenido,
+    estilosAdicionales: `
+      .rk-doc-metricas{margin-bottom:3px}
+      .rk-doc-control .doc-dato{display:grid;grid-template-columns:1fr auto;gap:8px}
+      .rk-doc-control .doc-dato-valor{font-weight:800;color:#202a35}
+      .rk-doc-graficas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .rk-doc-graficas>.doc-tarjeta{margin:0;page-break-inside:avoid}
+      .rk-doc-grafica img{width:100%;max-height:205px;object-fit:contain}
+      .rk-doc-salto{page-break-before:always;height:1px}
+      .rk-doc-tabla-indicadores{table-layout:fixed}
+      .rk-doc-tabla-indicadores th:nth-child(1),.rk-doc-tabla-indicadores td:nth-child(1){width:31%}
+      .rk-doc-tabla-indicadores th:nth-child(2),.rk-doc-tabla-indicadores td:nth-child(2){width:18%;font-weight:700}
+      .rk-doc-tabla-indicadores th:nth-child(3),.rk-doc-tabla-indicadores td:nth-child(3){width:51%}
+      .rk-doc-tabla-responsables{table-layout:fixed}
+      .rk-doc-tabla-responsables th,.rk-doc-tabla-responsables td{font-size:6px}
+      .rk-doc-tabla-responsables th:first-child,.rk-doc-tabla-responsables td:first-child{width:39%}
+      .rk-doc-tabla-responsables th:not(:first-child),.rk-doc-tabla-responsables td:not(:first-child){width:20.33%;text-align:right}
+      .rk-doc-firma{margin:15px 0 8px;text-align:center;page-break-inside:avoid}
+      .rk-doc-firma:before{content:"";display:block;width:210px;margin:0 auto 5px;border-top:1px solid #687386}
+      .rk-doc-firma span,.rk-doc-firma small{display:block;color:#687386;font-size:6px}
+      .rk-doc-firma strong{display:block;margin:3px 0;color:#202a35;font-size:8px}
+    `
+  });
+
+  return Utilities.newBlob(
+    html,
+    "text/html",
+    reportesKpiNombreArchivo_(resumen, "html")
+  ).getAs(MimeType.PDF).setName(reportesKpiNombreArchivo_(resumen, "pdf"));
+}
+
+function reportesKpiGraficaDataUri_(grafica) {
+  const blob = grafica.getAs("image/png");
+  return "data:image/png;base64," + Utilities.base64Encode(blob.getBytes());
+}
+
+function reportesKpiPorcentaje_(valor) {
+  const numero = reportesKpiNumero_(valor);
+  return numero.toFixed(1).replace(/\.0$/, "") + "%";
+}
+
+function reportesKpiAgregarEncabezadoPdf_(cuerpo, resumen, compacto) {
+  const franja = cuerpo.appendTable([["", "", ""]]);
+  franja.setBorderWidth(0);
+  franja.getCell(0, 0).setBackgroundColor("#D71920").setWidth(310);
+  franja.getCell(0, 1).setBackgroundColor("#F7941D").setWidth(145);
+  franja.getCell(0, 2).setBackgroundColor("#008F4C").setWidth(55);
+  franja.getRow(0).setMinimumHeight(7);
+
+  const encabezado = cuerpo.appendTable([["BON", "Sistema Logístico Productos Terminados\nREPORTE DE INDICADORES DEPARTAMENTALES", "Documento KPI\n" + (resumen.corte || "Corte actual")]]);
+  encabezado.setBorderColor("#C9CFD6").setBorderWidth(1);
+  const celdaMarca = encabezado.getCell(0, 0);
+  celdaMarca.setWidth(82).setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
+  encabezado.getCell(0, 1).setWidth(330).setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
+  encabezado.getCell(0, 2).setWidth(98).setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
+  const logo = reportesKpiObtenerLogo_();
+  if (logo) {
+    celdaMarca.clear();
+    const parrafoLogo = celdaMarca.appendParagraph("");
+    parrafoLogo.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    parrafoLogo.appendInlineImage(logo).setWidth(compacto ? 40 : 48).setHeight(compacto ? 40 : 48);
+  } else {
+    celdaMarca.getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.CENTER)
+      .editAsText().setBold(true).setFontSize(15).setForegroundColor("#D71920");
+  }
+  encabezado.getCell(0, 1).getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.CENTER)
+    .editAsText().setBold(true).setFontSize(11).setForegroundColor("#202A35");
+  encabezado.getCell(0, 2).getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.CENTER)
+    .editAsText().setBold(true).setFontSize(8).setForegroundColor("#586473");
+
+  if (!compacto) {
+    const titulo = cuerpo.appendParagraph(resumen.titulo);
+    titulo.setSpacingBefore(12).setSpacingAfter(2);
+    titulo.editAsText().setBold(true).setFontSize(19).setForegroundColor("#D71920");
+    const datosCorte = cuerpo.appendParagraph(
+      "Período: " + (resumen.periodo || "Corte actual") +
+      "   |   Corte: " + (resumen.corte || "No informado") +
+      (resumen.generadoPor ? "   |   Generado por: " + resumen.generadoPor : "")
+    );
+    datosCorte.setSpacingAfter(8);
+    datosCorte.editAsText().setFontSize(8).setForegroundColor("#687386");
+  }
+}
+
+function reportesKpiAgregarTituloSeccionPdf_(cuerpo, titulo, subtitulo) {
+  const parrafo = cuerpo.appendParagraph(titulo);
+  parrafo.setSpacingBefore(10).setSpacingAfter(1);
+  parrafo.editAsText().setBold(true).setFontSize(14).setForegroundColor("#202A35");
+  const ayuda = cuerpo.appendParagraph(subtitulo || "");
+  ayuda.setSpacingAfter(6);
+  ayuda.editAsText().setFontSize(8).setForegroundColor("#687386");
+}
+
+function reportesKpiAgregarTarjetasPdf_(cuerpo, resumen) {
+  const indicadores = resumen.indicadores.slice(0, 6);
+  const filas = [];
+  for (let i = 0; i < indicadores.length; i += 3) {
+    filas.push(indicadores.slice(i, i + 3).map(function (item) {
+      return item.nombre + "\n" + item.valor + "\n" + item.detalle;
+    }));
+  }
+  while (filas.length < 2) filas.push(["", "", ""]);
+  filas.forEach(function (fila) { while (fila.length < 3) fila.push(""); });
+  const tabla = cuerpo.appendTable(filas);
+  tabla.setBorderColor("#D7DDE4").setBorderWidth(1);
+  for (let fila = 0; fila < tabla.getNumRows(); fila += 1) {
+    for (let columna = 0; columna < tabla.getRow(fila).getNumCells(); columna += 1) {
+      const celda = tabla.getCell(fila, columna);
+      celda.setBackgroundColor(fila === 0 ? "#F4F6F8" : "#FFFFFF").setPaddingTop(8).setPaddingBottom(8).setPaddingLeft(8).setPaddingRight(8);
+      const texto = celda.editAsText();
+      texto.setFontSize(8).setForegroundColor("#526171");
+      const contenido = texto.getText().split("\n");
+      if (contenido.length > 1) {
+        texto.setBold(0, Math.max(0, contenido[0].length - 1), true).setForegroundColor(0, Math.max(0, contenido[0].length - 1), "#202A35");
+        const inicioValor = contenido[0].length + 1;
+        texto.setBold(inicioValor, inicioValor + contenido[1].length - 1, true).setFontSize(inicioValor, inicioValor + contenido[1].length - 1, 13).setForegroundColor(inicioValor, inicioValor + contenido[1].length - 1, "#D71920");
+      }
+    }
+  }
+}
+
+function reportesKpiGraficaPorcentajes_(resumen) {
+  const m = resumen.metricas;
+  const data = Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING, "Indicador")
+    .addColumn(Charts.ColumnType.NUMBER, "Porcentaje")
+    .addRow(["Exactitud despacho", m.exactitudDespacho])
+    .addRow(["Meta despachos", m.metaDespachos])
+    .addRow(["Error recepción", m.errorRecepcion])
+    .addRow(["Ocupación cámaras", m.ocupacionCamaras])
+    .addRow(["Meta decomiso", m.metaDecomiso])
+    .build();
+  return Charts.newBarChart().setDataTable(data).setTitle("Indicadores porcentuales")
+    .setDimensions(900, 365).setColors(["#D71920"]).setLegendPosition(Charts.Position.NONE)
+    .setOption("backgroundColor", "#FFFFFF").setOption("chartArea", {left: 160, top: 48, width: "70%", height: "70%"})
+    .setOption("hAxis", {title: "%", minValue: 0, gridlines: {color: "#E1E5EA"}}).build();
+}
+
+function reportesKpiGraficaMontos_(resumen) {
+  const despacho = resumen.metricas.desviacionesDespacho;
+  const recepcion = resumen.metricas.desviacionesRecepcion;
+  const data = Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING, "Proceso")
+    .addColumn(Charts.ColumnType.NUMBER, "Total")
+    .addColumn(Charts.ColumnType.NUMBER, "Corregido")
+    .addColumn(Charts.ColumnType.NUMBER, "Pendiente")
+    .addRow(["Despacho", despacho.total, despacho.corregido, despacho.pendiente])
+    .addRow(["Recepción", recepcion.total, recepcion.corregido, recepcion.pendiente])
+    .build();
+  return Charts.newColumnChart().setDataTable(data).setTitle("Desviaciones monetarias")
+    .setDimensions(900, 365).setColors(["#D71920", "#2AA866", "#F7941D"]).setLegendPosition(Charts.Position.BOTTOM)
+    .setOption("backgroundColor", "#FFFFFF").setOption("chartArea", {left: 95, top: 48, width: "78%", height: "65%"})
+    .setOption("vAxis", {title: "RD$", minValue: 0, gridlines: {color: "#E1E5EA"}}).build();
+}
+
+function reportesKpiGraficaResponsables_(lista) {
+  if (!lista.length) return null;
+  let data = Charts.newDataTable().addColumn(Charts.ColumnType.STRING, "Responsable").addColumn(Charts.ColumnType.NUMBER, "Monto desviado");
+  lista.slice(0, 6).forEach(function (item) { data.addRow([item.nombre, item.montoTotal]); });
+  data = data.build();
+  return Charts.newBarChart().setDataTable(data).setTitle("Monto desviado por responsable de Producción")
+    .setDimensions(900, 365).setColors(["#F7941D"]).setLegendPosition(Charts.Position.NONE)
+    .setOption("backgroundColor", "#FFFFFF").setOption("chartArea", {left: 205, top: 48, width: "63%", height: "70%"})
+    .setOption("hAxis", {title: "RD$", minValue: 0, gridlines: {color: "#E1E5EA"}}).build();
+}
+
+function reportesKpiGraficaEvolucion_(lista) {
+  if (!lista.length) return null;
+  let data = Charts.newDataTable().addColumn(Charts.ColumnType.STRING, "Fecha")
+    .addColumn(Charts.ColumnType.NUMBER, "Exactitud").addColumn(Charts.ColumnType.NUMBER, "Error");
+  lista.forEach(function (item) { data.addRow([item.etiqueta, item.exactitud, item.error]); });
+  data = data.build();
+  return Charts.newLineChart().setDataTable(data).setTitle("Evolución de exactitud de despacho")
+    .setDimensions(900, 365).setColors(["#2AA866", "#D71920"]).setLegendPosition(Charts.Position.BOTTOM)
+    .setOption("backgroundColor", "#FFFFFF").setOption("chartArea", {left: 72, top: 48, width: "82%", height: "65%"})
+    .setOption("vAxis", {title: "%", minValue: 0, maxValue: 100, gridlines: {color: "#E1E5EA"}}).build();
+}
+
+function reportesKpiAgregarTablaIndicadoresPdf_(cuerpo, indicadores) {
+  const filas = [["Indicador", "Valor", "Detalle"]].concat(indicadores.map(function (item) {
+    return [item.nombre, item.valor, item.detalle];
+  }));
+  const tabla = cuerpo.appendTable(filas);
+  tabla.setBorderColor("#CCD4DD").setBorderWidth(1);
+  for (let fila = 0; fila < tabla.getNumRows(); fila += 1) {
+    for (let columna = 0; columna < tabla.getRow(fila).getNumCells(); columna += 1) {
+      const celda = tabla.getCell(fila, columna);
+      celda.setPaddingTop(6).setPaddingBottom(6).setPaddingLeft(6).setPaddingRight(6);
+      if (fila === 0) {
+        celda.setBackgroundColor("#153F70");
+        celda.editAsText().setBold(true).setFontSize(9).setForegroundColor("#FFFFFF");
+      } else {
+        celda.setBackgroundColor(fila % 2 ? "#FFFFFF" : "#F3F5F7");
+        celda.editAsText().setFontSize(8).setForegroundColor("#25303B");
+        if (columna === 1) celda.editAsText().setBold(true).setForegroundColor("#D71920");
+      }
+    }
+  }
+}
+
+function reportesKpiAgregarResponsablesPdf_(cuerpo, titulo, lista) {
+  if (!lista.length) return;
+  reportesKpiAgregarTituloSeccionPdf_(cuerpo, titulo, "Control monetario por responsable");
+  const tabla = cuerpo.appendTable([["Responsable", "Monto total", "Corregido", "Pendiente"]].concat(lista.map(function (item) {
+    return [item.nombre, reportesKpiMoneda_(item.montoTotal), reportesKpiMoneda_(item.montoCorregido), reportesKpiMoneda_(item.montoPendiente)];
+  })));
+  tabla.setBorderColor("#CCD4DD").setBorderWidth(1);
+  for (let fila = 0; fila < tabla.getNumRows(); fila += 1) {
+    for (let columna = 0; columna < tabla.getRow(fila).getNumCells(); columna += 1) {
+      const celda = tabla.getCell(fila, columna);
+      celda.setPaddingTop(5).setPaddingBottom(5).setPaddingLeft(5).setPaddingRight(5);
+      if (fila === 0) {
+        celda.setBackgroundColor("#153F70");
+        celda.editAsText().setBold(true).setFontSize(8).setForegroundColor("#FFFFFF");
+      } else {
+        celda.setBackgroundColor(fila % 2 ? "#FFFFFF" : "#F3F5F7");
+        celda.editAsText().setFontSize(7).setForegroundColor("#25303B");
+      }
+    }
+  }
+}
+
+function reportesKpiCrearPptx_(resumen) {
+  let presentacion = null;
+  try {
+    presentacion = SlidesApp.create(reportesKpiNombreArchivo_(resumen, "PPTX"));
+    const portada = presentacion.getSlides()[0];
+    portada.getPageElements().forEach(function (elemento) { elemento.remove(); });
+    reportesKpiFondoDiapositiva_(portada);
+    reportesKpiAgregarLogoPpt_(portada, 42, 34, 72, 72);
+    reportesKpiTextoDiapositiva_(portada, resumen.titulo, 42, 115, 635, 70, 30, true, "#FFFFFF");
+    reportesKpiTextoDiapositiva_(portada, "Período " + (resumen.periodo || "corte actual") + " | Corte " + (resumen.corte || "no informado"), 44, 198, 630, 38, 15, false, "#DDE5EF");
+    reportesKpiTextoDiapositiva_(portada, "Sistema Logístico PT | Helados BON", 44, 350, 620, 28, 11, false, "#FFB0B9");
+
+    for (let indice = 0; indice < resumen.indicadores.length; indice += 6) {
+      const slide = presentacion.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+      reportesKpiFondoDiapositiva_(slide);
+      reportesKpiTextoDiapositiva_(slide, "Indicadores | " + (resumen.periodo || "corte actual"), 30, 20, 660, 35, 20, true, "#FFFFFF");
+      resumen.indicadores.slice(indice, indice + 6).forEach(function (item, posicion) {
+        const columna = posicion % 2;
+        const fila = Math.floor(posicion / 2);
+        const x = 30 + columna * 345;
+        const y = 72 + fila * 105;
+        const tarjeta = slide.insertShape(SlidesApp.ShapeType.ROUND_RECTANGLE, x, y, 325, 88);
+        tarjeta.getFill().setSolidFill("#1D2734");
+        tarjeta.getBorder().getLineFill().setSolidFill("#3A485A");
+        reportesKpiTextoDiapositiva_(slide, item.nombre, x + 14, y + 10, 295, 20, 10, true, "#FF4057");
+        reportesKpiTextoDiapositiva_(slide, item.valor, x + 14, y + 31, 295, 25, 17, true, "#FFFFFF");
+        reportesKpiTextoDiapositiva_(slide, item.detalle, x + 14, y + 61, 295, 18, 8, false, "#B8C3D1");
+      });
+    }
+
+    const graficasPpt = [
+      {titulo: "Indicadores porcentuales", grafica: reportesKpiGraficaPorcentajes_(resumen)},
+      {titulo: "Desviaciones monetarias", grafica: reportesKpiGraficaMontos_(resumen)},
+      {titulo: "Responsables de Producción", grafica: reportesKpiGraficaResponsables_(resumen.responsablesProduccion)}
+    ].filter(function (item) { return item.grafica; });
+    graficasPpt.forEach(function (item) {
+      const slide = presentacion.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+      reportesKpiFondoDiapositiva_(slide);
+      reportesKpiAgregarLogoPpt_(slide, 650, 16, 42, 42);
+      reportesKpiTextoDiapositiva_(slide, item.titulo, 30, 20, 600, 35, 20, true, "#FFFFFF");
+      slide.insertImage(item.grafica.getAs("image/png"), 45, 70, 630, 285);
+    });
+
+    reportesKpiAgregarResponsablesPpt_(presentacion, "Responsables de Producción", resumen.responsablesProduccion);
+    reportesKpiAgregarResponsablesPpt_(presentacion, "Responsables PT", resumen.responsablesPT);
+    presentacion.saveAndClose();
+    const id = presentacion.getId();
+    const url = "https://www.googleapis.com/drive/v3/files/" + id + "/export?mimeType=" +
+      encodeURIComponent("application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    const respuestaExportacion = UrlFetchApp.fetch(url, {
+      headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()},
+      muteHttpExceptions: true
+    });
+    if (respuestaExportacion.getResponseCode() !== 200) {
+      throw new Error("No fue posible convertir la presentación a PPTX.");
+    }
+    return respuestaExportacion.getBlob().setName(reportesKpiNombreArchivo_(resumen, "pptx"));
+  } finally {
+    if (presentacion) {
+      try { DriveApp.getFileById(presentacion.getId()).setTrashed(true); } catch (ignorar) {}
+    }
+  }
+}
+
+function reportesKpiFondoDiapositiva_(slide) {
+  slide.getBackground().setSolidFill("#0B1017");
+  const franja = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, 12, 405);
+  franja.getFill().setSolidFill("#D71920");
+  franja.getBorder().setTransparent();
+}
+
+function reportesKpiAgregarLogoPpt_(slide, x, y, ancho, alto) {
+  const logo = reportesKpiObtenerLogo_();
+  if (!logo) return;
+  try { slide.insertImage(logo, x, y, ancho, alto); } catch (error) {
+    console.warn("No fue posible insertar el logo en PowerPoint:", error);
+  }
+}
+
+function reportesKpiTextoDiapositiva_(slide, texto, x, y, ancho, alto, tamano, negrita, color) {
+  const forma = slide.insertTextBox(reportesKpiTexto_(texto), x, y, ancho, alto);
+  forma.getText().getTextStyle().setFontFamily("Arial").setFontSize(tamano).setBold(negrita).setForegroundColor(color);
+  return forma;
+}
+
+function reportesKpiAgregarResponsablesPpt_(presentacion, titulo, lista) {
+  if (!lista.length) return;
+  const slide = presentacion.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+  reportesKpiFondoDiapositiva_(slide);
+  reportesKpiTextoDiapositiva_(slide, titulo, 30, 20, 660, 35, 20, true, "#FFFFFF");
+  lista.slice(0, 8).forEach(function (item, indice) {
+    const y = 70 + indice * 38;
+    reportesKpiTextoDiapositiva_(slide, String(indice + 1), 30, y, 30, 24, 11, true, "#FF4057");
+    reportesKpiTextoDiapositiva_(slide, item.nombre, 65, y, 250, 24, 11, true, "#FFFFFF");
+    reportesKpiTextoDiapositiva_(slide, reportesKpiMoneda_(item.montoTotal), 325, y, 120, 24, 10, true, "#FFFFFF");
+    reportesKpiTextoDiapositiva_(slide, "Corregido " + reportesKpiMoneda_(item.montoCorregido), 450, y, 120, 24, 8, false, "#43C779");
+    reportesKpiTextoDiapositiva_(slide, "Pendiente " + reportesKpiMoneda_(item.montoPendiente), 570, y, 130, 24, 8, false, "#FFA329");
+  });
+}
+
+function reportesKpiResolverCorreo_(correoIngresado) {
+  let correo = reportesKpiTexto_(correoIngresado);
+  if (!correo) correo = reportesKpiCorreoConfigurado_();
+  const destinatarios = correo.split(/[;,]/).map(function (item) { return item.trim(); }).filter(Boolean);
+  if (!destinatarios.length) throw new Error("Ingrese un correo o defina CORREO_REPORTES_KPI en Configuración.");
+  const valido = destinatarios.every(function (item) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item); });
+  if (!valido) throw new Error("Revise el correo destinatario.");
+  return destinatarios.join(",");
+}
+
+function reportesKpiCorreosConfigurados_() {
+  const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+  const hoja = libro.getSheetByName("Configuracion") || libro.getSheetByName("Configuración");
+  if (!hoja || hoja.getLastRow() < 1) return [];
+  const valores = hoja.getDataRange().getDisplayValues();
+  const claves = ["CORREO REPORTES KPI", "CORREO REPORTES KPIS", "CORREO REPORTES", "CORREO GERENCIA"];
+  const correos = [];
+  for (let fila = 0; fila < valores.length; fila += 1) {
+    if (claves.indexOf(reportesKpiClave_(valores[fila][0])) < 0) continue;
+    reportesKpiTexto_(valores[fila][1]).split(/[;,]/).forEach(function (correo) {
+      correo = correo.trim();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) && correos.indexOf(correo) < 0) correos.push(correo);
+    });
+  }
+  return correos;
+}
+
+function reportesKpiCorreoConfigurado_() {
+  return reportesKpiCorreosConfigurados_().join(",");
+}
+
+function reportesKpiObtenerLogo_() {
+  const valor = reportesKpiValorConfiguracion_(["LOGOURL", "LOGO URL", "LOGO DOCUMENTOS", "LOGO"]);
+  if (!valor) return null;
+  try {
+    const coincidencia = valor.match(/[-\w]{25,}/);
+    if (coincidencia && (/drive\.google\.com/i.test(valor) || !/^https?:/i.test(valor))) {
+      return DriveApp.getFileById(coincidencia[0]).getBlob();
+    }
+    const respuestaLogo = UrlFetchApp.fetch(valor, {muteHttpExceptions: true, followRedirects: true});
+    if (respuestaLogo.getResponseCode() >= 200 && respuestaLogo.getResponseCode() < 300) return respuestaLogo.getBlob();
+  } catch (error) {
+    console.warn("No fue posible cargar el logo de Reportes & KPIs:", error);
+  }
+  return null;
+}
+
+function reportesKpiValorConfiguracion_(claves) {
+  const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+  const hoja = libro.getSheetByName("Configuracion") || libro.getSheetByName("Configuración");
+  if (!hoja || hoja.getLastRow() < 1) return "";
+  const buscadas = (claves || []).map(reportesKpiClave_);
+  const valores = hoja.getDataRange().getDisplayValues();
+  for (let fila = 0; fila < valores.length; fila += 1) {
+    if (buscadas.indexOf(reportesKpiClave_(valores[fila][0])) >= 0) return reportesKpiTexto_(valores[fila][1]);
+  }
+  return "";
+}
+
+function reportesKpiNombreArchivo_(resumen, extension) {
+  const periodo = (resumen.periodo || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM"))
+    .replace(/[^0-9A-Za-z_-]/g, "-");
+  return "Reportes_KPIs_" + periodo + "." + String(extension).toLowerCase();
+}
+
+function reportesKpiMoneda_(valor) {
+  return "RD$" + reportesKpiNumero_(valor).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function reportesKpiEscaparHtml_(valor) {
+  return reportesKpiTexto_(valor).replace(/[&<>"']/g, function (caracter) {
+    return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[caracter];
+  });
+}
+
+function reportesKpiRespuestaVacia_(usuario, correosConfigurados) {
+  return {
+    resumenRecepciones: {
+      totalVerificaciones: 0,
+      conDesviacion: 0,
+      montoTotal: 0,
+      montoCorregido: 0,
+      montoPendiente: 0,
+      tasaError: 0,
+      resolucionPorcentaje: 0
+    },
+    responsablesProduccion: [],
+    responsablesPT: [],
+    evolucionRecepciones: [],
+    correosConfigurados: Array.isArray(correosConfigurados) ? correosConfigurados : [],
+    consultadoPor: usuario.nombre
+  };
+}
+
+function reportesKpiValidarAcceso_(data) {
+  const validada = data.__sesionValidada || {};
+  const sesion = validada.usuario || validada.data || validada;
+  const id = reportesKpiTexto_(
+    sesion.idEmpleado || sesion.IDEmpleado || sesion.id || data.idEmpleado
+  );
+  const hoja = SpreadsheetApp.openById(CODIGO_SHEET_ID).getSheetByName("Usuarios");
+  let nombre = reportesKpiTexto_(sesion.nombre || sesion.Nombre);
+  let rol = reportesKpiClave_(sesion.rol || sesion.Rol);
+
+  if (hoja && id) {
+    const tabla = reportesKpiLeerTabla_(hoja);
+    const registro = tabla.filas.find(function (fila) {
+      return reportesKpiTexto_(reportesKpiValor_(fila, tabla.mapa, ["IDEmpleado", "ID_Empleado"])) === id;
+    });
+    if (registro) {
+      nombre = reportesKpiTexto_(reportesKpiValor_(registro, tabla.mapa, ["Nombre"])) || nombre;
+      rol = reportesKpiClave_(reportesKpiValor_(registro, tabla.mapa, ["Rol"])) || rol;
+    }
+  }
+
+  const permitidos = ["ANALISTA", "SUPERVISOR", "ENCARGADO", "ADMINISTRADOR", "GERENCIA", "GERENTE"];
+  const permitido = permitidos.some(function (valor) {
+    return rol === valor || rol.indexOf(valor) >= 0;
+  });
+  if (!permitido) throw new Error("No tiene acceso a Reportes & KPIs.");
+  return {id: id, nombre: nombre || "Usuario", rol: rol};
+}
+
+function reportesKpiLeerTabla_(hoja) {
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = (valores.shift() || []).map(reportesKpiTexto_);
+  const mapa = {};
+  encabezados.forEach(function (encabezado, indice) {
+    mapa[reportesKpiClave_(encabezado)] = indice;
+  });
+  return {filas: valores, mapa: mapa};
+}
+
+function reportesKpiValor_(fila, mapa, nombres) {
+  for (let i = 0; i < nombres.length; i += 1) {
+    const indice = mapa[reportesKpiClave_(nombres[i])];
+    if (indice !== undefined) return fila[indice];
+  }
+  return "";
+}
+
+function reportesKpiAcumularResponsable_(mapa, id, nombre, grupo, total, corregido, pendiente) {
+  const clave = id || nombre || "SIN_ASIGNAR";
+  if (!mapa[clave]) {
+    mapa[clave] = {
+      id: id,
+      nombre: nombre || "Sin asignar",
+      grupo: grupo || "",
+      casos: 0,
+      montoTotal: 0,
+      montoCorregido: 0,
+      montoPendiente: 0
+    };
+  }
+  mapa[clave].casos += total > 0 ? 1 : 0;
+  mapa[clave].montoTotal += total;
+  mapa[clave].montoCorregido += corregido;
+  mapa[clave].montoPendiente += pendiente;
+}
+
+function reportesKpiOrdenarResponsables_(mapa) {
+  return Object.keys(mapa).map(function (clave) {
+    const item = mapa[clave];
+    item.montoTotal = reportesKpiRedondear_(item.montoTotal);
+    item.montoCorregido = reportesKpiRedondear_(item.montoCorregido);
+    item.montoPendiente = reportesKpiRedondear_(item.montoPendiente);
+    return item;
+  }).filter(function (item) {
+    return item.montoTotal > 0;
+  }).sort(function (a, b) {
+    return b.montoTotal - a.montoTotal;
+  }).slice(0, 12);
+}
+
+function reportesKpiFechaLimite_(valor, finalDia) {
+  if (!valor) return null;
+  const fecha = new Date(String(valor) + (finalDia ? "T23:59:59" : "T00:00:00"));
+  return isNaN(fecha.getTime()) ? null : fecha;
+}
+
+function reportesKpiFecha_(valor) {
+  if (valor instanceof Date && !isNaN(valor.getTime())) return valor;
+  if (!valor) return null;
+  const fecha = new Date(String(valor).replace(" ", "T"));
+  return isNaN(fecha.getTime()) ? null : fecha;
+}
+
+function reportesKpiNumero_(valor) {
+  const numero = Number(String(valor === undefined || valor === null ? "" : valor)
+    .replace(/\s/g, "")
+    .replace(/,/g, ""));
+  return isFinite(numero) ? numero : 0;
+}
+
+function reportesKpiRedondear_(valor) {
+  return Math.round((reportesKpiNumero_(valor) + Number.EPSILON) * 100) / 100;
+}
+
+function reportesKpiTexto_(valor) {
+  return String(valor === undefined || valor === null ? "" : valor).trim();
+}
+
+function reportesKpiClave_(valor) {
+  return reportesKpiTexto_(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_\s-]+/g, " ")
+    .toUpperCase();
+}

@@ -7337,6 +7337,62 @@ async editarDestinosConduce() {
 
 
 
+async consultarDisponibilidadMaterialCamara(material) {
+
+    const respuestaDisponibilidad = await API.post({
+        action: "obtenerDisponibilidadMaterialCamara",
+        material: material
+    });
+
+    if (!respuestaDisponibilidad || respuestaDisponibilidad.ok === false) {
+        throw new Error(
+            respuestaDisponibilidad?.mensaje ||
+            "No fue posible consultar las cámaras del material."
+        );
+    }
+
+    const datos = respuestaDisponibilidad.data || respuestaDisponibilidad;
+
+    return {
+        accionSinExistencia: String(
+            datos.accionSinExistencia || "BLOQUEAR"
+        ).trim().toUpperCase(),
+        camaras: Array.isArray(datos.camaras) ? datos.camaras : []
+    };
+
+},
+
+
+opcionesCamarasMaterial(disponibilidad, idSeleccionado = "") {
+
+    const bloqueo = disponibilidad.accionSinExistencia === "BLOQUEAR";
+
+    return disponibilidad.camaras.map(camara => {
+
+        const idCamara = String(camara.idCamara || "").trim();
+        const codigo = String(camara.codigo || idCamara).trim();
+        const nombre = String(camara.nombre || "").trim();
+        const tarimas = Number(camara.tarimas || 0);
+        const unidades = Number(camara.unidades || 0);
+        const sinTarimas = tarimas <= 0;
+        const seleccionada = idCamara === String(idSeleccionado || "").trim();
+        const texto = `${codigo}${nombre ? ` · ${nombre}` : ""} — ${tarimas.toLocaleString("es-DO")} tarima(s) · ${unidades.toLocaleString("es-DO")} unidades`;
+
+        return `
+            <option
+                value="${Despachos.escaparHTMLInspecciones(idCamara)}"
+                data-codigo="${Despachos.escaparHTMLInspecciones(codigo)}"
+                ${seleccionada ? "selected" : ""}
+                ${bloqueo && sinTarimas && !seleccionada ? "disabled" : ""}
+            >${Despachos.escaparHTMLInspecciones(texto)}</option>
+        `;
+
+    }).join("");
+
+},
+
+
+
 async modalAgregarTarima() {
 
     const materiales = await Despachos.ejecutarConCargador(
@@ -7366,6 +7422,16 @@ async modalAgregarTarima() {
                     <input type="hidden" id="materialTarima">
 
                     <div id="sugerenciasMaterial" class="lista-sugerencias"></div>
+                </div>
+
+                <div class="campo campo-full" id="campoCamaraTarima" hidden>
+                    <label for="camaraTarima">Cámara frigorífica de origen</label>
+                    <select id="camaraTarima" disabled>
+                        <option value="">Seleccione primero el material</option>
+                    </select>
+                    <small id="detalleCamaraTarima">
+                        La salida se registrará cuando el conduce sea completado.
+                    </small>
                 </div>
 				${
     Number(Conduce.encabezado.cantidadDestinos) === 2
@@ -7419,12 +7485,20 @@ async modalAgregarTarima() {
     const inputBuscar = document.getElementById("buscarMaterialTarima");
     const inputMaterial = document.getElementById("materialTarima");
     const lista = document.getElementById("sugerenciasMaterial");
+    const campoCamara = document.getElementById("campoCamaraTarima");
+    const selectorCamara = document.getElementById("camaraTarima");
+    const detalleCamara = document.getElementById("detalleCamaraTarima");
+    let disponibilidadCamara = {accionSinExistencia: "BLOQUEAR", camaras: []};
+
     inputBuscar.addEventListener("input", () => {
 
         const texto = inputBuscar.value.trim();
 
         inputMaterial.value = "";
         lista.innerHTML = "";
+        campoCamara.hidden = true;
+        selectorCamara.disabled = true;
+        selectorCamara.innerHTML = `<option value="">Seleccione primero el material</option>`;
 
         if (texto.length < 2) {
             return;
@@ -7459,11 +7533,43 @@ async modalAgregarTarima() {
                 <span>${material.descripcion}</span>
             `;
 
-            item.onclick = () => {
+            item.onclick = async () => {
 
                 inputBuscar.value = material.texto;
                 inputMaterial.value = material.id;
                 lista.innerHTML = "";
+
+                try {
+
+                    disponibilidadCamara = await Despachos.ejecutarConCargador(
+                        "Consultando cámaras",
+                        "Estamos verificando dónde se encuentra el material seleccionado.",
+                        () => Despachos.consultarDisponibilidadMaterialCamara(material.id)
+                    );
+
+                    if (String(inputMaterial.value) !== String(material.id)) {
+                        return;
+                    }
+
+                    campoCamara.hidden = false;
+                    selectorCamara.disabled = false;
+                    selectorCamara.innerHTML = `
+                        <option value="">Seleccione la cámara de origen</option>
+                        ${Despachos.opcionesCamarasMaterial(disponibilidadCamara)}
+                    `;
+                    detalleCamara.textContent = disponibilidadCamara.camaras.length
+                        ? "La disponibilidad corresponde al inventario actual. El movimiento se realizará al completar el conduce."
+                        : "El material no tiene inventario registrado en cámaras frigoríficas.";
+
+                } catch (error) {
+
+                    campoCamara.hidden = false;
+                    selectorCamara.disabled = true;
+                    selectorCamara.innerHTML = `<option value="">Consulta no disponible</option>`;
+                    detalleCamara.textContent = error.message || "No fue posible consultar las cámaras.";
+                    Despachos.notificar(detalleCamara.textContent, "error");
+
+                }
 
             };
 
@@ -7482,6 +7588,10 @@ async modalAgregarTarima() {
         const idMaterial = inputMaterial.value;
         const fechaProduccion = document.getElementById("fechaProduccionTarima").value;
         const cantidadTarimas = Number(document.getElementById("cantidadTarimas").value);
+		const idCamara = selectorCamara.value;
+		const camaraSeleccionada = disponibilidadCamara.camaras.find(
+			camara => String(camara.idCamara) === String(idCamara)
+		);
 		const destino = Number(Conduce.encabezado.cantidadDestinos) === 2
 								? document.getElementById("destinoTarima").value
 								: Conduce.encabezado.destino1;
@@ -7490,6 +7600,11 @@ async modalAgregarTarima() {
             Despachos.notificar("Debe seleccionar un material válido de la lista.", "error");
             return;
         }
+
+		if (!camaraSeleccionada) {
+			Despachos.notificar("Debe seleccionar la cámara frigorífica de origen.", "error");
+			return;
+		}
 		
 		if (!destino) {
 			Despachos.notificar("Debe seleccionar el destino de las tarimas.",  "error" );
@@ -7511,15 +7626,31 @@ async modalAgregarTarima() {
             return;
         }
 
+		if (
+			disponibilidadCamara.accionSinExistencia === "BLOQUEAR" &&
+			cantidadTarimas > Number(camaraSeleccionada.tarimas || 0)
+		) {
+			Despachos.notificar(
+				`La cámara ${camaraSeleccionada.codigo || "seleccionada"} dispone de ${Number(camaraSeleccionada.tarimas || 0)} tarima(s) de este material.`,
+				"error"
+			);
+			return;
+		}
+
         if ((Conduce.detalle.length + cantidadTarimas) > 18) {
             Despachos.notificar("No puede exceder las 18 posiciones del contenedor.", "error");
             return;
         }
 
         const material = materiales.find(m => m.id === idMaterial);
+		const origenCamara = {
+			idCamara: camaraSeleccionada.idCamara,
+			codigoCamara: camaraSeleccionada.codigo || "",
+			observacionCamara: `Origen seleccionado al agregar tarima: ${camaraSeleccionada.codigo || camaraSeleccionada.idCamara}`
+		};
 
         for (let i = 0; i < cantidadTarimas; i++) {
-            Despachos.agregarLinea(material, fechaProduccion, destino);
+            Despachos.agregarLinea(material, fechaProduccion, destino, "Tarima", origenCamara);
         }
 		
 		const guardado = await Despachos.guardarCambios({
@@ -7846,7 +7977,8 @@ async agregarLinea(
     material,
     fechaProduccion,
     destino,
-    tipo = "Tarima"
+    tipo = "Tarima",
+    camara = {}
 ) {
 
     const idLinea =
@@ -7907,6 +8039,15 @@ async agregarLinea(
         cantidad:
             Number(material.base || 0) *
             Number(material.altura || 0),
+
+        idCamara:
+            String(camara.idCamara || "").trim(),
+
+        codigoCamara:
+            String(camara.codigoCamara || "").trim(),
+
+        observacionCamara:
+            String(camara.observacionCamara || "").trim(),
 			
 		ordenCreacion: ordenCreacion,
 		posicion: 0,
@@ -8147,7 +8288,8 @@ refrescarCarga() {
 				<td>${linea.destino || "-"}</td>
                 <td>
                     <strong>${linea.material}</strong><br>
-                    <small>${linea.descripcion}</small>
+                    <small>${linea.descripcion}</small><br>
+                    <small><i class="fa-solid fa-warehouse"></i> ${linea.codigoCamara || "Sin cámara asignada"}</small>
                 </td>
 				<td>${linea.lote || "-"}</td>
 
@@ -8244,7 +8386,7 @@ editarPorPosicion(posicion) {
 
 },
 
-editarLinea(idLinea) {
+async editarLinea(idLinea) {
 
     const linea = Conduce.detalle.find(
 			item =>
@@ -8255,6 +8397,34 @@ editarLinea(idLinea) {
     if (!linea) {
         Despachos.notificar("No se encontró la línea seleccionada.", "error");
         return;
+    }
+
+    let disponibilidadEdicion = {
+        accionSinExistencia: "BLOQUEAR",
+        camaras: []
+    };
+
+    if (linea.tipo === "Tarima") {
+
+        try {
+
+            disponibilidadEdicion = await Despachos.ejecutarConCargador(
+                "Consultando cámaras",
+                "Estamos verificando el origen de la tarima.",
+                () => Despachos.consultarDisponibilidadMaterialCamara(linea.material)
+            );
+
+        } catch (error) {
+
+            Despachos.notificar(
+                error.message || "No fue posible consultar las cámaras del material.",
+                "error"
+            );
+
+            return;
+
+        }
+
     }
 
     document.getElementById("tituloModal").textContent = "Editar Tarima";
@@ -8271,6 +8441,19 @@ editarLinea(idLinea) {
                     <label>Material</label>
                     <input type="text" value="${linea.material}" readonly>
                 </div>
+
+                ${linea.tipo === "Tarima" ? `
+                    <div class="campo">
+                        <label for="editCamaraTarima">Cámara frigorífica de origen</label>
+                        <select id="editCamaraTarima">
+                            <option value="">Seleccione la cámara de origen</option>
+                            ${Despachos.opcionesCamarasMaterial(
+                                disponibilidadEdicion,
+                                linea.idCamara
+                            )}
+                        </select>
+                    </div>
+                ` : ""}
 
                 <div class="campo">
                     <label>Fecha producción</label>
@@ -8340,6 +8523,35 @@ editarLinea(idLinea) {
         document.getElementById(
             "editFechaProduccion"
         ).value;
+
+    if (linea.tipo === "Tarima") {
+
+        const selectorCamaraEdicion =
+            document.getElementById("editCamaraTarima");
+
+        const camaraEdicion = disponibilidadEdicion.camaras.find(
+            camara =>
+                String(camara.idCamara) ===
+                String(selectorCamaraEdicion?.value || "")
+        );
+
+        if (!camaraEdicion) {
+
+            Despachos.notificar(
+                "Debe seleccionar la cámara frigorífica de origen.",
+                "error"
+            );
+
+            return;
+
+        }
+
+        linea.idCamara = String(camaraEdicion.idCamara || "").trim();
+        linea.codigoCamara = String(camaraEdicion.codigo || "").trim();
+        linea.observacionCamara =
+            `Origen actualizado al editar tarima: ${linea.codigoCamara || linea.idCamara}`;
+
+    }
 
     if (
         fechaNueva &&

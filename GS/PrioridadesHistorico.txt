@@ -1,0 +1,2373 @@
+/**
+ * ============================================================
+ * PRIORIDADESHISTORICO.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Tomar las prioridades activas del inventario cargado.
+ * - Cruzarlas con los despachos realizados hacia FrioBox.
+ * - Registrar una fila por material en Prioridades_Historico.
+ * - Registrar un resumen diario en Prioridades_Diarias.
+ *
+ * Fuentes:
+ * - obtenerPrioridadesDespacho()
+ * - Despacho
+ * - Despacho_Detalle
+ *
+ * IMPORTANTE:
+ * - Trabaja en unidades base.
+ * - UMB se utiliza únicamente para mostrar/conversión.
+ * - Puede ejecutarse nuevamente el mismo día:
+ *   actualiza los registros existentes, no los duplica.
+ * ============================================================
+ */
+
+
+/**
+ * Ejecuta el cierre para la fecha actual.
+ *
+ * @return {Object}
+ */
+function registrarCierrePrioridadesHoy() {
+
+  return registrarCierrePrioridades_(
+    new Date()
+  );
+
+}
+
+
+/**
+ * Registra o actualiza el cierre de prioridades.
+ *
+ * @param {Date|string} fecha
+ * @return {Object}
+ */
+function registrarCierrePrioridades_(
+  fecha
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  try {
+
+    bloqueo.waitLock(
+      30000
+    );
+
+
+    const ss =
+      SpreadsheetApp
+        .getActiveSpreadsheet();
+
+
+    const zonaHoraria =
+      ss.getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      "America/Santo_Domingo";
+
+
+    const fechaOperacion =
+      normalizarFechaPrioridadesHistorico_(
+        fecha
+      );
+
+
+    if (!fechaOperacion) {
+
+      throw new Error(
+        "La fecha del cierre de prioridades no es válida."
+      );
+
+    }
+
+
+    const fechaISO =
+      Utilities.formatDate(
+        fechaOperacion,
+        zonaHoraria,
+        "yyyy-MM-dd"
+      );
+
+
+    const fechaVisible =
+      Utilities.formatDate(
+        fechaOperacion,
+        zonaHoraria,
+        "dd/MM/yyyy"
+      );
+
+
+    const fechaHoraCierre =
+      new Date();
+
+
+    const horaCierre =
+      Utilities.formatDate(
+        fechaHoraCierre,
+        zonaHoraria,
+        "HH:mm"
+      );
+
+
+    // ========================================================
+    // 1. OBTENER TODAS LAS PRIORIDADES DEL DÍA
+    // ========================================================
+
+    const prioridades =
+      obtenerTodasPrioridadesCierre_();
+
+
+    // ========================================================
+    // 2. OBTENER DESPACHOS DEL DÍA HACIA FRIOBOX
+    // ========================================================
+
+    const despachosPorMaterial =
+      obtenerDespachosFrioboxPorMaterial_(
+        fechaOperacion,
+        zonaHoraria
+      );
+
+
+    // ========================================================
+    // 3. CONSTRUIR HISTÓRICO POR MATERIAL
+    // ========================================================
+
+    const registrosEvaluados =
+  prioridades.map(
+    function(prioridad) {
+
+      const material =
+        String(
+          prioridad.idMaterial || ""
+        ).trim();
+
+
+      const movimiento =
+        despachosPorMaterial[
+          material
+        ] || {
+
+          cantidad:
+            0,
+
+          conduces:
+            [],
+
+          supervisores:
+            []
+
+        };
+
+
+      return construirRegistroHistoricoPrioridad_({
+
+        prioridad:
+          prioridad,
+
+        movimiento:
+          movimiento,
+
+        fechaOperacion:
+          fechaOperacion,
+
+        fechaISO:
+          fechaISO,
+
+        fechaVisible:
+          fechaVisible,
+
+        fechaHoraCierre:
+          fechaHoraCierre,
+
+        horaCierre:
+          horaCierre
+
+      });
+
+    }
+  );
+
+
+/*
+ * El resumen diario debe considerar todas las prioridades,
+ * incluyendo las que no tenían capacidad de reposición.
+ *
+ * El histórico detallado conserva únicamente materiales
+ * atendibles o que recibieron despacho durante el día.
+ */
+const registrosHistoricos =
+  registrosEvaluados.filter(
+    function(item) {
+
+      return (
+        item.Fue_Atendible === "SI" ||
+        numeroInventario_(
+          item.Cantidad_Despachada_FB
+        ) > 0
+      );
+
+    }
+  );
+
+
+    // ========================================================
+    // 4. GUARDAR DETALLE
+    // ========================================================
+
+    const resultadoDetalle =
+      guardarHistoricoPrioridades_(
+        registrosHistoricos
+      );
+
+
+    // ========================================================
+    // 5. CALCULAR Y GUARDAR RESUMEN DIARIO
+    // ========================================================
+
+    const resumen =
+      calcularResumenPrioridadesDiarias_(
+        registrosEvaluados,
+        fechaOperacion,
+        fechaISO,
+        fechaHoraCierre,
+        horaCierre
+      );
+
+
+    const resultadoResumen =
+      guardarResumenPrioridadesDiarias_(
+        resumen
+      );
+
+
+    SpreadsheetApp.flush();
+
+
+    const resultado = {
+
+      exito:
+        true,
+
+      fecha:
+        fechaVisible,
+
+      prioridadesProcesadas:
+        registrosEvaluados.length,
+
+      registrosHistoricosGuardados:
+        registrosHistoricos.length,
+
+      historico:
+        resultadoDetalle,
+
+      resumenDiario:
+        resultadoResumen,
+
+      indicadores: {
+
+        oportunidadesAtendibles:
+          resumen
+            .Oportunidades_Atendibles,
+
+        materialesAbastecidos:
+          resumen
+            .Materiales_Abastecidos,
+
+        oportunidadesPerdidas:
+          resumen
+            .Oportunidades_Perdidas,
+
+        cumplimientoMateriales:
+          resumen
+            .Cumplimiento_Materiales_Porcentaje,
+
+        cumplimientoCantidad:
+          resumen
+            .Cumplimiento_Cantidad_Porcentaje,
+
+        cantidadObjetivo:
+          resumen
+            .Cantidad_Objetivo_FB,
+
+        cantidadDespachada:
+          resumen
+            .Cantidad_Despachada_FB,
+
+        diasStockRepuestos:
+          resumen
+            .Dias_Stock_Repuestos
+
+      }
+
+    };
+
+
+    console.log(
+      JSON.stringify(
+        resultado,
+        null,
+        2
+      )
+    );
+
+
+    return resultado;
+
+
+  } catch (error) {
+
+    console.error(
+      "Error registrando cierre de prioridades:",
+      error
+    );
+
+
+    throw error;
+
+
+  } finally {
+
+    try {
+
+      bloqueo.releaseLock();
+
+    } catch (errorBloqueo) {
+
+      // Puede no haberse adquirido el bloqueo.
+
+    }
+
+  }
+
+}
+
+
+/**
+ * Obtiene todas las páginas del backend de prioridades.
+ *
+ * Se usa únicamente en el cierre automático.
+ *
+ * @return {Array<Object>}
+ */
+function obtenerTodasPrioridadesCierre_() {
+
+  const registros =
+    [];
+
+
+  let desplazamiento =
+    0;
+
+
+  let hayMas =
+    true;
+
+
+  let seguridad =
+    0;
+
+
+  while (
+    hayMas &&
+    seguridad < 100
+  ) {
+
+    const respuestaPrioridades =
+      obtenerPrioridadesDespacho({
+
+        limite:
+          50,
+
+        desplazamiento:
+          desplazamiento,
+
+        busqueda:
+          "",
+
+        prioridad:
+          "",
+
+        um:
+          "",
+
+        orden:
+          "prioridad"
+
+      });
+
+
+    const contenido =
+      JSON.parse(
+        respuestaPrioridades
+          .getContent()
+      );
+
+
+    if (
+      !contenido ||
+      !contenido.ok
+    ) {
+
+      throw new Error(
+        contenido &&
+        contenido.mensaje
+
+          ? contenido.mensaje
+
+          : "No fue posible obtener las prioridades."
+      );
+
+    }
+
+
+    const datos =
+      contenido.data || {};
+
+
+    const pagina =
+      Array.isArray(
+        datos.registros
+      )
+        ? datos.registros
+        : [];
+
+
+    registros.push(
+      ...pagina
+    );
+
+
+    desplazamiento =
+      Number(
+        datos
+          .siguienteDesplazamiento ||
+        registros.length
+      );
+
+
+    hayMas =
+      datos.hayMas === true;
+
+
+    seguridad++;
+
+  }
+
+
+  if (seguridad >= 100) {
+
+    throw new Error(
+      "Se alcanzó el límite de seguridad leyendo prioridades."
+    );
+
+  }
+
+
+  return registros;
+
+}
+
+
+/**
+ * Lee los despachos válidos hacia FrioBox para una fecha.
+ *
+ * Solo considera conduces:
+ * - Despachado
+ * - Completado
+ *
+ * @param {Date} fechaOperacion
+ * @param {string} zonaHoraria
+ * @return {Object}
+ */
+function obtenerDespachosFrioboxPorMaterial_(
+  fechaOperacion,
+  zonaHoraria
+) {
+
+  const hojaDespacho =
+    getSheet(
+      SHEETS.DESPACHO
+    );
+
+
+  const hojaDetalle =
+    getSheet(
+      SHEETS.DESPACHO_DETALLE
+    );
+
+
+  if (
+    !hojaDespacho ||
+    !hojaDetalle
+  ) {
+
+    throw new Error(
+      "No se encontraron las hojas Despacho o Despacho_Detalle."
+    );
+
+  }
+
+
+  const fechaObjetivo =
+    Utilities.formatDate(
+      fechaOperacion,
+      zonaHoraria,
+      "yyyy-MM-dd"
+    );
+
+
+  // ========================================================
+  // CONDUCES VÁLIDOS
+  // ========================================================
+
+  const datosDespacho =
+    hojaDespacho
+      .getDataRange()
+      .getValues();
+
+
+  if (
+    datosDespacho.length <= 1
+  ) {
+
+    return {};
+
+  }
+
+
+  const encabezadosDespacho =
+    datosDespacho[0]
+      .map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+  const idxDespacho =
+    crearMapaEncabezadosPrioridades_(
+      encabezadosDespacho
+    );
+
+
+  validarEncabezadosPrioridades_(
+    encabezadosDespacho,
+    [
+      "ID_Conduce",
+      "No_Conduce",
+      "Fecha_Despacho",
+      "Estado",
+      "RealizadoPor"
+    ],
+    "Despacho"
+  );
+
+
+  const conducesValidos = {};
+
+
+  datosDespacho
+    .slice(1)
+    .forEach(
+      function(fila) {
+
+        const estado =
+          normalizarTextoPrioridadesHistorico_(
+            fila[
+              idxDespacho.Estado
+            ]
+          );
+
+
+        if (
+          estado !== "despachado" &&
+          estado !== "completado"
+        ) {
+          return;
+        }
+
+
+        const fechaDespacho =
+          convertirFechaPrioridadesHistorico_(
+            fila[
+              idxDespacho.Fecha_Despacho
+            ]
+          );
+
+
+        if (!fechaDespacho) {
+          return;
+        }
+
+
+        const fechaFila =
+          Utilities.formatDate(
+            fechaDespacho,
+            zonaHoraria,
+            "yyyy-MM-dd"
+          );
+
+
+        if (
+          fechaFila !==
+          fechaObjetivo
+        ) {
+          return;
+        }
+
+
+        const idConduce =
+          String(
+            fila[
+              idxDespacho.ID_Conduce
+            ] || ""
+          ).trim();
+
+
+        if (!idConduce) {
+          return;
+        }
+
+
+        conducesValidos[
+          idConduce
+        ] = {
+
+          noConduce:
+            String(
+              fila[
+                idxDespacho.No_Conduce
+              ] || ""
+            ).trim(),
+
+          supervisor:
+            String(
+              fila[
+                idxDespacho.RealizadoPor
+              ] || ""
+            ).trim()
+
+        };
+
+      }
+    );
+
+
+  const idsValidos =
+    Object.keys(
+      conducesValidos
+    );
+
+
+  if (
+    idsValidos.length === 0
+  ) {
+
+    return {};
+
+  }
+
+
+  // ========================================================
+  // DETALLE DE LOS CONDUCES
+  // ========================================================
+
+  const datosDetalle =
+    hojaDetalle
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (
+    datosDetalle.length <= 1
+  ) {
+
+    return {};
+
+  }
+
+
+  const encabezadosDetalle =
+    datosDetalle[0]
+      .map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+  const idxDetalle =
+    crearMapaEncabezadosPrioridades_(
+      encabezadosDetalle
+    );
+
+
+  validarEncabezadosPrioridades_(
+    encabezadosDetalle,
+    [
+      "ID_Conduce",
+      "Destino",
+      "Material",
+      "Cantidad"
+    ],
+    "Despacho_Detalle"
+  );
+
+
+  const mapa = {};
+
+
+  datosDetalle
+    .slice(1)
+    .forEach(
+      function(fila) {
+
+        const idConduce =
+          String(
+            fila[
+              idxDetalle.ID_Conduce
+            ] || ""
+          ).trim();
+
+
+        const conduce =
+          conducesValidos[
+            idConduce
+          ];
+
+
+        if (!conduce) {
+          return;
+        }
+
+
+        const destino =
+          fila[
+            idxDetalle.Destino
+          ];
+
+
+        if (
+          !esDestinoFriobox_(
+            destino
+          )
+        ) {
+          return;
+        }
+
+
+        const material =
+          String(
+            fila[
+              idxDetalle.Material
+            ] || ""
+          ).trim();
+
+
+        if (!material) {
+          return;
+        }
+
+
+        if (!mapa[material]) {
+
+          mapa[material] = {
+
+            cantidad:
+              0,
+
+            conduces:
+              [],
+
+            supervisores:
+              []
+
+          };
+
+        }
+
+
+        mapa[material].cantidad +=
+          numeroInventario_(
+            fila[
+              idxDetalle.Cantidad
+            ]
+          );
+
+
+        if (
+          conduce.noConduce &&
+          mapa[material]
+            .conduces
+            .indexOf(
+              conduce.noConduce
+            ) === -1
+        ) {
+
+          mapa[material]
+            .conduces
+            .push(
+              conduce.noConduce
+            );
+
+        }
+
+
+        if (
+          conduce.supervisor &&
+          mapa[material]
+            .supervisores
+            .indexOf(
+              conduce.supervisor
+            ) === -1
+        ) {
+
+          mapa[material]
+            .supervisores
+            .push(
+              conduce.supervisor
+            );
+
+        }
+
+      }
+    );
+
+
+  return mapa;
+
+}
+
+
+/**
+ * Construye la fila histórica de un material.
+ *
+ * @param {Object} datos
+ * @return {Object}
+ */
+function construirRegistroHistoricoPrioridad_(
+  datos
+) {
+
+  const item =
+    datos.prioridad || {};
+
+
+  const movimiento =
+    datos.movimiento || {};
+
+
+  const material =
+    String(
+      item.idMaterial || ""
+    ).trim();
+
+
+  const cantidadObjetivo =
+    Math.max(
+      numeroInventario_(
+        item.cantidadSugerida
+      ),
+      0
+    );
+
+
+  const cantidadDespachada =
+    Math.max(
+      numeroInventario_(
+        movimiento.cantidad
+      ),
+      0
+    );
+
+
+  const cantidadAtendida =
+    Math.min(
+      cantidadDespachada,
+      cantidadObjetivo
+    );
+
+
+  const cantidadFaltante =
+    Math.max(
+      cantidadObjetivo -
+      cantidadDespachada,
+      0
+    );
+
+
+  const promedioVentas =
+    numeroInventario_(
+      item.promedioVentas
+    );
+
+
+  const stockInicialFB =
+    numeroInventario_(
+      item.stockLibreFB
+    );
+
+
+  const stockFinalProyectado =
+    stockInicialFB +
+    cantidadDespachada;
+
+
+  const diasIniciales =
+    item.diasStockFB === null ||
+    item.diasStockFB === undefined
+
+      ? null
+
+      : numeroInventario_(
+          item.diasStockFB
+        );
+
+
+  const diasFinales =
+    promedioVentas > 0
+
+      ? stockFinalProyectado /
+        promedioVentas
+
+      : null;
+
+
+  const diasRepuestos =
+    promedioVentas > 0
+
+      ? cantidadDespachada /
+        promedioVentas
+
+      : 0;
+
+
+  /*
+   * Si hubo despacho, la operación demostró que
+   * materialmente sí era posible atenderlo, incluso
+   * si en la carga matutina estaba retenido por QA.
+   */
+  const fueAtendible =
+    numeroInventario_(
+      item.stockLibreHB
+    ) > 0 ||
+
+    numeroInventario_(
+      item.stockCalidadHB
+    ) > 0 ||
+
+    cantidadDespachada > 0;
+
+
+  const fueAbastecido =
+    cantidadDespachada > 0;
+
+
+  const oportunidadPerdida =
+    fueAtendible &&
+    !fueAbastecido;
+
+
+  let cumplimientoMaterial =
+    0;
+
+
+  if (
+    cantidadObjetivo > 0
+  ) {
+
+    cumplimientoMaterial =
+      Math.min(
+        (
+          cantidadAtendida /
+          cantidadObjetivo
+        ) * 100,
+        100
+      );
+
+  }
+
+
+  let resultado =
+    "NO ATENDIBLE";
+
+
+  if (
+    cantidadObjetivo > 0 &&
+    cantidadDespachada >=
+      cantidadObjetivo
+  ) {
+
+    resultado =
+      "ATENDIDO";
+
+  } else if (
+    cantidadDespachada > 0
+  ) {
+
+    resultado =
+      "ATENDIDO PARCIAL";
+
+  } else if (
+    oportunidadPerdida
+  ) {
+
+    resultado =
+      "OPORTUNIDAD PERDIDA";
+
+  }
+
+
+  const tipoResolucion =
+    determinarTipoResolucionPrioridad_(
+      item,
+      cantidadDespachada
+    );
+
+
+  const estadoFinalFB =
+    clasificarEstadoFinalFrioBox_({
+
+      stockFinal:
+        stockFinalProyectado,
+
+      promedioVentas:
+        promedioVentas,
+
+      diasFinales:
+        diasFinales
+
+    });
+
+
+  const supervisores =
+    Array.isArray(
+      movimiento.supervisores
+    )
+      ? movimiento.supervisores
+      : [];
+
+
+  return {
+
+    ID_Registro:
+      "PRI-" +
+      datos.fechaISO
+        .replace(/-/g, "") +
+      "-" +
+      material,
+
+    Fecha:
+      datos.fechaOperacion,
+
+    Material:
+      material,
+
+    Descripcion:
+      String(
+        item.descripcion || ""
+      ).trim(),
+
+    UM:
+      String(
+        item.um ||
+        item.unidadMedida ||
+        ""
+      ).trim(),
+
+    UMB:
+      numeroInventario_(
+        item.umb
+      ),
+
+    Estado_FB:
+      String(
+        item.estadoPrioridad || ""
+      ).trim(),
+
+    Dias_Stock_FB:
+      diasIniciales === null
+        ? ""
+        : redondearInventario_(
+            diasIniciales,
+            2
+          ),
+
+    Stock_Libre_FB:
+      stockInicialFB,
+
+    Stock_Libre_HB:
+      numeroInventario_(
+        item.stockLibreHB
+      ),
+
+    Stock_Calidad_HB:
+      numeroInventario_(
+        item.stockCalidadHB
+      ),
+
+    Stock_Bloqueado_HB:
+      numeroInventario_(
+        item.stockBloqueadoHB
+      ),
+
+    Estado_Reposicion:
+      String(
+        item.estadoReposicion || ""
+      ).trim(),
+
+    Cantidad_Objetivo_FB:
+      redondearInventario_(
+        cantidadObjetivo,
+        2
+      ),
+
+    Cantidad_Despachada_FB:
+      redondearInventario_(
+        cantidadDespachada,
+        2
+      ),
+
+    Cantidad_Faltante:
+      redondearInventario_(
+        cantidadFaltante,
+        2
+      ),
+
+    Tipo_Resolucion:
+      tipoResolucion,
+
+    Resultado:
+      resultado,
+
+    Estado_Final_FB:
+      estadoFinalFB,
+
+    Dias_Stock_Final_FB:
+      diasFinales === null
+        ? ""
+        : redondearInventario_(
+            diasFinales,
+            2
+          ),
+
+    No_Conduces:
+      Array.isArray(
+        movimiento.conduces
+      )
+        ? movimiento
+            .conduces
+            .join(", ")
+        : "",
+
+    Fue_Atendible:
+      fueAtendible
+        ? "SI"
+        : "NO",
+
+    Fue_Abastecido:
+      fueAbastecido
+        ? "SI"
+        : "NO",
+
+    Oportunidad_Perdida:
+      oportunidadPerdida
+        ? "SI"
+        : "NO",
+
+    Dias_Stock_Repuestos:
+      redondearInventario_(
+        diasRepuestos,
+        2
+      ),
+
+    Cumplimiento_Material:
+      redondearInventario_(
+        cumplimientoMaterial,
+        2
+      ),
+
+    Supervisor:
+      supervisores.join(
+        ", "
+      ),
+
+    Fecha_Cierre:
+      datos.fechaHoraCierre
+
+  };
+
+}
+
+
+/**
+ * Determina cómo se resolvió la prioridad.
+ *
+ * @param {Object} item
+ * @param {number} cantidadDespachada
+ * @return {string}
+ */
+function determinarTipoResolucionPrioridad_(
+  item,
+  cantidadDespachada
+) {
+
+  if (
+    cantidadDespachada <= 0
+  ) {
+
+    const atendible =
+      numeroInventario_(
+        item.stockLibreHB
+      ) > 0 ||
+
+      numeroInventario_(
+        item.stockCalidadHB
+      ) > 0;
+
+
+    return atendible
+      ? "NO DESPACHADO"
+      : "SIN INVENTARIO DISPONIBLE";
+
+  }
+
+
+  const libreHB =
+    numeroInventario_(
+      item.stockLibreHB
+    );
+
+
+  const calidadHB =
+    numeroInventario_(
+      item.stockCalidadHB
+    );
+
+
+  if (
+    libreHB <= 0 &&
+    calidadHB > 0
+  ) {
+
+    return "LIBERACIÓN QA";
+
+  }
+
+
+  if (
+    libreHB > 0 &&
+    calidadHB > 0 &&
+    cantidadDespachada >
+      libreHB
+  ) {
+
+    return "DESPACHO MIXTO HB / QA";
+
+  }
+
+
+  return "DESPACHO DESDE HB";
+
+}
+
+
+/**
+ * Estado proyectado de FrioBox después del despacho.
+ *
+ * @param {Object} datos
+ * @return {string}
+ */
+function clasificarEstadoFinalFrioBox_(
+  datos
+) {
+
+  const stockFinal =
+    numeroInventario_(
+      datos.stockFinal
+    );
+
+
+  const promedioVentas =
+    numeroInventario_(
+      datos.promedioVentas
+    );
+
+
+  const diasFinales =
+    datos.diasFinales;
+
+
+  const configuracion =
+    obtenerConfiguracionInventarios_();
+
+
+  if (
+    stockFinal <= 0 &&
+    promedioVentas > 0
+  ) {
+
+    return "Agotado";
+
+  }
+
+
+  if (
+    promedioVentas <= 0 ||
+    diasFinales === null
+  ) {
+
+    return "Sin promedio";
+
+  }
+
+
+  if (
+    diasFinales <=
+    configuracion.diasCritico
+  ) {
+
+    return "Crítico";
+
+  }
+
+
+  if (
+    diasFinales <=
+    configuracion.diasBajo
+  ) {
+
+    return "Bajo";
+
+  }
+
+
+  return "Correcto";
+
+}
+
+
+/**
+ * Calcula la fila de resumen diario.
+ *
+ * @return {Object}
+ */
+function calcularResumenPrioridadesDiarias_(
+  registros,
+  fechaOperacion,
+  fechaISO,
+  fechaRegistro,
+  horaCierre
+) {
+
+  const resumen = {
+
+    ID_Resumen:
+      "PRI-DIA-" +
+      fechaISO.replace(
+        /-/g,
+        ""
+      ),
+
+    Fecha:
+      fechaOperacion,
+
+    Prioridades_Detectadas:
+      registros.length,
+
+    Agotados:
+      0,
+
+    Criticos:
+      0,
+
+    Bajos:
+      0,
+
+    Reposicion_Inmediata:
+      0,
+
+    Pendientes_QA:
+      0,
+
+    Reposicion_Parcial:
+      0,
+
+    Sin_Reposicion:
+      0,
+
+    Oportunidades_Atendibles:
+      0,
+
+    Materiales_Abastecidos:
+      0,
+
+    Atendidos_Total:
+      0,
+
+    Atendidos_Parcial:
+      0,
+
+    Oportunidades_Perdidas:
+      0,
+
+    Cumplimiento_Materiales_Porcentaje:
+      0,
+
+    Cantidad_Objetivo_FB:
+      0,
+
+    Cantidad_Despachada_FB:
+      0,
+
+    Cantidad_Atendida_FB:
+      0,  
+
+    Cantidad_Faltante:
+      0,
+
+    Cumplimiento_Cantidad_Porcentaje:
+      0,
+
+    Dias_Stock_Repuestos:
+      0,
+
+    Supervisor:
+      "",
+
+    Hora_Cierre:
+      horaCierre,
+
+    Fecha_Registro:
+      fechaRegistro
+
+  };
+
+
+  const supervisores =
+    new Set();
+
+
+  let cantidadAtendida =
+    0;
+
+
+  registros.forEach(
+    function(item) {
+
+      const estado =
+        normalizarTextoPrioridadesHistorico_(
+          item.Estado_FB
+        );
+
+
+      if (estado === "agotado") {
+        resumen.Agotados++;
+      } else if (
+        estado === "critico"
+      ) {
+        resumen.Criticos++;
+      } else if (
+        estado === "bajo"
+      ) {
+        resumen.Bajos++;
+      }
+
+
+      const reposicion =
+        normalizarTextoPrioridadesHistorico_(
+          item.Estado_Reposicion
+        );
+
+
+      if (
+        reposicion ===
+        "reposicion inmediata"
+      ) {
+        resumen.Reposicion_Inmediata++;
+      } else if (
+        reposicion ===
+        "pendiente liberacion qa"
+      ) {
+        resumen.Pendientes_QA++;
+      } else if (
+        reposicion ===
+        "reposicion parcial"
+      ) {
+        resumen.Reposicion_Parcial++;
+      } else {
+        resumen.Sin_Reposicion++;
+      }
+
+
+      if (
+        item.Fue_Atendible === "SI"
+      ) {
+
+        resumen
+          .Oportunidades_Atendibles++;
+
+        resumen
+          .Cantidad_Objetivo_FB +=
+            numeroInventario_(
+              item.Cantidad_Objetivo_FB
+            );
+
+      }
+
+
+      if (
+        item.Fue_Abastecido === "SI"
+      ) {
+
+        resumen
+          .Materiales_Abastecidos++;
+
+      }
+
+
+      if (
+        item.Resultado === "ATENDIDO"
+      ) {
+
+        resumen
+          .Atendidos_Total++;
+
+      }
+
+
+      if (
+        item.Resultado ===
+        "ATENDIDO PARCIAL"
+      ) {
+
+        resumen
+          .Atendidos_Parcial++;
+
+      }
+
+
+      if (
+        item.Oportunidad_Perdida ===
+        "SI"
+      ) {
+
+        resumen
+          .Oportunidades_Perdidas++;
+
+      }
+
+
+      const objetivo =
+        numeroInventario_(
+          item.Cantidad_Objetivo_FB
+        );
+
+
+      const despachada =
+        numeroInventario_(
+          item.Cantidad_Despachada_FB
+        );
+
+
+      resumen
+        .Cantidad_Despachada_FB +=
+          despachada;
+
+
+      resumen
+        .Cantidad_Faltante +=
+          numeroInventario_(
+            item.Cantidad_Faltante
+          );
+
+
+      resumen
+        .Dias_Stock_Repuestos +=
+          numeroInventario_(
+            item.Dias_Stock_Repuestos
+          );
+
+
+      item.Fue_Atendible === "SI"
+
+
+      String(
+        item.Supervisor || ""
+      )
+        .split(",")
+        .map(
+          function(nombre) {
+
+            return nombre.trim();
+
+          }
+        )
+        .filter(Boolean)
+        .forEach(
+          function(nombre) {
+
+            supervisores.add(
+              nombre
+            );
+
+          }
+        );
+
+    }
+  );
+
+
+  if (
+    resumen
+      .Oportunidades_Atendibles > 0
+  ) {
+
+    resumen
+      .Cumplimiento_Materiales_Porcentaje =
+        redondearInventario_(
+          (
+            resumen
+              .Materiales_Abastecidos /
+            resumen
+              .Oportunidades_Atendibles
+          ) * 100,
+          2
+        );
+
+  }
+
+
+  if (
+    resumen
+      .Cantidad_Objetivo_FB > 0
+  ) {
+
+    resumen
+      .Cumplimiento_Cantidad_Porcentaje =
+        redondearInventario_(
+          (
+            cantidadAtendida /
+            resumen
+              .Cantidad_Objetivo_FB
+          ) * 100,
+          2
+        );
+
+  }
+
+
+  resumen.Cantidad_Objetivo_FB =
+    redondearInventario_(
+      resumen.Cantidad_Objetivo_FB,
+      2
+    );
+
+
+  resumen.Cantidad_Despachada_FB =
+    redondearInventario_(
+      resumen.Cantidad_Despachada_FB,
+      2
+    );
+
+
+  resumen.Cantidad_Atendida_FB =
+  redondearInventario_(
+    resumen.Cantidad_Atendida_FB,
+    2
+  ); 
+
+
+  resumen.Cantidad_Faltante =
+    redondearInventario_(
+      resumen.Cantidad_Faltante,
+      2
+    );
+
+
+  resumen.Dias_Stock_Repuestos =
+    redondearInventario_(
+      resumen.Dias_Stock_Repuestos,
+      2
+    );
+
+
+  resumen.Supervisor =
+    Array
+      .from(
+        supervisores
+      )
+      .join(", ");
+
+
+  return resumen;
+
+}
+
+
+/**
+ * Guarda o actualiza las filas por ID_Registro.
+ *
+ * @param {Array<Object>} registros
+ * @return {Object}
+ */
+function guardarHistoricoPrioridades_(
+  registros
+) {
+
+  const hoja =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(
+        "Prioridades_Historico"
+      );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      'No se encontró la hoja "Prioridades_Historico".'
+    );
+
+  }
+
+
+  return guardarRegistrosPorIdPrioridades_({
+
+    hoja:
+      hoja,
+
+    nombreColumnaId:
+      "ID_Registro",
+
+    registros:
+      registros
+
+  });
+
+}
+
+
+/**
+ * Guarda o actualiza el resumen diario.
+ *
+ * @param {Object} resumen
+ * @return {Object}
+ */
+function guardarResumenPrioridadesDiarias_(
+  resumen
+) {
+
+  const hoja =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(
+        "Prioridades_Diarias"
+      );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      'No se encontró la hoja "Prioridades_Diarias".'
+    );
+
+  }
+
+
+  return guardarRegistrosPorIdPrioridades_({
+
+    hoja:
+      hoja,
+
+    nombreColumnaId:
+      "ID_Resumen",
+
+    registros:
+      [
+        resumen
+      ]
+
+  });
+
+}
+
+
+/**
+ * Upsert genérico respetando los encabezados de una hoja.
+ *
+ * @param {Object} datos
+ * @return {Object}
+ */
+function guardarRegistrosPorIdPrioridades_(
+  datos
+) {
+
+  const hoja =
+    datos.hoja;
+
+
+  const registros =
+    Array.isArray(
+      datos.registros
+    )
+      ? datos.registros
+      : [];
+
+
+  const nombreColumnaId =
+    String(
+      datos.nombreColumnaId || ""
+    ).trim();
+
+
+  const ultimaColumna =
+    hoja.getLastColumn();
+
+
+  if (
+    ultimaColumna <= 0
+  ) {
+
+    throw new Error(
+      'La hoja "' +
+      hoja.getName() +
+      '" no contiene encabezados.'
+    );
+
+  }
+
+
+  const encabezados =
+    hoja
+      .getRange(
+        1,
+        1,
+        1,
+        ultimaColumna
+      )
+      .getDisplayValues()[0]
+      .map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+  const indiceId =
+    encabezados.indexOf(
+      nombreColumnaId
+    );
+
+
+  if (
+    indiceId === -1
+  ) {
+
+    throw new Error(
+      'No existe la columna "' +
+      nombreColumnaId +
+      '" en la hoja "' +
+      hoja.getName() +
+      '".'
+    );
+
+  }
+
+
+  const columnasFaltantes =
+    [];
+
+
+  registros.forEach(
+    function(registro) {
+
+      Object.keys(
+        registro
+      ).forEach(
+        function(columna) {
+
+          if (
+            encabezados.indexOf(
+              columna
+            ) === -1 &&
+            columnasFaltantes.indexOf(
+              columna
+            ) === -1
+          ) {
+
+            columnasFaltantes.push(
+              columna
+            );
+
+          }
+
+        }
+      );
+
+    }
+  );
+
+
+  if (
+    columnasFaltantes.length > 0
+  ) {
+
+    throw new Error(
+      'Faltan columnas en "' +
+      hoja.getName() +
+      '": ' +
+      columnasFaltantes.join(", ") +
+      "."
+    );
+
+  }
+
+
+  const mapaFilas = {};
+
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+
+  if (
+    ultimaFila > 1
+  ) {
+
+    const ids =
+      hoja
+        .getRange(
+          2,
+          indiceId + 1,
+          ultimaFila - 1,
+          1
+        )
+        .getDisplayValues();
+
+
+    ids.forEach(
+      function(fila, indice) {
+
+        const id =
+          String(
+            fila[0] || ""
+          ).trim();
+
+
+        if (id) {
+
+          mapaFilas[id] =
+            indice + 2;
+
+        }
+
+      }
+    );
+
+  }
+
+
+  const nuevasFilas =
+    [];
+
+
+  let creados =
+    0;
+
+
+  let actualizados =
+    0;
+
+
+  registros.forEach(
+    function(registro) {
+
+      const id =
+        String(
+          registro[
+            nombreColumnaId
+          ] || ""
+        ).trim();
+
+
+      if (!id) {
+
+        throw new Error(
+          "Se intentó guardar un registro sin " +
+          nombreColumnaId +
+          "."
+        );
+
+      }
+
+
+      const fila =
+        encabezados.map(
+          function(encabezado) {
+
+            return Object.prototype
+              .hasOwnProperty.call(
+                registro,
+                encabezado
+              )
+
+              ? registro[encabezado]
+
+              : "";
+
+          }
+        );
+
+
+      if (
+        mapaFilas[id]
+      ) {
+
+        hoja
+          .getRange(
+            mapaFilas[id],
+            1,
+            1,
+            encabezados.length
+          )
+          .setValues(
+            [
+              fila
+            ]
+          );
+
+
+        actualizados++;
+
+      } else {
+
+        nuevasFilas.push(
+          fila
+        );
+
+
+        creados++;
+
+      }
+
+    }
+  );
+
+
+  if (
+    nuevasFilas.length > 0
+  ) {
+
+    hoja
+      .getRange(
+        hoja.getLastRow() + 1,
+        1,
+        nuevasFilas.length,
+        encabezados.length
+      )
+      .setValues(
+        nuevasFilas
+      );
+
+  }
+
+
+  return {
+
+    creados:
+      creados,
+
+    actualizados:
+      actualizados,
+
+    total:
+      registros.length
+
+  };
+
+}
+
+
+/**
+ * Determina si un destino representa FrioBox.
+ *
+ * @param {*} destino
+ * @return {boolean}
+ */
+function esDestinoFriobox_(
+  destino
+) {
+
+  const texto =
+    normalizarTextoPrioridadesHistorico_(
+      destino
+    );
+
+
+  return (
+    texto === "fb" ||
+    texto.indexOf(
+      "friobox"
+    ) !== -1 ||
+    texto.indexOf(
+      "frio box"
+    ) !== -1
+  );
+
+}
+
+
+/**
+ * Crea mapa nombre de columna -> índice.
+ *
+ * @param {Array<string>} encabezados
+ * @return {Object}
+ */
+function crearMapaEncabezadosPrioridades_(
+  encabezados
+) {
+
+  const mapa = {};
+
+
+  encabezados.forEach(
+    function(nombre, indice) {
+
+      mapa[nombre] =
+        indice;
+
+    }
+  );
+
+
+  return mapa;
+
+}
+
+
+/**
+ * Valida columnas obligatorias.
+ */
+function validarEncabezadosPrioridades_(
+  encabezados,
+  obligatorios,
+  nombreHoja
+) {
+
+  const faltantes =
+    obligatorios.filter(
+      function(nombre) {
+
+        return encabezados
+          .indexOf(nombre) === -1;
+
+      }
+    );
+
+
+  if (
+    faltantes.length > 0
+  ) {
+
+    throw new Error(
+      'Faltan columnas en "' +
+      nombreHoja +
+      '": ' +
+      faltantes.join(", ") +
+      "."
+    );
+
+  }
+
+}
+
+
+/**
+ * Normaliza fechas del cierre.
+ */
+function normalizarFechaPrioridadesHistorico_(
+  valor
+) {
+
+  const fecha =
+    convertirFechaPrioridadesHistorico_(
+      valor
+    );
+
+
+  if (!fecha) {
+    return null;
+  }
+
+
+  return new Date(
+    fecha.getFullYear(),
+    fecha.getMonth(),
+    fecha.getDate()
+  );
+
+}
+
+
+/**
+ * Convierte fechas de Sheets o texto.
+ */
+function convertirFechaPrioridadesHistorico_(
+  valor
+) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return new Date(
+      valor.getTime()
+    );
+
+  }
+
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  if (!texto) {
+    return null;
+  }
+
+
+  let coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(
+        coincidencia[3]
+      ),
+      Number(
+        coincidencia[2]
+      ) - 1,
+      Number(
+        coincidencia[1]
+      )
+    );
+
+  }
+
+
+  coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(
+        coincidencia[1]
+      ),
+      Number(
+        coincidencia[2]
+      ) - 1,
+      Number(
+        coincidencia[3]
+      )
+    );
+
+  }
+
+
+  const fecha =
+    new Date(
+      texto
+    );
+
+
+  return isNaN(
+    fecha.getTime()
+  )
+    ? null
+    : fecha;
+
+}
+
+
+/**
+ * Normaliza texto para comparaciones.
+ */
+function normalizarTextoPrioridadesHistorico_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    );
+
+}
+
+
+
+/**
+ * ============================================================
+ * PRUEBA DEL CIERRE
+ * ============================================================
+ *
+ * ADVERTENCIA:
+ * Esta prueba escribe y actualiza ambas hojas históricas.
+ */
+function probarCierrePrioridadesHoy() {
+
+  const resultado =
+    registrarCierrePrioridadesHoy();
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}

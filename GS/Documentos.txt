@@ -1,0 +1,4574 @@
+// ======================================================
+// DOCUMENTOS.GS
+// Motor reutilizable de documentos HTML/PDF
+// Versión ampliada compatible con documentos existentes
+// Sistema Logístico PT - Helados Bon
+// ======================================================
+//
+// Agregar este archivo NO cambia los documentos actuales.
+// La migración de Conduces e Inspección BASC debe hacerse
+// después, de forma gradual y probando cada documento.
+// ======================================================
+
+const Documentos = {
+
+  tema: {
+    rojoBon: "#D71920",
+    verdeBon: "#138A3D",
+    naranjaBon: "#F59E0B",
+    grisClaro: "#E5E5E5",
+    grisMedio: "#CFCFCF",
+    grisOscuro: "#4A4A4A",
+    texto: "#222222",
+    blanco: "#FFFFFF",
+    borde: "#D5D5D5",
+    conformeFondo: "#EAF6EE",
+    conformeTexto: "#176B35",
+    hallazgoFondo: "#FCE8E8",
+    hallazgoTexto: "#A31218",
+    pendienteFondo: "#FFF5D6",
+    pendienteTexto: "#8A6200"
+  },
+
+
+  escaparHTML(valor) {
+
+    return String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  },
+
+
+  limpiarNombreArchivo(texto) {
+
+    return String(texto || "")
+      .replace(/[\\/:*?"<>|#%{}[\]]/g, "-")
+      .replace(/\s+/g, "_")
+      .trim();
+
+  },
+
+
+  obtenerConfiguracion() {
+
+    const hoja =
+      SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSheetByName("Configuracion");
+
+    if (!hoja) {
+      throw new Error(
+        'No existe la hoja "Configuracion".'
+      );
+    }
+
+    const valores =
+      hoja.getDataRange()
+        .getDisplayValues();
+
+    const configuracion = {};
+
+    valores.forEach(fila => {
+
+      const clave =
+        String(fila[0] || "").trim();
+
+      const valor =
+        String(fila[1] || "").trim();
+
+      if (clave) {
+        configuracion[clave] = valor;
+      }
+
+    });
+
+    return configuracion;
+
+  },
+
+
+  extraerIdDrive(valor) {
+
+    const texto =
+      String(valor || "").trim();
+
+    if (
+      !texto.includes("drive.google.com") &&
+      !texto.includes("docs.google.com")
+    ) {
+      return "";
+    }
+
+    const coincidencia =
+      texto.match(/[-\w]{20,}/);
+
+    return coincidencia
+      ? coincidencia[0]
+      : "";
+
+  },
+
+
+  obtenerImagenDataUri(url) {
+
+    const texto =
+      String(url || "").trim();
+
+    if (!texto) {
+      return "";
+    }
+
+    if (texto.startsWith("data:image/")) {
+      return texto;
+    }
+
+    try {
+
+      const idDrive =
+        this.extraerIdDrive(texto);
+
+      let blob;
+
+      if (idDrive) {
+
+        blob =
+          DriveApp
+            .getFileById(idDrive)
+            .getBlob();
+
+      } else {
+
+        const respuestaHttp =
+          UrlFetchApp.fetch(
+            texto,
+            {
+              muteHttpExceptions: true,
+              followRedirects: true
+            }
+          );
+
+        const codigo =
+          respuestaHttp.getResponseCode();
+
+        if (codigo < 200 || codigo >= 300) {
+          return "";
+        }
+
+        blob = respuestaHttp.getBlob();
+
+      }
+
+      const tipo =
+        String(
+          blob.getContentType() || ""
+        ).toLowerCase();
+
+      if (!tipo.startsWith("image/")) {
+        return "";
+      }
+
+      return (
+        "data:" +
+        tipo +
+        ";base64," +
+        Utilities.base64Encode(
+          blob.getBytes()
+        )
+      );
+
+    } catch (error) {
+
+      console.warn(
+        "No fue posible cargar una imagen:",
+        error
+      );
+
+      return "";
+
+    }
+
+  },
+
+
+  obtenerQRDataUri(url) {
+
+    const texto =
+      String(url || "").trim();
+
+    if (!texto) {
+      return "";
+    }
+
+    try {
+
+      const endpoint =
+        "https://quickchart.io/qr" +
+        "?size=180" +
+        "&margin=1" +
+        "&text=" +
+        encodeURIComponent(texto);
+
+      const respuestaHttp =
+        UrlFetchApp.fetch(
+          endpoint,
+          {
+            muteHttpExceptions: true
+          }
+        );
+
+      const codigo =
+        respuestaHttp.getResponseCode();
+
+      if (codigo < 200 || codigo >= 300) {
+        return "";
+      }
+
+      const blob =
+        respuestaHttp.getBlob();
+
+      return (
+        "data:" +
+        blob.getContentType() +
+        ";base64," +
+        Utilities.base64Encode(
+          blob.getBytes()
+        )
+      );
+
+    } catch (error) {
+
+      console.warn(
+        "No fue posible generar el QR:",
+        error
+      );
+
+      return "";
+
+    }
+
+  },
+
+
+  crearEstilosBase(opciones) {
+
+    const config =
+      opciones || {};
+
+    const tamano =
+      config.tamano || "Letter";
+
+    const orientacion =
+      config.orientacion === "horizontal"
+        ? "landscape"
+        : "portrait";
+
+    const t = this.tema;
+
+    return `
+      @page {
+        size: ${tamano} ${orientacion};
+        margin: 0.25in;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: ${t.texto};
+        background: ${t.blanco};
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 8px;
+        line-height: 1.25;
+      }
+
+      .doc-documento {
+        width: 100%;
+      }
+
+      .doc-encabezado {
+        display: grid;
+        grid-template-columns: 78px 1fr 96px;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        background: ${t.blanco};
+        border: 1px solid ${t.borde};
+        border-radius: 11px;
+        page-break-inside: avoid;
+      }
+
+      .doc-logo {
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .doc-logo img {
+        max-width: 66px;
+        max-height: 58px;
+        object-fit: contain;
+      }
+
+      .doc-logo-secundario img {
+        max-width: 74px;
+        max-height: 50px;
+      }
+
+      .doc-centro {
+        text-align: center;
+      }
+
+      .doc-empresa {
+        color: ${t.rojoBon};
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .doc-direccion {
+        margin-top: 2px;
+        color: #555;
+        font-size: 6px;
+      }
+
+      .doc-titulo {
+        margin-top: 7px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .doc-version {
+        margin-top: 2px;
+        color: ${t.grisOscuro};
+        font-size: 6.5px;
+        font-weight: 700;
+      }
+
+      .doc-referencia {
+        margin-top: 2px;
+        color: #555;
+        font-size: 6px;
+      }
+
+      .doc-numero {
+        margin-top: 4px;
+        text-align: center;
+      }
+
+      .doc-numero span {
+        display: block;
+        color: #777;
+        font-size: 5.5px;
+      }
+
+      .doc-numero strong {
+        display: block;
+        margin-top: 2px;
+        font-size: 8px;
+      }
+
+      .doc-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .doc-grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .doc-grid-3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .doc-tarjeta {
+        padding: 9px 10px;
+        background: ${t.blanco};
+        border: 1px solid ${t.borde};
+        border-radius: 10px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .doc-tarjeta-titulo {
+        margin: 0 0 6px;
+        color: ${t.grisOscuro};
+        font-size: 8px;
+        font-weight: 700;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .doc-dato {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 7px;
+        padding: 2px 0;
+        border-bottom: 1px solid #EEE;
+      }
+
+      .doc-dato:last-child {
+        border-bottom: none;
+      }
+
+      .doc-dato-etiqueta {
+        color: #666;
+        font-size: 7px;
+      }
+
+      .doc-dato-valor {
+        color: ${t.texto};
+        font-size: 7.3px;
+        font-weight: 700;
+      }
+
+      .doc-tabla {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .doc-tabla th,
+      .doc-tabla td {
+        padding: 4px 5px;
+        border: 1px solid #BDBDBD;
+        vertical-align: top;
+      }
+
+      .doc-tabla th {
+        background: ${t.grisMedio};
+        color: #1F1F1F;
+        font-size: 8px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .doc-tabla td {
+        font-size: 8px;
+      }
+
+      .doc-resultado {
+        display: inline-block;
+        padding: 3px 9px;
+        border-radius: 11px;
+        font-size: 8px;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .doc-resultado-conforme {
+        color: ${t.conformeTexto};
+        background: ${t.conformeFondo};
+        border: 1px solid #65A97A;
+      }
+
+      .doc-resultado-hallazgo {
+        color: ${t.hallazgoTexto};
+        background: ${t.hallazgoFondo};
+        border: 1px solid #D66B70;
+      }
+
+      .doc-resultado-pendiente {
+        color: ${t.pendienteTexto};
+        background: ${t.pendienteFondo};
+        border: 1px solid #D8B54A;
+      }
+
+      .doc-qr {
+        text-align: center;
+      }
+
+      .doc-qr img {
+        width: 78px;
+        height: 78px;
+      }
+
+      .doc-qr a {
+        display: block;
+        margin-top: 3px;
+        color: ${t.rojoBon};
+        font-size: 6px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .doc-pie {
+        margin-top: 7px;
+        padding-top: 4px;
+        border-top: 1px solid #BDBDBD;
+        color: #777;
+        font-size: 5.5px;
+        text-align: center;
+      }
+
+      .doc-salto-pagina {
+        page-break-before: always;
+      }
+
+
+      /* ==================================================
+       * COMPONENTES ADICIONALES REUTILIZABLES
+       * Se agregan sin modificar los estilos existentes.
+       * ================================================== */
+
+      .doc-seccion-titulo {
+        margin: 8px 0 4px;
+        color: ${t.grisOscuro};
+        font-size: 8px;
+        font-weight: 800;
+        text-align: center;
+        text-transform: uppercase;
+        page-break-after: avoid;
+      }
+
+      .doc-metricas {
+        display: grid;
+        grid-template-columns: repeat(var(--doc-columnas, 4), 1fr);
+        gap: 6px;
+        page-break-inside: avoid;
+      }
+
+      .doc-metrica {
+        padding: 6px 7px;
+        background: ${t.blanco};
+        border: 1px solid ${t.borde};
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .doc-metrica-etiqueta {
+        display: block;
+        color: #666;
+        font-size: 5.8px;
+        text-transform: uppercase;
+      }
+
+      .doc-metrica-valor {
+        display: block;
+        margin-top: 2px;
+        color: ${t.texto};
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .doc-observaciones {
+        min-height: 64px;
+        white-space: pre-wrap;
+      }
+
+      .doc-observaciones-texto {
+        margin: 0;
+        color: ${t.texto};
+        font-size: 7px;
+        line-height: 1.35;
+      }
+
+      .doc-etiqueta {
+        display: inline-block;
+        padding: 2px 7px;
+        border: 1px solid ${t.borde};
+        border-radius: 10px;
+        background: #F4F4F4;
+        color: ${t.grisOscuro};
+        font-size: 6.5px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .doc-etiqueta-verde {
+        color: ${t.conformeTexto};
+        background: ${t.conformeFondo};
+        border-color: #65A97A;
+      }
+
+      .doc-etiqueta-roja {
+        color: ${t.hallazgoTexto};
+        background: ${t.hallazgoFondo};
+        border-color: #D66B70;
+      }
+
+      .doc-etiqueta-naranja {
+        color: ${t.pendienteTexto};
+        background: ${t.pendienteFondo};
+        border-color: #D8B54A;
+      }
+
+      .doc-firmas {
+        display: grid;
+        grid-template-columns: repeat(var(--doc-columnas, 2), 1fr);
+        gap: 22px;
+        margin-top: 18px;
+        page-break-inside: avoid;
+      }
+
+      .doc-firma {
+        padding-top: 18px;
+        border-top: 1px solid #777;
+        text-align: center;
+      }
+
+      .doc-firma-nombre {
+        display: block;
+        font-size: 7px;
+        font-weight: 700;
+      }
+
+      .doc-firma-cargo {
+        display: block;
+        margin-top: 2px;
+        color: #666;
+        font-size: 6px;
+      }
+
+      .doc-imagen {
+        text-align: center;
+        page-break-inside: avoid;
+      }
+
+      .doc-imagen img {
+        max-width: 100%;
+        height: auto;
+        object-fit: contain;
+      }
+
+      .doc-imagen-pie {
+        margin-top: 3px;
+        color: #666;
+        font-size: 5.8px;
+      }
+
+      .doc-espaciador {
+        height: var(--doc-alto, 6px);
+      }
+
+      @media print {
+
+        .doc-encabezado,
+        .doc-tarjeta {
+          background: ${t.blanco} !important;
+          border: 1px solid ${t.borde} !important;
+          box-shadow: none !important;
+        }
+
+        .doc-tabla th,
+        .doc-resultado {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+      }
+    `;
+
+  },
+
+
+  crearEncabezado(datos) {
+
+    const d = datos || {};
+
+    const logoPrincipal =
+      d.logoPrincipal
+        ? `<img src="${d.logoPrincipal}" alt="Logo empresa">`
+        : this.escaparHTML(
+            d.textoLogoPrincipal || "BON"
+          );
+
+    const logoSecundario =
+      d.logoSecundario
+        ? `<img src="${d.logoSecundario}" alt="Logo secundario">`
+        : this.escaparHTML(
+            d.textoLogoSecundario || ""
+          );
+
+    const numero =
+      d.numeroDocumento
+        ? `
+          <div class="doc-numero">
+            <span>
+              ${this.escaparHTML(
+                d.etiquetaNumero ||
+                "No. Documento"
+              )}
+            </span>
+            <strong>
+              ${this.escaparHTML(
+                d.numeroDocumento
+              )}
+            </strong>
+          </div>
+        `
+        : "";
+
+    return `
+      <header class="doc-encabezado">
+
+        <div class="doc-logo">
+          ${logoPrincipal}
+        </div>
+
+        <div class="doc-centro">
+
+          <div class="doc-empresa">
+            ${this.escaparHTML(
+              d.empresa ||
+              "Helados Bon SRL"
+            )}
+          </div>
+
+          <div class="doc-direccion">
+            ${this.escaparHTML(
+              d.direccion || ""
+            )}
+          </div>
+
+          <div class="doc-titulo">
+            ${this.escaparHTML(
+              d.titulo || ""
+            )}
+          </div>
+
+          ${
+            d.version
+              ? `
+                <div class="doc-version">
+                  ${this.escaparHTML(
+                    d.version
+                  )}
+                </div>
+              `
+              : ""
+          }
+
+          ${
+            d.referencia
+              ? `
+                <div class="doc-referencia">
+                  ${this.escaparHTML(
+                    d.referencia
+                  )}
+                </div>
+              `
+              : ""
+          }
+
+        </div>
+
+        <div class="doc-logo doc-logo-secundario">
+          ${logoSecundario}
+          ${numero}
+        </div>
+
+      </header>
+    `;
+
+  },
+
+
+  crearTarjeta(titulo, contenido, claseAdicional) {
+
+    return `
+      <section class="doc-tarjeta ${
+        this.escaparHTML(
+          claseAdicional || ""
+        )
+      }">
+
+        ${
+          titulo
+            ? `
+              <h3 class="doc-tarjeta-titulo">
+                ${this.escaparHTML(titulo)}
+              </h3>
+            `
+            : ""
+        }
+
+        ${contenido || ""}
+
+      </section>
+    `;
+
+  },
+
+
+  crearDato(etiqueta, valor) {
+
+    return `
+      <div class="doc-dato">
+        <span class="doc-dato-etiqueta">
+          ${this.escaparHTML(etiqueta)}
+        </span>
+        <strong class="doc-dato-valor">
+          ${this.escaparHTML(valor || "-")}
+        </strong>
+      </div>
+    `;
+
+  },
+
+
+  crearGrid(contenido, columnas, claseAdicional) {
+
+    const clase =
+      Number(columnas || 2) === 3
+        ? "doc-grid-3"
+        : "doc-grid-2";
+
+    return `
+      <div class="doc-grid ${clase} ${
+        this.escaparHTML(
+          claseAdicional || ""
+        )
+      }">
+        ${contenido || ""}
+      </div>
+    `;
+
+  },
+
+
+  crearResultado(resultado) {
+
+    const texto =
+      String(resultado || "").trim();
+
+    const normalizado =
+      texto.toLowerCase();
+
+    let clase =
+      "doc-resultado-pendiente";
+
+    if (
+      normalizado === "conforme" ||
+      normalizado === "cumple" ||
+      normalizado === "completado"
+    ) {
+
+      clase =
+        "doc-resultado-conforme";
+
+    } else if (
+      normalizado.includes("hallazgo") ||
+      normalizado.includes("no cumple") ||
+      normalizado.includes("rechazado")
+    ) {
+
+      clase =
+        "doc-resultado-hallazgo";
+
+    }
+
+    return `
+      <span class="doc-resultado ${clase}">
+        ${this.escaparHTML(
+          texto || "Pendiente"
+        )}
+      </span>
+    `;
+
+  },
+
+
+  crearTabla(columnas, filas, opciones) {
+
+    const config =
+      opciones || {};
+
+    const encabezado =
+      (columnas || [])
+        .map(columna => `
+          <th>
+            ${this.escaparHTML(columna)}
+          </th>
+        `)
+        .join("");
+
+    const cuerpo =
+      (filas || [])
+        .map(fila => `
+          <tr>
+            ${fila
+              .map(valor => `
+                <td>
+                  ${
+                    config.permitirHTML === true
+                      ? valor
+                      : this.escaparHTML(valor)
+                  }
+                </td>
+              `)
+              .join("")}
+          </tr>
+        `)
+        .join("");
+
+    return `
+      <table class="doc-tabla ${
+        this.escaparHTML(
+          config.claseAdicional || ""
+        )
+      }">
+        <thead>
+          <tr>
+            ${encabezado}
+          </tr>
+        </thead>
+        <tbody>
+          ${cuerpo}
+        </tbody>
+      </table>
+    `;
+
+  },
+
+
+  crearQR(url, texto) {
+
+    const qr =
+      this.obtenerQRDataUri(url);
+
+    return `
+      <div class="doc-qr">
+
+        ${
+          qr
+            ? `
+              <img
+                src="${qr}"
+                alt="Código QR"
+              >
+            `
+            : ""
+        }
+
+        <a href="${this.escaparHTML(url)}">
+          ${this.escaparHTML(
+            texto ||
+            "Abrir enlace"
+          )}
+        </a>
+
+      </div>
+    `;
+
+  },
+
+
+  crearPie(datos) {
+
+    const d =
+      datos || {};
+
+    const partes = [
+      d.empresa || "Helados Bon SRL",
+      d.sistema || "Sistema Logístico PT",
+      d.codigoDocumento || "",
+      d.textoAdicional ||
+        "Documento generado automáticamente"
+    ].filter(Boolean);
+
+    return `
+      <footer class="doc-pie">
+        ${partes
+          .map(item =>
+            this.escaparHTML(item)
+          )
+          .join(" · ")}
+      </footer>
+    `;
+
+  },
+
+
+  crearTituloSeccion(titulo, claseAdicional) {
+
+    return `
+      <h2 class="doc-seccion-titulo ${
+        this.escaparHTML(
+          claseAdicional || ""
+        )
+      }">
+        ${this.escaparHTML(titulo || "")}
+      </h2>
+    `;
+
+  },
+
+
+  crearMetricas(metricas, columnas, claseAdicional) {
+
+    const lista =
+      Array.isArray(metricas)
+        ? metricas
+        : [];
+
+    const totalColumnas =
+      Math.max(
+        1,
+        Math.min(
+          6,
+          Number(columnas || lista.length || 1)
+        )
+      );
+
+    const contenido =
+      lista.map(item => {
+
+        const dato = item || {};
+
+        return `
+          <div class="doc-metrica ${
+            this.escaparHTML(
+              dato.claseAdicional || ""
+            )
+          }">
+            <span class="doc-metrica-etiqueta">
+              ${this.escaparHTML(dato.etiqueta || "")}
+            </span>
+            <strong class="doc-metrica-valor">
+              ${this.escaparHTML(
+                dato.valor === null ||
+                dato.valor === undefined ||
+                dato.valor === ""
+                  ? "-"
+                  : dato.valor
+              )}
+            </strong>
+          </div>
+        `;
+
+      }).join("");
+
+    return `
+      <div
+        class="doc-metricas ${
+          this.escaparHTML(
+            claseAdicional || ""
+          )
+        }"
+        style="--doc-columnas:${totalColumnas};"
+      >
+        ${contenido}
+      </div>
+    `;
+
+  },
+
+
+  crearBloqueObservaciones(titulo, texto, opciones) {
+
+    const config = opciones || {};
+
+    const contenido = `
+      <div class="doc-observaciones">
+        <p class="doc-observaciones-texto">
+          ${this.escaparHTML(
+            texto ||
+            config.textoVacio ||
+            "Sin observaciones."
+          )}
+        </p>
+        ${
+          config.textoAdicional
+            ? `
+              <p class="doc-observaciones-texto">
+                ${this.escaparHTML(config.textoAdicional)}
+              </p>
+            `
+            : ""
+        }
+      </div>
+    `;
+
+    return this.crearTarjeta(
+      titulo || "Observaciones",
+      contenido,
+      config.claseAdicional || ""
+    );
+
+  },
+
+
+  crearEtiqueta(texto, tipo, claseAdicional) {
+
+    const normalizado =
+      String(tipo || "")
+        .trim()
+        .toLowerCase();
+
+    let claseTipo = "";
+
+    if (
+      normalizado === "verde" ||
+      normalizado === "exito" ||
+      normalizado === "éxito" ||
+      normalizado === "conforme"
+    ) {
+      claseTipo = "doc-etiqueta-verde";
+    } else if (
+      normalizado === "rojo" ||
+      normalizado === "error" ||
+      normalizado === "hallazgo"
+    ) {
+      claseTipo = "doc-etiqueta-roja";
+    } else if (
+      normalizado === "naranja" ||
+      normalizado === "advertencia" ||
+      normalizado === "pendiente"
+    ) {
+      claseTipo = "doc-etiqueta-naranja";
+    }
+
+    return `
+      <span class="doc-etiqueta ${claseTipo} ${
+        this.escaparHTML(
+          claseAdicional || ""
+        )
+      }">
+        ${this.escaparHTML(texto || "-")}
+      </span>
+    `;
+
+  },
+
+
+  crearFirmas(firmas, columnas, claseAdicional) {
+
+    const lista =
+      Array.isArray(firmas)
+        ? firmas
+        : [];
+
+    const totalColumnas =
+      Math.max(
+        1,
+        Math.min(
+          4,
+          Number(columnas || lista.length || 1)
+        )
+      );
+
+    const contenido =
+      lista.map(item => {
+
+        const firma = item || {};
+
+        return `
+          <div class="doc-firma">
+            <strong class="doc-firma-nombre">
+              ${this.escaparHTML(
+                firma.nombre ||
+                firma.etiqueta ||
+                "Firma"
+              )}
+            </strong>
+            ${
+              firma.cargo
+                ? `
+                  <span class="doc-firma-cargo">
+                    ${this.escaparHTML(firma.cargo)}
+                  </span>
+                `
+                : ""
+            }
+          </div>
+        `;
+
+      }).join("");
+
+    return `
+      <div
+        class="doc-firmas ${
+          this.escaparHTML(
+            claseAdicional || ""
+          )
+        }"
+        style="--doc-columnas:${totalColumnas};"
+      >
+        ${contenido}
+      </div>
+    `;
+
+  },
+
+
+  crearImagen(url, opciones) {
+
+    const config = opciones || {};
+
+    const imagen =
+      config.esDataUri === true
+        ? String(url || "")
+        : this.obtenerImagenDataUri(url);
+
+    if (!imagen) {
+      return config.mostrarSiFalla === true
+        ? this.crearTarjeta(
+            config.titulo || "Imagen",
+            this.escaparHTML(
+              config.textoAlterno ||
+              "Imagen no disponible."
+            )
+          )
+        : "";
+    }
+
+    const ancho =
+      Number(config.ancho || 0);
+
+    const alto =
+      Number(config.alto || 0);
+
+    const estilo = [
+      ancho > 0 ? `width:${ancho}px` : "",
+      alto > 0 ? `height:${alto}px` : ""
+    ]
+      .filter(Boolean)
+      .join(";");
+
+    return `
+      <figure class="doc-imagen ${
+        this.escaparHTML(
+          config.claseAdicional || ""
+        )
+      }">
+        <img
+          src="${imagen}"
+          alt="${this.escaparHTML(
+            config.textoAlterno ||
+            config.pie ||
+            "Imagen"
+          )}"
+          ${estilo ? `style="${estilo}"` : ""}
+        >
+        ${
+          config.pie
+            ? `
+              <figcaption class="doc-imagen-pie">
+                ${this.escaparHTML(config.pie)}
+              </figcaption>
+            `
+            : ""
+        }
+      </figure>
+    `;
+
+  },
+
+
+  crearEspaciador(alto) {
+
+    const valor =
+      Math.max(
+        0,
+        Number(alto || 6)
+      );
+
+    return `
+      <div
+        class="doc-espaciador"
+        style="--doc-alto:${valor}px;"
+      ></div>
+    `;
+
+  },
+
+
+  crearSaltoPagina() {
+
+    return '<div class="doc-salto-pagina"></div>';
+
+  },
+
+
+  crearDocumentoHTML(datos) {
+
+    const d =
+      datos || {};
+
+    return `
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <style>
+
+    ${this.crearEstilosBase({
+      tamano:
+        d.tamano || "Letter",
+
+      orientacion:
+        d.orientacion || "vertical"
+    })}
+
+    ${d.estilosAdicionales || ""}
+
+  </style>
+
+</head>
+
+<body>
+
+  <main class="doc-documento">
+    ${d.contenido || ""}
+  </main>
+
+</body>
+
+</html>
+    `;
+
+  },
+
+
+  crearPDFDesdeHTML(datos) {
+
+    const d =
+      datos || {};
+
+    const nombre =
+      this.limpiarNombreArchivo(
+        d.nombreArchivo ||
+        "Documento"
+      );
+
+    if (!d.html) {
+      throw new Error(
+        "No se recibió el HTML del documento."
+      );
+    }
+
+    const blobPDF =
+      Utilities
+        .newBlob(
+          d.html,
+          "text/html",
+          nombre + ".html"
+        )
+        .getAs(MimeType.PDF)
+        .setName(
+          nombre + ".pdf"
+        );
+
+    if (d.carpeta) {
+
+      return d.carpeta
+        .createFile(blobPDF);
+
+    }
+
+    if (d.carpetaId) {
+
+      return DriveApp
+        .getFolderById(
+          d.carpetaId
+        )
+        .createFile(blobPDF);
+
+    }
+
+    return DriveApp
+      .createFile(blobPDF);
+
+  }
+
+};
+
+
+// ======================================================
+// PRUEBA INICIAL
+// Ejecutar manualmente una vez.
+// Genera PRUEBA_MOTOR_DOCUMENTOS.pdf en la raíz de Drive.
+// ======================================================
+
+function probarMotorDocumentos() {
+
+  const configuracion =
+    Documentos.obtenerConfiguracion();
+
+  const logoEmpresa =
+    Documentos.obtenerImagenDataUri(
+      configuracion.LogoURL ||
+      configuracion.LogoEmpresa ||
+      ""
+    );
+
+  const contenido =
+
+    Documentos.crearEncabezado({
+
+      empresa:
+        configuracion.Empresa ||
+        "Helados Bon SRL",
+
+      direccion:
+        configuracion.Ubicacion ||
+        configuracion.Direccion ||
+        "",
+
+      titulo:
+        "DOCUMENTO DE PRUEBA",
+
+      version:
+        "Versión 1.0",
+
+      referencia:
+        "Motor de documentos del Sistema Logístico PT",
+
+      numeroDocumento:
+        "PRUEBA-001",
+
+      logoPrincipal:
+        logoEmpresa
+
+    })
+
+    +
+
+    Documentos.crearGrid(
+
+      Documentos.crearTarjeta(
+        "Información general",
+
+        Documentos.crearDato(
+          "Creado por",
+          "Usuario de prueba"
+        )
+
+        +
+
+        Documentos.crearDato(
+          "Fecha",
+          Utilities.formatDate(
+            new Date(),
+            Session.getScriptTimeZone(),
+            "dd/MM/yyyy HH:mm"
+          )
+        )
+
+      )
+
+      +
+
+      Documentos.crearTarjeta(
+        "Resultado",
+
+        Documentos.crearDato(
+          "Estado",
+          "Completado"
+        )
+
+        +
+
+        Documentos.crearResultado(
+          "Conforme"
+        )
+
+      ),
+
+      2
+
+    )
+
+    +
+
+    Documentos.crearTarjeta(
+      "Detalle",
+
+      Documentos.crearTabla(
+        [
+          "Código",
+          "Descripción",
+          "Estado"
+        ],
+        [
+          [
+            "PR-001",
+            "Primera línea de prueba.",
+            "Cumple"
+          ],
+          [
+            "PR-002",
+            "Segunda línea de prueba.",
+            "Cumple"
+          ]
+        ]
+      )
+
+    )
+
+    +
+
+    Documentos.crearPie({
+
+      empresa:
+        configuracion.Empresa ||
+        "Helados Bon SRL",
+
+      codigoDocumento:
+        "PRUEBA-001"
+
+    });
+
+  const html =
+    Documentos.crearDocumentoHTML({
+
+      tamano:
+        "Letter",
+
+      orientacion:
+        "vertical",
+
+      contenido:
+        contenido
+
+    });
+
+  const archivo =
+    Documentos.crearPDFDesdeHTML({
+
+      nombreArchivo:
+        "PRUEBA_MOTOR_DOCUMENTOS",
+
+      html:
+        html
+
+    });
+
+  Logger.log(
+    archivo.getUrl()
+  );
+
+}
+
+// ======================================================
+// GUARDAR PDF DE CONDUCE EN DRIVE
+// ======================================================
+
+function guardarPDFConduce(datos) {
+
+  try {
+
+    if (!datos) {
+
+      throw new Error(
+        "No se recibieron los datos del conduce."
+      );
+
+    }
+
+    const idConduce =
+      String(
+        datos.idConduce || ""
+      ).trim();
+
+    const noConduce =
+      String(
+        datos.noConduce || ""
+      ).trim();
+
+    let html =
+      String(
+        datos.html || ""
+      );
+
+    const tipoDocumento =
+      String(
+        datos.tipoDocumento ||
+        datos.tipo ||
+        "ORIGINAL"
+      )
+        .trim()
+        .toUpperCase();
+
+    const esCorreccion =
+      tipoDocumento === "CORRECCION" ||
+      tipoDocumento === "CORRECCIÓN";
+
+    const corregidoPor =
+      String(
+        datos.corregidoPor ||
+        datos.usuario ||
+        ""
+      ).trim();
+
+    const documentoSAP =
+      String(
+        datos.documentoSAP ||
+        ""
+      ).trim();
+
+    const comentarioCorreccion =
+      String(
+        datos.comentarioCorreccion ||
+        datos.comentario ||
+        ""
+      ).trim();
+
+    if (!idConduce) {
+
+      throw new Error(
+        "No se recibió el ID del conduce."
+      );
+
+    }
+
+    if (!noConduce) {
+
+      throw new Error(
+        "No se recibió el número de conduce."
+      );
+
+    }
+
+    if (!html) {
+
+      throw new Error(
+        "No se recibió el HTML del conduce."
+      );
+
+    }
+
+
+    // ==================================================
+    // LEER CONFIGURACIÓN
+    // ==================================================
+
+    const ss =
+      SpreadsheetApp.getActiveSpreadsheet();
+
+    const hojaConfiguracion =
+      ss.getSheetByName("Configuracion") ||
+      ss.getSheetByName("Configuración");
+
+    if (!hojaConfiguracion) {
+
+      throw new Error(
+        'No existe la hoja "Configuracion" o "Configuración".'
+      );
+
+    }
+
+    const valoresConfiguracion =
+      hojaConfiguracion
+        .getDataRange()
+        .getDisplayValues();
+
+    let carpetaPDFValor = "";
+
+    for (
+      let i = 0;
+      i < valoresConfiguracion.length;
+      i++
+    ) {
+
+      const clave =
+        String(
+          valoresConfiguracion[i][0] || ""
+        ).trim();
+
+      if (
+        clave === "CarpetaPDF"
+      ) {
+
+        carpetaPDFValor =
+          String(
+            valoresConfiguracion[i][1] || ""
+          ).trim();
+
+        break;
+
+      }
+
+    }
+
+    if (!carpetaPDFValor) {
+
+      throw new Error(
+        'No existe un valor configurado para "CarpetaPDF".'
+      );
+
+    }
+
+
+    // ==================================================
+    // HOJA DESPACHO Y REGISTRO DEL CONDUCE
+    // ==================================================
+
+    const hojaDespacho =
+      ss.getSheetByName(
+        "Despacho"
+      );
+
+    if (!hojaDespacho) {
+
+      throw new Error(
+        'No existe la hoja "Despacho".'
+      );
+
+    }
+
+    const datosDespacho =
+      hojaDespacho
+        .getDataRange()
+        .getValues();
+
+    if (
+      !datosDespacho ||
+      datosDespacho.length < 2
+    ) {
+
+      throw new Error(
+        'La hoja "Despacho" no contiene registros.'
+      );
+
+    }
+
+    const encabezados =
+      datosDespacho[0]
+        .map(
+          valor =>
+            String(
+              valor || ""
+            ).trim()
+        );
+
+    const idxIdConduce =
+      encabezados.indexOf(
+        "ID_Conduce"
+      );
+
+    const idxNoConduce =
+      encabezados.indexOf(
+        "No_Conduce"
+      );
+
+    const idxPdfUrl =
+      encabezados.indexOf(
+        "PDF_URL"
+      );
+
+    if (
+      idxPdfUrl === -1
+    ) {
+
+      throw new Error(
+        'No existe la columna "PDF_URL" en la hoja Despacho.'
+      );
+
+    }
+
+    if (
+      idxIdConduce === -1 &&
+      idxNoConduce === -1
+    ) {
+
+      throw new Error(
+        'No existe "ID_Conduce" ni "No_Conduce" en la hoja Despacho.'
+      );
+
+    }
+
+    let filaEncontrada =
+      -1;
+
+    for (
+      let i =
+        datosDespacho.length - 1;
+
+      i >= 1;
+
+      i--
+    ) {
+
+      const coincideId =
+        idxIdConduce !== -1 &&
+        String(
+          datosDespacho[i][idxIdConduce] ||
+          ""
+        ).trim() === idConduce;
+
+      const coincideNumero =
+        idxNoConduce !== -1 &&
+        String(
+          datosDespacho[i][idxNoConduce] ||
+          ""
+        ).trim() === noConduce;
+
+      if (
+        coincideId ||
+        coincideNumero
+      ) {
+
+        filaEncontrada =
+          i + 1;
+
+        break;
+
+      }
+
+    }
+
+    if (
+      filaEncontrada === -1
+    ) {
+
+      throw new Error(
+        "No fue posible localizar el conduce " +
+        noConduce +
+        " en la hoja Despacho."
+      );
+
+    }
+
+    const pdfUrlActual =
+      String(
+        datosDespacho[
+          filaEncontrada - 1
+        ][idxPdfUrl] ||
+        ""
+      ).trim();
+
+
+    // ==================================================
+    // RESOLVER CARPETA DEL DOCUMENTO
+    // ==================================================
+
+    const carpetaRaizId =
+      Documentos.extraerIdDrive(
+        carpetaPDFValor
+      );
+
+    if (!carpetaRaizId) {
+
+      throw new Error(
+        'No fue posible obtener el ID de la carpeta configurada en "CarpetaPDF".'
+      );
+
+    }
+
+    const carpetaRaiz =
+      DriveApp.getFolderById(
+        carpetaRaizId
+      );
+
+    let carpetaDestino =
+      null;
+
+    /*
+     * Una corrección debe quedar junto al documento vigente.
+     * Si PDF_URL apunta al original o a una corrección anterior,
+     * reutilizamos exactamente esa misma carpeta.
+     */
+    if (
+      esCorreccion &&
+      pdfUrlActual
+    ) {
+
+      try {
+
+        const idArchivoActual =
+          Documentos.extraerIdDrive(
+            pdfUrlActual
+          );
+
+        if (idArchivoActual) {
+
+          const archivoActual =
+            DriveApp.getFileById(
+              idArchivoActual
+            );
+
+          const padres =
+            archivoActual.getParents();
+
+          if (
+            padres.hasNext()
+          ) {
+
+            carpetaDestino =
+              padres.next();
+
+          }
+
+        }
+
+      } catch (errorCarpetaActual) {
+
+        console.warn(
+          "No fue posible reutilizar la carpeta del PDF vigente:",
+          errorCarpetaActual
+        );
+
+      }
+
+    }
+
+    /*
+     * Para el documento original, o si no fue posible encontrar
+     * la carpeta del PDF vigente, conservamos la estructura actual:
+     * Año → Mes → Día.
+     */
+    if (!carpetaDestino) {
+
+      const ahora =
+        new Date();
+
+      const zonaHoraria =
+        Session.getScriptTimeZone();
+
+      const anio =
+        Utilities.formatDate(
+          ahora,
+          zonaHoraria,
+          "yyyy"
+        );
+
+      const numeroMes =
+        Number(
+          Utilities.formatDate(
+            ahora,
+            zonaHoraria,
+            "M"
+          )
+        );
+
+      const dia =
+        Utilities.formatDate(
+          ahora,
+          zonaHoraria,
+          "dd"
+        );
+
+      const nombresMeses = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre"
+      ];
+
+      const nombreMes =
+        nombresMeses[
+          Math.max(
+            0,
+            Math.min(
+              11,
+              numeroMes - 1
+            )
+          )
+        ];
+
+      const carpetaAnio =
+        obtenerOCrearSubcarpeta_(
+          carpetaRaiz,
+          anio
+        );
+
+      const carpetaMes =
+        obtenerOCrearSubcarpeta_(
+          carpetaAnio,
+          nombreMes
+        );
+
+      carpetaDestino =
+        obtenerOCrearSubcarpeta_(
+          carpetaMes,
+          dia
+        );
+
+    }
+
+
+    // ==================================================
+    // GENERAR NOMBRE Y VERSIÓN
+    // ==================================================
+
+    const nombreBase =
+      "Conduce_" +
+      Documentos.limpiarNombreArchivo(
+        noConduce
+      );
+
+    let numeroCorreccion =
+      0;
+
+    let nombreArchivo =
+      nombreBase;
+
+    if (esCorreccion) {
+
+      numeroCorreccion =
+        obtenerSiguienteNumeroCorreccionConduce_(
+          carpetaDestino,
+          nombreBase
+        );
+
+      nombreArchivo =
+        nombreBase +
+        "_Correccion_" +
+        String(
+          numeroCorreccion
+        ).padStart(
+          2,
+          "0"
+        );
+
+      html =
+        agregarMarcaCorreccionHTMLConduce_(
+          html,
+          {
+
+            numeroCorreccion:
+              numeroCorreccion,
+
+            corregidoPor:
+              corregidoPor,
+
+            documentoSAP:
+              documentoSAP,
+
+            comentario:
+              comentarioCorreccion
+
+          }
+        );
+
+    } else {
+
+      /*
+       * El flujo original conserva su comportamiento actual:
+       * si se vuelve a generar el documento original antes de una
+       * corrección, se sustituye únicamente ese mismo original.
+       *
+       * Nunca se toca un archivo _Correccion_XX.
+       */
+      const nombrePDFOriginal =
+        nombreBase +
+        ".pdf";
+
+      const originalesExistentes =
+        carpetaDestino.getFilesByName(
+          nombrePDFOriginal
+        );
+
+      while (
+        originalesExistentes.hasNext()
+      ) {
+
+        originalesExistentes
+          .next()
+          .setTrashed(
+            true
+          );
+
+      }
+
+    }
+
+
+    // ==================================================
+    // CREAR PDF
+    // ==================================================
+
+    const archivoPDF =
+      Documentos.crearPDFDesdeHTML({
+
+        nombreArchivo:
+          nombreArchivo,
+
+        html:
+          html,
+
+        carpeta:
+          carpetaDestino
+
+      });
+
+
+    // ==================================================
+    // GUARDAR ÚLTIMA VERSIÓN VIGENTE
+    // ==================================================
+
+    hojaDespacho
+      .getRange(
+        filaEncontrada,
+        idxPdfUrl + 1
+      )
+      .setValue(
+        archivoPDF.getUrl()
+      );
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      mensaje:
+        esCorreccion
+          ? "PDF corregido guardado correctamente. El documento original fue conservado."
+          : "PDF del conduce guardado correctamente.",
+
+      data: {
+
+        idConduce:
+          idConduce,
+
+        noConduce:
+          noConduce,
+
+        tipoDocumento:
+          esCorreccion
+            ? "CORRECCION"
+            : "ORIGINAL",
+
+        numeroCorreccion:
+          numeroCorreccion,
+
+        nombreArchivo:
+          archivoPDF.getName(),
+
+        archivoId:
+          archivoPDF.getId(),
+
+        archivoUrl:
+          archivoPDF.getUrl(),
+
+        carpetaUrl:
+          carpetaDestino.getUrl(),
+
+        pdfAnteriorUrl:
+          pdfUrlActual,
+
+        originalConservado:
+          esCorreccion
+
+      }
+
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error guardarPDFConduce:",
+      error
+    );
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(
+              error
+            )
+
+    });
+
+  }
+
+}
+
+
+/**
+ * Devuelve el próximo número disponible para:
+ *
+ * Conduce_XXXX_Correccion_01.pdf
+ * Conduce_XXXX_Correccion_02.pdf
+ */
+function obtenerSiguienteNumeroCorreccionConduce_(
+  carpeta,
+  nombreBase
+) {
+
+  const archivos =
+    carpeta.getFiles();
+
+  const expresion =
+    new RegExp(
+      "^" +
+      escaparExpresionRegularConduce_(
+        nombreBase
+      ) +
+      "_Correccion_(\\\\d+)\\\\.pdf$",
+      "i"
+    );
+
+  let mayor =
+    0;
+
+  while (
+    archivos.hasNext()
+  ) {
+
+    const archivo =
+      archivos.next();
+
+    const coincidencia =
+      String(
+        archivo.getName() || ""
+      ).match(
+        expresion
+      );
+
+    if (!coincidencia) {
+
+      continue;
+
+    }
+
+    mayor =
+      Math.max(
+        mayor,
+        Number(
+          coincidencia[1] || 0
+        )
+      );
+
+  }
+
+  return mayor + 1;
+
+}
+
+
+/**
+ * Agrega una marca de agua y una identificación superior.
+ *
+ * La opacidad es deliberadamente baja para no dificultar
+ * la lectura ni la impresión del conduce.
+ */
+function agregarMarcaCorreccionHTMLConduce_(
+  html,
+  datos
+) {
+
+  const informacion =
+    datos || {};
+
+  const numero =
+    Number(
+      informacion.numeroCorreccion || 0
+    );
+
+  const zonaHoraria =
+    Session.getScriptTimeZone();
+
+  const fechaCorreccion =
+    Utilities.formatDate(
+      new Date(),
+      zonaHoraria,
+      "dd/MM/yyyy hh:mm a"
+    );
+
+  const corregidoPor =
+    Documentos.escaparHTML(
+      informacion.corregidoPor ||
+      "No identificado"
+    );
+
+  const documentoSAP =
+    Documentos.escaparHTML(
+      informacion.documentoSAP ||
+      "No registrado"
+    );
+
+  const comentario =
+    Documentos.escaparHTML(
+      informacion.comentario ||
+      ""
+    );
+
+  const estilos = `
+    <style>
+      .marca-agua-correccion-conduce {
+        position: fixed;
+        left: 50%;
+        top: 48%;
+        z-index: 0;
+        transform: translate(-50%, -50%) rotate(-32deg);
+        color: rgba(183, 28, 28, 0.075);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 76px;
+        font-weight: 800;
+        letter-spacing: 8px;
+        line-height: 1;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .identificacion-correccion-conduce {
+        position: relative;
+        z-index: 2;
+        margin: 0 0 8px;
+        padding: 6px 9px;
+        border: 1px solid rgba(183, 28, 28, 0.42);
+        border-radius: 7px;
+        background: rgba(255, 245, 245, 0.96);
+        color: #8f1515;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7px;
+        line-height: 1.35;
+        page-break-inside: avoid;
+      }
+
+      .identificacion-correccion-conduce strong {
+        display: inline-block;
+        margin-right: 9px;
+        font-size: 8px;
+        letter-spacing: .4px;
+      }
+
+      .identificacion-correccion-conduce span {
+        display: inline-block;
+        margin-right: 9px;
+      }
+
+      body > *:not(.marca-agua-correccion-conduce) {
+        position: relative;
+        z-index: 1;
+      }
+
+      @media print {
+        .marca-agua-correccion-conduce,
+        .identificacion-correccion-conduce {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  `;
+
+  const marca = `
+    <div class="marca-agua-correccion-conduce">
+      CORRECCIÓN
+    </div>
+
+    <div class="identificacion-correccion-conduce">
+
+      <strong>
+        DOCUMENTO CORREGIDO · VERSIÓN ${String(
+          numero
+        ).padStart(
+          2,
+          "0"
+        )}
+      </strong>
+
+      <span>
+        Fecha: ${fechaCorreccion}
+      </span>
+
+      <span>
+        Corregido por: ${corregidoPor}
+      </span>
+
+      <span>
+        SAP: ${documentoSAP}
+      </span>
+
+      ${
+        comentario
+          ? `
+            <span>
+              Nota: ${comentario}
+            </span>
+          `
+          : ""
+      }
+
+    </div>
+  `;
+
+  let resultado =
+    String(
+      html || ""
+    );
+
+  if (
+    /<\/head>/i.test(
+      resultado
+    )
+  ) {
+
+    resultado =
+      resultado.replace(
+        /<\/head>/i,
+        estilos +
+        "</head>"
+      );
+
+  } else {
+
+    resultado =
+      estilos +
+      resultado;
+
+  }
+
+  if (
+    /<body[^>]*>/i.test(
+      resultado
+    )
+  ) {
+
+    resultado =
+      resultado.replace(
+        /<body([^>]*)>/i,
+        function(
+          coincidencia,
+          atributos
+        ) {
+
+          return (
+            "<body" +
+            atributos +
+            ">" +
+            marca
+          );
+
+        }
+      );
+
+  } else {
+
+    resultado =
+      marca +
+      resultado;
+
+  }
+
+  return resultado;
+
+}
+
+
+function escaparExpresionRegularConduce_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  ).replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+
+}
+
+
+// ======================================================
+// UTILIDAD: OBTENER O CREAR SUBCARPETA
+// ======================================================
+
+function obtenerOCrearSubcarpeta_(
+  carpetaPadre,
+  nombre
+) {
+
+  const carpetas =
+    carpetaPadre
+      .getFoldersByName(
+        nombre
+      );
+
+  if (
+    carpetas.hasNext()
+  ) {
+
+    return carpetas.next();
+
+  }
+
+  return carpetaPadre
+    .createFolder(
+      nombre
+    );
+
+}
+
+// ======================================================
+// PDF TEMPORAL - HISTÓRICO DE METAS
+// ======================================================
+//
+// Genera el PDF completamente en memoria y lo devuelve
+// como Base64. No crea archivos en Drive ni modifica hojas.
+//
+// Datos esperados:
+// - fechaDesde
+// - fechaHasta
+// - supervisor
+// - resultado
+// - estadoJustificacion
+// - resumen
+// - metas
+// - graficoBase64
+// - generadoPor
+// ======================================================
+
+function generarPDFHistoricoMetas(datos) {
+
+  try {
+
+    const d = datos || {};
+
+    const metas =
+      Array.isArray(d.metas)
+        ? d.metas
+        : [];
+
+    if (!d.fechaDesde || !d.fechaHasta) {
+      throw new Error(
+        "Debe indicar el rango de fechas del histórico."
+      );
+    }
+
+    if (metas.length === 0) {
+      throw new Error(
+        "No existen metas visibles para generar el documento."
+      );
+    }
+
+    const configuracion =
+      Documentos.obtenerConfiguracion();
+
+    const zonaHoraria =
+      SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      "America/Santo_Domingo";
+
+    const ahora = new Date();
+
+    const generadoPor =
+      String(
+        d.generadoPor ||
+        "Usuario del sistema"
+      ).trim();
+
+    const fechaDesdeVisual =
+      formatearFechaDocumentoMeta_(
+        d.fechaDesde
+      );
+
+    const fechaHastaVisual =
+      formatearFechaDocumentoMeta_(
+        d.fechaHasta
+      );
+
+    const resumen =
+      d.resumen || {};
+
+    const logoEmpresa =
+      Documentos.obtenerImagenDataUri(
+        configuracion.LogoURL ||
+        configuracion.LogoEmpresa ||
+        ""
+      );
+
+    const referencia =
+      "Período: " +
+      fechaDesdeVisual +
+      " al " +
+      fechaHastaVisual;
+
+    const numeroDocumento =
+      "HM-" +
+      Utilities.formatDate(
+        ahora,
+        zonaHoraria,
+        "yyyyMMdd-HHmmss"
+      );
+
+    const encabezado =
+      Documentos.crearEncabezado({
+
+        empresa:
+          configuracion.Empresa ||
+          "Helados Bon SRL",
+
+        direccion:
+          configuracion.Ubicacion ||
+          configuracion.Direccion ||
+          "",
+
+        titulo:
+          "HISTÓRICO DE METAS DE DESPACHO",
+
+        version:
+          "Informe operativo",
+
+        referencia:
+          referencia,
+
+        numeroDocumento:
+          numeroDocumento,
+
+        etiquetaNumero:
+          "No. Reporte",
+
+        logoPrincipal:
+          logoEmpresa
+
+      });
+
+    const filtros =
+      Documentos.crearTarjeta(
+        "Parámetros del informe",
+
+        Documentos.crearGrid(
+
+          Documentos.crearTarjeta(
+            "Período y responsable",
+
+            Documentos.crearDato(
+              "Fecha desde",
+              fechaDesdeVisual
+            )
+            +
+            Documentos.crearDato(
+              "Fecha hasta",
+              fechaHastaVisual
+            )
+            +
+            Documentos.crearDato(
+              "Generado por",
+              generadoPor
+            )
+            +
+            Documentos.crearDato(
+              "Fecha de generación",
+              Utilities.formatDate(
+                ahora,
+                zonaHoraria,
+                "dd/MM/yyyy HH:mm"
+              )
+            )
+
+          )
+          +
+          Documentos.crearTarjeta(
+            "Filtros aplicados",
+
+            Documentos.crearDato(
+              "Supervisor",
+              normalizarFiltroDocumentoMeta_(
+                d.supervisor
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Resultado",
+              normalizarFiltroDocumentoMeta_(
+                d.resultado
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Justificación",
+              normalizarFiltroDocumentoMeta_(
+                d.estadoJustificacion
+              )
+            )
+
+          ),
+
+          2
+        )
+      );
+
+    const metricas =
+      Documentos.crearMetricas(
+        [
+          {
+            etiqueta: "Meta acumulada",
+            valor: formatearNumeroDocumentoMeta_(
+              resumen.metaAcumulada,
+              0
+            )
+          },
+          {
+            etiqueta: "Despachos realizados",
+            valor: formatearNumeroDocumentoMeta_(
+              resumen.despachosRealizados,
+              0
+            )
+          },
+          {
+            etiqueta: "Cumplimiento",
+            valor:
+              formatearNumeroDocumentoMeta_(
+                resumen.cumplimientoPorcentaje,
+                2
+              ) + "%"
+          },
+          {
+            etiqueta: "Días operativos",
+            valor: formatearNumeroDocumentoMeta_(
+              resumen.diasOperativos,
+              0
+            )
+          }
+        ],
+        4,
+        "doc-metricas-metas"
+      );
+
+    const graficoDataUri =
+      normalizarGraficoDocumentoMeta_(
+        d.graficoBase64
+      );
+
+    const grafico =
+      graficoDataUri
+        ? Documentos.crearTarjeta(
+            "Evolución diaria · Meta vs. despachos realizados",
+            Documentos.crearImagen(
+              graficoDataUri,
+              {
+                esDataUri: true,
+                textoAlterno:
+                  "Gráfico de metas y despachos realizados",
+                claseAdicional:
+                  "doc-grafico-metas"
+              }
+            )
+          )
+        : "";
+
+    const filas =
+      metas.map(meta => {
+
+        const resultado =
+          String(
+            meta.resultado ||
+            "-"
+          ).trim();
+
+        const estadoJustificacion =
+          String(
+            meta.estadoJustificacion ||
+            "-"
+          ).trim();
+
+        const resultadoHTML =
+          crearEtiquetaResultadoDocumentoMeta_(
+            resultado
+          );
+
+        const justificacionHTML =
+          crearEtiquetaJustificacionDocumentoMeta_(
+            estadoJustificacion
+          );
+
+        const causa =
+          String(
+            meta.causaIncumplimiento ||
+            ""
+          ).trim();
+
+        const comentario =
+          String(
+            meta.comentarioIncumplimiento ||
+            ""
+          ).trim();
+
+        const explicacion =
+          causa || comentario
+            ? [causa, comentario]
+                .filter(Boolean)
+                .join(" · ")
+            : "-";
+
+        return [
+          Documentos.escaparHTML(
+            meta.fecha ||
+            formatearFechaDocumentoMeta_(
+              meta.fechaISO
+            )
+          ),
+          Documentos.escaparHTML(
+            meta.supervisorNombre ||
+            "Sin supervisor"
+          ),
+          Documentos.escaparHTML(
+            formatearNumeroDocumentoMeta_(
+              meta.metaDespachos,
+              0
+            )
+          ),
+          Documentos.escaparHTML(
+            formatearNumeroDocumentoMeta_(
+              meta.despachosRealizados,
+              0
+            )
+          ),
+          Documentos.escaparHTML(
+            formatearNumeroDocumentoMeta_(
+              meta.cumplimientoPorcentaje,
+              2
+            ) + "%"
+          ),
+          resultadoHTML,
+          justificacionHTML,
+          Documentos.escaparHTML(
+            explicacion
+          )
+        ];
+
+      });
+
+    const tabla =
+      Documentos.crearTarjeta(
+        "Detalle de metas del período",
+        Documentos.crearTabla(
+          [
+            "Fecha",
+            "Supervisor",
+            "Meta",
+            "Realizados",
+            "Cumplimiento",
+            "Resultado",
+            "Justificación",
+            "Causa / comentario"
+          ],
+          filas,
+          {
+            permitirHTML: true,
+            claseAdicional:
+              "doc-tabla-metas"
+          }
+        )
+      );
+
+    const pie =
+      Documentos.crearPie({
+
+        empresa:
+          configuracion.Empresa ||
+          "Helados Bon SRL",
+
+        sistema:
+          "Sistema Logístico PT",
+
+        codigoDocumento:
+          numeroDocumento,
+
+        textoAdicional:
+          "Informe temporal generado para consulta e impresión"
+
+      });
+
+    const contenido =
+      encabezado
+      +
+      metricas
+      +
+      Documentos.crearEspaciador(7)
+      +
+      filtros
+      +
+      Documentos.crearEspaciador(7)
+      +
+      grafico
+      +
+      Documentos.crearEspaciador(7)
+      +
+      tabla
+      +
+      pie;
+
+    const estilosAdicionales = `
+
+      .doc-metricas-metas {
+        margin-bottom: 2px;
+      }
+
+      .doc-grafico-metas img {
+        width: 100%;
+        max-height: 310px;
+      }
+
+      .doc-tabla-metas {
+        table-layout: fixed;
+      }
+
+      .doc-tabla-metas th,
+      .doc-tabla-metas td {
+        font-size: 6.2px;
+        line-height: 1.2;
+        word-wrap: break-word;
+      }
+
+      .doc-tabla-metas th:nth-child(1),
+      .doc-tabla-metas td:nth-child(1) {
+        width: 8%;
+      }
+
+      .doc-tabla-metas th:nth-child(2),
+      .doc-tabla-metas td:nth-child(2) {
+        width: 13%;
+      }
+
+      .doc-tabla-metas th:nth-child(3),
+      .doc-tabla-metas td:nth-child(3),
+      .doc-tabla-metas th:nth-child(4),
+      .doc-tabla-metas td:nth-child(4) {
+        width: 7%;
+        text-align: center;
+      }
+
+      .doc-tabla-metas th:nth-child(5),
+      .doc-tabla-metas td:nth-child(5) {
+        width: 9%;
+        text-align: center;
+      }
+
+      .doc-tabla-metas th:nth-child(6),
+      .doc-tabla-metas td:nth-child(6),
+      .doc-tabla-metas th:nth-child(7),
+      .doc-tabla-metas td:nth-child(7) {
+        width: 11%;
+        text-align: center;
+      }
+
+      .doc-tabla-metas th:nth-child(8),
+      .doc-tabla-metas td:nth-child(8) {
+        width: 34%;
+      }
+
+      .doc-tabla-metas .doc-etiqueta {
+        font-size: 5.2px;
+        padding: 1px 4px;
+        white-space: normal;
+      }
+
+    `;
+
+    const html =
+      Documentos.crearDocumentoHTML({
+
+        tamano:
+          "Letter",
+
+        orientacion:
+          "horizontal",
+
+        contenido:
+          contenido,
+
+        estilosAdicionales:
+          estilosAdicionales
+
+      });
+
+    const nombreArchivo =
+      Documentos.limpiarNombreArchivo(
+        "BON - Histórico de Metas de Despacho - " +
+        fechaDesdeVisual.replace(/\//g, "-") +
+        " al " +
+        fechaHastaVisual.replace(/\//g, "-")
+      );
+
+    /*
+     * La conversión ocurre completamente en memoria.
+     * No se llama a DriveApp.createFile().
+     */
+    const blobPDF =
+      Utilities
+        .newBlob(
+          html,
+          "text/html",
+          nombreArchivo + ".html"
+        )
+        .getAs(MimeType.PDF)
+        .setName(
+          nombreArchivo + ".pdf"
+        );
+
+    return {
+      exito: true,
+      mensaje:
+        "Informe generado correctamente.",
+      nombreArchivo:
+        blobPDF.getName(),
+      mimeType:
+        "application/pdf",
+      base64:
+        Utilities.base64Encode(
+          blobPDF.getBytes()
+        )
+    };
+
+  } catch (error) {
+
+    console.error(
+      "Error generarPDFHistoricoMetas:",
+      error
+    );
+
+    return {
+      exito: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    };
+
+  }
+
+}
+
+
+function normalizarFiltroDocumentoMeta_(valor) {
+
+  const texto =
+    String(valor || "")
+      .trim();
+
+  if (
+    !texto ||
+    texto.toUpperCase() === "TODOS"
+  ) {
+    return "Todos";
+  }
+
+  return texto;
+
+}
+
+
+function formatearNumeroDocumentoMeta_(valor, decimales) {
+
+  const numero = Number(
+    String(
+      valor === null ||
+      valor === undefined
+        ? 0
+        : valor
+    )
+      .replace("%", "")
+      .replace(",", ".")
+      .trim()
+  );
+
+  const valido =
+    isNaN(numero)
+      ? 0
+      : numero;
+
+  return valido.toLocaleString(
+    "es-DO",
+    {
+      minimumFractionDigits:
+        Number(decimales || 0),
+      maximumFractionDigits:
+        Number(decimales || 0)
+    }
+  );
+
+}
+
+
+function formatearFechaDocumentoMeta_(valor) {
+
+  const texto =
+    String(valor || "")
+      .trim();
+
+  if (!texto) {
+    return "-";
+  }
+
+  let coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})/
+    );
+
+  if (coincidencia) {
+    return (
+      String(coincidencia[3]).padStart(2, "0") +
+      "/" +
+      String(coincidencia[2]).padStart(2, "0") +
+      "/" +
+      coincidencia[1]
+    );
+  }
+
+  coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+    );
+
+  if (coincidencia) {
+    return (
+      String(coincidencia[1]).padStart(2, "0") +
+      "/" +
+      String(coincidencia[2]).padStart(2, "0") +
+      "/" +
+      coincidencia[3]
+    );
+  }
+
+  return texto;
+
+}
+
+
+function normalizarGraficoDocumentoMeta_(valor) {
+
+  const texto =
+    String(valor || "")
+      .trim();
+
+  if (!texto) {
+    return "";
+  }
+
+  if (
+    texto.startsWith(
+      "data:image/"
+    )
+  ) {
+    return texto;
+  }
+
+  return (
+    "data:image/png;base64," +
+    texto
+  );
+
+}
+
+
+function crearEtiquetaResultadoDocumentoMeta_(resultado) {
+
+  const texto =
+    String(resultado || "-")
+      .trim();
+
+  const normalizado =
+    texto.toUpperCase();
+
+  if (
+    normalizado === "META CUMPLIDA" ||
+    normalizado === "META SUPERADA"
+  ) {
+    return Documentos.crearEtiqueta(
+      texto,
+      "verde"
+    );
+  }
+
+  return Documentos.crearEtiqueta(
+    texto,
+    "rojo"
+  );
+
+}
+
+
+function crearEtiquetaJustificacionDocumentoMeta_(estado) {
+
+  const texto =
+    String(estado || "-")
+      .trim();
+
+  const normalizado =
+    texto.toUpperCase();
+
+  if (
+    normalizado === "JUSTIFICADA"
+  ) {
+    return Documentos.crearEtiqueta(
+      texto,
+      "verde"
+    );
+  }
+
+  if (
+    normalizado === "PENDIENTE"
+  ) {
+    return Documentos.crearEtiqueta(
+      "Pendiente",
+      "naranja"
+    );
+  }
+
+  return Documentos.crearEtiqueta(
+    texto,
+    ""
+  );
+
+}
+
+// ======================================================
+// PDF TEMPORAL - CENTRO DE EXACTITUD DE DESPACHOS
+// ======================================================
+//
+// Genera el PDF completamente en memoria.
+// No crea archivos en Drive ni modifica hojas.
+// ======================================================
+
+function generarPDFCentroExactitudDespachos(datos) {
+
+  try {
+
+    const d =
+      datos || {};
+
+
+    const registros =
+      Array.isArray(
+        d.registros
+      )
+        ? d.registros
+        : [];
+
+
+    if (
+      registros.length === 0
+    ) {
+
+      throw new Error(
+        "No existen conduces para generar el reporte."
+      );
+
+    }
+
+
+    const filtros =
+      d.filtros || {};
+
+
+    if (
+      !filtros.fechaDesde ||
+      !filtros.fechaHasta
+    ) {
+
+      throw new Error(
+        "Debe indicar el período del reporte."
+      );
+
+    }
+
+
+    const resumen =
+      d.resumen || {};
+
+
+    const configuracion =
+      Documentos.obtenerConfiguracion();
+
+
+    const zonaHoraria =
+      SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      "America/Santo_Domingo";
+
+
+    const ahora =
+      new Date();
+
+
+    const generadoPor =
+      String(
+        d.generadoPor ||
+        "Usuario del sistema"
+      ).trim();
+
+
+    const fechaDesdeVisual =
+      formatearFechaDocumentoExactitud_(
+        filtros.fechaDesde
+      );
+
+
+    const fechaHastaVisual =
+      formatearFechaDocumentoExactitud_(
+        filtros.fechaHasta
+      );
+
+
+    const logoEmpresa =
+      Documentos.obtenerImagenDataUri(
+        configuracion.LogoURL ||
+        configuracion.LogoEmpresa ||
+        ""
+      );
+
+
+    const numeroDocumento =
+      "EX-" +
+      Utilities.formatDate(
+        ahora,
+        zonaHoraria,
+        "yyyyMMdd-HHmmss"
+      );
+
+
+    const encabezado =
+      Documentos.crearEncabezado({
+
+        empresa:
+          configuracion.Empresa ||
+          "Helados Bon SRL",
+
+        direccion:
+          configuracion.Ubicacion ||
+          configuracion.Direccion ||
+          "",
+
+        titulo:
+          "REPORTE DE EXACTITUD DE DESPACHOS",
+
+        version:
+          "Informe operativo y de control",
+
+        referencia:
+          "Período: " +
+          fechaDesdeVisual +
+          " al " +
+          fechaHastaVisual,
+
+        numeroDocumento:
+          numeroDocumento,
+
+        etiquetaNumero:
+          "No. Reporte",
+
+        logoPrincipal:
+          logoEmpresa
+
+      });
+
+
+    const metricas =
+      Documentos.crearMetricas(
+        [
+          {
+            etiqueta:
+              "Tasa de exactitud",
+            valor:
+              formatearNumeroDocumentoExactitud_(
+                resumen.tasaExactitud,
+                2
+              ) + "%"
+          },
+          {
+            etiqueta:
+              "Tasa de error",
+            valor:
+              formatearNumeroDocumentoExactitud_(
+                resumen.tasaError,
+                2
+              ) + "%"
+          },
+          {
+            etiqueta:
+              "Bultos traspasados",
+            valor:
+              formatearNumeroDocumentoExactitud_(
+                resumen.bultosTraspasados,
+                0
+              )
+          },
+          {
+            etiqueta:
+              "Bultos desviados",
+            valor:
+              formatearNumeroDocumentoExactitud_(
+                resumen.bultosDesviados,
+                0
+              )
+          },
+          {
+            etiqueta:
+              "Bultos corregidos",
+            valor:
+              formatearNumeroDocumentoExactitud_(
+                resumen.bultosCorregidos,
+                0
+              )
+          },
+          {
+            etiqueta:
+              "Bultos pendientes",
+            valor:
+              formatearNumeroDocumentoExactitud_(
+                resumen.bultosPendientes,
+                0
+              )
+          },
+          {
+            etiqueta:
+              "Valor desviaciones",
+            valor:
+              formatearMonedaDocumentoExactitud_(
+                resumen.valorDesviaciones
+              )
+          },
+          {
+            etiqueta:
+              "Valor corregido",
+            valor:
+              formatearMonedaDocumentoExactitud_(
+                resumen.valorCorregido
+              )
+          },
+          {
+            etiqueta:
+              "Valor pendiente",
+            valor:
+              formatearMonedaDocumentoExactitud_(
+                resumen.valorPendiente
+              )
+          }
+        ],
+        5,
+        "doc-metricas-exactitud"
+      );
+
+
+    const tarjetaFiltros =
+      Documentos.crearTarjeta(
+        "Parámetros del informe",
+
+        Documentos.crearGrid(
+
+          Documentos.crearTarjeta(
+            "Período y responsable",
+
+            Documentos.crearDato(
+              "Fecha desde",
+              fechaDesdeVisual
+            )
+            +
+            Documentos.crearDato(
+              "Fecha hasta",
+              fechaHastaVisual
+            )
+            +
+            Documentos.crearDato(
+              "Generado por",
+              generadoPor
+            )
+            +
+            Documentos.crearDato(
+              "Fecha de generación",
+              Utilities.formatDate(
+                ahora,
+                zonaHoraria,
+                "dd/MM/yyyy HH:mm"
+              )
+            )
+
+          )
+          +
+          Documentos.crearTarjeta(
+            "Filtros aplicados",
+
+            Documentos.crearDato(
+              "Búsqueda",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.busqueda
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Supervisor",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.supervisor
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Estado",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.estado
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Resultado",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.resultado
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Resolución",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.resolucion
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Tipo de diferencia",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.tipoDiferencia
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Agrupación",
+              normalizarFiltroDocumentoExactitud_(
+                filtros.agrupacion
+              )
+            )
+            +
+            Documentos.crearDato(
+              "Solo pendientes",
+              filtros.soloPendientes === true
+                ? "Sí"
+                : "No"
+            )
+
+          ),
+
+          2
+        )
+      );
+
+
+    const graficoExactitud =
+      normalizarGraficoDocumentoExactitud_(
+        d.graficoExactitudBase64
+      );
+
+
+    const graficoDesviaciones =
+      normalizarGraficoDocumentoExactitud_(
+        d.graficoDesviacionesBase64
+      );
+
+
+    const tarjetaGraficoExactitud =
+  graficoExactitud
+    ? Documentos.crearTarjeta(
+        "Evolución de la exactitud",
+
+        Documentos.crearImagen(
+          graficoExactitud,
+          {
+            esDataUri:
+              true,
+
+            textoAlterno:
+              "Gráfico de evolución de exactitud",
+
+            claseAdicional:
+              "doc-grafico-exactitud"
+          }
+        )
+      )
+    : "";
+
+
+const tarjetaGraficoDesviaciones =
+  graficoDesviaciones
+    ? Documentos.crearTarjeta(
+        "Distribución de desviaciones",
+
+        Documentos.crearImagen(
+          graficoDesviaciones,
+          {
+            esDataUri:
+              true,
+
+            textoAlterno:
+              "Gráfico de desviaciones",
+
+            claseAdicional:
+              "doc-grafico-exactitud"
+          }
+        )
+      )
+    : "";
+
+
+const graficos =
+  (
+    tarjetaGraficoExactitud ||
+    tarjetaGraficoDesviaciones
+  )
+    ? Documentos.crearGrid(
+        tarjetaGraficoExactitud +
+        tarjetaGraficoDesviaciones,
+        2
+      )
+    : "";
+
+
+    const filas =
+      registros.map(
+        function(registro) {
+
+          const r =
+            registro || {};
+
+
+          return [
+            Documentos.escaparHTML(
+              r.fecha || "-"
+            ),
+            Documentos.escaparHTML(
+              r.noConduce || "-"
+            ),
+            Documentos.escaparHTML(
+              r.supervisor || "-"
+            ),
+            Documentos.escaparHTML(
+              r.chofer || "-"
+            ),
+            Documentos.escaparHTML(
+              r.centros || "-"
+            ),
+            Documentos.escaparHTML(
+              formatearNumeroDocumentoExactitud_(
+                r.totalSistema,
+                0
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearNumeroDocumentoExactitud_(
+                r.faltantes,
+                0
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearNumeroDocumentoExactitud_(
+                r.sobrantes,
+                0
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearNumeroDocumentoExactitud_(
+                r.bultosCorregidos,
+                0
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearNumeroDocumentoExactitud_(
+                r.bultosPendientes,
+                0
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearNumeroDocumentoExactitud_(
+                r.exactitud,
+                2
+              ) + "%"
+            ),
+            crearEtiquetaEstadoDocumentoExactitud_(
+              r.estadoVerificacion
+            ),
+            Documentos.escaparHTML(
+              r.resultadoVerificacion || "-"
+            ),
+            Documentos.escaparHTML(
+              r.estadoResolucion || "-"
+            ),
+            Documentos.escaparHTML(
+              formatearMonedaDocumentoExactitud_(
+                r.valorDesviacion
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearMonedaDocumentoExactitud_(
+                r.valorCorregido
+              )
+            ),
+            Documentos.escaparHTML(
+              formatearMonedaDocumentoExactitud_(
+                r.valorPendiente
+              )
+            )
+          ];
+
+        }
+      );
+
+
+    const tabla =
+      Documentos.crearTarjeta(
+        "Detalle de conduces filtrados",
+
+        Documentos.crearTabla(
+          [
+            "Fecha",
+            "Conduce",
+            "Supervisor",
+            "Chofer",
+            "Centro",
+            "Bultos",
+            "Falt.",
+            "Sobr.",
+            "Correg.",
+            "Pend.",
+            "Exact.",
+            "Estado",
+            "Resultado",
+            "Resolución",
+            "Valor desv.",
+            "Valor corr.",
+            "Valor pend."
+          ],
+          filas,
+          {
+            permitirHTML:
+              true,
+            claseAdicional:
+              "doc-tabla-exactitud"
+          }
+        )
+      );
+
+
+    const resumenEjecutivo =
+      construirResumenEjecutivoDocumentoExactitud_(
+        registros,
+        resumen
+      );
+
+
+    const pie =
+      Documentos.crearPie({
+
+        empresa:
+          configuracion.Empresa ||
+          "Helados Bon SRL",
+
+        sistema:
+          "Sistema Logístico PT",
+
+        codigoDocumento:
+          numeroDocumento,
+
+        textoAdicional:
+          "Informe temporal generado para consulta e impresión"
+
+      });
+
+
+    const contenido =
+      encabezado
+      +
+      metricas
+      +
+      Documentos.crearEspaciador(
+        7
+      )
+      +
+      tarjetaFiltros
+      +
+      Documentos.crearEspaciador(
+        7
+      )
+      +
+      graficos
+      +
+      Documentos.crearEspaciador(
+        7
+      )
+      +
+      tabla
+      +
+      Documentos.crearSaltoPagina()
+      +
+      resumenEjecutivo
+      +
+      pie;
+
+
+    const estilosAdicionales = `
+
+      .doc-metricas-exactitud {
+        margin-bottom: 3px;
+      }
+
+      .doc-grafico-exactitud img {
+        width: 100%;
+        max-height: 245px;
+      }
+
+      .doc-tabla-exactitud {
+        table-layout: fixed;
+      }
+
+      .doc-tabla-exactitud th,
+      .doc-tabla-exactitud td {
+        padding: 3px 3px;
+        font-size: 4.8px;
+        line-height: 1.15;
+        word-break: break-word;
+      }
+
+      .doc-tabla-exactitud th:nth-child(1),
+      .doc-tabla-exactitud td:nth-child(1) {
+        width: 5.5%;
+      }
+
+      .doc-tabla-exactitud th:nth-child(2),
+      .doc-tabla-exactitud td:nth-child(2) {
+        width: 6%;
+      }
+
+      .doc-tabla-exactitud th:nth-child(3),
+      .doc-tabla-exactitud td:nth-child(3),
+      .doc-tabla-exactitud th:nth-child(4),
+      .doc-tabla-exactitud td:nth-child(4) {
+        width: 7.5%;
+      }
+
+      .doc-tabla-exactitud th:nth-child(5),
+      .doc-tabla-exactitud td:nth-child(5) {
+        width: 8%;
+      }
+
+      .doc-tabla-exactitud th:nth-child(n+6):nth-child(-n+11),
+      .doc-tabla-exactitud td:nth-child(n+6):nth-child(-n+11) {
+        width: 4.2%;
+        text-align: center;
+      }
+
+      .doc-tabla-exactitud th:nth-child(12),
+      .doc-tabla-exactitud td:nth-child(12),
+      .doc-tabla-exactitud th:nth-child(13),
+      .doc-tabla-exactitud td:nth-child(13),
+      .doc-tabla-exactitud th:nth-child(14),
+      .doc-tabla-exactitud td:nth-child(14) {
+        width: 6.5%;
+        text-align: center;
+      }
+
+      .doc-tabla-exactitud th:nth-child(n+15),
+      .doc-tabla-exactitud td:nth-child(n+15) {
+        width: 6%;
+        text-align: right;
+      }
+
+      .doc-tabla-exactitud .doc-etiqueta {
+        padding: 1px 3px;
+        font-size: 4.3px;
+        white-space: normal;
+      }
+
+      .doc-resumen-ejecutivo {
+        margin-top: 3px;
+      }
+
+      .doc-etiqueta-azul {
+        color: #155FA8;
+        background: #E8F2FC;
+        border-color: #7FB2E4;
+      }
+
+    `;
+
+
+    const html =
+      Documentos.crearDocumentoHTML({
+
+        tamano:
+          "Letter",
+
+        orientacion:
+          "horizontal",
+
+        contenido:
+          contenido,
+
+        estilosAdicionales:
+          estilosAdicionales
+
+      });
+
+
+    const nombreArchivo =
+      Documentos.limpiarNombreArchivo(
+        "BON - Reporte de Exactitud de Despachos - " +
+        fechaDesdeVisual.replace(
+          /\//g,
+          "-"
+        ) +
+        " al " +
+        fechaHastaVisual.replace(
+          /\//g,
+          "-"
+        )
+      );
+
+
+    const blobPDF =
+      Utilities
+        .newBlob(
+          html,
+          "text/html",
+          nombreArchivo + ".html"
+        )
+        .getAs(
+          MimeType.PDF
+        )
+        .setName(
+          nombreArchivo + ".pdf"
+        );
+
+
+    return {
+
+      exito:
+        true,
+
+      mensaje:
+        "Reporte de exactitud generado correctamente.",
+
+      nombreArchivo:
+        blobPDF.getName(),
+
+      mimeType:
+        "application/pdf",
+
+      base64:
+        Utilities.base64Encode(
+          blobPDF.getBytes()
+        )
+
+    };
+
+
+  } catch (error) {
+
+    console.error(
+      "Error generarPDFCentroExactitudDespachos:",
+      error
+    );
+
+
+    return {
+
+      exito:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(
+              error
+            )
+
+    };
+
+  }
+
+}
+
+
+function construirResumenEjecutivoDocumentoExactitud_(
+  registros,
+  resumen
+) {
+
+  const lista =
+    Array.isArray(
+      registros
+    )
+      ? registros
+      : [];
+
+
+  const porSupervisor = {};
+
+  const porCentro = {};
+
+
+  lista.forEach(
+    function(item) {
+
+      const supervisor =
+        String(
+          item.supervisor ||
+          "Sin supervisor"
+        ).trim();
+
+
+      if (
+        !porSupervisor[
+          supervisor
+        ]
+      ) {
+
+        porSupervisor[
+          supervisor
+        ] = {
+
+          cantidad:
+            0,
+
+          exactitud:
+            0,
+
+          correcciones:
+            0
+
+        };
+
+      }
+
+
+      porSupervisor[
+        supervisor
+      ].cantidad++;
+
+
+      porSupervisor[
+        supervisor
+      ].exactitud +=
+        numeroDocumentoExactitud_(
+          item.exactitud
+        );
+
+
+      porSupervisor[
+        supervisor
+      ].correcciones +=
+        numeroDocumentoExactitud_(
+          item.bultosCorregidos
+        );
+
+
+      const centro =
+        String(
+          item.centros ||
+          "Sin centro"
+        ).trim();
+
+
+      if (
+        !porCentro[
+          centro
+        ]
+      ) {
+
+        porCentro[
+          centro
+        ] = {
+
+          desviados:
+            0
+
+        };
+
+      }
+
+
+      porCentro[
+        centro
+      ].desviados +=
+        numeroDocumentoExactitud_(
+          item.bultosDesviados
+        );
+
+    }
+  );
+
+
+  const supervisores =
+    Object.keys(
+      porSupervisor
+    );
+
+
+  const mejorSupervisor =
+    supervisores
+      .map(
+        function(nombre) {
+
+          const dato =
+            porSupervisor[
+              nombre
+            ];
+
+
+          return {
+
+            nombre:
+              nombre,
+
+            promedio:
+              dato.cantidad
+                ? dato.exactitud /
+                  dato.cantidad
+                : 0,
+
+            correcciones:
+              dato.correcciones
+
+          };
+
+        }
+      )
+      .sort(
+        function(a, b) {
+
+          return b.promedio -
+            a.promedio;
+
+        }
+      )[0] ||
+      {
+        nombre:
+          "-",
+        promedio:
+          0,
+        correcciones:
+          0
+      };
+
+
+  const supervisorCorrecciones =
+    supervisores
+      .map(
+        function(nombre) {
+
+          return {
+
+            nombre:
+              nombre,
+
+            correcciones:
+              porSupervisor[
+                nombre
+              ].correcciones
+
+          };
+
+        }
+      )
+      .sort(
+        function(a, b) {
+
+          return b.correcciones -
+            a.correcciones;
+
+        }
+      )[0] ||
+      {
+        nombre:
+          "-",
+        correcciones:
+          0
+      };
+
+
+  const centroMayorDesviacion =
+    Object.keys(
+      porCentro
+    )
+      .map(
+        function(nombre) {
+
+          return {
+
+            nombre:
+              nombre,
+
+            desviados:
+              porCentro[
+                nombre
+              ].desviados
+
+          };
+
+        }
+      )
+      .sort(
+        function(a, b) {
+
+          return b.desviados -
+            a.desviados;
+
+        }
+      )[0] ||
+      {
+        nombre:
+          "-",
+        desviados:
+          0
+      };
+
+
+  return Documentos.crearTarjeta(
+    "Resumen ejecutivo",
+
+    Documentos.crearMetricas(
+      [
+        {
+          etiqueta:
+            "Despachos evaluados",
+          valor:
+            formatearNumeroDocumentoExactitud_(
+              lista.length,
+              0
+            )
+        },
+        {
+          etiqueta:
+            "Exactitud global",
+          valor:
+            formatearNumeroDocumentoExactitud_(
+              resumen.tasaExactitud,
+              2
+            ) + "%"
+        },
+        {
+          etiqueta:
+            "Bultos verificados",
+          valor:
+            formatearNumeroDocumentoExactitud_(
+              resumen.bultosTraspasados,
+              0
+            )
+        },
+        {
+          etiqueta:
+            "Bultos desviados",
+          valor:
+            formatearNumeroDocumentoExactitud_(
+              resumen.bultosDesviados,
+              0
+            )
+        },
+        {
+          etiqueta:
+            "Valor recuperado",
+          valor:
+            formatearMonedaDocumentoExactitud_(
+              resumen.valorCorregido
+            )
+        }
+      ],
+      5
+    )
+    +
+    Documentos.crearEspaciador(
+      8
+    )
+    +
+    Documentos.crearGrid(
+
+      Documentos.crearTarjeta(
+        "Desempeño destacado",
+
+        Documentos.crearDato(
+          "Supervisor con mejor exactitud",
+          mejorSupervisor.nombre +
+          " · " +
+          formatearNumeroDocumentoExactitud_(
+            mejorSupervisor.promedio,
+            2
+          ) +
+          "%"
+        )
+        +
+        Documentos.crearDato(
+          "Supervisor con más bultos corregidos",
+          supervisorCorrecciones.nombre +
+          " · " +
+          formatearNumeroDocumentoExactitud_(
+            supervisorCorrecciones.correcciones,
+            0
+          )
+        )
+
+      )
+      +
+      Documentos.crearTarjeta(
+        "Foco de atención",
+
+        Documentos.crearDato(
+          "Centro con mayor desviación",
+          centroMayorDesviacion.nombre +
+          " · " +
+          formatearNumeroDocumentoExactitud_(
+            centroMayorDesviacion.desviados,
+            0
+          ) +
+          " bultos"
+        )
+        +
+        Documentos.crearDato(
+          "Bultos pendientes",
+          formatearNumeroDocumentoExactitud_(
+            resumen.bultosPendientes,
+            0
+          )
+        )
+        +
+        Documentos.crearDato(
+          "Valor pendiente",
+          formatearMonedaDocumentoExactitud_(
+            resumen.valorPendiente
+          )
+        )
+
+      ),
+
+      2
+    ),
+
+    "doc-resumen-ejecutivo"
+  );
+
+}
+
+
+function crearEtiquetaEstadoDocumentoExactitud_(
+  estado
+) {
+
+  const texto =
+    String(
+      estado || "-"
+    ).trim();
+
+
+  const normalizado =
+    texto
+      .toLowerCase()
+      .normalize(
+        "NFD"
+      )
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      );
+
+
+  let clase =
+    "doc-etiqueta";
+
+
+  if (
+    normalizado === "verificado"
+  ) {
+
+    clase +=
+      " doc-etiqueta-verde";
+
+  } else if (
+    normalizado === "resuelto"
+  ) {
+
+    clase +=
+      " doc-etiqueta-azul";
+
+  } else if (
+    normalizado === "en proceso" ||
+    normalizado === "pendiente"
+  ) {
+
+    clase +=
+      " doc-etiqueta-naranja";
+
+  } else if (
+    normalizado === "anulada"
+  ) {
+
+    clase +=
+      " doc-etiqueta-roja";
+
+  }
+
+
+  return (
+    '<span class="' +
+    clase +
+    '">' +
+    Documentos.escaparHTML(
+      texto
+    ) +
+    "</span>"
+  );
+
+}
+
+
+function normalizarFiltroDocumentoExactitud_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  return texto ||
+    "Todos";
+
+}
+
+
+function normalizarGraficoDocumentoExactitud_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  return texto.indexOf(
+    "data:image/"
+  ) === 0
+    ? texto
+    : "";
+
+}
+
+
+function formatearFechaDocumentoExactitud_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  const coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+
+
+  if (!coincidencia) {
+
+    return texto ||
+      "-";
+
+  }
+
+
+  return (
+    coincidencia[3] +
+    "/" +
+    coincidencia[2] +
+    "/" +
+    coincidencia[1]
+  );
+
+}
+
+
+function numeroDocumentoExactitud_(
+  valor
+) {
+
+  const numero =
+    Number(
+      String(
+        valor === null ||
+        valor === undefined
+          ? 0
+          : valor
+      )
+        .replace(
+          /,/g,
+          ""
+        )
+        .trim()
+    );
+
+
+  return isFinite(
+    numero
+  )
+    ? numero
+    : 0;
+
+}
+
+
+function formatearNumeroDocumentoExactitud_(
+  valor,
+  decimales
+) {
+
+  return numeroDocumentoExactitud_(
+    valor
+  ).toLocaleString(
+    "es-DO",
+    {
+      minimumFractionDigits:
+        Number(
+          decimales || 0
+        ),
+
+      maximumFractionDigits:
+        Number(
+          decimales || 0
+        )
+    }
+  );
+
+}
+
+
+function formatearMonedaDocumentoExactitud_(
+  valor
+) {
+
+  return (
+    "RD$ " +
+    numeroDocumentoExactitud_(
+      valor
+    ).toLocaleString(
+      "es-DO",
+      {
+        minimumFractionDigits:
+          2,
+
+        maximumFractionDigits:
+          2
+      }
+    )
+  );
+
+}

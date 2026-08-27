@@ -1,0 +1,1859 @@
+/** CÓDIGO.GS · Enrutamiento central del Sistema Logístico PT. */
+const CODIGO_SHEET_ID = "1c-oO232rbO3LY3tZnFbaQ0pg_8G6Gr5iYtFerj8hv1k";
+
+/*
+ * Compatibilidad temporal con módulos backend históricos que todavía
+ * consultan SHEET_ID. Debe existir una sola declaración global.
+ */
+const SHEET_ID = CODIGO_SHEET_ID;
+
+// Nombres de las hojas
+const SHEETS = {
+  USUARIOS: "Usuarios",
+  MATERIAL: "Materiales",
+  DESPACHO: "Despacho",
+  DESPACHO_DETALLE: "Despacho_Detalle",
+  CALIDAD: "Calidad",
+  CONFIGURACION: "Configuracion",
+  CATALOGO: "Catalogo",
+  CENTROS: "Centros",
+  CHOFERES: "Choferes",
+  UNIDADES_CARGA: "Unidades_Carga",
+  PRECINTOS: "Precintos",
+  INSPECCION_CONTENEDORES: "Inspeccion_Contenedores",
+  INSPECCION_CONTENEDORES_DETALLE: "Inspeccion_Contenedores_Detalle",
+  INSPECCION_EVIDENCIAS: "Inspeccion_Evidencias",
+  CATALOGO_INSPECCION: "Catalogo_Inspeccion",
+  VERIFICACION_DESPACHOS: "Verificacion_Despachos",
+  VERIFICACION_DESPACHOS_DETALLE: "Verificacion_Despachos_Detalle",
+};
+
+function getSheet(nombre) {
+  return SpreadsheetApp
+    .openById(CODIGO_SHEET_ID)
+    .getSheetByName(nombre);
+}
+
+function doPost(e) {
+
+  try {
+
+  const data = JSON.parse(e.postData.contents);
+
+  const accion = data.action || data.accion;
+
+    /*
+     * ========================================================
+     * VALIDACIÓN CENTRAL DE SESIÓN
+     * ========================================================
+     */
+
+    const accionesPublicas = [
+      "login",
+      "forzarNuevaSesion",
+      "cerrarSesionUsuario",
+      "ping"
+    ];
+
+
+    if (
+      accionesPublicas.indexOf(
+        accion
+      ) === -1
+    ) {
+
+      const validacionSesion =
+        validarPeticionSesion_(
+          data
+        );
+
+
+      if (
+        !validacionSesion.ok
+      ) {
+
+        return respuesta({
+          ok: false,
+          codigo: "SESION_INVALIDADA",
+          mensaje:
+            validacionSesion.mensaje ||
+            "Su sesión ya no está activa."
+        });
+
+      }
+
+      /*
+       * Disponible únicamente durante esta petición.
+       * Permite que las acciones administrativas validen
+       * el rol confirmado por el control central de sesión.
+       */
+      data.__sesionValidada =
+        validacionSesion;
+
+      const restriccionRol = validarAccionSoloLecturaPorRol_(accion, data);
+      if (restriccionRol) {
+        return respuesta({ ok: false, codigo: "SOLO_LECTURA", mensaje: restriccionRol });
+      }
+
+    }
+
+  const resultadoAccion = (function () {
+  switch (accion) {
+
+  case "obtenerVersionesModulos":
+    return obtenerVersionesModulos(data);
+
+  case "obtenerComplementoReportesKPI":
+    return obtenerComplementoReportesKPI(data);
+
+  case "generarArchivoReportesKPI":
+    return generarArchivoReportesKPI(data);
+
+  case "enviarArchivoReportesKPI":
+    return enviarArchivoReportesKPI(data);
+
+  case "obtenerInicioGestionAlmacen": return obtenerInicioGestionAlmacen(data);
+  case "guardarCamaraAlmacen": return guardarCamaraAlmacen(data);
+  case "cambiarEstadoCamaraAlmacen": return cambiarEstadoCamaraAlmacen(data);
+  case "guardarTramoAlmacen": return guardarTramoAlmacen(data);
+  case "obtenerMapaAlmacen": return obtenerMapaAlmacen(data);
+  case "calcularPisoCamaraAlmacen": return calcularPisoCamaraAlmacen(data);
+  case "aplicarCapacidadPisoAlmacen": return aplicarCapacidadPisoAlmacen(data);
+  case "listarSolicitantesAlmacen": return listarSolicitantesAlmacen(data);
+  case "guardarSolicitanteAlmacen": return guardarSolicitanteAlmacen(data);
+  case "buscarMaterialesAlmacen": return buscarMaterialesAlmacen(data);
+  case "listarPosicionesEspecialesAlmacen": return listarPosicionesEspecialesAlmacen(data);
+  case "guardarMaterialEspecialAlmacen": return guardarMaterialEspecialAlmacen(data);
+  case "entregarMaterialEspecialAlmacen": return entregarMaterialEspecialAlmacen(data);
+  case "registrarTrasladoAlmacen": return registrarTrasladoAlmacen(data);
+  case "registrarAjusteOcupacionAlmacen": return registrarAjusteOcupacionAlmacen(data);
+  case "listarMovimientosAlmacen": return listarMovimientosAlmacen(data);
+  case "obtenerDisponibilidadMaterialCamara": return obtenerDisponibilidadMaterialCamara(data);
+  case "obtenerIndicadoresAlmacen": return obtenerIndicadoresAlmacen(data);
+  case "enviarReporteAlmacen": return enviarReporteAlmacen(data);
+  case "obtenerInicioDecomisosAlmacen": return obtenerInicioDecomisosAlmacen(data);
+  case "obtenerDecomisosAlmacen": return obtenerDecomisosAlmacen(data);
+  case "obtenerInformeDecomisos": return obtenerInformeDecomisos(data);
+  case "guardarDecomisoAlmacen": return guardarDecomisoAlmacen(data);
+  case "validarFisicamenteDecomisoAlmacen": return validarFisicamenteDecomisoAlmacen(data);
+  case "enviarDecomisoAprobacion": return enviarDecomisoAprobacion(data);
+  case "aprobarDecomisoAlmacen": return aprobarDecomisoAlmacen(data);
+  case "rechazarDecomisoAlmacen": return rechazarDecomisoAlmacen(data);
+  case "registrarSalidaSAPDecomiso": return registrarSalidaSAPDecomiso(data);
+  case "enviarReporteDecomisos": return enviarReporteDecomisos(data);
+
+  case "login":
+    return login(data);
+
+  case "ping":
+    return respuesta({
+      ok: true,
+      mensaje: "Servidor funcionando correctamente."
+    });
+
+  case "listarChoferes":
+    return listarChoferes();
+
+  case "listarPersonalCalidad":
+  return listarPersonalCalidad();
+
+    case "listarUnidadesCarga":
+    return listarUnidadesCarga();
+
+  case "guardarUnidadCargaNueva":
+    return guardarUnidadCargaNueva(data);
+
+  case "listarCentros":
+    return listarCentros();
+
+  case "listarPrecintosDisponibles":
+    return listarPrecintosDisponibles();
+
+  case "validarPrecinto":
+    return validarPrecinto(data);
+
+  case "listarMateriales":
+    return listarMateriales();
+
+  case "obtenerAnalisisInventario":
+    return obtenerAnalisisInventario();
+
+  case "obtenerPrioridadesDespacho":
+    return obtenerPrioridadesDespacho(data);
+
+  case "obtenerResumenHistoricoPrioridades":
+    return obtenerResumenHistoricoPrioridades(data);
+
+  case "generarReportePrioridades":
+  return generarReportePrioridades(data);
+
+  case "enviarReportePrioridades":
+    return enviarReportePrioridades(data);  
+
+  case "listarConfiguracion":
+    return listarConfiguracion();
+
+  case "guardarBorrador":
+    return guardarBorrador(data);
+
+  case "listarBorradores":
+    return listarBorradores();
+
+  case "listarDespachadosYCompletados":
+    return listarDespachadosYCompletados();
+
+  case "listarDespachosDashboard":
+  return listarDespachosDashboard(data);  
+
+  case "listarTodosDespachos":
+    return listarTodosDespachos(data);
+
+  case "listarDespachosParaVerificacion":
+    return listarDespachosParaVerificacion(data);
+
+  case "iniciarVerificacionDespacho":
+    return iniciarVerificacionDespacho(data);
+
+  case "obtenerVerificacionDespacho":
+    return obtenerVerificacionDespacho(data);
+
+  case "guardarLineaVerificacionDespacho":
+    return guardarLineaVerificacionDespacho(data);
+
+  case "guardarVerificacionDespachoMasiva":
+    return guardarVerificacionDespachoMasiva(data);
+
+  case "guardarCorreccionVerificacionDespacho":
+    return guardarCorreccionVerificacionDespacho(data);
+
+  case "guardarCorreccionGeneralVerificacionDespacho":
+    return guardarCorreccionGeneralVerificacionDespacho(data);
+
+  case "generarPDFCentroExactitudDespachos":
+    return respuesta(generarPDFCentroExactitudDespachos(data));  
+  
+  case "obtenerCentroExactitudDespachos":
+    return obtenerCentroExactitudDespachos(data);      
+
+  case "obtenerResumenDiarioDespachos":
+  return obtenerResumenDiarioDespachos();
+
+  case "obtenerResumenAsistenciaPersonal":
+    return obtenerResumenAsistenciaPersonal(data);
+
+  case "guardarAsistenciaPersonal":
+    return guardarAsistenciaPersonal(data);
+
+  case "listarColaboradoresGestionPersonal":
+    return listarColaboradoresGestionPersonal(data);
+
+  case "registrarVacacionesPersonal":
+    return registrarVacacionesPersonal(data);
+
+  case "listarVacacionesPersonal":
+    return listarVacacionesPersonal(data);
+
+  case "registrarBonoFelicidad":
+    return registrarBonoFelicidad(data);
+
+  case "listarBonosFelicidad":
+    return listarBonosFelicidad(data);
+
+  case "obtenerCatalogosJornadaExtraordinaria":
+    return obtenerCatalogosJornadaExtraordinaria(data);
+
+  case "crearJornadaExtraordinaria":
+    return crearJornadaExtraordinaria(data);
+
+  case "listarJornadasExtraordinarias":
+    return listarJornadasExtraordinarias(data);
+
+  case "definirGrupoCargaJornada":
+    return definirGrupoCargaJornada(data);
+
+  case "asignarPersonalJornada":
+    return asignarPersonalJornada(data);
+
+  case "asignarPersonalJornadaLote":
+    return asignarPersonalJornadaLote(data);
+
+  case "asignarCoberturaCargaJornada":
+    return asignarCoberturaCargaJornada(data);
+
+  case "asignarPersonalInventarioJornada":
+    return asignarPersonalInventarioJornada(data);
+
+  case "obtenerDetalleJornadaExtraordinaria":
+    return obtenerDetalleJornadaExtraordinaria(data);
+
+  case "enviarListadoJornadaExtraordinaria":
+    return enviarListadoJornadaExtraordinaria(data);
+
+  case "completarJornadaExtraordinaria":
+    return completarJornadaExtraordinaria(data);
+
+  case "obtenerMarcacionPersonalActual":
+    return obtenerMarcacionPersonalActual(data);
+
+  case "registrarMarcacionPersonal":
+    return registrarMarcacionPersonal(data);
+
+  case "revisarRecepcionesVaciasPendientes":
+    return revisarRecepcionesVaciasPendientes(data);
+
+  case "aprobarEliminacionRecepcionVacia":
+    return aprobarEliminacionRecepcionVacia(data);
+
+  case "registrarAmonestacionPersonal":
+    return registrarAmonestacionPersonal(data);
+
+  case "listarAmonestacionesPendientes":
+    return listarAmonestacionesPendientes(data);
+
+  case "subirDocumentoAmonestacion":
+    return subirDocumentoAmonestacion(data);
+
+  case "obtenerCatalogosAvisosSistema":
+    return obtenerCatalogosAvisosSistema(data);
+
+  case "crearAvisoSistemaManual":
+    return crearAvisoSistemaManual(data);
+
+  case "obtenerAvisosAsistenciaUsuario":
+    return obtenerAvisosAsistenciaUsuario(data);
+
+  case "marcarAvisoAsistenciaLeido":
+    return marcarAvisoAsistenciaLeido(data);
+
+  case "listarConducesInspeccion":
+  return listarConducesInspeccion();
+
+  case "obtenerDatosConduceInspeccion":
+    return obtenerDatosConduceInspeccion(data);
+
+  case "listarChasisInspeccion":
+    return listarChasisInspeccion();
+
+  case "listarCatalogoInspeccion":
+    return listarCatalogoInspeccion();
+
+  case "obtenerInspeccionConduce":
+    return obtenerInspeccionConduce(data);
+
+   case "iniciarInspeccionContenedor":
+    return iniciarInspeccionContenedor(data);
+
+  case "obtenerInspeccionActiva":
+    return obtenerInspeccionActiva(data);
+
+  case "guardarDetalleInspeccion":
+    return guardarDetalleInspeccion(data);
+ 
+  case "obtenerBorrador":
+    return obtenerBorrador(data);
+
+  case "finalizarCarga":
+    return finalizarCarga(data);
+
+  case "completarConduce":
+    return completarConduce(data);
+
+  case "guardarPDFConduce":
+    return guardarPDFConduce(data);
+
+  case "enviarDocumentacionDespacho":
+  return enviarDocumentacionDespacho(data);
+
+  case "subirEvidenciaInspeccion":
+  return subirEvidenciaInspeccion(data);
+
+  case "listarEvidenciasInspeccion":
+    return listarEvidenciasInspeccion(data);
+
+  case "eliminarEvidenciaInspeccion":
+    return eliminarEvidenciaInspeccion(data);
+
+  case "finalizarInspeccionContenedor":
+  return finalizarInspeccionContenedor(data);
+
+  case "regenerarPDFInspeccionContenedor":
+    return regenerarPDFInspeccionContenedor(data);
+
+  case "listarInspeccionesRealizadas":
+    return listarInspeccionesRealizadas(data); 
+
+  case "listarMetasDiarias":
+  return respuesta(
+    listarMetasDiarias(data)
+  );
+
+case "guardarJustificacionMeta":
+  return respuesta(
+    guardarJustificacionMeta(data)
+  );
+
+case "obtenerCausasIncumplimiento":
+  return respuesta(
+    obtenerCausasIncumplimiento()
+  ); 
+
+case "generarPDFHistoricoMetas":
+  return respuesta(
+    generarPDFHistoricoMetas(data)
+  ); 
+
+case "obtenerCatalogosRecepcionMateriales":
+  return obtenerCatalogosRecepcionMateriales(data);
+
+case "listarAuxiliaresRecepcionMateriales":
+  return listarAuxiliaresRecepcionMateriales(data);
+
+case "buscarMaterialesRecepcionMateriales":
+  return buscarMaterialesRecepcionMateriales(data);
+
+case "listarRecepcionesAbiertasMateriales":
+  return listarRecepcionesAbiertasMateriales(data);
+
+case "iniciarRecepcionMateriales":
+  return iniciarRecepcionMateriales(data);
+
+case "agregarMaterialRecepcion":
+  return agregarMaterialRecepcion(data);
+
+case "obtenerRecepcionMateriales":
+  return obtenerRecepcionMateriales(data);
+
+case "recalcularTotalesRecepcion":
+  return recalcularTotalesRecepcion(data); 
+
+case "guardarDistribucionMaterialRecepcion":
+  return guardarDistribucionMaterialRecepcion(
+    data
+  );     
+
+  case "finalizarOContinuarRecepcionMateriales":
+    return finalizarOContinuarRecepcionMateriales(
+      data
+    );
+
+case "listarRecepcionesRecientes":
+  return listarRecepcionesRecientes(
+    data
+  );
+
+case "obtenerHistoricoRecepciones":
+  return obtenerHistoricoRecepciones(data);
+
+case "obtenerAnaliticaOperativaRecepciones":
+  return obtenerAnaliticaOperativaRecepciones(data);
+
+case "obtenerDesempenoRecepcionesUsuario":
+  return obtenerDesempenoRecepcionesUsuario(data);
+
+case "obtenerPanelDesempenoOperativo":
+  return obtenerPanelDesempenoOperativo(data);
+
+
+case "obtenerIndicadorOcupacionCamaras":
+  return obtenerIndicadorOcupacionCamaras(
+    data
+  );
+
+case "obtenerDetalleOcupacionCamaras":
+  return obtenerDetalleOcupacionCamaras(
+    data
+  );
+
+case "obtenerHistoricoOcupacionCamaras":
+  return obtenerHistoricoOcupacionCamaras(
+    data
+  );  
+
+
+case "sincronizarRecepcionConCamaras":
+  return sincronizarRecepcionConCamaras(
+    data
+  );
+
+case "reconstruirMovimientosDesdeRecepciones":
+  return reconstruirMovimientosDesdeRecepciones(
+    data
+  );
+
+case "reconstruirInventarioCamaras":
+  return reconstruirInventarioCamaras(
+    data
+  );  
+
+case "forzarNuevaSesion":
+  return forzarNuevaSesion(
+    data
+  );
+
+case "verificarSesionUsuario":
+  return verificarSesionUsuario(
+    data
+  );
+
+case "cerrarSesionUsuario":
+  return cerrarSesionUsuario(
+    data
+  );
+
+case "obtenerPerfilUsuario":
+  return obtenerPerfilUsuario(data);
+
+case "actualizarPerfilUsuario":
+  return actualizarPerfilUsuario(data);
+
+case "obtenerInicioGestionEPP":
+  return obtenerInicioGestionEPP(data);
+
+case "listarSolicitudesEPP":
+  return listarSolicitudesEPP(data);
+
+case "crearSolicitudEPP":
+  return crearSolicitudEPP(data);
+
+case "establecerCompromisoEPP":
+  return establecerCompromisoEPP(data);
+
+case "autorizarSolicitudEPP":
+  return autorizarSolicitudEPP(data);
+
+case "rechazarSolicitudEPP":
+  return rechazarSolicitudEPP(data);
+
+case "entregarSolicitudEPP":
+  return entregarSolicitudEPP(data);
+
+case "registrarEntradaInventarioEPP":
+  return registrarEntradaInventarioEPP(data);
+
+case "ajustarInventarioEPP":
+  return ajustarInventarioEPP(data);
+
+case "enviarSolicitudCompraEPP":
+  return enviarSolicitudCompraEPP(data);
+
+case "obtenerReporteEntregasEPP":
+  return obtenerReporteEntregasEPP(data);
+
+case "listarHistorialEPPColaborador":
+  return listarHistorialEPPColaborador(data);
+
+case "obtenerInicioHorasExtras":
+  return obtenerInicioHorasExtras(
+    data
+  );
+
+case "listarHorasExtrasDisponibles":
+  return listarHorasExtrasDisponibles(
+    data
+  );
+
+case "inscribirHorasExtra":
+  return inscribirHorasExtra(
+    data
+  );
+
+case "listarGestionHorasExtras":
+  return listarGestionHorasExtras(
+    data
+  );
+
+case "crearProgramacionHorasExtras":
+  return crearProgramacionHorasExtras(
+    data
+  );
+
+case "asignarLineaHorasExtra":
+  return asignarLineaHorasExtra(
+    data
+  );
+
+case "marcarEntradaHorasExtra":
+  return marcarEntradaHorasExtra(
+    data
+  );
+
+case "marcarSalidaHorasExtra":
+  return marcarSalidaHorasExtra(
+    data
+  );
+
+case "listarRecepcionesPendientesVerificacion":
+  return listarRecepcionesPendientesVerificacion(
+    data
+  );
+
+case "obtenerDatosRecepcionParaVerificacion":
+  return obtenerDatosRecepcionParaVerificacion(
+    data
+  );
+
+case "listarPersonalProduccion":
+  return listarPersonalProduccion(
+    data
+  );
+
+case "listarSupervisoresPT":
+  return listarSupervisoresPT(
+    data
+  );
+
+case "listarLineasProduccion":
+  return listarLineasProduccion(
+    data
+  );
+
+case "guardarVerificacionRecepcion":
+  return guardarVerificacionRecepcion(
+    data
+  );
+
+case "enviarReporteSemanalVerificacionesRecepcionManual":
+  return enviarReporteSemanalVerificacionesRecepcionManual(
+    data
+  );
+
+case "enviarReporteGeneralDesviacionesRecepcionManual":
+  return enviarReporteGeneralDesviacionesRecepcionManual(
+    data
+  );
+
+  default:
+    return respuesta({
+      ok: false,
+      mensaje: "Acción no válida."
+    });
+
+}
+  })();
+
+  if (typeof procesarResultadoVersionesModulos_ === "function") {
+    return procesarResultadoVersionesModulos_(accion, data, resultadoAccion);
+  }
+
+  return resultadoAccion;
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje: error.toString()
+    });
+
+  }
+
+}
+
+function respuesta(obj) {
+
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+
+}
+
+function listarChoferes() {
+
+  const hoja =
+    getSheet(SHEETS.CHOFERES);
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la hoja Choferes."
+    });
+
+  }
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: []
+    });
+
+  }
+
+  const encabezados = datos[0].map(function(valor) {
+    return String(valor || "").trim();
+  });
+
+  const indiceId =
+    encabezados.indexOf("ID_Chofer");
+
+  const indiceNombre =
+    encabezados.indexOf("Nombre_Chofer");
+
+  const indiceCedula =
+    encabezados.indexOf("Cedula");
+
+  const indiceContenedor =
+    encabezados.indexOf("Contenedor_porDefecto");
+
+  const indiceChasis =
+    encabezados.indexOf("Chasis_porDefecto");
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  if (
+    indiceId === -1 ||
+    indiceNombre === -1 ||
+    indiceEstado === -1
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan columnas requeridas en la hoja Choferes."
+    });
+
+  }
+
+  const lista = datos
+    .slice(1)
+    .map(function(fila) {
+
+      const id =
+        String(
+          fila[indiceId] || ""
+        ).trim();
+
+      const nombre =
+        String(
+          fila[indiceNombre] || ""
+        ).trim();
+
+      const cedula =
+        indiceCedula !== -1
+          ? String(
+              fila[indiceCedula] || ""
+            ).trim()
+          : "";
+
+      const contenedorPorDefecto =
+        indiceContenedor !== -1
+          ? String(
+              fila[indiceContenedor] || ""
+            ).trim()
+          : "";
+
+      const chasisPorDefecto =
+        indiceChasis !== -1
+          ? String(
+              fila[indiceChasis] || ""
+            ).trim()
+          : "";
+
+      const estado =
+        String(
+          fila[indiceEstado] || ""
+        ).trim();
+
+      return {
+        id: id,
+        nombre: nombre,
+        cedula: cedula,
+        contenedorPorDefecto: contenedorPorDefecto,
+        chasisPorDefecto: chasisPorDefecto,
+        estado: estado,
+        texto: id + " - " + nombre
+      };
+
+    })
+    .filter(function(item) {
+
+      return (
+        item.id !== "" &&
+        item.nombre !== "" &&
+        item.estado.toLowerCase() ===
+          "activo"
+      );
+
+    });
+
+  return respuesta({
+    ok: true,
+    data: lista
+  });
+
+}
+
+function listarPersonalCalidad() {
+
+  const hoja = getSheet(SHEETS.CALIDAD);
+
+  if (!hoja) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la hoja Calidad."
+    });
+  }
+
+  const datos = hoja.getDataRange().getDisplayValues();
+
+  if (datos.length <= 1) {
+    return respuesta({
+      ok: true,
+      data: []
+    });
+  }
+
+  datos.shift();
+
+  const lista = datos
+    .map(function(fila) {
+
+      return {
+        id: String(fila[0] || "").trim(),
+        nombre: String(fila[1] || "").trim(),
+        estado: String(fila[2] || "").trim(),
+        texto:
+          String(fila[0] || "").trim() +
+          " - " +
+          String(fila[1] || "").trim()
+      };
+
+    })
+    .filter(function(item) {
+      return item.estado.toLowerCase() === "activo";
+    });
+
+  return respuesta({
+    ok: true,
+    data: lista
+  });
+
+}
+
+
+function listarUnidadesCarga() {
+
+  const hoja =
+    getSheet(SHEETS.UNIDADES_CARGA);
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Unidades_Carga."
+    });
+
+  }
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: []
+    });
+
+  }
+
+  const encabezados = datos[0].map(function(valor) {
+    return String(valor || "").trim();
+  });
+
+  const indiceId =
+    encabezados.indexOf("ID_Unidad");
+
+  const indiceTipo =
+    encabezados.indexOf("Tipo");
+
+  const indiceIdentificacion =
+    encabezados.indexOf("Identificacion");
+
+  const indiceTipoContenedor =
+    encabezados.indexOf("Tipo_Contenedor");
+
+  const indiceTamanoContenedor =
+    encabezados.indexOf("Tamano_Contenedor");
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  if (
+    indiceId === -1 ||
+    indiceIdentificacion === -1 ||
+    indiceEstado === -1
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan columnas requeridas en la hoja Unidades_Carga."
+    });
+
+  }
+
+  const lista = datos
+    .slice(1)
+    .map(function(fila) {
+
+      const id =
+        String(
+          fila[indiceId] || ""
+        ).trim();
+
+      const tipo =
+        indiceTipo !== -1
+          ? String(
+              fila[indiceTipo] || ""
+            ).trim()
+          : "";
+
+      const identificacion =
+        String(
+          fila[indiceIdentificacion] || ""
+        ).trim();
+
+      const tipoContenedor =
+        indiceTipoContenedor !== -1
+          ? String(
+              fila[indiceTipoContenedor] || ""
+            ).trim()
+          : "";
+
+      const tamanoContenedor =
+        indiceTamanoContenedor !== -1
+          ? String(
+              fila[indiceTamanoContenedor] || ""
+            ).trim()
+          : "";
+
+      const estado =
+        String(
+          fila[indiceEstado] || ""
+        ).trim();
+
+      return {
+        id: id,
+        tipo: tipo,
+        identificacion: identificacion,
+        tipoContenedor: tipoContenedor,
+        tamanoContenedor: tamanoContenedor,
+        estado: estado,
+        texto:
+          id + " - " + identificacion
+      };
+
+    })
+    .filter(function(item) {
+
+      return (
+        item.id !== "" &&
+        item.identificacion !== "" &&
+        item.estado.toLowerCase() ===
+          "activo"
+      );
+
+    });
+
+  return respuesta({
+    ok: true,
+    data: lista
+  });
+
+}
+
+
+/**
+ * Guarda un contenedor nuevo en Unidades_Carga.
+ * Opcionalmente lo establece como predeterminado
+ * para el chofer seleccionado.
+ */
+function guardarUnidadCargaNueva(data) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const identificacion =
+      String(
+        data.identificacion || ""
+      ).trim();
+
+    const tipoContenedor =
+      String(
+        data.tipoContenedor || ""
+      ).trim();
+
+    const tamanoContenedor =
+      String(
+        data.tamanoContenedor || ""
+      ).trim();
+
+    const idChofer =
+      String(
+        data.idChofer || ""
+      ).trim();
+
+    const establecerPredeterminado =
+      data.establecerPredeterminado === true;
+
+    if (!identificacion) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Debe indicar la identificación del contenedor."
+      });
+
+    }
+
+    if (
+      establecerPredeterminado &&
+      !idChofer
+    ) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Debe seleccionar un chofer para establecer el contenedor predeterminado."
+      });
+
+    }
+
+    const hojaUnidades =
+      getSheet(SHEETS.UNIDADES_CARGA);
+
+    const hojaChoferes =
+      getSheet(SHEETS.CHOFERES);
+
+    if (!hojaUnidades || !hojaChoferes) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "No se encontraron las hojas Unidades_Carga o Choferes."
+      });
+
+    }
+
+    const datosUnidades =
+      hojaUnidades
+        .getDataRange()
+        .getDisplayValues();
+
+    const encabezadosUnidades =
+      datosUnidades[0].map(function(valor) {
+        return String(valor || "").trim();
+      });
+
+    const indiceId =
+      encabezadosUnidades.indexOf(
+        "ID_Unidad"
+      );
+
+    const indiceTipo =
+      encabezadosUnidades.indexOf(
+        "Tipo"
+      );
+
+    const indiceIdentificacion =
+      encabezadosUnidades.indexOf(
+        "Identificacion"
+      );
+
+    const indiceTipoContenedor =
+      encabezadosUnidades.indexOf(
+        "Tipo_Contenedor"
+      );
+
+    const indiceTamano =
+      encabezadosUnidades.indexOf(
+        "Tamano_Contenedor"
+      );
+
+    const indiceEstado =
+      encabezadosUnidades.indexOf(
+        "Estado"
+      );
+
+    if (
+      indiceId === -1 ||
+      indiceTipo === -1 ||
+      indiceIdentificacion === -1 ||
+      indiceEstado === -1
+    ) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Faltan columnas requeridas en Unidades_Carga."
+      });
+
+    }
+
+    const identificacionNormalizada =
+      identificacion.toLowerCase();
+
+    let idUnidad = "";
+    let filaUnidad = -1;
+
+    for (
+      let i = 1;
+      i < datosUnidades.length;
+      i++
+    ) {
+
+      const identificacionExistente =
+        String(
+          datosUnidades[i][
+            indiceIdentificacion
+          ] || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      if (
+        identificacionExistente ===
+        identificacionNormalizada
+      ) {
+
+        idUnidad =
+          String(
+            datosUnidades[i][indiceId] || ""
+          ).trim();
+
+        filaUnidad = i + 1;
+        break;
+
+      }
+
+    }
+
+    if (filaUnidad === -1) {
+
+      idUnidad =
+        generarSiguienteIdUnidad(
+          datosUnidades,
+          indiceId
+        );
+
+      const filaNueva =
+        encabezadosUnidades.map(
+          function(encabezado) {
+
+            const valores = {
+              ID_Unidad: idUnidad,
+              Tipo: "Contenedor",
+              Identificacion:
+                identificacion,
+              Tipo_Contenedor:
+                tipoContenedor,
+              Tamano_Contenedor:
+                tamanoContenedor,
+              Estado: "Activo"
+            };
+
+            return valores[encabezado] !==
+              undefined
+                ? valores[encabezado]
+                : "";
+
+          }
+        );
+
+      hojaUnidades.appendRow(filaNueva);
+
+    } else {
+
+      hojaUnidades
+        .getRange(
+          filaUnidad,
+          indiceEstado + 1
+        )
+        .setValue("Activo");
+
+      if (
+        indiceTipoContenedor !== -1 &&
+        tipoContenedor
+      ) {
+
+        hojaUnidades
+          .getRange(
+            filaUnidad,
+            indiceTipoContenedor + 1
+          )
+          .setValue(tipoContenedor);
+
+      }
+
+      if (
+        indiceTamano !== -1 &&
+        tamanoContenedor
+      ) {
+
+        hojaUnidades
+          .getRange(
+            filaUnidad,
+            indiceTamano + 1
+          )
+          .setValue(tamanoContenedor);
+
+      }
+
+    }
+
+    if (establecerPredeterminado) {
+
+      actualizarContenedorPredeterminadoChofer(
+        hojaChoferes,
+        idChofer,
+        idUnidad
+      );
+
+    }
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        filaUnidad === -1
+          ? "Contenedor guardado correctamente."
+          : "El contenedor ya existía y fue reutilizado.",
+      data: {
+        unidad: {
+          id: idUnidad,
+          tipo: "Contenedor",
+          identificacion:
+            identificacion,
+          tipoContenedor:
+            tipoContenedor,
+          tamanoContenedor:
+            tamanoContenedor,
+          estado: "Activo",
+          texto:
+            idUnidad +
+            " - " +
+            identificacion
+        },
+        establecidoComoPredeterminado:
+          establecerPredeterminado
+      }
+    });
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+function generarSiguienteIdUnidad(
+  datos,
+  indiceId
+) {
+
+  let prefijo = "UC";
+  let separador = "";
+  let longitudNumero = 3;
+  let numeroMayor = 0;
+
+  datos
+    .slice(1)
+    .forEach(function(fila) {
+
+      const id =
+        String(
+          fila[indiceId] || ""
+        ).trim();
+
+      const coincidencia =
+        id.match(
+          /^([A-Za-z]+)([-_]?)(\d+)$/
+        );
+
+      if (!coincidencia) {
+        return;
+      }
+
+      const numero =
+        Number(coincidencia[3]);
+
+      if (numero > numeroMayor) {
+
+        numeroMayor = numero;
+        prefijo = coincidencia[1];
+        separador = coincidencia[2];
+        longitudNumero =
+          coincidencia[3].length;
+
+      }
+
+    });
+
+  return (
+    prefijo +
+    separador +
+    String(numeroMayor + 1)
+      .padStart(
+        longitudNumero,
+        "0"
+      )
+  );
+
+}
+
+
+function actualizarContenedorPredeterminadoChofer(
+  hoja,
+  idChofer,
+  idUnidad
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return String(valor || "").trim();
+    });
+
+  const indiceId =
+    encabezados.indexOf("ID_Chofer");
+
+  const indiceContenedor =
+    encabezados.indexOf(
+      "Contenedor_porDefecto"
+    );
+
+  if (
+    indiceId === -1 ||
+    indiceContenedor === -1
+  ) {
+
+    throw new Error(
+      "Faltan las columnas ID_Chofer o Contenedor_porDefecto en Choferes."
+    );
+
+  }
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    if (
+      String(
+        datos[i][indiceId] || ""
+      ).trim() === idChofer
+    ) {
+
+      hoja
+        .getRange(
+          i + 1,
+          indiceContenedor + 1
+        )
+        .setValue(idUnidad);
+
+      return;
+
+    }
+
+  }
+
+  throw new Error(
+    "No se encontró el chofer seleccionado."
+  );
+
+}
+
+function listarCentros() {
+
+  const hoja = getSheet(SHEETS.CENTROS);
+  const datos = hoja.getDataRange().getValues();
+  const encabezados = datos.shift();
+
+  const lista = datos
+    .map(fila => {
+      return {
+        id_almacen: fila[0],
+        centro: fila[1],
+        nombre: fila[2],
+        estado: fila[3],
+        texto: fila[0] + " - " + fila[2]
+      };
+    })
+    .filter(item => item.estado === "Activo");
+
+  return respuesta({
+    ok: true,
+    data: lista
+  });
+
+}
+
+
+function listarPrecintosDisponibles() {
+
+  const hoja = getSheet(SHEETS.PRECINTOS);
+  const datos = hoja.getDataRange().getValues();
+  const encabezados = datos.shift();
+
+  const lista = datos
+    .map(fila => {
+      return {
+        no_precinto: fila[0],
+        fecha_ingreso: fila[1],
+        estado: fila[2],
+        fecha_entrega: fila[3],
+        recibido_por: fila[4],
+        no_conduce: fila[5],
+        fecha_utilizacion: fila[6],
+        texto: fila[0]
+      };
+    })
+    .filter(item => item.estado === "Disponible");
+
+  return respuesta({
+    ok: true,
+    data: lista
+  });
+
+}
+
+function listarConfiguracion() {
+
+  const hoja = getSheet(SHEETS.CONFIGURACION);
+  const datos = hoja.getDataRange().getValues();
+
+  datos.shift();
+
+  const config = {};
+
+  datos.forEach(fila => {
+    const parametro = fila[0];
+    const valor = fila[1];
+
+    if (parametro) {
+      config[parametro] = valor;
+    }
+  });
+
+  return respuesta({
+    ok: true,
+    data: config
+  });
+
+}
+
+function validarPrecinto(data){
+
+  const noPrecinto = String(data.no_precinto || "").trim();
+
+  if(!noPrecinto){
+    return respuesta({
+      ok:false,
+      mensaje:"Debe indicar un número de precinto."
+    });
+  }
+
+  const hoja = getSheet(SHEETS.PRECINTOS);
+
+  if(!hoja){
+    return respuesta({
+      ok:false,
+      mensaje:"No existe la hoja Precintos."
+    });
+  }
+
+  const datos = hoja.getDataRange().getDisplayValues();
+
+  datos.shift();
+
+  const encontrado = datos.find(fila => {
+    return String(fila[0]).trim() === noPrecinto;
+  });
+
+  if(!encontrado){
+    return respuesta({
+      ok:false,
+      mensaje:"El precinto " + noPrecinto + " no existe en la base de datos."
+    });
+  }
+
+  const estado = String(encontrado[2]).trim().toLowerCase();
+
+  if(estado !== "disponible"){
+    return respuesta({
+      ok:false,
+      mensaje:"El precinto existe, pero no está disponible. Estado actual: " + encontrado[2]
+    });
+  }
+
+  return respuesta({
+    ok:true,
+    mensaje:"Precinto disponible.",
+    data:{
+      no_precinto: encontrado[0],
+      estado: encontrado[2]
+    }
+  });
+
+}
+
+function listarMateriales(){
+
+  const hoja = getSheet(SHEETS.MATERIAL);
+
+  if(!hoja){
+    return respuesta({
+      ok:false,
+      mensaje:"No existe la hoja " + SHEETS.MATERIAL
+    });
+  }
+
+  const datos = hoja.getDataRange().getDisplayValues();
+  datos.shift();
+
+  const lista = datos
+    .map(fila => {
+      return {
+        id: String(fila[0]).trim(),
+        descripcion: String(fila[1]).trim(),
+        base: Number(fila[2]),
+        altura: Number(fila[3]),
+        vida_util: String(fila[4]).replace(",", ".").trim(),
+        estado: String(fila[5]).trim(),
+        unidad_medida: String(fila[6]).trim(),
+        texto: String(fila[0]).trim() + " - " + String(fila[1]).trim()
+      };
+    })
+    .filter(item => item.estado.toLowerCase() === "activo");
+
+  return respuesta({
+    ok:true,
+    data:lista
+  });
+
+}
+
+function obtenerInspeccionConduce(data) {
+
+  const idConduce =
+    String(
+      data && data.idConduce
+        ? data.idConduce
+        : ""
+    ).trim();
+
+  if (!idConduce) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Debe indicar el ID del conduce."
+    });
+
+  }
+
+  const hoja =
+    getSheet(
+      SHEETS.INSPECCION_CONTENEDORES
+    );
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Inspeccion_Contenedores."
+    });
+
+  }
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: {
+        encontrada: false,
+        completada: false,
+        numeroFormulario: "",
+        estado: ""
+      }
+    });
+
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return String(valor || "").trim();
+    });
+
+  const indiceIdConduce =
+    encabezados.indexOf("ID_Conduce");
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  if (
+    indiceIdConduce === -1 ||
+    indiceEstado === -1
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan las columnas ID_Conduce o Estado en Inspeccion_Contenedores."
+    });
+
+  }
+
+  /*
+   * El sistema acepta cualquiera de estos nombres
+   * para la columna que contiene la numeración.
+   */
+  const nombresNumero = [
+    "No_Formulario",
+    "Numero_Formulario",
+    "No_Inspeccion",
+    "Numero_Inspeccion",
+    "ID_Inspeccion",
+    "ID_Formulario"
+  ];
+
+  let indiceNumero = -1;
+
+  for (
+    let i = 0;
+    i < nombresNumero.length;
+    i++
+  ) {
+
+    const indice =
+      encabezados.indexOf(
+        nombresNumero[i]
+      );
+
+    if (indice !== -1) {
+      indiceNumero = indice;
+      break;
+    }
+
+  }
+
+  if (indiceNumero === -1) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontró la columna con el número del formulario de inspección."
+    });
+
+  }
+
+  const coincidencias =
+    datos
+      .slice(1)
+      .filter(function(fila) {
+
+        return (
+          String(
+            fila[indiceIdConduce] || ""
+          ).trim() === idConduce
+        );
+
+      });
+
+  if (coincidencias.length === 0) {
+
+    return respuesta({
+      ok: true,
+      data: {
+        encontrada: false,
+        completada: false,
+        numeroFormulario: "",
+        estado: ""
+      }
+    });
+
+  }
+
+  /*
+   * Preferimos una inspección completada.
+   * Si todavía no está completada, devolvemos
+   * el estado actual para mostrarlo al supervisor.
+   */
+  let filaSeleccionada =
+    coincidencias.find(function(fila) {
+
+      const estado =
+        String(
+          fila[indiceEstado] || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      return (
+        estado === "completada" ||
+        estado === "completado"
+      );
+
+    });
+
+  if (!filaSeleccionada) {
+
+    filaSeleccionada =
+      coincidencias[
+        coincidencias.length - 1
+      ];
+
+  }
+
+  const estado =
+    String(
+      filaSeleccionada[indiceEstado] || ""
+    ).trim();
+
+  const estadoNormalizado =
+    estado.toLowerCase();
+
+  const completada =
+    estadoNormalizado === "completada" ||
+    estadoNormalizado === "completado";
+
+  const numeroFormulario =
+    String(
+      filaSeleccionada[indiceNumero] || ""
+    ).trim();
+
+  return respuesta({
+    ok: true,
+    data: {
+      encontrada: true,
+      completada:
+        completada &&
+        numeroFormulario !== "",
+      numeroFormulario:
+        numeroFormulario,
+      estado:
+        estado
+    }
+  });
+
+}
+
+
+function probarListadoDespachosDashboard() {
+
+  const resultado =
+    listarDespachosDashboard({
+      tipo: "completados",
+      limite: 10,
+      desplazamiento: 0
+    });
+
+  const contenido =
+    JSON.parse(
+      resultado.getContent()
+    );
+
+  Logger.log(
+    JSON.stringify({
+      cantidad:
+        contenido.data.registros.length,
+
+      limite:
+        contenido.data.limite,
+
+      desplazamiento:
+        contenido.data.desplazamiento,
+
+      siguienteDesplazamiento:
+        contenido.data.siguienteDesplazamiento,
+
+      hayMas:
+        contenido.data.hayMas
+    })
+  );
+
+}
+
+/** Defensa central: la visibilidad del frontend nunca sustituye el permiso backend. */
+function validarAccionSoloLecturaPorRol_(accion, data) {
+  var rol = "";
+  try {
+    rol = galUsuario_(data).rol;
+  } catch (ignorar) {
+    return "";
+  }
+
+  var gerencia = rol === "GERENCIA" || rol === "GERENTE";
+  var supervisor = rol === "SUPERVISOR";
+  var analista = rol === "ANALISTA";
+  var decisionesDecomiso = ["aprobarDecomisoAlmacen", "rechazarDecomisoAlmacen"];
+  var accionesReporteConsulta = ["generarArchivoReportesKPI", "enviarArchivoReportesKPI"];
+
+  if (gerencia && decisionesDecomiso.indexOf(accion) < 0 && accionesReporteConsulta.indexOf(accion) < 0) {
+    var prefijosMutacion = /^(guardar|crear|iniciar|finalizar|completar|subir|eliminar|registrar|recalcular|sincronizar|reconstruir|agregar|cambiar|aplicar|entregar|ajustar|actualizar|definir|asignar|autorizar|rechazar|aprobar)/;
+    var enviosOperativos = [
+      "enviarDocumentacionDespacho", "enviarDecomisoAprobacion",
+      "enviarSolicitudCompraEPP", "enviarListadoJornadaExtraordinaria"
+    ];
+    if (prefijosMutacion.test(accion) || enviosOperativos.indexOf(accion) >= 0) {
+      return "Gerencia dispone únicamente de consulta; solo puede aprobar o rechazar decomisos.";
+    }
+  }
+
+  if (supervisor) {
+    var accionesAlmacenNoPermitidas = [
+      "guardarCamaraAlmacen", "cambiarEstadoCamaraAlmacen", "guardarTramoAlmacen",
+      "aplicarCapacidadPisoAlmacen", "guardarSolicitanteAlmacen",
+      "guardarMaterialEspecialAlmacen", "entregarMaterialEspecialAlmacen",
+      "registrarAjusteOcupacionAlmacen",
+      "guardarDecomisoAlmacen", "validarFisicamenteDecomisoAlmacen",
+      "enviarDecomisoAprobacion", "aprobarDecomisoAlmacen",
+      "rechazarDecomisoAlmacen", "registrarSalidaSAPDecomiso",
+      "enviarReporteDecomisos", "enviarReporteAlmacen"
+    ];
+    if (accionesAlmacenNoPermitidas.indexOf(accion) >= 0) {
+      return "Supervisión dispone únicamente de consulta en Gestión del almacén.";
+    }
+  }
+
+  if (analista) {
+    var accionesConfiguracionAlmacenNoPermitidas = [
+      "guardarCamaraAlmacen", "cambiarEstadoCamaraAlmacen", "guardarTramoAlmacen",
+      "aplicarCapacidadPisoAlmacen", "guardarSolicitanteAlmacen",
+      "registrarAjusteOcupacionAlmacen"
+    ];
+    if (accionesConfiguracionAlmacenNoPermitidas.indexOf(accion) >= 0) {
+      return "El Analista puede consultar el almacén, movilizar materiales, gestionar materiales especiales y registrar decomisos; no puede modificar su configuración.";
+    }
+  }
+
+  return "";
+}

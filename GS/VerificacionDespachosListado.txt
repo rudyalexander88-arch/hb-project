@@ -1,0 +1,1774 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSLISTADO.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Listar conduces Completados disponibles para verificación.
+ * - Consultar el estado actual de su verificación.
+ * - Aplicar filtros en backend.
+ * - Entregar resultados paginados de 10 en 10.
+ *
+ * No modifica:
+ * - Despacho
+ * - Despacho_Detalle
+ * - Verificacion_Despachos
+ *
+ * Solo realiza consultas.
+ * ============================================================
+ */
+
+
+/**
+ * Lista los conduces completados que pueden abrirse
+ * desde el asistente de Control de Exactitud.
+ *
+ * Parámetros admitidos:
+ *
+ * {
+ *   limite: 10,
+ *   desplazamiento: 0,
+ *   busqueda: "",
+ *   conduce: "",
+ *   supervisor: "",
+ *   chofer: "",
+ *   centro: "",
+ *   estadoVerificacion:
+ *     "pendiente" |
+ *     "en proceso" |
+ *     "finalizada" |
+ *     "todos",
+ *   fechaDesde: "yyyy-MM-dd",
+ *   fechaHasta: "yyyy-MM-dd"
+ * }
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function listarDespachosParaVerificacion(
+  data
+) {
+
+  try {
+
+    const parametros =
+      data || {};
+
+
+    const limite =
+      Math.min(
+        Math.max(
+          Math.trunc(
+            Number(
+              parametros.limite || 10
+            )
+          ) || 10,
+          1
+        ),
+        50
+      );
+
+
+    const desplazamiento =
+      Math.max(
+        Math.trunc(
+          Number(
+            parametros.desplazamiento ||
+            parametros.offset ||
+            0
+          )
+        ) || 0,
+        0
+      );
+
+
+    const filtroBusqueda =
+      normalizarTextoVerificacion_(
+        parametros.busqueda
+      );
+
+
+    const filtroConduce =
+      normalizarTextoVerificacion_(
+        parametros.conduce
+      );
+
+
+    const filtroSupervisor =
+      normalizarTextoVerificacion_(
+        parametros.supervisor
+      );
+
+
+    const filtroChofer =
+      normalizarTextoVerificacion_(
+        parametros.chofer
+      );
+
+
+    const filtroCentro =
+      normalizarTextoVerificacion_(
+        parametros.centro
+      );
+
+
+    const filtroEstadoVerificacion =
+      normalizarEstadoFiltroVerificacion_(
+        parametros.estadoVerificacion ||
+        "pendiente"
+      );
+
+
+    const fechaDesde =
+      convertirFechaFiltroVerificacion_(
+        parametros.fechaDesde
+      );
+
+
+    const fechaHasta =
+      convertirFechaFiltroVerificacion_(
+        parametros.fechaHasta
+      );
+
+
+    if (
+      fechaDesde &&
+      fechaHasta &&
+      fechaDesde > fechaHasta
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La fecha inicial no puede ser mayor que la fecha final."
+
+      });
+
+    }
+
+
+    const hojaDespacho =
+      getSheet(
+        SHEETS.DESPACHO
+      );
+
+
+    if (!hojaDespacho) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          'No existe la hoja "Despacho".'
+
+      });
+
+    }
+
+
+    const hojaVerificaciones =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS
+      );
+
+
+    if (!hojaVerificaciones) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          'No existe la hoja "Verificacion_Despachos".'
+
+      });
+
+    }
+
+
+    const ultimaFila =
+      hojaDespacho.getLastRow();
+
+
+    const ultimaColumna =
+      hojaDespacho.getLastColumn();
+
+
+    if (
+      ultimaFila <= 1 ||
+      ultimaColumna <= 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          true,
+
+        data:
+          crearRespuestaVaciaListadoVerificacion_(
+            limite,
+            desplazamiento
+          )
+
+      });
+
+    }
+
+
+    const encabezados =
+      hojaDespacho
+        .getRange(
+          1,
+          1,
+          1,
+          ultimaColumna
+        )
+        .getDisplayValues()[0]
+        .map(
+          function(valor) {
+
+            return String(
+              valor || ""
+            ).trim();
+
+          }
+        );
+
+
+    const columnasObligatorias = [
+
+      "ID_Conduce",
+      "No_Conduce",
+      "Estado",
+      "Fecha_Completado",
+      "RealizadoPor",
+      "Chofer",
+      "Unidad_Carga",
+      "Destino_1",
+      "Total_Lineas",
+      "Total_Unidades"
+
+    ];
+
+
+    const columnasFaltantes =
+      columnasObligatorias.filter(
+        function(nombre) {
+
+          return encabezados
+            .indexOf(nombre) === -1;
+
+        }
+      );
+
+
+    if (
+      columnasFaltantes.length > 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Faltan columnas requeridas en Despacho: " +
+          columnasFaltantes.join(", ") +
+          "."
+
+      });
+
+    }
+
+
+    const indice =
+      function(nombre) {
+
+        return encabezados.indexOf(
+          nombre
+        );
+
+      };
+
+
+    const indices = {
+
+      id:
+        indice("ID_Conduce"),
+
+      numero:
+        indice("No_Conduce"),
+
+      fechaCreacion:
+        indice("Fecha_Creacion"),
+
+      fechaDespacho:
+        indice("Fecha_Despacho"),
+
+      fechaCompletado:
+        indice("Fecha_Completado"),
+
+      estado:
+        indice("Estado"),
+
+      usuarioCreador:
+        indice("Usuario_Creador"),
+
+      supervisor:
+        indice("RealizadoPor"),
+
+      chofer:
+        indice("Chofer"),
+
+      unidad:
+        indice("Unidad_Carga"),
+
+      cantidadDestinos:
+        indice("Cantidad_Destinos"),
+
+      destino1:
+        indice("Destino_1"),
+
+      destino2:
+        indice("Destino_2"),
+
+      totalLineas:
+        indice("Total_Lineas"),
+
+      totalUnidades:
+        indice("Total_Unidades"),
+
+      documentoSAP1:
+        indice("Documento_SAP_1"),
+
+      documentoSAP2:
+        indice("Documento_SAP_2"),
+
+      documentoSAP3:
+        indice("Documento_SAP_3"),
+
+      documentoSAP4:
+        indice("Documento_SAP_4"),
+
+      estadoVerificacion:
+        indice("Estado_Verificacion"),
+
+      idVerificacion:
+        indice("ID_Verificacion"),
+
+      resultadoVerificacion:
+        indice("Resultado_Verificacion"),
+
+      fechaVerificacion:
+        indice("Fecha_Verificacion"),
+
+      verificadoPor:
+        indice("Verificado_Por")
+
+    };
+
+
+    /*
+     * Este mapa permite reconocer verificaciones existentes
+     * incluso si las columnas rápidas de Despacho todavía
+     * están vacías o no han sido sincronizadas.
+     */
+    const mapaVerificaciones =
+      obtenerMapaVerificacionesDespachos_(
+        hojaVerificaciones
+      );
+
+
+    const zonaHoraria =
+      SpreadsheetApp
+        .openById(
+          SHEET_ID
+        )
+        .getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      "America/Santo_Domingo";
+
+
+    /*
+     * Solicitamos un registro adicional para determinar
+     * si existe una página posterior.
+     */
+    const coincidenciasNecesarias =
+      desplazamiento +
+      limite +
+      1;
+
+
+    const coincidencias = [];
+
+
+    /*
+     * Lectura en bloques desde las filas más recientes.
+     * Evita traer al frontend miles de registros.
+     */
+    const tamanoBloque =
+      200;
+
+
+    let filaFinalBloque =
+      ultimaFila;
+
+
+    while (
+      filaFinalBloque >= 2 &&
+      coincidencias.length <
+        coincidenciasNecesarias
+    ) {
+
+      const filaInicialBloque =
+        Math.max(
+          2,
+          filaFinalBloque -
+          tamanoBloque +
+          1
+        );
+
+
+      const cantidadFilas =
+        filaFinalBloque -
+        filaInicialBloque +
+        1;
+
+
+      const valoresReales =
+        hojaDespacho
+          .getRange(
+            filaInicialBloque,
+            1,
+            cantidadFilas,
+            ultimaColumna
+          )
+          .getValues();
+
+
+      const valoresVisibles =
+        hojaDespacho
+          .getRange(
+            filaInicialBloque,
+            1,
+            cantidadFilas,
+            ultimaColumna
+          )
+          .getDisplayValues();
+
+
+      /*
+       * Recorremos desde abajo hacia arriba para que
+       * los conduces más recientes aparezcan primero.
+       */
+      for (
+        let i =
+          valoresVisibles.length - 1;
+
+        i >= 0;
+
+        i--
+      ) {
+
+        const filaVisible =
+          valoresVisibles[i];
+
+
+        const filaReal =
+          valoresReales[i];
+
+
+        const obtenerVisible =
+          function(indiceColumna) {
+
+            return indiceColumna !== -1
+
+              ? String(
+                  filaVisible[
+                    indiceColumna
+                  ] || ""
+                ).trim()
+
+              : "";
+
+          };
+
+
+        const obtenerReal =
+          function(indiceColumna) {
+
+            return indiceColumna !== -1
+
+              ? filaReal[
+                  indiceColumna
+                ]
+
+              : "";
+
+          };
+
+
+        const idConduce =
+          obtenerVisible(
+            indices.id
+          );
+
+
+        if (!idConduce) {
+          continue;
+        }
+
+
+        const estadoDespacho =
+          obtenerVisible(
+            indices.estado
+          );
+
+
+        /*
+         * Solo los conduces oficialmente completados
+         * pueden ser verificados.
+         */
+        if (
+          normalizarTextoVerificacion_(
+            estadoDespacho
+          ) !== "completado"
+        ) {
+          continue;
+        }
+
+
+        const noConduce =
+          obtenerVisible(
+            indices.numero
+          );
+
+
+        const supervisor =
+          obtenerVisible(
+            indices.supervisor
+          );
+
+
+        const chofer =
+          obtenerVisible(
+            indices.chofer
+          );
+
+
+        const destino1 =
+          obtenerVisible(
+            indices.destino1
+          );
+
+
+        const destino2 =
+          obtenerVisible(
+            indices.destino2
+          );
+
+
+        const centrosDestino =
+          [
+            destino1,
+            destino2
+          ]
+            .filter(Boolean)
+            .join(" / ");
+
+
+        const textoBusquedaRegistro =
+          normalizarTextoVerificacion_(
+            [
+              idConduce,
+              noConduce,
+              supervisor,
+              chofer,
+              destino1,
+              destino2,
+              obtenerVisible(
+                indices.unidad
+              )
+            ].join(" ")
+          );
+
+
+        if (
+          filtroBusqueda &&
+          !textoBusquedaRegistro.includes(
+            filtroBusqueda
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          filtroConduce &&
+          !normalizarTextoVerificacion_(
+            noConduce
+          ).includes(
+            filtroConduce
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          filtroSupervisor &&
+          !normalizarTextoVerificacion_(
+            supervisor
+          ).includes(
+            filtroSupervisor
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          filtroChofer &&
+          !normalizarTextoVerificacion_(
+            chofer
+          ).includes(
+            filtroChofer
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          filtroCentro &&
+          !normalizarTextoVerificacion_(
+            centrosDestino
+          ).includes(
+            filtroCentro
+          )
+        ) {
+          continue;
+        }
+
+
+        const fechaCompletadoReal =
+          obtenerReal(
+            indices.fechaCompletado
+          );
+
+
+        const fechaDespachoReal =
+          obtenerReal(
+            indices.fechaDespacho
+          );
+
+
+        const fechaCreacionReal =
+          obtenerReal(
+            indices.fechaCreacion
+          );
+
+
+        const fechaReferencia =
+          convertirFechaVerificacion_(
+            fechaCompletadoReal
+          ) ||
+          convertirFechaVerificacion_(
+            fechaDespachoReal
+          ) ||
+          convertirFechaVerificacion_(
+            fechaCreacionReal
+          );
+
+
+        if (
+          fechaDesde &&
+          (
+            !fechaReferencia ||
+            normalizarFechaVerificacion_(
+              fechaReferencia
+            ) < fechaDesde
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          fechaHasta &&
+          (
+            !fechaReferencia ||
+            normalizarFechaVerificacion_(
+              fechaReferencia
+            ) > fechaHasta
+          )
+        ) {
+          continue;
+        }
+
+
+        const verificacionHoja =
+          mapaVerificaciones[
+            idConduce
+          ] || {};
+
+
+        const estadoVerificacion =
+          normalizarEstadoVerificacion_(
+            obtenerVisible(
+              indices.estadoVerificacion
+            ) ||
+            verificacionHoja
+              .estadoVerificacion ||
+            "Pendiente"
+          );
+
+
+        if (
+          filtroEstadoVerificacion !==
+            "todos" &&
+          normalizarTextoVerificacion_(
+            estadoVerificacion
+          ) !==
+            filtroEstadoVerificacion
+        ) {
+          continue;
+        }
+
+
+        const idVerificacion =
+          obtenerVisible(
+            indices.idVerificacion
+          ) ||
+          verificacionHoja
+            .idVerificacion ||
+          "";
+
+
+        const resultadoVerificacion =
+          obtenerVisible(
+            indices.resultadoVerificacion
+          ) ||
+          verificacionHoja
+            .resultadoVerificacion ||
+          "";
+
+
+        const fechaVerificacion =
+          obtenerVisible(
+            indices.fechaVerificacion
+          ) ||
+          verificacionHoja
+            .fechaVerificacion ||
+          "";
+
+
+        const verificadoPor =
+          obtenerVisible(
+            indices.verificadoPor
+          ) ||
+          verificacionHoja
+            .analistaNombre ||
+          "";
+
+
+        const documentosSAP = [
+
+          obtenerVisible(
+            indices.documentoSAP1
+          ),
+
+          obtenerVisible(
+            indices.documentoSAP2
+          ),
+
+          obtenerVisible(
+            indices.documentoSAP3
+          ),
+
+          obtenerVisible(
+            indices.documentoSAP4
+          )
+
+        ];
+
+
+        coincidencias.push({
+
+          idConduce:
+            idConduce,
+
+          noConduce:
+            noConduce,
+
+          fechaCreacion:
+            obtenerVisible(
+              indices.fechaCreacion
+            ),
+
+          fechaDespacho:
+            obtenerVisible(
+              indices.fechaDespacho
+            ),
+
+          fechaCompletado:
+            obtenerVisible(
+              indices.fechaCompletado
+            ),
+
+          fechaReferencia:
+            fechaReferencia
+              ? fechaReferencia.getTime()
+              : 0,
+
+          supervisor:
+            supervisor,
+
+          realizadoPor:
+            supervisor,
+
+          chofer:
+            chofer,
+
+          unidadCarga:
+            obtenerVisible(
+              indices.unidad
+            ),
+
+          cantidadDestinos:
+            numeroVerificacion_(
+              obtenerVisible(
+                indices.cantidadDestinos
+              ),
+              1
+            ),
+
+          destino1:
+            destino1,
+
+          destino2:
+            destino2,
+
+          centrosDestino:
+            centrosDestino,
+
+          totalLineas:
+            numeroVerificacion_(
+              obtenerVisible(
+                indices.totalLineas
+              ),
+              0
+            ),
+
+          totalUnidades:
+            numeroVerificacion_(
+              obtenerVisible(
+                indices.totalUnidades
+              ),
+              0
+            ),
+
+          estadoDespacho:
+            estadoDespacho,
+
+          estadoVerificacion:
+            estadoVerificacion,
+
+          idVerificacion:
+            idVerificacion,
+
+          resultadoVerificacion:
+            resultadoVerificacion,
+
+          fechaVerificacion:
+            fechaVerificacion,
+
+          verificadoPor:
+            verificadoPor,
+
+          documentosSAP:
+            documentosSAP,
+
+          espaciosSAPOcupados:
+            documentosSAP.filter(
+              Boolean
+            ).length,
+
+          espaciosSAPDisponibles:
+            documentosSAP.filter(
+              function(valor) {
+
+                return !valor;
+
+              }
+            ).length,
+
+          puedeIniciar:
+            estadoVerificacion ===
+              "Pendiente",
+
+          puedeContinuar:
+            estadoVerificacion ===
+              "En proceso",
+
+          puedeConsultar:
+            estadoVerificacion ===
+              "Finalizada"
+
+        });
+
+
+        if (
+          coincidencias.length >=
+          coincidenciasNecesarias
+        ) {
+          break;
+        }
+
+      }
+
+
+      filaFinalBloque =
+        filaInicialBloque - 1;
+
+    }
+
+
+    const registros =
+      coincidencias.slice(
+        desplazamiento,
+        desplazamiento + limite
+      );
+
+
+    registros.forEach(
+      function(item) {
+
+        delete item
+          .fechaReferencia;
+
+      }
+    );
+
+
+    const hayMas =
+      coincidencias.length >
+      desplazamiento + limite;
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      data: {
+
+        registros:
+          registros,
+
+        totalCargados:
+          registros.length,
+
+        limite:
+          limite,
+
+        desplazamiento:
+          desplazamiento,
+
+        siguienteDesplazamiento:
+          desplazamiento +
+          registros.length,
+
+        hayMas:
+          hayMas,
+
+        filtros: {
+
+          busqueda:
+            parametros.busqueda || "",
+
+          conduce:
+            parametros.conduce || "",
+
+          supervisor:
+            parametros.supervisor || "",
+
+          chofer:
+            parametros.chofer || "",
+
+          centro:
+            parametros.centro || "",
+
+          estadoVerificacion:
+            filtroEstadoVerificacion,
+
+          fechaDesde:
+            parametros.fechaDesde || "",
+
+          fechaHasta:
+            parametros.fechaHasta || ""
+
+        }
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error listando despachos para verificación:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+
+          ? error.message
+
+          : String(error)
+
+    });
+
+  }
+
+}
+
+
+/**
+ * Construye un mapa de la verificación más reciente
+ * encontrada para cada conduce.
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} hoja
+ * @return {Object}
+ */
+function obtenerMapaVerificacionesDespachos_(
+  hoja
+) {
+
+  const mapa = {};
+
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+
+  const ultimaColumna =
+    hoja.getLastColumn();
+
+
+  if (
+    ultimaFila <= 1 ||
+    ultimaColumna <= 0
+  ) {
+    return mapa;
+  }
+
+
+  const valores =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        ultimaColumna
+      )
+      .getDisplayValues();
+
+
+  const encabezados =
+    valores[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+
+  const indice =
+    function(nombre) {
+
+      return encabezados.indexOf(
+        nombre
+      );
+
+    };
+
+
+  const indiceIdVerificacion =
+    indice(
+      "ID_Verificacion"
+    );
+
+
+  const indiceIdConduce =
+    indice(
+      "ID_Conduce"
+    );
+
+
+  const indiceEstado =
+    indice(
+      "Estado_Verificacion"
+    );
+
+
+  const indiceResultado =
+    indice(
+      "Resultado_Verificacion"
+    );
+
+
+  const indiceFecha =
+    indice(
+      "Fecha_Verificacion"
+    );
+
+
+  const indiceAnalista =
+    indice(
+      "Analista_Nombre"
+    );
+
+
+  if (
+    indiceIdVerificacion === -1 ||
+    indiceIdConduce === -1 ||
+    indiceEstado === -1
+  ) {
+
+    throw new Error(
+      "Faltan columnas requeridas en Verificacion_Despachos."
+    );
+
+  }
+
+
+  /*
+   * Recorremos desde la última fila para conservar
+   * la verificación más reciente de cada conduce.
+   */
+  for (
+    let i =
+      valores.length - 1;
+
+    i >= 1;
+
+    i--
+  ) {
+
+    const fila =
+      valores[i];
+
+
+    const idConduce =
+      String(
+        fila[
+          indiceIdConduce
+        ] || ""
+      ).trim();
+
+
+    if (
+      !idConduce ||
+      mapa[idConduce]
+    ) {
+      continue;
+    }
+
+
+    mapa[idConduce] = {
+
+      idVerificacion:
+        String(
+          fila[
+            indiceIdVerificacion
+          ] || ""
+        ).trim(),
+
+      estadoVerificacion:
+        String(
+          fila[
+            indiceEstado
+          ] || ""
+        ).trim(),
+
+      resultadoVerificacion:
+        indiceResultado !== -1
+
+          ? String(
+              fila[
+                indiceResultado
+              ] || ""
+            ).trim()
+
+          : "",
+
+      fechaVerificacion:
+        indiceFecha !== -1
+
+          ? String(
+              fila[
+                indiceFecha
+              ] || ""
+            ).trim()
+
+          : "",
+
+      analistaNombre:
+        indiceAnalista !== -1
+
+          ? String(
+              fila[
+                indiceAnalista
+              ] || ""
+            ).trim()
+
+          : ""
+
+    };
+
+  }
+
+
+  return mapa;
+
+}
+
+
+/**
+ * Normaliza el filtro de estado.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarEstadoFiltroVerificacion_(
+  valor
+) {
+
+  const normalizado =
+    normalizarTextoVerificacion_(
+      valor
+    );
+
+
+  if (
+    normalizado === "en proceso" ||
+    normalizado === "finalizada" ||
+    normalizado === "todos"
+  ) {
+    return normalizado;
+  }
+
+
+  return "pendiente";
+
+}
+
+
+/**
+ * Devuelve la forma visible y controlada
+ * del estado de verificación.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarEstadoVerificacion_(
+  valor
+) {
+
+  const normalizado =
+    normalizarTextoVerificacion_(
+      valor
+    );
+
+
+  if (
+    normalizado === "en proceso"
+  ) {
+    return "En proceso";
+  }
+
+
+  if (
+    normalizado === "finalizada"
+  ) {
+    return "Finalizada";
+  }
+
+
+  if (
+    normalizado === "anulada"
+  ) {
+    return "Anulada";
+  }
+
+
+  return "Pendiente";
+
+}
+
+
+/**
+ * Normaliza textos para búsquedas.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarTextoVerificacion_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .trim()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .toLowerCase();
+
+}
+
+
+/**
+ * Convierte valores numéricos visibles de Sheets.
+ *
+ * @param {*} valor
+ * @param {number} valorDefecto
+ * @return {number}
+ */
+function numeroVerificacion_(
+  valor,
+  valorDefecto
+) {
+
+  if (
+    typeof valor === "number" &&
+    isFinite(valor)
+  ) {
+    return valor;
+  }
+
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        /,/g,
+        ""
+      );
+
+
+  if (!texto) {
+    return Number(
+      valorDefecto || 0
+    );
+  }
+
+
+  const numero =
+    Number(
+      texto
+    );
+
+
+  return isFinite(numero)
+
+    ? numero
+
+    : Number(
+        valorDefecto || 0
+      );
+
+}
+
+
+/**
+ * Convierte una fecha guardada o mostrada por Sheets.
+ *
+ * @param {*} valor
+ * @return {Date|null}
+ */
+function convertirFechaVerificacion_(
+  valor
+) {
+
+  if (!valor) {
+    return null;
+  }
+
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return new Date(
+      valor.getTime()
+    );
+
+  }
+
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  if (!texto) {
+    return null;
+  }
+
+
+  let coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+
+      Number(
+        coincidencia[1]
+      ),
+
+      Number(
+        coincidencia[2]
+      ) - 1,
+
+      Number(
+        coincidencia[3]
+      )
+
+    );
+
+  }
+
+
+  coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
+    );
+
+
+  if (coincidencia) {
+
+    const dia =
+      Number(
+        coincidencia[1]
+      );
+
+
+    const mes =
+      Number(
+        coincidencia[2]
+      ) - 1;
+
+
+    const anio =
+      Number(
+        coincidencia[3]
+      );
+
+
+    let hora =
+      Number(
+        coincidencia[4] || 0
+      );
+
+
+    const minutos =
+      Number(
+        coincidencia[5] || 0
+      );
+
+
+    const segundos =
+      Number(
+        coincidencia[6] || 0
+      );
+
+
+    const periodo =
+      String(
+        coincidencia[7] || ""
+      )
+        .toLowerCase()
+        .replace(
+          /\s|\./g,
+          ""
+        );
+
+
+    if (
+      periodo === "pm" &&
+      hora < 12
+    ) {
+      hora += 12;
+    }
+
+
+    if (
+      periodo === "am" &&
+      hora === 12
+    ) {
+      hora = 0;
+    }
+
+
+    const fecha =
+      new Date(
+        anio,
+        mes,
+        dia,
+        hora,
+        minutos,
+        segundos
+      );
+
+
+    return isNaN(
+      fecha.getTime()
+    )
+      ? null
+      : fecha;
+
+  }
+
+
+  const alternativa =
+    new Date(
+      texto
+    );
+
+
+  return isNaN(
+    alternativa.getTime()
+  )
+    ? null
+    : alternativa;
+
+}
+
+
+/**
+ * Convierte la fecha de un filtro yyyy-MM-dd.
+ *
+ * @param {*} valor
+ * @return {Date|null}
+ */
+function convertirFechaFiltroVerificacion_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  if (!texto) {
+    return null;
+  }
+
+
+  const coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+
+
+  if (!coincidencia) {
+
+    throw new Error(
+      'La fecha "' +
+      texto +
+      '" no tiene el formato yyyy-MM-dd.'
+    );
+
+  }
+
+
+  return new Date(
+
+    Number(
+      coincidencia[1]
+    ),
+
+    Number(
+      coincidencia[2]
+    ) - 1,
+
+    Number(
+      coincidencia[3]
+    )
+
+  );
+
+}
+
+
+/**
+ * Elimina hora, minutos y segundos.
+ *
+ * @param {Date} fecha
+ * @return {Date}
+ */
+function normalizarFechaVerificacion_(
+  fecha
+) {
+
+  return new Date(
+
+    fecha.getFullYear(),
+
+    fecha.getMonth(),
+
+    fecha.getDate()
+
+  );
+
+}
+
+
+/**
+ * Respuesta vacía consistente.
+ *
+ * @param {number} limite
+ * @param {number} desplazamiento
+ * @return {Object}
+ */
+function crearRespuestaVaciaListadoVerificacion_(
+  limite,
+  desplazamiento
+) {
+
+  return {
+
+    registros: [],
+
+    totalCargados:
+      0,
+
+    limite:
+      limite,
+
+    desplazamiento:
+      desplazamiento,
+
+    siguienteDesplazamiento:
+      desplazamiento,
+
+    hayMas:
+      false
+
+  };
+
+}
+
+
+/**
+ * ============================================================
+ * PRUEBAS MANUALES
+ * ============================================================
+ */
+
+
+/**
+ * Lista los primeros 10 conduces pendientes.
+ *
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function probarListadoDespachosVerificacion() {
+
+  const respuestaPrueba =
+    listarDespachosParaVerificacion({
+
+      limite:
+        10,
+
+      desplazamiento:
+        0,
+
+      estadoVerificacion:
+        "pendiente"
+
+    });
+
+
+  const contenido =
+    respuestaPrueba
+      .getContent();
+
+
+  console.log(
+    contenido
+  );
+
+
+  return respuestaPrueba;
+
+}
+
+
+/**
+ * Lista verificaciones en proceso.
+ *
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function probarListadoVerificacionesEnProceso() {
+
+  return listarDespachosParaVerificacion({
+
+    limite:
+      10,
+
+    desplazamiento:
+      0,
+
+    estadoVerificacion:
+      "en proceso"
+
+  });
+
+}

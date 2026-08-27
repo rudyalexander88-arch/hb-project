@@ -1,0 +1,986 @@
+/**
+ * ============================================================
+ * HISTÓRICO Y JUSTIFICACIONES DE METAS - HELADOS BON
+ * Archivo: MetasJustificaciones.gs
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Listar el histórico de Metas_Diarias.
+ * - Aplicar filtros por mes, supervisor, resultado y estado
+ *   de justificación.
+ * - Entregar el catálogo de causas de incumplimiento.
+ * - Guardar o actualizar la justificación de una meta.
+ *
+ * IMPORTANTE:
+ * - Este archivo NO recalcula metas.
+ * - Este archivo NO modifica el cierre diario.
+ * - Solo actualiza:
+ *      Causa_Incumplimiento
+ *      Comentario_Incumplimiento
+ *      Registrado_Por_Comentario
+ *      Fecha_Comentario
+ * ============================================================
+ */
+
+function listarMetasDiarias(data) {
+
+  const filtros = data || {};
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const zonaHoraria =
+    ss.getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo';
+
+  const hoja = ss.getSheetByName('Metas_Diarias');
+
+  if (!hoja) {
+    throw new Error('No se encontró la hoja "Metas_Diarias".');
+  }
+
+  const ultimaFila = hoja.getLastRow();
+  const ultimaColumna = hoja.getLastColumn();
+
+  if (ultimaColumna < 1) {
+    throw new Error(
+      'La hoja "Metas_Diarias" no contiene encabezados.'
+    );
+  }
+
+  const encabezadosOriginales = hoja
+    .getRange(1, 1, 1, ultimaColumna)
+    .getValues()[0];
+
+  const encabezados =
+    encabezadosOriginales.map(normalizarTextoMeta_);
+
+  validarEncabezadosMetasJustificaciones_(encabezados);
+
+  const periodo = resolverPeriodoMetas_(filtros, zonaHoraria);
+
+  const filtroSupervisor = normalizarTextoMeta_(
+    filtros.supervisor || filtros.supervisorNombre || ''
+  );
+
+  const filtroResultado = normalizarTextoMeta_(
+    filtros.resultado || ''
+  );
+
+  const filtroEstadoJustificacion = normalizarTextoMeta_(
+    filtros.estadoJustificacion ||
+    filtros.estado_justificacion ||
+    ''
+  );
+
+  if (ultimaFila < 2) {
+    return construirRespuestaListadoMetas_(
+      [], periodo, filtros, {}, {}, zonaHoraria
+    );
+  }
+
+  const datos = hoja
+    .getRange(2, 1, ultimaFila - 1, ultimaColumna)
+    .getValues();
+
+  const indices =
+    obtenerIndicesMetasJustificaciones_(encabezados);
+
+  const metas = [];
+  const supervisoresUnicos = {};
+  const resultadosUnicos = {};
+
+  const desdeISO = Utilities.formatDate(
+    periodo.fechaDesde,
+    zonaHoraria,
+    'yyyy-MM-dd'
+  );
+
+  const hastaISO = Utilities.formatDate(
+    periodo.fechaHasta,
+    zonaHoraria,
+    'yyyy-MM-dd'
+  );
+
+  for (let i = 0; i < datos.length; i++) {
+
+    const fila = datos[i];
+    const fecha = normalizarFechaMeta_(fila[indices.fecha]);
+
+    if (!fecha) {
+      continue;
+    }
+
+    const fechaISO = Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      'yyyy-MM-dd'
+    );
+
+    if (fechaISO < desdeISO || fechaISO > hastaISO) {
+      continue;
+    }
+
+    const supervisorNombre = String(
+      fila[indices.supervisorNombre] || ''
+    ).trim();
+
+    const resultado = String(
+      fila[indices.resultado] || ''
+    ).trim();
+
+    const causa = String(
+      fila[indices.causaIncumplimiento] || ''
+    ).trim();
+
+    const estadoJustificacion =
+      determinarEstadoJustificacionMeta_(resultado, causa);
+
+    if (
+      filtroSupervisor &&
+      filtroSupervisor !== 'TODOS' &&
+      normalizarTextoMeta_(supervisorNombre) !== filtroSupervisor
+    ) {
+      continue;
+    }
+
+    if (
+      filtroResultado &&
+      filtroResultado !== 'TODOS' &&
+      normalizarTextoMeta_(resultado) !== filtroResultado
+    ) {
+      continue;
+    }
+
+    if (
+      filtroEstadoJustificacion &&
+      filtroEstadoJustificacion !== 'TODOS' &&
+      normalizarTextoMeta_(estadoJustificacion) !==
+        filtroEstadoJustificacion
+    ) {
+      continue;
+    }
+
+    metas.push(
+      construirMetaHistorico_(
+        fila,
+        indices,
+        zonaHoraria,
+        estadoJustificacion
+      )
+    );
+
+    if (supervisorNombre) {
+      supervisoresUnicos[
+        normalizarTextoMeta_(supervisorNombre)
+      ] = supervisorNombre;
+    }
+
+    if (resultado) {
+      resultadosUnicos[
+        normalizarTextoMeta_(resultado)
+      ] = resultado;
+    }
+  }
+
+  metas.sort(function(a, b) {
+    const fechaA = normalizarFechaMeta_(a.fechaISO);
+    const fechaB = normalizarFechaMeta_(b.fechaISO);
+    return fechaB.getTime() - fechaA.getTime();
+  });
+
+  return construirRespuestaListadoMetas_(
+    metas,
+    periodo,
+    filtros,
+    supervisoresUnicos,
+    resultadosUnicos,
+    zonaHoraria
+  );
+}
+
+
+/**
+ * Resuelve el período solicitado.
+ * Mantiene compatibilidad con el filtro anterior por mes.
+ *
+ * @param {Object} filtros
+ * @param {string} zonaHoraria
+ * @return {Object}
+ */
+function resolverPeriodoMetas_(filtros, zonaHoraria) {
+
+  const fechaDesdeEntrada =
+    filtros.fechaDesde || filtros.fecha_desde || '';
+
+  const fechaHastaEntrada =
+    filtros.fechaHasta || filtros.fecha_hasta || '';
+
+  if (fechaDesdeEntrada || fechaHastaEntrada) {
+
+    if (!fechaDesdeEntrada || !fechaHastaEntrada) {
+      throw new Error(
+        'Debe indicar tanto Fecha Desde como Fecha Hasta.'
+      );
+    }
+
+    const fechaDesde = normalizarFechaMeta_(fechaDesdeEntrada);
+    const fechaHasta = normalizarFechaMeta_(fechaHastaEntrada);
+
+    if (!fechaDesde || !fechaHasta) {
+      throw new Error('El rango de fechas indicado no es válido.');
+    }
+
+    fechaDesde.setHours(0, 0, 0, 0);
+    fechaHasta.setHours(23, 59, 59, 999);
+
+    if (fechaDesde.getTime() > fechaHasta.getTime()) {
+      throw new Error(
+        'La Fecha Desde no puede ser mayor que la Fecha Hasta.'
+      );
+    }
+
+    return {
+      tipo: 'RANGO',
+      fechaDesde: fechaDesde,
+      fechaHasta: fechaHasta,
+      mes: ''
+    };
+  }
+
+  const mesActual = Utilities.formatDate(
+    new Date(),
+    zonaHoraria,
+    'yyyy-MM'
+  );
+
+  const mes = String(
+    filtros.mes == null || filtros.mes === ''
+      ? mesActual
+      : filtros.mes
+  ).trim();
+
+  if (!/^\d{4}-\d{2}$/.test(mes)) {
+    throw new Error('El mes debe tener el formato yyyy-MM.');
+  }
+
+  const partes = mes.split('-');
+  const anio = Number(partes[0]);
+  const numeroMes = Number(partes[1]);
+
+  return {
+    tipo: 'MES',
+    fechaDesde: new Date(anio, numeroMes - 1, 1),
+    fechaHasta: new Date(
+      anio,
+      numeroMes,
+      0,
+      23,
+      59,
+      59,
+      999
+    ),
+    mes: mes
+  };
+}
+
+
+/**
+ * Construye la respuesta estandarizada del histórico.
+ *
+ * @return {Object}
+ */
+function construirRespuestaListadoMetas_(
+  metas,
+  periodo,
+  filtros,
+  supervisoresUnicos,
+  resultadosUnicos,
+  zonaHoraria
+) {
+
+  return {
+    exito: true,
+    metas: metas,
+    total: metas.length,
+
+    periodo: {
+      tipo: periodo.tipo,
+      mes: periodo.mes,
+      fechaDesde: Utilities.formatDate(
+        periodo.fechaDesde,
+        zonaHoraria,
+        'yyyy-MM-dd'
+      ),
+      fechaHasta: Utilities.formatDate(
+        periodo.fechaHasta,
+        zonaHoraria,
+        'yyyy-MM-dd'
+      )
+    },
+
+    filtrosAplicados: {
+      mes: periodo.mes,
+      fechaDesde: Utilities.formatDate(
+        periodo.fechaDesde,
+        zonaHoraria,
+        'yyyy-MM-dd'
+      ),
+      fechaHasta: Utilities.formatDate(
+        periodo.fechaHasta,
+        zonaHoraria,
+        'yyyy-MM-dd'
+      ),
+      supervisor:
+        filtros.supervisor || filtros.supervisorNombre || '',
+      resultado: filtros.resultado || '',
+      estadoJustificacion:
+        filtros.estadoJustificacion ||
+        filtros.estado_justificacion ||
+        ''
+    },
+
+    opciones: {
+      supervisores: Object.keys(supervisoresUnicos || {})
+        .map(function(clave) {
+          return supervisoresUnicos[clave];
+        })
+        .sort(),
+
+      resultados: Object.keys(resultadosUnicos || {})
+        .map(function(clave) {
+          return resultadosUnicos[clave];
+        })
+        .sort(),
+
+      estadosJustificacion: [
+        'PENDIENTE',
+        'JUSTIFICADA',
+        'NO APLICA'
+      ]
+    }
+  };
+}
+
+
+function obtenerCausasIncumplimiento() {
+  return {
+    exito: true,
+    causas: obtenerCatalogoCausasIncumplimiento_()
+  };
+}
+
+function guardarJustificacionMeta(data) {
+  const datosEntrada = data || {};
+
+  const idMeta = String(
+    datosEntrada.idMeta ||
+    datosEntrada.ID_Meta ||
+    datosEntrada.id_meta ||
+    ''
+  ).trim();
+
+  const causa = String(
+    datosEntrada.causa ||
+    datosEntrada.causaIncumplimiento ||
+    datosEntrada.Causa_Incumplimiento ||
+    ''
+  ).trim();
+
+  const comentario = String(
+    datosEntrada.comentario ||
+    datosEntrada.comentarioIncumplimiento ||
+    datosEntrada.Comentario_Incumplimiento ||
+    ''
+  ).trim();
+
+  const registradoPor =
+    obtenerUsuarioJustificacionMeta_(datosEntrada);
+
+  if (!idMeta) {
+    throw new Error(
+      'Debe indicar el ID de la meta que será justificada.'
+    );
+  }
+
+  if (!causa) {
+    throw new Error(
+      'Debe seleccionar una causa de incumplimiento.'
+    );
+  }
+
+  const causasPermitidas =
+    obtenerCatalogoCausasIncumplimiento_();
+
+  const causaNormalizada =
+    normalizarTextoMeta_(causa);
+
+  const causaOficial = causasPermitidas.find(
+    function(valor) {
+      return normalizarTextoMeta_(valor) === causaNormalizada;
+    }
+  );
+
+  if (!causaOficial) {
+    throw new Error(
+      'La causa seleccionada no pertenece al catálogo permitido.'
+    );
+  }
+
+  if (
+    causaNormalizada === 'OTRA' &&
+    !comentario
+  ) {
+    throw new Error(
+      'Debe escribir un comentario cuando la causa seleccionada sea "OTRA".'
+    );
+  }
+
+  const bloqueo = LockService.getScriptLock();
+
+  try {
+    bloqueo.waitLock(30000);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const zonaHoraria =
+      ss.getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      'America/Santo_Domingo';
+
+    const hoja = ss.getSheetByName('Metas_Diarias');
+
+    if (!hoja) {
+      throw new Error(
+        'No se encontró la hoja "Metas_Diarias".'
+      );
+    }
+
+    const ultimaFila = hoja.getLastRow();
+    const ultimaColumna = hoja.getLastColumn();
+
+    if (ultimaFila < 2 || ultimaColumna < 1) {
+      throw new Error(
+        'No existen metas registradas para justificar.'
+      );
+    }
+
+    const encabezadosOriginales = hoja
+      .getRange(1, 1, 1, ultimaColumna)
+      .getValues()[0];
+
+    const encabezados =
+      encabezadosOriginales.map(normalizarTextoMeta_);
+
+    validarEncabezadosMetasJustificaciones_(encabezados);
+
+    const indices =
+      obtenerIndicesMetasJustificaciones_(encabezados);
+
+    const datos = hoja
+      .getRange(2, 1, ultimaFila - 1, ultimaColumna)
+      .getValues();
+
+    let indiceRegistro = -1;
+
+    for (let i = 0; i < datos.length; i++) {
+      const idExistente = String(
+        datos[i][indices.idMeta] || ''
+      ).trim();
+
+      if (
+        idExistente.toUpperCase() ===
+        idMeta.toUpperCase()
+      ) {
+        indiceRegistro = i;
+        break;
+      }
+    }
+
+    if (indiceRegistro === -1) {
+      throw new Error(
+        'No se encontró la meta "' +
+        idMeta +
+        '" en Metas_Diarias.'
+      );
+    }
+
+    const filaActual = datos[indiceRegistro];
+    const resultadoActual = String(
+      filaActual[indices.resultado] || ''
+    ).trim();
+
+    if (
+      normalizarTextoMeta_(resultadoActual) !==
+      'META_NO_CUMPLIDA'
+    ) {
+      throw new Error(
+        'Solo se pueden justificar metas con resultado "META NO CUMPLIDA".'
+      );
+    }
+
+    const filaHoja = indiceRegistro + 2;
+    const fechaComentario = new Date();
+
+    hoja
+      .getRange(
+        filaHoja,
+        indices.causaIncumplimiento + 1
+      )
+      .setValue(causaOficial);
+
+    hoja
+      .getRange(
+        filaHoja,
+        indices.comentarioIncumplimiento + 1
+      )
+      .setValue(comentario);
+
+    hoja
+      .getRange(
+        filaHoja,
+        indices.registradoPorComentario + 1
+      )
+      .setValue(registradoPor);
+
+    hoja
+      .getRange(
+        filaHoja,
+        indices.fechaComentario + 1
+      )
+      .setValue(fechaComentario)
+      .setNumberFormat('dd/MM/yyyy HH:mm:ss');
+
+    SpreadsheetApp.flush();
+
+    const filaActualizada = hoja
+      .getRange(filaHoja, 1, 1, ultimaColumna)
+      .getValues()[0];
+
+    const metaActualizada =
+      construirMetaHistorico_(
+        filaActualizada,
+        indices,
+        zonaHoraria,
+        'JUSTIFICADA'
+      );
+
+          // ========================================================
+    // NOTIFICAR LA JUSTIFICACIÓN AL CHAT OPERATIVO
+    // ========================================================
+
+    let envioChatJustificacion = null;
+
+    try {
+
+      envioChatJustificacion =
+        enviarJustificacionMetaChat_(
+          metaActualizada
+        );
+
+    } catch (errorChat) {
+
+      /*
+       * La justificación ya fue guardada correctamente.
+       * Un error de Google Chat no debe revertir ni bloquear
+       * el registro en Metas_Diarias.
+       */
+      console.error(
+        'La justificación se guardó, pero no pudo enviarse al Chat:',
+        errorChat
+      );
+
+      envioChatJustificacion = {
+        exito: false,
+        mensaje:
+          errorChat && errorChat.message
+            ? errorChat.message
+            : String(errorChat)
+      };
+    }
+
+        return {
+      exito: true,
+
+      mensaje:
+        envioChatJustificacion &&
+        envioChatJustificacion.exito === false
+
+          ? 'La justificación fue guardada, pero no pudo enviarse al Google Chat.'
+
+          : 'La justificación fue guardada correctamente.',
+
+      idMeta:
+        idMeta,
+
+      metaActualizada:
+        metaActualizada,
+
+      envioChatJustificacion:
+        envioChatJustificacion
+    };
+
+  } catch (error) {
+    console.error(
+      'Error al guardar la justificación de la meta:',
+      error
+    );
+    throw error;
+
+  } finally {
+    try {
+      bloqueo.releaseLock();
+    } catch (errorBloqueo) {
+      // El bloqueo puede no haberse adquirido.
+    }
+  }
+}
+
+function obtenerCatalogoCausasIncumplimiento_() {
+  return [
+    'FALTA DE MATERIALES DISPONIBLES',
+    'MATERIALES FUERA DE PARÁMETROS',
+    'LIMITACIÓN DE PRODUCCIÓN',
+    'CAPACIDAD DE CÁMARAS FRIGORÍFICAS',
+    'FALTA DE CONTENEDORES',
+    'FALTA DE TRANSPORTE',
+    'DEMORA EN DOCUMENTACIÓN',
+    'DEMORA EN INSPECCIÓN O CALIDAD',
+    'AVERÍA DE EQUIPO',
+    'LIMITACIÓN DE PERSONAL',
+    'CAMBIO DE PRIORIDAD OPERATIVA',
+    'CONDICIONES CLIMÁTICAS',
+    'OTRA'
+  ];
+}
+
+function validarEncabezadosMetasJustificaciones_(
+  encabezados
+) {
+  const requeridos = [
+    'ID_META',
+    'FECHA',
+    'META_DESPACHOS',
+    'DESPACHOS_REALIZADOS',
+    'CUMPLIMIENTO_PORCENTAJE',
+    'DIFERENCIA_META',
+    'SUPERVISOR_ID',
+    'SUPERVISOR_NOMBRE',
+    'RESULTADO',
+    'HORA_CIERRE',
+    'FECHA_REGISTRO',
+    'CAUSA_INCUMPLIMIENTO',
+    'COMENTARIO_INCUMPLIMIENTO',
+    'REGISTRADO_POR_COMENTARIO',
+    'FECHA_COMENTARIO'
+  ];
+
+  requeridos.forEach(function(encabezado) {
+    if (encabezados.indexOf(encabezado) === -1) {
+      throw new Error(
+        'Falta el encabezado "' +
+        encabezado +
+        '" en la hoja "Metas_Diarias".'
+      );
+    }
+  });
+}
+
+function obtenerIndicesMetasJustificaciones_(
+  encabezados
+) {
+  return {
+    idMeta:
+      encabezados.indexOf('ID_META'),
+    fecha:
+      encabezados.indexOf('FECHA'),
+    metaDespachos:
+      encabezados.indexOf('META_DESPACHOS'),
+    despachosRealizados:
+      encabezados.indexOf('DESPACHOS_REALIZADOS'),
+    cumplimientoPorcentaje:
+      encabezados.indexOf('CUMPLIMIENTO_PORCENTAJE'),
+    diferenciaMeta:
+      encabezados.indexOf('DIFERENCIA_META'),
+    supervisorId:
+      encabezados.indexOf('SUPERVISOR_ID'),
+    supervisorNombre:
+      encabezados.indexOf('SUPERVISOR_NOMBRE'),
+    resultado:
+      encabezados.indexOf('RESULTADO'),
+    horaCierre:
+      encabezados.indexOf('HORA_CIERRE'),
+    fechaRegistro:
+      encabezados.indexOf('FECHA_REGISTRO'),
+    causaIncumplimiento:
+      encabezados.indexOf('CAUSA_INCUMPLIMIENTO'),
+    comentarioIncumplimiento:
+      encabezados.indexOf('COMENTARIO_INCUMPLIMIENTO'),
+    registradoPorComentario:
+      encabezados.indexOf('REGISTRADO_POR_COMENTARIO'),
+    fechaComentario:
+      encabezados.indexOf('FECHA_COMENTARIO')
+  };
+}
+
+function determinarEstadoJustificacionMeta_(
+  resultado,
+  causa
+) {
+  const resultadoNormalizado =
+    normalizarTextoMeta_(resultado);
+
+  const causaNormalizada =
+    normalizarTextoMeta_(causa);
+
+  if (
+    resultadoNormalizado !==
+    'META_NO_CUMPLIDA'
+  ) {
+    return 'NO APLICA';
+  }
+
+  return causaNormalizada
+    ? 'JUSTIFICADA'
+    : 'PENDIENTE';
+}
+
+function construirMetaHistorico_(
+  fila,
+  indices,
+  zonaHoraria,
+  estadoJustificacion
+) {
+  const fecha =
+    normalizarFechaMeta_(fila[indices.fecha]);
+
+  const fechaRegistro =
+    normalizarFechaMeta_(
+      fila[indices.fechaRegistro]
+    );
+
+  const fechaComentario =
+    normalizarFechaMeta_(
+      fila[indices.fechaComentario]
+    );
+
+  const causa = String(
+    fila[indices.causaIncumplimiento] || ''
+  ).trim();
+
+  const resultado = String(
+    fila[indices.resultado] || ''
+  ).trim();
+
+  const metaDespachos =
+    convertirNumeroMetaJustificacion_(
+      fila[indices.metaDespachos]
+    );
+
+  const despachosRealizados =
+    convertirNumeroMetaJustificacion_(
+      fila[indices.despachosRealizados]
+    );
+
+  return {
+    idMeta:
+      String(fila[indices.idMeta] || '').trim(),
+
+    fecha:
+      fecha
+        ? Utilities.formatDate(
+            fecha,
+            zonaHoraria,
+            'dd/MM/yyyy'
+          )
+        : '',
+
+    fechaISO:
+      fecha
+        ? Utilities.formatDate(
+            fecha,
+            zonaHoraria,
+            'yyyy-MM-dd'
+          )
+        : '',
+
+    metaDespachos:
+      metaDespachos,
+
+    despachosRealizados:
+      despachosRealizados,
+
+    cumplimientoPorcentaje:
+      convertirNumeroMetaJustificacion_(
+        fila[indices.cumplimientoPorcentaje]
+      ),
+
+    diferenciaMeta:
+      convertirNumeroMetaJustificacion_(
+        fila[indices.diferenciaMeta]
+      ),
+
+    brechaMeta:
+      Math.max(
+        0,
+        metaDespachos - despachosRealizados
+      ),
+
+    supervisorId:
+      String(
+        fila[indices.supervisorId] || ''
+      ).trim(),
+
+    supervisorNombre:
+      String(
+        fila[indices.supervisorNombre] || ''
+      ).trim(),
+
+    resultado:
+      resultado,
+
+    horaCierre:
+      formatearHoraHistoricoMeta_(
+        fila[indices.horaCierre],
+        zonaHoraria
+      ),
+
+    fechaRegistro:
+      fechaRegistro
+        ? Utilities.formatDate(
+            fechaRegistro,
+            zonaHoraria,
+            'dd/MM/yyyy HH:mm:ss'
+          )
+        : '',
+
+    causaIncumplimiento:
+      causa,
+
+    comentarioIncumplimiento:
+      String(
+        fila[indices.comentarioIncumplimiento] || ''
+      ).trim(),
+
+    registradoPorComentario:
+      String(
+        fila[indices.registradoPorComentario] || ''
+      ).trim(),
+
+    fechaComentario:
+      fechaComentario
+        ? Utilities.formatDate(
+            fechaComentario,
+            zonaHoraria,
+            'dd/MM/yyyy HH:mm:ss'
+          )
+        : '',
+
+    estadoJustificacion:
+      estadoJustificacion ||
+      determinarEstadoJustificacionMeta_(
+        resultado,
+        causa
+      ),
+
+    requiereJustificacion:
+      normalizarTextoMeta_(resultado) ===
+        'META_NO_CUMPLIDA',
+
+    puedeJustificar:
+      normalizarTextoMeta_(resultado) ===
+        'META_NO_CUMPLIDA'
+  };
+}
+
+function convertirNumeroMetaJustificacion_(valor) {
+  if (
+    typeof valor === 'number' &&
+    !isNaN(valor)
+  ) {
+    return valor;
+  }
+
+  const numero = Number(
+    String(valor == null ? '' : valor)
+      .replace(',', '.')
+      .replace('%', '')
+      .trim()
+  );
+
+  return isNaN(numero) ? 0 : numero;
+}
+
+function formatearHoraHistoricoMeta_(
+  valor,
+  zonaHoraria
+) {
+  if (
+    Object.prototype.toString.call(valor) === '[object Date]' &&
+    !isNaN(valor.getTime())
+  ) {
+    return Utilities.formatDate(
+      valor,
+      zonaHoraria,
+      'HH:mm'
+    );
+  }
+
+  return String(valor == null ? '' : valor)
+    .trim();
+}
+
+function obtenerUsuarioJustificacionMeta_(data) {
+  const nombre = String(
+    data.registradoPor ||
+    data.usuarioNombre ||
+    data.nombreUsuario ||
+    data.usuario ||
+    ''
+  ).trim();
+
+  if (nombre) {
+    return nombre;
+  }
+
+  try {
+    const correo =
+      Session.getActiveUser().getEmail();
+
+    if (correo) {
+      return correo;
+    }
+  } catch (error) {
+    // En algunas implementaciones el correo no está disponible.
+  }
+
+  return 'USUARIO DEL SISTEMA';
+}
+
+function probarListarMetasDiarias() {
+  const resultado =
+    listarMetasDiarias({});
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}
+
+function probarCausasIncumplimiento() {
+  const resultado =
+    obtenerCausasIncumplimiento();
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}

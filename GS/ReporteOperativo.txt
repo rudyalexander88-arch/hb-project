@@ -1,0 +1,1202 @@
+/**
+ * ============================================================
+ * REPORTEOPERATIVO.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Construir y enviar los reportes operativos de despachos.
+ * - 12:00: avance operativo.
+ * - 15:00: avance operativo.
+ * - 17:00: cierre oficial.
+ *
+ * Requiere:
+ * - MetasDespachos.gs
+ * - GoogleChat.gs
+ *
+ * Configuraciones esperadas:
+ * - Enviar_Reportes_Chat = SI
+ * - Meta_Despachos_Diaria
+ * ============================================================
+ */
+
+
+/**
+ * Reporte operacional de las 12:00.
+ *
+ * No escribe en Metas_Diarias.
+ *
+ * @param {boolean} forzarEnvio
+ * @return {Object}
+ */
+function ejecutarReporteOperativo1200(
+  forzarEnvio
+) {
+
+  return ejecutarReporteAvanceDespachos_(
+    '12:00',
+    forzarEnvio === true
+  );
+}
+
+
+/**
+ * Reporte operacional de las 15:00.
+ *
+ * No escribe en Metas_Diarias.
+ *
+ * @param {boolean} forzarEnvio
+ * @return {Object}
+ */
+function ejecutarReporteOperativo1500(
+  forzarEnvio
+) {
+
+  return ejecutarReporteAvanceDespachos_(
+    '15:00',
+    forzarEnvio === true
+  );
+}
+
+
+/**
+ * Cierre oficial de las 17:00.
+ *
+ * Reglas:
+ * - Si no existen despachos válidos, no registra una meta.
+ * - Si existen despachos, crea o actualiza el cierre diario.
+ * - Envía el cierre al Chat Operativo.
+ *
+ * El informe ejecutivo de inventarios se conectará después,
+ * cuando su cálculo esté terminado.
+ *
+ * @param {boolean} forzarEnvio
+ * @return {Object}
+ */
+function ejecutarCierreOperativo1700(
+  forzarEnvio
+) {
+
+  const forzar =
+    forzarEnvio === true;
+
+  if (!reportesChatHabilitados_()) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        'Los reportes de Google Chat están deshabilitados.'
+    };
+  }
+
+  const fecha =
+    new Date();
+
+  const indicadores =
+    obtenerIndicadoresMetaDespachos_(
+      fecha
+    );
+
+  /*
+   * Regla acordada:
+   * un día solo cuenta para la meta cuando existe
+   * al menos un despacho válido.
+   */
+  if (
+    Number(
+      indicadores.despachosRealizados || 0
+    ) <= 0
+  ) {
+
+    const mensajeSinOperacion =
+      construirMensajeSinDespachos_(
+        fecha
+      );
+
+    const control =
+      validarEnvioReporteUnico_(
+        'CIERRE_1700_SIN_DESPACHOS',
+        forzar
+      );
+
+    if (!control.permitido) {
+      return control;
+    }
+
+    const envio =
+      enviarMensajeChatOperativo(
+        mensajeSinOperacion
+      );
+
+    marcarReporteEnviado_(
+      'CIERRE_1700_SIN_DESPACHOS'
+    );
+
+    return {
+      exito: true,
+      cierreRegistrado: false,
+      motivo:
+        'No hubo despachos válidos. El día no se incluyó en la meta.',
+      envioChat:
+        envio
+    };
+  }
+
+  const control =
+    validarEnvioReporteUnico_(
+      'CIERRE_1700',
+      forzar
+    );
+
+  if (!control.permitido) {
+    return control;
+  }
+
+  /*
+   * Esta función ya evita duplicados:
+   * - crea si no existe;
+   * - actualiza si ya existe.
+   */
+  const cierre =
+    registrarCierreMetaDespachosHoy();
+
+  const mensaje =
+    construirMensajeCierreDespachos_(
+      cierre
+    );
+
+  const envio =
+    enviarMensajeChatOperativo(
+      mensaje
+    );
+
+  marcarReporteEnviado_(
+  'CIERRE_1700'
+);
+
+
+// ========================================================
+// REPORTE DE MATERIALES DESPACHADOS A FRIOBOX
+// ========================================================
+
+let reporteMaterialesFB = null;
+
+try {
+
+  reporteMaterialesFB =
+    ejecutarReporteMaterialesFBHoy(
+      forzar
+    );
+
+} catch (errorReporteFB) {
+
+  /*
+   * El cierre operativo ya fue registrado y enviado.
+   * Un error en el reporte de materiales no debe
+   * cancelar el cierre diario.
+   */
+  console.error(
+    'El cierre fue procesado, pero falló el reporte de materiales FB:',
+    errorReporteFB
+  );
+
+  reporteMaterialesFB = {
+    exito: false,
+    mensaje:
+      errorReporteFB &&
+      errorReporteFB.message
+        ? errorReporteFB.message
+        : String(errorReporteFB)
+  };
+}
+
+
+return {
+  exito: true,
+
+  cierreRegistrado: true,
+
+  cierre:
+    cierre,
+
+  envioChat:
+    envio,
+
+  reporteMaterialesFB:
+    reporteMaterialesFB
+};
+}
+
+
+/**
+ * Ejecuta un reporte de avance.
+ *
+ * @param {string} horaReporte
+ * @param {boolean} forzar
+ * @return {Object}
+ */
+function ejecutarReporteAvanceDespachos_(
+  horaReporte,
+  forzar
+) {
+
+  if (!reportesChatHabilitados_()) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        'Los reportes de Google Chat están deshabilitados.'
+    };
+  }
+
+  const identificador =
+    'AVANCE_' +
+    String(horaReporte || '')
+      .replace(':', '');
+
+  const control =
+    validarEnvioReporteUnico_(
+      identificador,
+      forzar
+    );
+
+  if (!control.permitido) {
+    return control;
+  }
+
+  const indicadores =
+    obtenerIndicadoresMetaDespachos_(
+      new Date()
+    );
+
+  const mensaje =
+    construirMensajeAvanceDespachos_(
+      indicadores,
+      horaReporte
+    );
+
+  const envio =
+    enviarMensajeChatOperativo(
+      mensaje
+    );
+
+  marcarReporteEnviado_(
+    identificador
+  );
+
+  return {
+    exito: true,
+    horaReporte:
+      horaReporte,
+    indicadores:
+      indicadores,
+    envioChat:
+      envio
+  };
+}
+
+
+/**
+ * Construye el mensaje de avance.
+ *
+ * @param {Object} indicadores
+ * @param {string} horaReporte
+ * @return {string}
+ */
+function construirMensajeAvanceDespachos_(
+  indicadores,
+  horaReporte
+) {
+
+  const meta =
+    Number(
+      indicadores.metaDespachos || 0
+    );
+
+  const realizados =
+    Number(
+      indicadores.despachosRealizados || 0
+    );
+
+  const cumplimiento =
+    Number(
+      indicadores.cumplimientoPorcentaje || 0
+    );
+
+  const pendientes =
+    Math.max(
+      0,
+      meta - realizados
+    );
+
+  const estado =
+    obtenerEstadoVisualReporte_(
+      cumplimiento
+    );
+
+  return [
+    '📦 *AVANCE OPERATIVO DE DESPACHOS*',
+    '',
+    '🕒 Corte: ' + String(horaReporte || ''),
+    '📅 Fecha: ' + String(indicadores.fecha || ''),
+    '',
+    '🎯 Meta diaria: *' + meta + '*',
+    '🚚 Despachos realizados: *' + realizados + '*',
+    '📊 Cumplimiento: *' +
+      formatearPorcentajeReporte_(
+        cumplimiento
+      ) +
+      '*',
+    '⏳ Pendientes para la meta: *' +
+      pendientes +
+      '*',
+    '',
+    estado,
+    crearBarraCumplimientoReporte_(
+      cumplimiento
+    )
+  ].join('\n');
+}
+
+
+/**
+ * Construye el mensaje de cierre.
+ *
+ * @param {Object} cierre
+ * @return {string}
+ */
+function construirMensajeCierreDespachos_(
+  cierre
+) {
+
+  const cumplimiento =
+    Number(
+      cierre.cumplimientoPorcentaje || 0
+    );
+
+  const diferencia =
+    Number(
+      cierre.diferenciaMeta || 0
+    );
+
+  const brechaTexto =
+    diferencia >= 0
+      ? 'Superávit: *+' + diferencia + '*'
+      : 'Brecha: *' +
+        Math.abs(diferencia) +
+        '*';
+
+  const supervisor =
+    String(
+      cierre.supervisorNombre ||
+      'Sin supervisor identificado'
+    );
+
+  return [
+    '🏁 *CIERRE DIARIO DE DESPACHOS*',
+    '',
+    '📅 Fecha: ' + String(cierre.fecha || ''),
+    '🕔 Hora de cierre: ' +
+      String(cierre.horaCierre || '17:00'),
+    '👤 Supervisor: *' + supervisor + '*',
+    '',
+    '🎯 Meta: *' +
+      Number(cierre.metaDespachos || 0) +
+      '*',
+    '🚚 Realizados: *' +
+      Number(cierre.despachosRealizados || 0) +
+      '*',
+    '📊 Cumplimiento: *' +
+      formatearPorcentajeReporte_(
+        cumplimiento
+      ) +
+      '*',
+    '📌 ' + brechaTexto,
+    '',
+    obtenerEstadoVisualReporte_(
+      cumplimiento
+    ),
+    crearBarraCumplimientoReporte_(
+      cumplimiento
+    ),
+    '',
+    'Registro: ' +
+      String(cierre.accion || 'PROCESADO')
+  ].join('\n');
+}
+
+
+/**
+ * Mensaje para un día sin despachos válidos.
+ *
+ * @param {Date} fecha
+ * @return {string}
+ */
+function construirMensajeSinDespachos_(
+  fecha
+) {
+
+  const zonaHoraria =
+    obtenerZonaHorariaReportes_();
+
+  const fechaVisual =
+    Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      'dd/MM/yyyy'
+    );
+
+  return [
+    'ℹ️ *CIERRE DIARIO DE DESPACHOS*',
+    '',
+    '📅 Fecha: ' + fechaVisual,
+    '',
+    'No se registraron despachos en estado ' +
+      '*Despachado* o *Completado*.',
+    '',
+    'El día no fue incluido en el cálculo de la meta, ' +
+      'según la regla operacional definida para PT.'
+  ].join('\n');
+}
+
+
+/**
+ * Devuelve un texto visual según el cumplimiento.
+ *
+ * @param {number} cumplimiento
+ * @return {string}
+ */
+function obtenerEstadoVisualReporte_(
+  cumplimiento
+) {
+
+  const valor =
+    Number(cumplimiento || 0);
+
+  if (valor > 100) {
+    return '🟢 *META SUPERADA*';
+  }
+
+  if (valor >= 100) {
+    return '✅ *META CUMPLIDA*';
+  }
+
+  if (valor >= 80) {
+    return '🟠 *META EN RIESGO*';
+  }
+
+  return '🔴 *META NO CUMPLIDA*';
+}
+
+
+/**
+ * Crea una barra visual de diez segmentos.
+ *
+ * @param {number} cumplimiento
+ * @return {string}
+ */
+function crearBarraCumplimientoReporte_(
+  cumplimiento
+) {
+
+  const valor =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        Number(cumplimiento || 0)
+      )
+    );
+
+  const llenos =
+    Math.round(
+      valor / 10
+    );
+
+  const vacios =
+    10 - llenos;
+
+  return (
+    'Progreso: ' +
+    '█'.repeat(llenos) +
+    '░'.repeat(vacios)
+  );
+}
+
+
+/**
+ * Formatea un porcentaje para mensajes.
+ *
+ * @param {number} valor
+ * @return {string}
+ */
+function formatearPorcentajeReporte_(
+  valor
+) {
+
+  return Number(valor || 0)
+    .toFixed(2)
+    .replace('.', ',') +
+    '%';
+}
+
+
+/**
+ * Comprueba si los reportes están habilitados.
+ *
+ * @return {boolean}
+ */
+function reportesChatHabilitados_() {
+
+  const valor =
+    obtenerConfiguracionReporteOperativo_(
+      'Enviar_Reportes_Chat',
+      'NO'
+    );
+
+  const normalizado =
+    String(valor || '')
+      .trim()
+      .toUpperCase();
+
+  return (
+    normalizado === 'SI' ||
+    normalizado === 'SÍ' ||
+    normalizado === 'YES' ||
+    normalizado === 'TRUE' ||
+    normalizado === '1'
+  );
+}
+
+
+/**
+ * Lee Configuracion con valor predeterminado.
+ *
+ * @param {string} claveBuscada
+ * @param {*} valorPredeterminado
+ * @return {*}
+ */
+function obtenerConfiguracionReporteOperativo_(
+  claveBuscada,
+  valorPredeterminado
+) {
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const hoja =
+    ss.getSheetByName('Configuracion');
+
+  if (!hoja) {
+    throw new Error(
+      'No se encontró la hoja "Configuracion".'
+    );
+  }
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+  if (ultimaFila < 1) {
+    return valorPredeterminado;
+  }
+
+  const datos =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        Math.max(2, hoja.getLastColumn())
+      )
+      .getValues();
+
+  const claveObjetivo =
+    normalizarClaveReporteOperativo_(
+      claveBuscada
+    );
+
+  for (let i = 0; i < datos.length; i++) {
+
+    const claveFila =
+      normalizarClaveReporteOperativo_(
+        datos[i][0]
+      );
+
+    if (claveFila === claveObjetivo) {
+      return datos[i][1];
+    }
+  }
+
+  return valorPredeterminado;
+}
+
+
+/**
+ * Normaliza claves.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarClaveReporteOperativo_(
+  valor
+) {
+
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .toUpperCase();
+}
+
+
+/**
+ * Obtiene la zona horaria configurada.
+ *
+ * @return {string}
+ */
+function obtenerZonaHorariaReportes_() {
+
+  const configurada =
+    obtenerConfiguracionReporteOperativo_(
+      'Zona_Horaria',
+      ''
+    );
+
+  return (
+    String(configurada || '').trim() ||
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo'
+  );
+}
+
+
+/**
+ * Evita que un mismo reporte se envíe dos veces el mismo día.
+ *
+ * @param {string} tipoReporte
+ * @param {boolean} forzar
+ * @return {Object}
+ */
+function validarEnvioReporteUnico_(
+  tipoReporte,
+  forzar
+) {
+
+  if (forzar === true) {
+    return {
+      exito: true,
+      permitido: true,
+      forzado: true
+    };
+  }
+
+  const clave =
+    construirClaveReporteEnviado_(
+      tipoReporte
+    );
+
+  const valor =
+    PropertiesService
+      .getScriptProperties()
+      .getProperty(clave);
+
+  if (valor) {
+
+    return {
+      exito: true,
+      permitido: false,
+      omitido: true,
+      motivo:
+        'El reporte "' +
+        tipoReporte +
+        '" ya fue enviado hoy.',
+      fechaEnvio:
+        valor
+    };
+  }
+
+  return {
+    exito: true,
+    permitido: true
+  };
+}
+
+
+/**
+ * Marca un reporte como enviado.
+ *
+ * @param {string} tipoReporte
+ */
+function marcarReporteEnviado_(
+  tipoReporte
+) {
+
+  const clave =
+    construirClaveReporteEnviado_(
+      tipoReporte
+    );
+
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(
+      clave,
+      new Date().toISOString()
+    );
+}
+
+
+/**
+ * Construye la clave diaria de control.
+ *
+ * @param {string} tipoReporte
+ * @return {string}
+ */
+function construirClaveReporteEnviado_(
+  tipoReporte
+) {
+
+  const fecha =
+    Utilities.formatDate(
+      new Date(),
+      obtenerZonaHorariaReportes_(),
+      'yyyyMMdd'
+    );
+
+  return (
+    'REPORTE_DESPACHO_' +
+    String(tipoReporte || '')
+      .trim()
+      .toUpperCase() +
+    '_' +
+    fecha
+  );
+}
+
+
+/**
+ * Limpia manualmente los controles de envío del día.
+ *
+ * Útil para pruebas.
+ */
+function limpiarControlReportesDespachoHoy() {
+
+  const propiedades =
+    PropertiesService
+      .getScriptProperties();
+
+  const todas =
+    propiedades.getProperties();
+
+  const fecha =
+    Utilities.formatDate(
+      new Date(),
+      obtenerZonaHorariaReportes_(),
+      'yyyyMMdd'
+    );
+
+  Object.keys(todas).forEach(function(clave) {
+
+    if (
+      clave.indexOf(
+        'REPORTE_DESPACHO_'
+      ) === 0 &&
+      clave.endsWith(
+        '_' + fecha
+      )
+    ) {
+      propiedades.deleteProperty(clave);
+    }
+  });
+
+  return {
+    exito: true,
+    mensaje:
+      'Controles de envío del día eliminados.'
+  };
+}
+
+
+/**
+ * Pruebas manuales.
+ *
+ * Al enviar true se ignora el control anti-duplicado.
+ */
+function probarReporteOperativo1200() {
+
+  return ejecutarReporteOperativo1200(
+    true
+  );
+}
+
+
+function probarReporteOperativo1500() {
+
+  return ejecutarReporteOperativo1500(
+    true
+  );
+}
+
+
+function probarCierreOperativo1700() {
+
+  return ejecutarCierreOperativo1700(
+    true
+  );
+}
+
+
+/**
+ * ============================================================
+ * NOTIFICACIÓN DE JUSTIFICACIÓN DE META
+ * ============================================================
+ *
+ * Se ejecuta después de guardar o editar una justificación.
+ *
+ * Reglas:
+ * - Solo aplica a metas no cumplidas.
+ * - Debe existir una causa.
+ * - Envía al Chat Operativo.
+ * - Evita enviar dos veces exactamente la misma versión.
+ *
+ * @param {Object} meta
+ * @return {Object}
+ */
+function enviarJustificacionMetaChat_(
+  meta
+) {
+
+  const registro =
+    meta || {};
+
+  const resultado =
+    String(
+      registro.resultado || ''
+    )
+      .trim()
+      .toUpperCase();
+
+  const causa =
+    String(
+      registro.causaIncumplimiento || ''
+    ).trim();
+
+  if (
+    resultado !== 'META NO CUMPLIDA'
+  ) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        'La meta no requiere justificación.'
+    };
+  }
+
+  if (!causa) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        'La meta todavía no tiene una causa registrada.'
+    };
+  }
+
+  if (!reportesChatHabilitados_()) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        'Los reportes de Google Chat están deshabilitados.'
+    };
+  }
+
+  const control =
+    validarEnvioJustificacionMeta_(
+      registro
+    );
+
+  if (!control.permitido) {
+    return control;
+  }
+
+  const mensaje =
+    construirMensajeJustificacionMeta_(
+      registro
+    );
+
+  const envio =
+    enviarMensajeChatOperativo(
+      mensaje
+    );
+
+  marcarJustificacionMetaEnviada_(
+    registro
+  );
+
+  return {
+    exito: true,
+    omitido: false,
+    idMeta:
+      String(registro.idMeta || ''),
+    envioChat:
+      envio
+  };
+}
+
+
+/**
+ * Construye el mensaje enviado al grupo operativo.
+ *
+ * @param {Object} meta
+ * @return {string}
+ */
+function construirMensajeJustificacionMeta_(
+  meta
+) {
+
+  const registro =
+    meta || {};
+
+  const metaDespachos =
+    Number(
+      registro.metaDespachos || 0
+    );
+
+  const realizados =
+    Number(
+      registro.despachosRealizados || 0
+    );
+
+  const brecha =
+    Number(
+      registro.brechaMeta ||
+      Math.max(
+        0,
+        metaDespachos - realizados
+      )
+    );
+
+  const comentario =
+    String(
+      registro.comentarioIncumplimiento || ''
+    ).trim();
+
+  const registradoPor =
+    String(
+      registro.registradoPorComentario ||
+      'Usuario del sistema'
+    ).trim();
+
+  const lineas = [
+    '📝 *JUSTIFICACIÓN DE META REGISTRADA*',
+    '',
+    '📅 Fecha: *' +
+      String(registro.fecha || '-') +
+      '*',
+
+    '👤 Supervisor: *' +
+      String(
+        registro.supervisorNombre ||
+        'Sin supervisor identificado'
+      ) +
+      '*',
+
+    '',
+    '🎯 Meta: *' +
+      metaDespachos +
+      '*',
+
+    '🚚 Realizados: *' +
+      realizados +
+      '*',
+
+    '📉 Brecha: *' +
+      brecha +
+      (
+        brecha === 1
+          ? ' despacho*'
+          : ' despachos*'
+      ),
+
+    '📊 Cumplimiento: *' +
+      formatearPorcentajeReporte_(
+        registro.cumplimientoPorcentaje
+      ) +
+      '*',
+
+    '',
+    '⚠️ Causa:',
+    '*' +
+      String(
+        registro.causaIncumplimiento ||
+        '-'
+      ) +
+      '*'
+  ];
+
+  if (comentario) {
+
+    lineas.push(
+      '',
+      '💬 Comentario:',
+      comentario
+    );
+  }
+
+  lineas.push(
+    '',
+    '✍️ Registrado por: ' +
+      registradoPor
+  );
+
+  if (registro.fechaComentario) {
+
+    lineas.push(
+      '🕒 Fecha de registro: ' +
+      String(registro.fechaComentario)
+    );
+  }
+
+  return lineas.join('\n');
+}
+
+
+/**
+ * Evita volver a enviar exactamente la misma justificación.
+ *
+ * Si la causa o el comentario cambian, se considera una
+ * nueva versión y se puede enviar otra actualización.
+ *
+ * @param {Object} meta
+ * @return {Object}
+ */
+function validarEnvioJustificacionMeta_(
+  meta
+) {
+
+  const clave =
+    construirClaveJustificacionMeta_(
+      meta
+    );
+
+  const propiedades =
+    PropertiesService
+      .getScriptProperties();
+
+  const yaEnviada =
+    propiedades.getProperty(
+      clave
+    );
+
+  if (yaEnviada) {
+
+    return {
+      exito: true,
+      permitido: false,
+      omitido: true,
+      motivo:
+        'Esta versión de la justificación ya fue enviada.',
+      fechaEnvio:
+        yaEnviada
+    };
+  }
+
+  return {
+    exito: true,
+    permitido: true
+  };
+}
+
+
+/**
+ * Marca la versión de la justificación como enviada.
+ *
+ * @param {Object} meta
+ */
+function marcarJustificacionMetaEnviada_(
+  meta
+) {
+
+  const clave =
+    construirClaveJustificacionMeta_(
+      meta
+    );
+
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(
+      clave,
+      new Date().toISOString()
+    );
+}
+
+
+/**
+ * Construye una clave única según:
+ * - ID de meta
+ * - causa
+ * - comentario
+ *
+ * @param {Object} meta
+ * @return {string}
+ */
+function construirClaveJustificacionMeta_(
+  meta
+) {
+
+  const registro =
+    meta || {};
+
+  const contenido = [
+    String(
+      registro.idMeta || ''
+    ).trim(),
+
+    String(
+      registro.causaIncumplimiento || ''
+    ).trim(),
+
+    String(
+      registro.comentarioIncumplimiento || ''
+    ).trim()
+  ].join('|');
+
+  const digest =
+    Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      contenido,
+      Utilities.Charset.UTF_8
+    );
+
+  const hash =
+    digest
+      .map(function(byte) {
+
+        const valor =
+          byte < 0
+            ? byte + 256
+            : byte;
+
+        return (
+          '0' +
+          valor.toString(16)
+        ).slice(-2);
+
+      })
+      .join('')
+      .substring(0, 24)
+      .toUpperCase();
+
+  return (
+    'JUSTIFICACION_META_CHAT_' +
+    hash
+  );
+}

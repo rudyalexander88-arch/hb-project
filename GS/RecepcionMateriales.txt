@@ -1,0 +1,3369 @@
+/**
+ * ============================================================
+ * RECEPCIONMATERIALES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Paso 3 del módulo de Recepción de Materiales.
+ *
+ * Responsabilidad:
+ * - Iniciar una recepción.
+ * - Agregar líneas consolidadas por material y cámara.
+ * - Recalcular los totales del encabezado.
+ * - Consultar una recepción existente.
+ *
+ * Requiere:
+ * - RecepcionMaterialesUtilidades.gs
+ * - RecepcionMaterialesCatalogos.gs
+ * - SHEET_ID
+ * - getSheet()
+ * - respuesta()
+ *
+ * Este archivo todavía NO:
+ * - actualiza Inventario_Camaras;
+ * - registra Movimientos_Camaras;
+ * - actualiza Ocupacion_Camaras;
+ * - registra KPI_Camaras_Historico;
+ * - crea incidencias;
+ * - finaliza una recepción.
+ * ============================================================
+ */
+
+const RECEPCION_MATERIALES_ESTADOS = {
+  ABIERTA: "ABIERTA",
+  EN_PROCESO: "EN PROCESO",
+  PAUSADA: "PAUSADA",
+  FINALIZADA: "FINALIZADA",
+  ANULADA: "ANULADA"
+};
+
+
+/**
+ * Inicia una recepción nueva.
+ */
+function listarAuxiliaresRecepcionMateriales(data) {
+  try {
+    const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Usuarios");
+    if (!hoja) throw new Error('No se encontró la hoja "Usuarios".');
+    const valores = hoja.getDataRange().getValues();
+    const encabezados = valores.shift().map(String);
+    const indice = nombre => encabezados.indexOf(nombre);
+    const colaboradores = valores.map(fila => ({
+      id:String(fila[indice("IDEmpleado")] || "").trim(),
+      nombre:String(fila[indice("Nombre")] || "").trim(),
+      turno:String(fila[indice("Turno")] || "").trim(),
+      rol:String(fila[indice("Rol")] || "").trim(),
+      estado:String(fila[indice("Estado")] || "").trim()
+    })).filter(usuario => usuario.id && /^(AUXILIAR|MONTACARGUISTA)$/i.test(usuario.rol) && /^ACTIV[OA]$/i.test(usuario.estado))
+      .sort((a,b) => a.turno.localeCompare(b.turno,"es") || a.nombre.localeCompare(b.nombre,"es"));
+    return respuesta({ok:true,data:{colaboradores:colaboradores}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:error.message || String(error)});
+  }
+}
+
+function normalizarParticipantesIngresoRecepcion_(participantes, auxiliarId, auxiliarNombre) {
+  const lista = [{id:String(auxiliarId || "").trim(),nombre:String(auxiliarNombre || "").trim()}]
+    .concat(Array.isArray(participantes) ? participantes : []);
+  const vistos = {};
+  const validos = lista.filter(function(item) {
+    const id = String(item && item.id || "").trim();
+    if (!id || vistos[id]) return false;
+    vistos[id] = true;
+    return true;
+  }).slice(0,5);
+  return {
+    ids:validos.map(item => String(item.id).trim()),
+    nombres:validos.map(item => String(item.nombre || item.id).replace(/,/g," ").trim())
+  };
+}
+
+function iniciarRecepcionMateriales(data) {
+
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const parametros = data || {};
+
+    const soloValidar = parametros.soloValidar === true ||
+      String(parametros.soloValidar || "").toUpperCase() === "SI";
+
+    const usuarioId =
+      normalizarTextoRecepcionMateriales_(
+        parametros.usuarioId ||
+        parametros.usuarioID ||
+        parametros.idUsuario ||
+        ""
+      );
+
+    const usuarioNombre =
+      normalizarTextoRecepcionMateriales_(
+        parametros.usuarioNombre ||
+        parametros.nombreUsuario ||
+        parametros.usuario ||
+        ""
+      );
+
+    const turnoAutomatico =
+      determinarTurnoRecepcionMateriales_(
+        new Date()
+      );
+
+
+    const turno =
+      turnoAutomatico.texto;
+
+
+    const origenTraslado =
+      normalizarTextoRecepcionMateriales_(
+        parametros.origenTraslado ||
+        parametros.origen ||
+        ""
+      );
+
+    const material =
+      normalizarTextoRecepcionMateriales_(
+        parametros.material ||
+        parametros.idMaterial ||
+        parametros.ID_Material ||
+        ""
+      );
+
+    const detalle =
+      normalizarTextoRecepcionMateriales_(
+        parametros.detalle ||
+        parametros.descripcion ||
+        parametros.Detalle ||
+        ""
+      );
+
+    if (!usuarioId && !usuarioNombre) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar el usuario que inicia la recepción."
+      });
+    }
+
+    
+    if (!origenTraslado && !soloValidar) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar si el material se recibe por carritos o por túnel."
+      });
+    }
+
+    if (!material) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe seleccionar un material antes de iniciar la recepción."
+      });
+    }
+
+    const hoja =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS.RECEPCIONES_ENCABEZADO
+      );
+
+    validarEncabezadosRecepcionMateriales_(
+      hoja,
+      [
+        "ID_Recepcion",
+        "Material",
+        "Detalle",
+        "Fecha",
+        "Hora_Inicio",
+        "Hora_Final",
+        "Duracion_Minutos",
+        "Usuario_ID",
+        "Usuario_Nombre",
+        "Turno",
+        "Origen_Traslado",
+        "Produccion_Finalizada",
+        "Total_Materiales",
+        "Total_Tarimas",
+        "Total_Parciales",
+        "Total_Posiciones_Ocupadas",
+        "Total_Unidades",
+        "Estado",
+        "Fecha_Creacion",
+        "Fecha_Modificacion"
+      ]
+    );
+
+    /*
+     * Evita recepciones duplicadas del mismo material.
+     * Esta validación ocurre bajo ScriptLock, por lo que dos auxiliares
+     * no pueden crear simultáneamente dos órdenes para el mismo material.
+     */
+    const datosEncabezado = hoja.getDataRange().getDisplayValues();
+
+    if (datosEncabezado.length > 1) {
+
+      const encabezados = datosEncabezado[0].map(
+        function(valor) {
+          return normalizarTextoRecepcionMateriales_(valor);
+        }
+      );
+
+      const mapa = crearMapaEncabezadosRecepcionMateriales_(encabezados);
+
+      for (let i = 1; i < datosEncabezado.length; i++) {
+
+        const materialFila = normalizarTextoRecepcionMateriales_(
+          datosEncabezado[i][mapa.Material]
+        );
+
+        const estadoFila = claveRecepcionMateriales_(
+          datosEncabezado[i][mapa.Estado]
+        );
+
+        const produccionFila = normalizarSiNoRecepcionMateriales_(
+          datosEncabezado[i][mapa.Produccion_Finalizada]
+        );
+
+        const estaAbierta =
+          estadoFila === "ABIERTA" ||
+          estadoFila === "EN PROCESO" ||
+          estadoFila === "PAUSADA";
+
+        if (
+          materialFila === material &&
+          estaAbierta &&
+          produccionFila !== "SI"
+        ) {
+
+          const filaExistente = {};
+
+          encabezados.forEach(function(nombre, indice) {
+            filaExistente[nombre] = datosEncabezado[i][indice];
+          });
+
+          return respuesta({
+            ok: false,
+            codigo: "RECEPCION_MATERIAL_EN_CURSO",
+            mensaje:
+              "Ya existe una recepción en curso del material " +
+              material +
+              (detalle ? " - " + detalle : "") +
+              ".",
+            data: {
+              recepcionExistente:
+                normalizarEncabezadoRecepcionMateriales_(filaExistente)
+            }
+          });
+        }
+      }
+    }
+
+    if (soloValidar) {
+      return respuesta({
+        ok: true,
+        mensaje: "Material disponible para una nueva recepción.",
+        data: { materialValidado: true, material: material, detalle: detalle }
+      });
+    }
+
+    const marcaTiempo =
+      obtenerMarcaTiempoRecepcionMateriales_();
+
+    const horaInicio =
+      normalizarTextoRecepcionMateriales_(
+        parametros.horaInicio || ""
+      );
+
+    if (!horaInicio) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la hora real de inicio de la recepción."
+      });
+    }
+
+    const idRecepcion =
+      generarIDRecepcion_();
+
+    const fila = {
+      ID_Recepcion: idRecepcion,
+      Material: material,
+      Detalle: detalle,
+      Fecha: marcaTiempo.fecha,
+      Hora_Inicio: horaInicio,
+      Hora_Final: "",
+      Duracion_Minutos: 0,
+      Usuario_ID: usuarioId,
+      Usuario_Nombre: usuarioNombre,
+      Turno: turno,
+      Origen_Traslado: origenTraslado,
+      Produccion_Finalizada: "NO",
+      Total_Materiales: 0,
+      Total_Tarimas: 0,
+      Total_Parciales: 0,
+      Total_Posiciones_Ocupadas: 0,
+      Total_Unidades: 0,
+      Estado: RECEPCION_MATERIALES_ESTADOS.ABIERTA,
+      Fecha_Creacion: marcaTiempo.fechaHora,
+      Fecha_Modificacion: marcaTiempo.fechaHora
+    };
+
+    agregarFilaRecepcionMateriales_(
+      hoja,
+      fila
+    );
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje: "Recepción iniciada correctamente.",
+      data: {
+        idRecepcion: idRecepcion,
+        recepcion: normalizarEncabezadoRecepcionMateriales_(fila)
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+/**
+ * Crea el encabezado únicamente como parte del guardado de una distribución
+ * previamente validada. Debe ejecutarse mientras el ScriptLock está tomado.
+ */
+function crearEncabezadoRecepcionAtomico_(hoja, parametros) {
+  const datos = hoja.getDataRange().getDisplayValues();
+  const encabezados = datos.length ? datos[0].map(function(valor) {
+    return normalizarTextoRecepcionMateriales_(valor);
+  }) : [];
+  const mapa = crearMapaEncabezadosRecepcionMateriales_(encabezados);
+  const material = normalizarTextoRecepcionMateriales_(parametros.material);
+
+  for (let indice = 1; indice < datos.length; indice++) {
+    const materialFila = normalizarTextoRecepcionMateriales_(datos[indice][mapa.Material]);
+    const estadoFila = claveRecepcionMateriales_(datos[indice][mapa.Estado]);
+    const produccionFinalizada = normalizarSiNoRecepcionMateriales_(datos[indice][mapa.Produccion_Finalizada]);
+    if (materialFila === material &&
+      ["ABIERTA", "EN PROCESO", "PAUSADA"].indexOf(estadoFila) >= 0 &&
+      produccionFinalizada !== "SI") {
+      throw new Error("Ya existe una recepción abierta para el material " + material + ". Continúe la recepción existente.");
+    }
+  }
+
+  const marcaTiempo = obtenerMarcaTiempoRecepcionMateriales_();
+  const turnoAutomatico = determinarTurnoRecepcionMateriales_(new Date());
+  const idRecepcion = generarIDRecepcion_();
+  const fila = {
+    ID_Recepcion: idRecepcion,
+    Material: material,
+    Detalle: normalizarTextoRecepcionMateriales_(parametros.detalle),
+    Fecha: marcaTiempo.fecha,
+    Hora_Inicio: parametros.horaInicio,
+    Hora_Final: "",
+    Duracion_Minutos: 0,
+    Usuario_ID: parametros.usuarioId,
+    Usuario_Nombre: parametros.usuarioNombre,
+    Turno: turnoAutomatico.texto,
+    Origen_Traslado: parametros.origenTraslado,
+    Produccion_Finalizada: "NO",
+    Total_Materiales: 0,
+    Total_Tarimas: 0,
+    Total_Parciales: 0,
+    Total_Posiciones_Ocupadas: 0,
+    Total_Unidades: 0,
+    Estado: RECEPCION_MATERIALES_ESTADOS.ABIERTA,
+    Fecha_Creacion: marcaTiempo.fechaHora,
+    Fecha_Modificacion: marcaTiempo.fechaHora
+  };
+
+  agregarFilaRecepcionMateriales_(hoja, fila);
+  return { idRecepcion: idRecepcion, numeroFila: hoja.getLastRow(), fila: fila };
+}
+
+/**
+ * Verifica que una recepción no contenga más de un material.
+ *
+ * Regla:
+ * - Si la recepción no tiene detalles activos, permite el material.
+ * - Si ya tiene detalles del mismo material, permite continuar.
+ * - Si contiene un material diferente, bloquea la operación.
+ */
+function validarMaterialUnicoRecepcion_(
+  idRecepcion,
+  materialNuevo
+) {
+
+  const hojaDetalle =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS
+        .RECEPCIONES_DETALLE
+    );
+
+
+  const datos =
+    hojaDetalle
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (
+    datos.length <= 1
+  ) {
+
+    return {
+      ok:
+        true,
+
+      materialExistente:
+        ""
+    };
+
+  }
+
+
+  const encabezados =
+    datos[0].map(
+      function(valor) {
+
+        return normalizarTextoRecepcionMateriales_(
+          valor
+        );
+
+      }
+    );
+
+
+  const mapa =
+    crearMapaEncabezadosRecepcionMateriales_(
+      encabezados
+    );
+
+
+  const columnasRequeridas = [
+    "ID_Recepcion",
+    "Material",
+    "Descripcion",
+    "Estado"
+  ];
+
+
+  columnasRequeridas.forEach(
+    function(columna) {
+
+      if (
+        typeof mapa[columna] ===
+        "undefined"
+      ) {
+
+        throw new Error(
+          'No existe la columna "' +
+          columna +
+          '" en Recepciones_Detalle.'
+        );
+
+      }
+
+    }
+  );
+
+
+  const idBuscado =
+    normalizarTextoRecepcionMateriales_(
+      idRecepcion
+    );
+
+
+  const materialBuscado =
+    normalizarTextoRecepcionMateriales_(
+      materialNuevo
+    );
+
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    const idRecepcionFila =
+      normalizarTextoRecepcionMateriales_(
+        datos[i][
+          mapa.ID_Recepcion
+        ]
+      );
+
+
+    if (
+      idRecepcionFila !==
+      idBuscado
+    ) {
+
+      continue;
+
+    }
+
+
+    const estado =
+      claveRecepcionMateriales_(
+        datos[i][
+          mapa.Estado
+        ]
+      );
+
+
+    if (
+      estado === "ANULADO" ||
+      estado === "ANULADA" ||
+      estado === "INACTIVO"
+    ) {
+
+      continue;
+
+    }
+
+
+    const materialExistente =
+      normalizarTextoRecepcionMateriales_(
+        datos[i][
+          mapa.Material
+        ]
+      );
+
+
+    const descripcionExistente =
+      normalizarTextoRecepcionMateriales_(
+        datos[i][
+          mapa.Descripcion
+        ]
+      );
+
+
+    if (
+      materialExistente &&
+      materialExistente !==
+        materialBuscado
+    ) {
+
+      return {
+
+        ok:
+          false,
+
+        materialExistente:
+          materialExistente,
+
+        descripcionExistente:
+          descripcionExistente
+
+      };
+
+    }
+
+  }
+
+
+  return {
+
+    ok:
+      true,
+
+    materialExistente:
+      materialBuscado
+
+  };
+
+}
+
+/**
+ * Agrega una línea consolidada a una recepción.
+ *
+ * La línea representa Material + Cámara + Registro.
+ */
+function agregarMaterialRecepcion(data) {
+
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const parametros = data || {};
+
+    const idRecepcion =
+      normalizarTextoRecepcionMateriales_(
+        parametros.idRecepcion ||
+        parametros.ID_Recepcion ||
+        ""
+      );
+
+    const material =
+      normalizarTextoRecepcionMateriales_(
+        parametros.material ||
+        parametros.idMaterial ||
+        parametros.ID_Material ||
+        ""
+      );
+
+    const idCamara =
+      normalizarTextoRecepcionMateriales_(
+        parametros.idCamara ||
+        parametros.ID_Camara ||
+        ""
+      );
+
+    const auxiliarId =
+      normalizarTextoRecepcionMateriales_(
+        parametros.auxiliarId ||
+        parametros.auxiliarID ||
+        parametros.usuarioId ||
+        ""
+      );
+
+    const auxiliarNombre =
+      normalizarTextoRecepcionMateriales_(
+        parametros.auxiliarNombre ||
+        parametros.usuarioNombre ||
+        parametros.auxiliar ||
+        ""
+      );
+
+    if (!idRecepcion) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la recepción."
+      });
+    }
+
+    if (!material) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar el material recibido."
+      });
+    }
+
+    if (!idCamara) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la cámara donde se colocó el material."
+      });
+    }
+
+    if (!auxiliarId && !auxiliarNombre) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar el auxiliar que registra la recepción."
+      });
+    }
+
+    const hojaEncabezado =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS.RECEPCIONES_ENCABEZADO
+      );
+
+    const resultadoRecepcion =
+      buscarRegistroRecepcionMateriales_(
+        hojaEncabezado,
+        "ID_Recepcion",
+        idRecepcion
+      );
+
+    if (!resultadoRecepcion.encontrada) {
+      return respuesta({
+        ok: false,
+        mensaje: "No se encontró la recepción indicada."
+      });
+    }
+
+    const estadoRecepcion =
+      claveRecepcionMateriales_(
+        resultadoRecepcion.datos.Estado
+      );
+
+    const estadosEditables = [
+      "ABIERTA",
+      "EN PROCESO",
+      "PAUSADA"
+    ];
+
+    if (estadosEditables.indexOf(estadoRecepcion) === -1) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "La recepción no permite agregar materiales porque su estado es: " +
+          normalizarTextoRecepcionMateriales_(
+            resultadoRecepcion.datos.Estado
+          ) +
+          "."
+      });
+    }
+
+    const validacionMaterialUnico =
+        validarMaterialUnicoRecepcion_(
+          idRecepcion,
+          material
+        );
+
+
+      if (
+        !validacionMaterialUnico.ok
+      ) {
+
+        return respuesta({
+          ok:
+            false,
+
+          mensaje:
+            "Esta recepción corresponde al material " +
+            validacionMaterialUnico.materialExistente +
+            (
+              validacionMaterialUnico.descripcionExistente
+                ? " - " +
+                  validacionMaterialUnico.descripcionExistente
+                : ""
+            ) +
+            ". Para recibir otro material debe iniciar una nueva recepción."
+        });
+
+      }
+
+    const materialEncontrado =
+      obtenerMaterialRecepcionPorCodigo_(
+        material
+      );
+
+    if (!materialEncontrado) {
+      return respuesta({
+        ok: false,
+        mensaje: "No existe un material activo con el código indicado."
+      });
+    }
+
+    const camaraEncontrada =
+      obtenerCamaraRecepcionPorId_(
+        idCamara
+      );
+
+    if (!camaraEncontrada) {
+      return respuesta({
+        ok: false,
+        mensaje: "No existe una cámara activa con el ID indicado."
+      });
+    }
+
+    const fechaProduccion =
+      convertirFechaRecepcionMateriales_(
+        parametros.fechaProduccion ||
+        parametros.Fecha_Produccion ||
+        ""
+      );
+
+    if (!fechaProduccion) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar una fecha de producción válida."
+      });
+    }
+
+    const vidaUtilAnios =
+      numeroRecepcionMateriales_(
+        materialEncontrado.vidaUtilAnios
+      );
+
+    let fechaVencimiento =
+      convertirFechaRecepcionMateriales_(
+        parametros.fechaVencimiento ||
+        parametros.Fecha_Vencimiento ||
+        ""
+      );
+
+    if (!fechaVencimiento && vidaUtilAnios > 0) {
+      fechaVencimiento =
+        calcularFechaVencimientoRecepcionMateriales_(
+          fechaProduccion,
+          vidaUtilAnios
+        );
+    }
+
+    const loteRecibido =
+      normalizarTextoRecepcionMateriales_(
+        parametros.lote ||
+        parametros.Lote ||
+        generarLoteRecepcionMateriales_(
+          fechaProduccion
+        )
+      );
+
+
+    const lote =
+      loteRecibido
+        ? loteRecibido.padStart(
+            4,
+            "0"
+          )
+        : "";
+
+    const calculo =
+      validarCantidadesRecepcionMateriales_({
+        tarimasCompletas: parametros.tarimasCompletas,
+        parcialUnidades: parametros.parcialUnidades,
+        parcialOcupaPosicion: parametros.parcialOcupaPosicion,
+        cantidadEstandarPallet:
+          materialEncontrado.cantidadEstandarPallet
+      });
+
+    const hojaDetalle =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS.RECEPCIONES_DETALLE
+      );
+
+    validarEncabezadosRecepcionMateriales_(
+      hojaDetalle,
+      [
+        "ID_Detalle_Recepcion",
+        "ID_Recepcion",
+        "Material",
+        "Descripcion",
+        "UM",
+        "UMB",
+        "Fecha_Produccion",
+        "Fecha_Vencimiento",
+        "Lote",
+        "ID_Camara",
+        "Tarimas_Completas",
+        "Parcial_Unidades",
+        "Parcial_Ocupa_Posicion",
+        "Posiciones_Ocupadas",
+        "Base_Estandar",
+        "Altura_Estandar",
+        "Cantidad_Estandar_Pallet",
+        "Total_Unidades",
+        "Estado",
+        "Auxiliar_ID",
+        "Auxiliar_Nombre",
+        "Fecha_Registro",
+        "Hora_Registro"
+      ]
+    );
+
+    const marcaTiempo =
+      obtenerMarcaTiempoRecepcionMateriales_();
+
+    const idDetalle =
+      generarIDDetalleRecepcion_();
+
+    const filaDetalle = {
+      ID_Detalle_Recepcion: idDetalle,
+      ID_Recepcion: idRecepcion,
+      Material: materialEncontrado.id,
+      Descripcion: materialEncontrado.descripcion,
+      UM: materialEncontrado.um,
+      UMB: materialEncontrado.umb,
+      Fecha_Produccion:
+        formatearFechaRecepcionMateriales_(fechaProduccion),
+      Fecha_Vencimiento:
+        fechaVencimiento
+          ? formatearFechaRecepcionMateriales_(fechaVencimiento)
+          : "",
+      Lote: lote,
+      ID_Camara: camaraEncontrada.idCamara,
+      Tarimas_Completas: calculo.tarimasCompletas,
+      Parcial_Unidades: calculo.parcialUnidades,
+      Parcial_Ocupa_Posicion: calculo.parcialOcupaPosicion,
+      Posiciones_Ocupadas: calculo.posicionesOcupadas,
+      Base_Estandar: materialEncontrado.baseEstandar,
+      Altura_Estandar: materialEncontrado.alturaEstandar,
+      Cantidad_Estandar_Pallet: calculo.cantidadEstandarPallet,
+      Total_Unidades: calculo.totalUnidades,
+      Estado: "ACTIVO",
+      Auxiliar_ID: auxiliarId,
+      Auxiliar_Nombre: auxiliarNombre,
+      Fecha_Registro: marcaTiempo.fecha,
+      Hora_Registro: marcaTiempo.hora
+    };
+
+    const numeroFilaDetalle =
+      agregarFilaRecepcionMateriales_(
+        hojaDetalle,
+        filaDetalle
+      );
+
+
+    guardarLoteComoTextoRecepcionMateriales_(
+      hojaDetalle,
+      numeroFilaDetalle,
+      lote
+    );
+
+    const totales =
+      recalcularTotalesRecepcion_(
+        idRecepcion,
+        {
+          hojaEncabezado: hojaEncabezado,
+          numeroFilaEncabezado:
+            resultadoRecepcion.numeroFila
+        }
+      );
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje: "Material agregado correctamente a la recepción.",
+      data: {
+        idDetalle: idDetalle,
+        detalle:
+          normalizarDetalleRecepcionMateriales_(
+            filaDetalle,
+            camaraEncontrada
+          ),
+        totales: totales
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+/**
+ * Guarda la distribución de un mismo material
+ * entre una o varias cámaras.
+ *
+ * Genera una línea consolidada por cada cámara utilizada.
+ *
+ * Ejemplo de IDs:
+ *
+ * REC-20260803-152048-89CE-001
+ * REC-20260803-152048-89CE-002
+ * REC-20260803-152048-89CE-003
+ *
+ * Si una cámara contiene datos inválidos, no se guarda
+ * ninguna línea de la distribución.
+ */
+function guardarDistribucionMaterialRecepcion(
+  data
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  bloqueo.waitLock(
+    30000
+  );
+
+
+  let hojaDetalle =
+    null;
+
+
+  let primeraFilaInsertada =
+    0;
+
+
+  let cantidadFilasInsertadas =
+    0;
+
+  let hojaEncabezadoCreado = null;
+  let filaEncabezadoCreada = 0;
+
+
+  try {
+
+    const parametros =
+      data || {};
+
+
+    let idRecepcion =
+      normalizarTextoRecepcionMateriales_(
+        parametros.idRecepcion ||
+        parametros.ID_Recepcion ||
+        ""
+      );
+
+
+    const material =
+      normalizarTextoRecepcionMateriales_(
+        parametros.material ||
+        parametros.idMaterial ||
+        parametros.ID_Material ||
+        ""
+      );
+
+
+    const auxiliarId =
+      normalizarTextoRecepcionMateriales_(
+        parametros.auxiliarId ||
+        parametros.auxiliarID ||
+        parametros.usuarioId ||
+        ""
+      );
+
+
+    const auxiliarNombre =
+      normalizarTextoRecepcionMateriales_(
+        parametros.auxiliarNombre ||
+        parametros.usuarioNombre ||
+        parametros.auxiliar ||
+        ""
+      );
+
+    const origenTraslado =
+        normalizarTextoRecepcionMateriales_(
+          parametros.origenTraslado ||
+          parametros.Origen_Traslado ||
+          ""
+        );
+
+
+    const horaInicio =
+      normalizarTextoRecepcionMateriales_(
+        parametros.horaInicio ||
+        parametros.Hora_Inicio ||
+        ""
+      );
+
+
+      if (!origenTraslado) {
+
+        return respuesta({
+          ok:
+            false,
+
+          mensaje:
+            "Debe indicar la vía utilizada para este ingreso."
+        });
+
+      }  
+
+
+    if (!horaInicio) {
+
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la hora real de inicio de este ingreso."
+      });
+
+    }
+
+
+    const distribucionRecibida =
+      Array.isArray(
+        parametros.distribucion
+      )
+        ? parametros.distribucion
+        : [];
+
+
+    if (!material) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el material recibido."
+      });
+
+    }
+
+
+    if (
+      !auxiliarId &&
+      !auxiliarNombre
+    ) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el auxiliar que registra la recepción."
+      });
+
+    }
+
+
+    if (
+      distribucionRecibida.length === 0
+    ) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "Debe registrar la distribución del material en al menos una cámara."
+      });
+
+    }
+
+
+    const hojaEncabezado =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS
+          .RECEPCIONES_ENCABEZADO
+      );
+
+
+    let resultadoRecepcion = null;
+
+    if (idRecepcion) {
+      resultadoRecepcion = buscarRegistroRecepcionMateriales_(
+        hojaEncabezado,
+        "ID_Recepcion",
+        idRecepcion
+      );
+
+      if (!resultadoRecepcion.encontrada) {
+        return respuesta({ ok: false, mensaje: "No se encontró la recepción indicada." });
+      }
+
+      const estadoRecepcion = claveRecepcionMateriales_(resultadoRecepcion.datos.Estado);
+      if (["ABIERTA", "EN PROCESO", "PAUSADA"].indexOf(estadoRecepcion) === -1) {
+        return respuesta({
+          ok: false,
+          mensaje: "La recepción no permite agregar materiales porque su estado es: " +
+            normalizarTextoRecepcionMateriales_(resultadoRecepcion.datos.Estado) + "."
+        });
+      }
+
+      const validacionMaterialUnico = validarMaterialUnicoRecepcion_(idRecepcion, material);
+      if (!validacionMaterialUnico.ok) {
+        return respuesta({
+          ok: false,
+          mensaje: "Esta recepción corresponde al material " + validacionMaterialUnico.materialExistente +
+            (validacionMaterialUnico.descripcionExistente ? " - " + validacionMaterialUnico.descripcionExistente : "") +
+            ". Para recibir otro material debe iniciar una nueva recepción."
+        });
+      }
+    }
+
+    const materialEncontrado =
+      obtenerMaterialRecepcionPorCodigo_(
+        material
+      );
+
+
+    if (
+      !materialEncontrado
+    ) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "No existe un material activo con el código indicado."
+      });
+
+    }
+
+
+    const fechaProduccion =
+      convertirFechaRecepcionMateriales_(
+        parametros.fechaProduccion ||
+        parametros.Fecha_Produccion ||
+        ""
+      );
+
+
+    if (
+      !fechaProduccion
+    ) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar una fecha de producción válida."
+      });
+
+    }
+
+
+    const vidaUtilAnios =
+      numeroRecepcionMateriales_(
+        materialEncontrado
+          .vidaUtilAnios
+      );
+
+
+    let fechaVencimiento =
+      convertirFechaRecepcionMateriales_(
+        parametros.fechaVencimiento ||
+        parametros.Fecha_Vencimiento ||
+        ""
+      );
+
+
+    if (
+      !fechaVencimiento &&
+      vidaUtilAnios > 0
+    ) {
+
+      fechaVencimiento =
+        calcularFechaVencimientoRecepcionMateriales_(
+          fechaProduccion,
+          vidaUtilAnios
+        );
+
+    }
+
+
+    const loteRecibido =
+      normalizarTextoRecepcionMateriales_(
+        parametros.lote ||
+        parametros.Lote ||
+        generarLoteRecepcionMateriales_(
+          fechaProduccion
+        )
+      );
+
+
+    const lote =
+      loteRecibido
+        ? loteRecibido.padStart(
+            4,
+            "0"
+          )
+        : "";
+
+
+    const mapaCamaras =
+      obtenerMapaCamarasRecepcionMateriales_();
+
+
+    const camarasUtilizadas = {};
+
+
+    const distribucionValidada = [];
+
+
+    distribucionRecibida.forEach(
+      function(item, indice) {
+
+        const distribucion =
+          item || {};
+
+
+        const idCamara =
+          normalizarTextoRecepcionMateriales_(
+            distribucion.idCamara ||
+            distribucion.ID_Camara ||
+            ""
+          );
+
+
+        const tarimasCompletas =
+          enteroNoNegativoRecepcionMateriales_(
+            distribucion.tarimasCompletas
+          );
+
+
+        const parcialUnidades =
+          enteroNoNegativoRecepcionMateriales_(
+            distribucion.parcialUnidades
+          );
+
+
+        /*
+         * Las pestañas sin cantidades no generan líneas.
+         */
+        if (
+          tarimasCompletas <= 0 &&
+          parcialUnidades <= 0
+        ) {
+
+          return;
+
+        }
+
+
+        if (
+          !idCamara
+        ) {
+
+          throw new Error(
+            "La distribución número " +
+            (
+              indice + 1
+            ) +
+            " no tiene una cámara seleccionada."
+          );
+
+        }
+
+
+        const camara =
+          mapaCamaras[
+            idCamara
+          ];
+
+
+        if (
+          !camara
+        ) {
+
+          throw new Error(
+            "La cámara " +
+            idCamara +
+            " no existe o no está activa."
+          );
+
+        }
+
+
+        if (
+          camarasUtilizadas[
+            idCamara
+          ]
+        ) {
+
+          throw new Error(
+            "La cámara " +
+            camara.nombre +
+            " aparece más de una vez en la distribución."
+          );
+
+        }
+
+
+        const calculo =
+          validarCantidadesRecepcionMateriales_({
+
+            tarimasCompletas:
+              tarimasCompletas,
+
+            parcialUnidades:
+              parcialUnidades,
+
+            parcialOcupaPosicion:
+              distribucion
+                .parcialOcupaPosicion,
+
+            cantidadEstandarPallet:
+              materialEncontrado
+                .cantidadEstandarPallet
+
+          });
+
+
+        camarasUtilizadas[
+          idCamara
+        ] = true;
+
+
+        distribucionValidada.push({
+
+          camara:
+            camara,
+
+          calculo:
+            calculo
+
+        });
+
+      }
+    );
+
+
+    if (
+      distribucionValidada.length === 0
+    ) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "Debe registrar tarimas o un parcial en al menos una cámara."
+      });
+
+    }
+
+    if (distribucionValidada.reduce(function(total, item) {
+      return total + Number(item.calculo.tarimasCompletas || 0);
+    }, 0) <= 0) {
+      return respuesta({ok:false,mensaje:"Debe registrar por lo menos una tarima para guardar la recepción."});
+    }
+
+    const participantesIngreso = normalizarParticipantesIngresoRecepcion_(parametros.participantes, auxiliarId, auxiliarNombre);
+
+
+    hojaDetalle =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS
+          .RECEPCIONES_DETALLE
+      );
+
+
+    const validacionDetalle =
+      validarEncabezadosRecepcionMateriales_(
+        hojaDetalle,
+        [
+          "ID_Detalle_Recepcion",
+          "ID_Recepcion",
+          "Material",
+          "Descripcion",
+          "UM",
+          "UMB",
+          "Fecha_Produccion",
+          "Fecha_Vencimiento",
+          "Lote",
+          "ID_Camara",
+          "Origen_Traslado",
+          "Tarimas_Completas",
+          "Parcial_Unidades",
+          "Parcial_Ocupa_Posicion",
+          "Posiciones_Ocupadas",
+          "Base_Estandar",
+          "Altura_Estandar",
+          "Cantidad_Estandar_Pallet",
+          "Total_Unidades",
+          "Estado",
+          "Auxiliar_ID",
+          "Auxiliar_Nombre",
+          "Fecha_Registro",
+          "Hora_Registro",
+          "Hora_Inicio",
+          "Hora_Final",
+          "Duracion_Minutos"
+        ]
+      );
+
+
+    const encabezados =
+      validacionDetalle.encabezados;
+
+    /*
+     * Una recepción nueva solamente nace cuando ya se validaron material,
+     * origen, hora, fecha, cámaras y, al menos, una tarima real. La revisión
+     * de duplicados y las dos escrituras comparten el mismo ScriptLock.
+     */
+    if (!idRecepcion) {
+      const encabezadoNuevo = crearEncabezadoRecepcionAtomico_(
+        hojaEncabezado,
+        {
+          material: material,
+          detalle: materialEncontrado.descripcion || parametros.detalle || "",
+          origenTraslado: origenTraslado,
+          horaInicio: horaInicio,
+          usuarioId: auxiliarId,
+          usuarioNombre: auxiliarNombre
+        }
+      );
+
+      idRecepcion = encabezadoNuevo.idRecepcion;
+      filaEncabezadoCreada = encabezadoNuevo.numeroFila;
+      hojaEncabezadoCreado = hojaEncabezado;
+      resultadoRecepcion = {
+        encontrada: true,
+        numeroFila: encabezadoNuevo.numeroFila,
+        datos: encabezadoNuevo.fila
+      };
+    }
+
+
+    const secuenciaInicial =
+      obtenerSiguienteSecuenciaDetalleRecepcion_(
+        hojaDetalle,
+        idRecepcion
+      );
+
+
+    const marcaTiempo =
+      obtenerMarcaTiempoRecepcionMateriales_();
+
+
+    const horaFinal =
+      marcaTiempo.hora;
+
+
+    const duracionIngreso =
+      calcularDuracionMinutosRecepcionMateriales_(
+        horaInicio,
+        horaFinal
+      );
+
+
+    const detallesGuardados = [];
+
+
+    const filas =
+      distribucionValidada.map(
+        function(item, indice) {
+
+          const secuencia =
+            secuenciaInicial +
+            indice;
+
+
+          const idDetalle =
+            construirIDDetalleSecuencialRecepcion_(
+              idRecepcion,
+              secuencia
+            );
+
+
+          const filaDetalle = {
+
+            ID_Detalle_Recepcion:
+              idDetalle,
+
+            ID_Recepcion:
+              idRecepcion,
+
+            Material:
+              materialEncontrado.id,
+
+            Descripcion:
+              materialEncontrado.descripcion,
+
+            UM:
+              materialEncontrado.um,
+
+            UMB:
+              materialEncontrado.umb,
+
+            Fecha_Produccion:
+              formatearFechaRecepcionMateriales_(
+                fechaProduccion
+              ),
+
+            Fecha_Vencimiento:
+              fechaVencimiento
+                ? formatearFechaRecepcionMateriales_(
+                    fechaVencimiento
+                  )
+                : "",
+
+            Lote:
+              lote,
+
+            ID_Camara:
+              item.camara.idCamara,
+
+            Origen_Traslado:
+               origenTraslado,  
+
+            Tarimas_Completas:
+              item.calculo
+                .tarimasCompletas,
+
+            Parcial_Unidades:
+              item.calculo
+                .parcialUnidades,
+
+            Parcial_Ocupa_Posicion:
+              item.calculo
+                .parcialOcupaPosicion,
+
+            Posiciones_Ocupadas:
+              item.calculo
+                .posicionesOcupadas,
+
+            Base_Estandar:
+              materialEncontrado
+                .baseEstandar,
+
+            Altura_Estandar:
+              materialEncontrado
+                .alturaEstandar,
+
+            Cantidad_Estandar_Pallet:
+              item.calculo
+                .cantidadEstandarPallet,
+
+            Total_Unidades:
+              item.calculo
+                .totalUnidades,
+
+            Estado:
+              "ACTIVO",
+
+            Auxiliar_ID:
+              participantesIngreso.ids.join(","),
+
+            Auxiliar_Nombre:
+              participantesIngreso.nombres.join(","),
+
+            Fecha_Registro:
+              marcaTiempo.fecha,
+
+            Hora_Registro:
+              marcaTiempo.hora,
+
+            /*
+             * Un mismo ingreso puede distribuirse entre varias cámaras.
+             * Hora_Inicio y Hora_Final se conservan en todas las líneas
+             * para facilitar la lectura, pero la duración se registra
+             * únicamente en la primera línea para no duplicarla al sumar.
+             */
+            Hora_Inicio:
+              horaInicio,
+
+            Hora_Final:
+              horaFinal,
+
+            Duracion_Minutos:
+              indice === 0
+                ? duracionIngreso
+                : ""
+
+          };
+
+
+          detallesGuardados.push(
+            normalizarDetalleRecepcionMateriales_(
+              filaDetalle,
+              item.camara
+            )
+          );
+
+
+          return construirFilaRecepcionMateriales_(
+            encabezados,
+            filaDetalle
+          );
+
+        }
+      );
+
+
+    primeraFilaInsertada =
+      hojaDetalle.getLastRow() +
+      1;
+
+
+    cantidadFilasInsertadas =
+      filas.length;
+
+
+    hojaDetalle
+      .getRange(
+        primeraFilaInsertada,
+        1,
+        filas.length,
+        encabezados.length
+      )
+      .setValues(
+        filas
+      );
+
+
+    /*
+     * Se asegura que todos los lotes se conserven como texto.
+     */
+    for (
+      let i = 0;
+      i < filas.length;
+      i++
+    ) {
+
+      guardarLoteComoTextoRecepcionMateriales_(
+        hojaDetalle,
+        primeraFilaInsertada + i,
+        lote
+      );
+
+    }
+
+
+    const totales =
+      recalcularTotalesRecepcion_(
+        idRecepcion,
+        {
+          hojaDetalle:
+            hojaDetalle,
+
+          hojaEncabezado:
+            hojaEncabezado,
+
+          numeroFilaEncabezado:
+            resultadoRecepcion
+              .numeroFila
+        }
+      );
+
+
+    /*
+     * Integra la recepción con el motor de cámaras.
+     *
+     * Por cada línea recién guardada en Recepciones_Detalle:
+     * 1. Crea el movimiento ENTRADA_RECEPCION faltante.
+     * 2. Usa ID_Detalle_Recepcion como referencia única.
+     * 3. Reconstruye Inventario_Camaras desde Movimientos_Camaras.
+     *
+     * Se utilizan las funciones internas porque esta función
+     * ya trabaja con ScriptLock.
+     */
+    const sincronizacionCamaras =
+      registrarEntradasCamaraDesdeRecepcion_(
+        idRecepcion
+      );
+
+
+    const inventarioCamaras =
+      reconstruirInventarioCamarasDesdeMovimientos_();
+
+
+    SpreadsheetApp.flush();
+
+
+    return respuesta({
+      ok:
+        true,
+
+      mensaje:
+        distribucionValidada.length === 1
+          ? "Material registrado correctamente en una cámara."
+          : "Material distribuido correctamente entre " +
+            distribucionValidada.length +
+            " cámaras.",
+
+      data: {
+
+        idRecepcion:
+          idRecepcion,
+
+        material:
+          materialEncontrado,
+
+        lote:
+          lote,
+
+        detalles:
+          detallesGuardados,
+
+        cantidadLineas:
+          detallesGuardados.length,
+
+        totales:
+          totales,
+
+        movimientosCamarasCreados:
+          sincronizacionCamaras
+            .movimientosCreados,
+
+        movimientosCamarasExistentes:
+          sincronizacionCamaras
+            .movimientosExistentes,
+
+        filasInventarioCamaras:
+          inventarioCamaras
+            .filasInventario
+
+      }
+    });
+
+
+  } catch (error) {
+
+    /*
+     * Rollback: si la escritura comenzó y ocurre un error,
+     * se eliminan únicamente las filas recién insertadas.
+     */
+    if (
+      hojaDetalle &&
+      primeraFilaInsertada > 1 &&
+      cantidadFilasInsertadas > 0
+    ) {
+
+      try {
+
+        hojaDetalle.deleteRows(
+          primeraFilaInsertada,
+          cantidadFilasInsertadas
+        );
+
+      } catch (errorRollback) {
+
+        console.error(
+          "No fue posible revertir las líneas de la distribución:",
+          errorRollback
+        );
+
+      }
+
+    }
+
+    if (hojaEncabezadoCreado && filaEncabezadoCreada > 1) {
+      try {
+        hojaEncabezadoCreado.deleteRow(filaEncabezadoCreada);
+      } catch (errorRollbackEncabezado) {
+        console.error("No fue posible revertir el encabezado de la recepción:", errorRollbackEncabezado);
+      }
+    }
+
+
+    return respuesta({
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(
+              error
+            )
+    });
+
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/**
+ * Obtiene la siguiente secuencia disponible para los detalles
+ * relacionados con una recepción.
+ */
+function obtenerSiguienteSecuenciaDetalleRecepcion_(
+  hojaDetalle,
+  idRecepcion
+) {
+
+  const validacion =
+    validarEncabezadosRecepcionMateriales_(
+      hojaDetalle,
+      [
+        "ID_Detalle_Recepcion"
+      ]
+    );
+
+
+  const datos =
+    hojaDetalle
+      .getDataRange()
+      .getDisplayValues();
+
+
+  const indiceId =
+  validacion
+    .mapa
+    .ID_Detalle_Recepcion;
+
+
+  const prefijo =
+    idRecepcion +
+    "-";
+
+
+  let secuenciaMayor =
+    0;
+
+
+  if (
+    datos.length > 1
+  ) {
+
+    datos
+      .slice(
+        1
+      )
+      .forEach(
+        function(fila) {
+
+          const idDetalle =
+            normalizarTextoRecepcionMateriales_(
+              fila[
+                indiceId
+              ]
+            );
+
+
+          if (
+            idDetalle.indexOf(
+              prefijo
+            ) !==
+            0
+          ) {
+
+            return;
+
+          }
+
+
+          const sufijo =
+            idDetalle.substring(
+              prefijo.length
+            );
+
+
+          if (
+            !/^\d+$/.test(
+              sufijo
+            )
+          ) {
+
+            return;
+
+          }
+
+
+          const numero =
+            Number(
+              sufijo
+            );
+
+
+          if (
+            numero >
+            secuenciaMayor
+          ) {
+
+            secuenciaMayor =
+              numero;
+
+          }
+
+        }
+      );
+
+  }
+
+
+  return secuenciaMayor +
+    1;
+
+}
+
+
+/**
+ * Construye un ID de detalle relacionado visualmente
+ * con su encabezado.
+ */
+function construirIDDetalleSecuencialRecepcion_(
+  idRecepcion,
+  secuencia
+) {
+
+  return (
+    idRecepcion +
+    "-" +
+    String(
+      secuencia
+    ).padStart(
+      3,
+      "0"
+    )
+  );
+
+}
+
+/**
+ * Recalcula los totales de una recepción.
+ */
+function recalcularTotalesRecepcion(data) {
+
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const idRecepcion =
+      normalizarTextoRecepcionMateriales_(
+        data &&
+        (
+          data.idRecepcion ||
+          data.ID_Recepcion
+        )
+      );
+
+    if (!idRecepcion) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la recepción."
+      });
+    }
+
+    const totales =
+      recalcularTotalesRecepcion_(
+        idRecepcion
+      );
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje: "Totales recalculados correctamente.",
+      data: totales
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/**
+ * Recalcula y actualiza internamente el encabezado.
+ */
+function recalcularTotalesRecepcion_(
+  idRecepcion,
+  opciones
+) {
+
+  const configuracion = opciones || {};
+
+  const hojaDetalle =
+    configuracion.hojaDetalle ||
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS.RECEPCIONES_DETALLE
+    );
+
+  const hojaEncabezado =
+    configuracion.hojaEncabezado ||
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS.RECEPCIONES_ENCABEZADO
+    );
+
+  const validacionDetalle =
+    validarEncabezadosRecepcionMateriales_(
+      hojaDetalle,
+      [
+        "ID_Recepcion",
+        "Material",
+        "Tarimas_Completas",
+        "Parcial_Unidades",
+        "Posiciones_Ocupadas",
+        "Total_Unidades",
+        "Estado"
+      ]
+    );
+
+  const datos =
+    hojaDetalle
+      .getDataRange()
+      .getDisplayValues();
+
+  const mapa =
+    validacionDetalle.mapa;
+
+  const materialesDistintos = {};
+
+  let totalTarimas = 0;
+  let totalParciales = 0;
+  let totalPosiciones = 0;
+  let totalUnidades = 0;
+
+  if (datos.length > 1) {
+
+    datos
+      .slice(1)
+      .forEach(function(fila) {
+
+        const idRecepcionFila =
+          normalizarTextoRecepcionMateriales_(
+            fila[mapa.ID_Recepcion]
+          );
+
+        if (idRecepcionFila !== idRecepcion) {
+          return;
+        }
+
+        const estado =
+          claveRecepcionMateriales_(
+            fila[mapa.Estado]
+          );
+
+        if (
+          estado === "ANULADO" ||
+          estado === "ANULADA" ||
+          estado === "INACTIVO"
+        ) {
+          return;
+        }
+
+        const material =
+          normalizarTextoRecepcionMateriales_(
+            fila[mapa.Material]
+          );
+
+        if (material) {
+          materialesDistintos[material] = true;
+        }
+
+        totalTarimas +=
+          enteroNoNegativoRecepcionMateriales_(
+            fila[mapa.Tarimas_Completas]
+          );
+
+        if (
+          enteroNoNegativoRecepcionMateriales_(
+            fila[mapa.Parcial_Unidades]
+          ) > 0
+        ) {
+          totalParciales++;
+        }
+
+        totalPosiciones +=
+          enteroNoNegativoRecepcionMateriales_(
+            fila[mapa.Posiciones_Ocupadas]
+          );
+
+        totalUnidades +=
+          enteroNoNegativoRecepcionMateriales_(
+            fila[mapa.Total_Unidades]
+          );
+
+      });
+
+  }
+
+  let numeroFilaEncabezado =
+    enteroNoNegativoRecepcionMateriales_(
+      configuracion.numeroFilaEncabezado
+    );
+
+  if (numeroFilaEncabezado <= 1) {
+
+    const resultado =
+      buscarRegistroRecepcionMateriales_(
+        hojaEncabezado,
+        "ID_Recepcion",
+        idRecepcion
+      );
+
+    if (!resultado.encontrada) {
+      throw new Error(
+        "No se encontró el encabezado de la recepción."
+      );
+    }
+
+    numeroFilaEncabezado =
+      resultado.numeroFila;
+
+  }
+
+  const marcaTiempo =
+    obtenerMarcaTiempoRecepcionMateriales_();
+
+  const totales = {
+    totalMateriales:
+      Object.keys(materialesDistintos).length,
+    totalTarimas: totalTarimas,
+    totalParciales: totalParciales,
+    totalPosicionesOcupadas: totalPosiciones,
+    totalUnidades: totalUnidades
+  };
+
+  actualizarRegistroRecepcionMateriales_(
+    hojaEncabezado,
+    numeroFilaEncabezado,
+    {
+      Total_Materiales: totales.totalMateriales,
+      Total_Tarimas: totales.totalTarimas,
+      Total_Parciales: totales.totalParciales,
+      Total_Posiciones_Ocupadas:
+        totales.totalPosicionesOcupadas,
+      Total_Unidades: totales.totalUnidades,
+      Estado:
+        totales.totalMateriales > 0
+          ? RECEPCION_MATERIALES_ESTADOS.EN_PROCESO
+          : RECEPCION_MATERIALES_ESTADOS.ABIERTA,
+      Fecha_Modificacion: marcaTiempo.fechaHora
+    }
+  );
+
+  return totales;
+
+}
+
+
+/**
+ * Obtiene una recepción completa.
+ */
+function obtenerRecepcionMateriales(data) {
+
+  try {
+
+    const idRecepcion =
+      normalizarTextoRecepcionMateriales_(
+        data &&
+        (
+          data.idRecepcion ||
+          data.ID_Recepcion
+        )
+      );
+
+    if (!idRecepcion) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la recepción."
+      });
+    }
+
+    const hojaEncabezado =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS.RECEPCIONES_ENCABEZADO
+      );
+
+    const resultado =
+      buscarRegistroRecepcionMateriales_(
+        hojaEncabezado,
+        "ID_Recepcion",
+        idRecepcion
+      );
+
+    if (!resultado.encontrada) {
+      return respuesta({
+        ok: false,
+        mensaje: "No se encontró la recepción solicitada."
+      });
+    }
+
+    const camaras =
+      obtenerMapaCamarasRecepcionMateriales_();
+
+    const detalles =
+      obtenerDetallesRecepcionMateriales_(
+        idRecepcion,
+        camaras
+      );
+
+    return respuesta({
+      ok: true,
+      data: {
+        recepcion:
+          normalizarEncabezadoRecepcionMateriales_(
+            resultado.datos
+          ),
+        detalles: detalles,
+        totalLineas: detalles.length
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+  }
+
+}
+
+
+/**
+ * Lee todas las líneas activas de una recepción.
+ */
+function obtenerDetallesRecepcionMateriales_(
+  idRecepcion,
+  mapaCamaras
+) {
+
+  const hoja =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS.RECEPCIONES_DETALLE
+    );
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getValues();
+
+  if (datos.length <= 1) {
+    return [];
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return normalizarTextoRecepcionMateriales_(valor);
+    });
+
+  const camaras =
+    mapaCamaras ||
+    obtenerMapaCamarasRecepcionMateriales_();
+
+  return datos
+    .slice(1)
+    .map(function(fila) {
+
+      const objeto = {};
+
+      encabezados.forEach(function(encabezado, indice) {
+        objeto[encabezado] = fila[indice];
+      });
+
+      return objeto;
+
+    })
+    .filter(function(item) {
+
+      const mismaRecepcion =
+        normalizarTextoRecepcionMateriales_(
+          item.ID_Recepcion
+        ) === idRecepcion;
+
+      const estado =
+        claveRecepcionMateriales_(
+          item.Estado
+        );
+
+      return (
+        mismaRecepcion &&
+        estado !== "ANULADO" &&
+        estado !== "ANULADA" &&
+        estado !== "INACTIVO"
+      );
+
+    })
+    .map(function(item) {
+
+      const idCamara =
+        normalizarTextoRecepcionMateriales_(
+          item.ID_Camara
+        );
+
+      return normalizarDetalleRecepcionMateriales_(
+        item,
+        camaras[idCamara] || null
+      );
+
+    });
+
+}
+
+
+/**
+ * Obtiene un material activo por código exacto.
+ */
+function obtenerMaterialRecepcionPorCodigo_(
+  codigoMaterial
+) {
+
+  const codigo =
+    normalizarTextoRecepcionMateriales_(
+      codigoMaterial
+    );
+
+  if (!codigo) {
+    return null;
+  }
+
+  const hoja =
+    obtenerHojaRecepcionMateriales_(
+      "Materiales"
+    );
+
+  const validacion =
+    validarEncabezadosRecepcionMateriales_(
+      hoja,
+      [
+        "ID_Material",
+        "Descripcion",
+        "Base_Estandar",
+        "Altura_Estandar",
+        "Estado",
+        "Unidad_Medida",
+        "UMB",
+        "UM"
+      ]
+    );
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  const mapa =
+    validacion.mapa;
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const id =
+      normalizarTextoRecepcionMateriales_(
+        datos[i][mapa.ID_Material]
+      );
+
+    if (id !== codigo) {
+      continue;
+    }
+
+    const estado =
+      claveRecepcionMateriales_(
+        datos[i][mapa.Estado]
+      );
+
+    if (estado !== "ACTIVO") {
+      return null;
+    }
+
+    const base =
+      enteroNoNegativoRecepcionMateriales_(
+        datos[i][mapa.Base_Estandar]
+      );
+
+    const altura =
+      enteroNoNegativoRecepcionMateriales_(
+        datos[i][mapa.Altura_Estandar]
+      );
+
+    return {
+      id: id,
+      descripcion:
+        normalizarTextoRecepcionMateriales_(
+          datos[i][mapa.Descripcion]
+        ),
+      baseEstandar: base,
+      alturaEstandar: altura,
+      cantidadEstandarPallet:
+        calcularEstandarPalletRecepcionMateriales_(
+          base,
+          altura
+        ),
+      unidadMedida:
+        normalizarTextoRecepcionMateriales_(
+          datos[i][mapa.Unidad_Medida]
+        ),
+      umb:
+        normalizarTextoRecepcionMateriales_(
+          datos[i][mapa.UMB]
+        ),
+      um:
+        normalizarTextoRecepcionMateriales_(
+          datos[i][mapa.UM]
+        ),
+      vidaUtilAnios:
+        typeof mapa.Vida_Util_Años !== "undefined"
+          ? normalizarTextoRecepcionMateriales_(
+              datos[i][mapa.Vida_Util_Años]
+            )
+          : ""
+    };
+
+  }
+
+  return null;
+
+}
+
+
+/**
+ * Obtiene una cámara activa por ID.
+ */
+function obtenerCamaraRecepcionPorId_(
+  idCamara
+) {
+
+  const id =
+    normalizarTextoRecepcionMateriales_(
+      idCamara
+    );
+
+  if (!id) {
+    return null;
+  }
+
+  const camaras =
+    obtenerMapaCamarasRecepcionMateriales_();
+
+  return camaras[id] || null;
+
+}
+
+
+/**
+ * Construye un mapa de cámaras activas.
+ */
+function obtenerMapaCamarasRecepcionMateriales_() {
+
+  const hoja =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS.CONFIG_CAMARAS
+    );
+
+  const validacion =
+    validarEncabezadosRecepcionMateriales_(
+      hoja,
+      [
+        "ID_Camara",
+        "Codigo",
+        "Nombre",
+        "Capacidad_Posiciones",
+        "Estado"
+      ]
+    );
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  const mapa =
+    validacion.mapa;
+
+  const resultado = {};
+
+  if (datos.length <= 1) {
+    return resultado;
+  }
+
+  datos
+    .slice(1)
+    .forEach(function(fila) {
+
+      const id =
+        normalizarTextoRecepcionMateriales_(
+          fila[mapa.ID_Camara]
+        );
+
+      const estado =
+        claveRecepcionMateriales_(
+          fila[mapa.Estado]
+        );
+
+      if (
+          !id ||
+          [
+            "ACTIVO",
+            "ACTIVA"
+          ].indexOf(
+            estado
+          ) === -1
+        ) {
+          return;
+        }
+
+      resultado[id] = {
+        idCamara: id,
+        codigo:
+          normalizarTextoRecepcionMateriales_(
+            fila[mapa.Codigo]
+          ),
+        nombre:
+          normalizarTextoRecepcionMateriales_(
+            fila[mapa.Nombre]
+          ),
+        capacidadPosiciones:
+          enteroNoNegativoRecepcionMateriales_(
+            fila[mapa.Capacidad_Posiciones]
+          ),
+        estado:
+          normalizarTextoRecepcionMateriales_(
+            fila[mapa.Estado]
+          )
+      };
+
+    });
+
+  return resultado;
+
+}
+
+
+/**
+ * Guarda el lote como texto real en Google Sheets.
+ *
+ * El apóstrofo inicial obliga a Sheets a conservar
+ * los ceros de la izquierda, pero no se muestra
+ * visualmente en la celda.
+ */
+function guardarLoteComoTextoRecepcionMateriales_(
+  hoja,
+  numeroFila,
+  lote
+) {
+
+  const encabezados =
+    obtenerEncabezadosRecepcionMateriales_(
+      hoja
+    );
+
+
+  const indiceLote =
+    encabezados.indexOf(
+      "Lote"
+    );
+
+
+  if (
+    indiceLote === -1
+  ) {
+
+    throw new Error(
+      'No existe la columna "Lote" en Recepciones_Detalle.'
+    );
+
+  }
+
+
+  const loteTexto =
+    normalizarTextoRecepcionMateriales_(
+      lote
+    )
+      .padStart(
+        4,
+        "0"
+      );
+
+
+  const celda =
+    hoja.getRange(
+      numeroFila,
+      indiceLote + 1
+    );
+
+
+  celda.clearContent();
+
+
+  celda.setNumberFormat(
+    "@"
+  );
+
+
+  celda.setValue(
+    "'" + loteTexto
+  );
+
+}
+
+/**
+ * Calcula fecha de vencimiento usando años de vida útil.
+ */
+function calcularFechaVencimientoRecepcionMateriales_(
+  fechaProduccion,
+  vidaUtilAnios
+) {
+
+  const fecha =
+    convertirFechaRecepcionMateriales_(
+      fechaProduccion
+    );
+
+  if (!fecha) {
+    return null;
+  }
+
+  const anios =
+    numeroRecepcionMateriales_(
+      vidaUtilAnios
+    );
+
+  if (anios <= 0) {
+    return null;
+  }
+
+  const meses =
+    Math.round(anios * 12);
+
+  const vencimiento =
+    new Date(fecha.getTime());
+
+  vencimiento.setMonth(
+    vencimiento.getMonth() + meses
+  );
+
+  return vencimiento;
+
+}
+
+
+
+/**
+ * Genera el lote en formato MMYY.
+ *
+ * Siempre devuelve texto de cuatro caracteres:
+ * Enero 2027  -> 0127
+ * Agosto 2026 -> 0826
+ */
+function generarLoteRecepcionMateriales_(
+  fechaProduccion
+) {
+
+  const fecha =
+    convertirFechaRecepcionMateriales_(
+      fechaProduccion
+    );
+
+
+  if (!fecha) {
+
+    return "";
+
+  }
+
+
+  const mes =
+    String(
+      fecha.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  const anio =
+    String(
+      fecha.getFullYear()
+    ).slice(
+      -2
+    );
+
+
+  return mes + anio;
+
+}
+
+
+/**
+ * Normaliza el encabezado para frontend.
+ */
+function normalizarEncabezadoRecepcionMateriales_(
+  datos
+) {
+
+  const d = datos || {};
+
+  return {
+    idRecepcion:
+      normalizarTextoRecepcionMateriales_(d.ID_Recepcion),
+    material:
+      normalizarTextoRecepcionMateriales_(d.Material),
+    detalle:
+      normalizarTextoRecepcionMateriales_(d.Detalle),
+    fecha:
+      formatearFechaRecepcionMateriales_(d.Fecha),
+    horaInicio:
+      normalizarHoraRecepcionMateriales_(
+        d.Hora_Inicio
+      ),
+
+    horaFinal:
+      normalizarHoraRecepcionMateriales_(
+        d.Hora_Final
+      ),
+    duracionMinutos:
+      enteroNoNegativoRecepcionMateriales_(d.Duracion_Minutos),
+    usuarioId:
+      normalizarTextoRecepcionMateriales_(d.Usuario_ID),
+    usuarioNombre:
+      normalizarTextoRecepcionMateriales_(d.Usuario_Nombre),
+    turno:
+      normalizarTextoRecepcionMateriales_(d.Turno),
+    origenTraslado:
+      normalizarTextoRecepcionMateriales_(d.Origen_Traslado),
+    produccionFinalizada:
+      normalizarSiNoRecepcionMateriales_(d.Produccion_Finalizada),
+    totalMateriales:
+      enteroNoNegativoRecepcionMateriales_(d.Total_Materiales),
+    totalTarimas:
+      enteroNoNegativoRecepcionMateriales_(d.Total_Tarimas),
+    totalParciales:
+      enteroNoNegativoRecepcionMateriales_(d.Total_Parciales),
+    totalPosicionesOcupadas:
+      enteroNoNegativoRecepcionMateriales_(
+        d.Total_Posiciones_Ocupadas
+      ),
+    totalUnidades:
+      enteroNoNegativoRecepcionMateriales_(d.Total_Unidades),
+    estado:
+      normalizarTextoRecepcionMateriales_(d.Estado)
+  };
+
+}
+
+
+/**
+ * Normaliza una línea de detalle para frontend.
+ */
+function normalizarDetalleRecepcionMateriales_(
+  datos,
+  camara
+) {
+
+  const d = datos || {};
+  const c = camara || {};
+
+  return {
+    idDetalle:
+      normalizarTextoRecepcionMateriales_(
+        d.ID_Detalle_Recepcion
+      ),
+    idRecepcion:
+      normalizarTextoRecepcionMateriales_(
+        d.ID_Recepcion
+      ),
+    material:
+      normalizarTextoRecepcionMateriales_(d.Material),
+    descripcion:
+      normalizarTextoRecepcionMateriales_(d.Descripcion),
+    um:
+      normalizarTextoRecepcionMateriales_(d.UM),
+    umb:
+      normalizarTextoRecepcionMateriales_(d.UMB),
+    fechaProduccion:
+      formatearFechaRecepcionMateriales_(d.Fecha_Produccion),
+    fechaVencimiento:
+      formatearFechaRecepcionMateriales_(d.Fecha_Vencimiento),
+    lote:
+      normalizarTextoRecepcionMateriales_(d.Lote),
+    idCamara:
+      normalizarTextoRecepcionMateriales_(d.ID_Camara),
+    camaraCodigo:
+      normalizarTextoRecepcionMateriales_(c.codigo),
+    camaraNombre:
+      normalizarTextoRecepcionMateriales_(c.nombre),
+    tarimasCompletas:
+      enteroNoNegativoRecepcionMateriales_(d.Tarimas_Completas),
+    parcialUnidades:
+      enteroNoNegativoRecepcionMateriales_(d.Parcial_Unidades),
+    parcialOcupaPosicion:
+      normalizarSiNoRecepcionMateriales_(d.Parcial_Ocupa_Posicion),
+    posicionesOcupadas:
+      enteroNoNegativoRecepcionMateriales_(d.Posiciones_Ocupadas),
+    baseEstandar:
+      enteroNoNegativoRecepcionMateriales_(d.Base_Estandar),
+    alturaEstandar:
+      enteroNoNegativoRecepcionMateriales_(d.Altura_Estandar),
+    cantidadEstandarPallet:
+      enteroNoNegativoRecepcionMateriales_(
+        d.Cantidad_Estandar_Pallet
+      ),
+    totalUnidades:
+      enteroNoNegativoRecepcionMateriales_(d.Total_Unidades),
+    auxiliarId:
+      normalizarTextoRecepcionMateriales_(d.Auxiliar_ID),
+    auxiliarNombre:
+      normalizarTextoRecepcionMateriales_(d.Auxiliar_Nombre),
+    fechaRegistro:
+      formatearFechaRecepcionMateriales_(d.Fecha_Registro),
+    horaRegistro:
+      normalizarHoraRecepcionMateriales_(
+        d.Hora_Registro
+      ),
+    horaInicio:
+      normalizarHoraRecepcionMateriales_(
+        d.Hora_Inicio
+      ),
+    horaFinal:
+      normalizarHoraRecepcionMateriales_(
+        d.Hora_Final
+      ),
+    duracionMinutos:
+      enteroNoNegativoRecepcionMateriales_(
+        d.Duracion_Minutos
+      ),
+    origenTraslado:
+      normalizarTextoRecepcionMateriales_(
+        d.Origen_Traslado
+      ),
+    estado:
+      normalizarTextoRecepcionMateriales_(d.Estado)
+  };
+
+}
+
+
+/**
+ * AGREGAR COMPLETA:
+ * RecepcionMateriales.gs
+ *
+ * Colocar antes de las funciones de prueba.
+ */
+function obtenerDuracionTotalRecepcionDesdeDetalles_(
+  idRecepcion
+) {
+
+  const hojaDetalle =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS
+        .RECEPCIONES_DETALLE
+    );
+
+
+  const validacion =
+    validarEncabezadosRecepcionMateriales_(
+      hojaDetalle,
+      [
+        "ID_Recepcion",
+        "Duracion_Minutos",
+        "Hora_Inicio",
+        "Hora_Final",
+        "Estado"
+      ]
+    );
+
+
+  const datos =
+    hojaDetalle
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (datos.length <= 1) {
+    return 0;
+  }
+
+
+  const mapa =
+    validacion.mapa;
+
+
+  const idBuscado =
+    normalizarTextoRecepcionMateriales_(
+      idRecepcion
+    );
+
+
+  let total = 0;
+
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    const fila =
+      datos[i];
+
+
+    const idFila =
+      normalizarTextoRecepcionMateriales_(
+        fila[mapa.ID_Recepcion]
+      );
+
+
+    if (idFila !== idBuscado) {
+      continue;
+    }
+
+
+    const estado =
+      claveRecepcionMateriales_(
+        fila[mapa.Estado]
+      );
+
+
+    if (
+      estado === "ANULADO" ||
+      estado === "ANULADA" ||
+      estado === "INACTIVO"
+    ) {
+      continue;
+    }
+
+
+    const duracionRegistradaTexto =
+      normalizarTextoRecepcionMateriales_(
+        fila[mapa.Duracion_Minutos]
+      );
+
+    /*
+     * Las líneas secundarias de una distribución entre cámaras
+     * conservan esta celda vacía. Se omiten para no duplicar
+     * la duración del mismo ingreso.
+     */
+    if (!duracionRegistradaTexto) {
+      continue;
+    }
+
+    let duracionFila =
+      enteroNoNegativoRecepcionMateriales_(
+        duracionRegistradaTexto
+      );
+
+    /*
+     * Recupera registros creados con la lógica anterior,
+     * que guardaba 0 aunque las horas fueran válidas.
+     */
+    if (duracionFila === 0) {
+      duracionFila =
+        calcularDuracionMinutosRecepcionMateriales_(
+          fila[mapa.Hora_Inicio],
+          fila[mapa.Hora_Final]
+        );
+
+      if (duracionFila > 0) {
+        hojaDetalle
+          .getRange(
+            i + 1,
+            mapa.Duracion_Minutos + 1
+          )
+          .setValue(duracionFila);
+      }
+    }
+
+    total += duracionFila;
+
+  }
+
+
+  return total;
+
+}
+
+
+function finalizarOContinuarRecepcionMateriales(
+  data
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  bloqueo.waitLock(
+    30000
+  );
+
+
+  try {
+
+    const parametros =
+      data || {};
+
+
+    const idRecepcion =
+      normalizarTextoRecepcionMateriales_(
+        parametros.idRecepcion ||
+        parametros.ID_Recepcion ||
+        ""
+      );
+
+
+    const produccionFinalizada =
+      normalizarSiNoRecepcionMateriales_(
+        parametros.produccionFinalizada ||
+        parametros.Produccion_Finalizada ||
+        "NO"
+      );
+
+
+    if (!idRecepcion) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar la recepción."
+      });
+
+    }
+
+
+    const hoja =
+      obtenerHojaRecepcionMateriales_(
+        RECEPCION_MATERIALES_HOJAS
+          .RECEPCIONES_ENCABEZADO
+      );
+
+
+    const resultado =
+      buscarRegistroRecepcionMateriales_(
+        hoja,
+        "ID_Recepcion",
+        idRecepcion
+      );
+
+
+    if (
+      !resultado.encontrada
+    ) {
+
+      return respuesta({
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró la recepción indicada."
+      });
+
+    }
+
+
+    const marcaTiempo =
+      obtenerMarcaTiempoRecepcionMateriales_();
+
+
+    const horaFinal =
+      produccionFinalizada === "SI"
+        ? marcaTiempo.hora
+        : "";
+
+
+    const duracion =
+      produccionFinalizada === "SI"
+        ? obtenerDuracionTotalRecepcionDesdeDetalles_(
+            idRecepcion
+          )
+        : 0;
+
+
+    actualizarRegistroRecepcionMateriales_(
+      hoja,
+      resultado.numeroFila,
+      {
+
+        Produccion_Finalizada:
+          produccionFinalizada,
+
+        Hora_Final:
+          horaFinal,
+
+        Duracion_Minutos:
+          duracion,
+
+        Estado:
+          produccionFinalizada === "SI"
+            ? RECEPCION_MATERIALES_ESTADOS
+                .FINALIZADA
+            : RECEPCION_MATERIALES_ESTADOS
+                .EN_PROCESO,
+
+        Fecha_Modificacion:
+          marcaTiempo.fechaHora
+
+      }
+    );
+
+
+    SpreadsheetApp.flush();
+
+
+    return respuesta({
+      ok:
+        true,
+
+      mensaje:
+        produccionFinalizada === "SI"
+          ? "Recepción finalizada correctamente."
+          : "Ingreso guardado. La recepción permanece abierta para el próximo registro.",
+
+      data: {
+
+        idRecepcion:
+          idRecepcion,
+
+        produccionFinalizada:
+          produccionFinalizada,
+
+        estado:
+          produccionFinalizada === "SI"
+            ? RECEPCION_MATERIALES_ESTADOS
+                .FINALIZADA
+            : RECEPCION_MATERIALES_ESTADOS
+                .EN_PROCESO,
+
+        horaFinal:
+          horaFinal,
+
+        duracionMinutos:
+          duracion
+
+      }
+    });
+
+
+  } catch (error) {
+
+    return respuesta({
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(
+              error
+            )
+    });
+
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/*
+ * AGREGAR ANTES DEL DEFAULT DEL SWITCH:
+ *
+ * case "finalizarOContinuarRecepcionMateriales":
+ *   return finalizarOContinuarRecepcionMateriales(data);
+ */
+
+
+
+/**
+ * Prueba 1: inicia una recepción.
+ * Esta prueba escribe una fila real.
+ */
+function probarIniciarRecepcionMateriales() {
+
+  const salida =
+    iniciarRecepcionMateriales({
+      usuarioId: "PRUEBA",
+      usuarioNombre: "Usuario de prueba",
+      origenTraslado: "Carritos"
+    });
+
+  Logger.log(
+    salida.getContent()
+  );
+
+}
+
+
+/**
+ * Prueba 2: agrega una línea a una recepción existente.
+ *
+ * Reemplace los valores antes de ejecutarla.
+ */
+function probarAgregarMaterialRecepcion() {
+
+  const salida =
+    agregarMaterialRecepcion({
+      idRecepcion: "REC-20260803-152048-89CE",
+      material: "1014362",
+      idCamara: "CAM001",
+      fechaProduccion: "2026-08-03",
+      tarimasCompletas: 3,
+      parcialUnidades: 30,
+      parcialOcupaPosicion: "SI",
+      auxiliarId: "PRUEBA",
+      auxiliarNombre: "Usuario de prueba"
+    });
+
+  Logger.log(
+    salida.getContent()
+  );
+
+}
+
+
+/**
+ * Prueba 3: consulta una recepción existente.
+ */
+function probarObtenerRecepcionMateriales() {
+
+  const salida =
+    obtenerRecepcionMateriales({
+      idRecepcion: "REC-20260803-152048-89CE"
+    });
+
+  Logger.log(
+    salida.getContent()
+  );
+
+}
+
+function probarGuardarDistribucionMaterialRecepcion() {
+
+  const salida =
+    guardarDistribucionMaterialRecepcion({
+
+      idRecepcion:
+        "REC-20260803-152048-89CE",
+
+      material:
+        "1014362",
+
+      fechaProduccion:
+        "2026-08-03",
+
+      lote:
+        "0826",
+
+      auxiliarId:
+        "PRUEBA",
+
+      auxiliarNombre:
+        "Usuario de prueba",
+
+      distribucion: [
+
+        {
+          idCamara:
+            "CAM001",
+
+          tarimasCompletas:
+            2,
+
+          parcialUnidades:
+            0,
+
+          parcialOcupaPosicion:
+            "NO"
+        },
+
+        {
+          idCamara:
+            "CAM002",
+
+          tarimasCompletas:
+            3,
+
+          parcialUnidades:
+            30,
+
+          parcialOcupaPosicion:
+            "SI"
+        }
+
+      ]
+
+    });
+
+
+  Logger.log(
+    salida.getContent()
+  );
+
+}

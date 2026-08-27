@@ -9,7 +9,7 @@ window.ReportesKPIs = {
   pestanaActiva: "indicadores",
   // Valores disponibles: "hojas" o "segmentadas".
   estiloPestanas: "hojas",
-  versionCache: "1",
+  versionCache: "2",
   prefijoCache: "bon_reportes_kpi",
   horaCorte: 18,
   minutoCorte: 15,
@@ -19,6 +19,7 @@ window.ReportesKPIs = {
   dialogoReporte: null,
   focoAntesDialogo: null,
   manejarTecladoDialogo: null,
+  periodoReduccionDecomiso: "MENSUAL",
 
   puedeVer() {
     const sesion = this.obtenerSesion();
@@ -442,9 +443,12 @@ window.ReportesKPIs = {
     const metas = Array.isArray(this.datos.metas && this.datos.metas.metas) ? this.datos.metas.metas : [];
     const resumenMeta = this.resumirMetas(metas);
     const decomisos = this.extraerData(this.datos.decomisos).indicadores || {};
+    const decomisosHistorico = this.extraerData(
+      this.datos.decomisosHistorico || this.datos.decomisos
+    ).indicadores || {};
     const ocupacion = this.extraerData(this.datos.ocupacion);
     const despacho = this.resumenMontoDesviaciones(exactitud);
-    const reduccion = this.calcularReduccionDecomiso(decomisos);
+    const reduccion = this.calcularReduccionDecomiso(decomisosHistorico);
     const indicadores = [
       {nombre: "Exactitud de despacho", valor: this.porcentaje(exactitud.tasaExactitud), detalle: "Sobre bultos verificados"},
       {nombre: "Tasa de error en despacho", valor: this.porcentaje(exactitud.tasaError), detalle: this.numero(exactitud.bultosDesviados) + " bultos desviados"},
@@ -579,7 +583,16 @@ window.ReportesKPIs = {
 
       const claves = Object.keys(peticiones);
       const respuestas = await Promise.all(claves.map(clave => this.consultaSegura(peticiones[clave])));
-      const consultaCompleta = respuestas.every(respuesta => respuesta && respuesta.ok !== false);
+      const rangoDecomisos = this.rangoComparativoDecomisos();
+      const decomisosHistorico = await this.consultaSegura({
+        action: "obtenerDecomisosAlmacen",
+        desde: rangoDecomisos.desde,
+        hasta: rangoDecomisos.hasta,
+        pagina: 1,
+        limite: 1
+      });
+      const consultaCompleta = respuestas.every(respuesta => respuesta && respuesta.ok !== false) &&
+        decomisosHistorico && decomisosHistorico.ok !== false;
       const respaldo = consultaCompleta ? null : this.leerCache(true);
       if (respaldo) {
         this.datos = respaldo;
@@ -593,6 +606,7 @@ window.ReportesKPIs = {
         rango: rango
       };
       claves.forEach((clave, indice) => { this.datos[clave] = respuestas[indice]; });
+      this.datos.decomisosHistorico = decomisosHistorico;
       if (consultaCompleta) this.guardarCache(this.datos);
       this.renderizarIndicadores();
     } catch (error) {
@@ -635,9 +649,12 @@ window.ReportesKPIs = {
     const resumenMeta = this.resumirMetas(metas);
     const recepcionesSerie = this.extraerData(this.datos.recepciones).serie || [];
     const decomisos = this.extraerData(this.datos.decomisos).indicadores || {};
+    const decomisosHistorico = this.extraerData(
+      this.datos.decomisosHistorico || this.datos.decomisos
+    ).indicadores || {};
     const ocupacion = this.extraerData(this.datos.ocupacion);
     const montoDespacho = this.resumenMontoDesviaciones(exactitud);
-    const reduccion = this.calcularReduccionDecomiso(decomisos);
+    const reduccion = this.calcularReduccionDecomiso(decomisosHistorico);
     const fechaCargaValor = this.datos.fechaCarga instanceof Date
       ? this.datos.fechaCarga
       : new Date(this.datos.fechaCarga);
@@ -673,7 +690,7 @@ window.ReportesKPIs = {
 
       <section class="rk-grid-metas">
         ${this.velocimetro("Meta de despachos", resumenMeta.cumplimiento, this.numero(resumenMeta.realizados) + " realizados de " + this.numero(resumenMeta.meta), resumenMeta.cumplimiento >= 100 ? "Meta alcanzada o superada" : this.porcentaje(100 - resumenMeta.cumplimiento) + " para llegar a la meta")}
-        ${this.velocimetro("Meta de reducción de decomiso", reduccion.avanceMeta, "Reducción real " + this.porcentaje(reduccion.reduccionReal) + " · meta " + this.porcentaje(reduccion.meta), reduccion.avanceMeta >= 100 ? "Meta alcanzada o superada" : this.porcentaje(100 - reduccion.avanceMeta) + " para completar la meta")}
+        ${this.velocimetroReduccionDecomiso(decomisosHistorico)}
       </section>
 
       <section class="rk-bloque">
@@ -728,6 +745,7 @@ window.ReportesKPIs = {
     this.crearGraficaExactitud(exactitudData.evolucion || []);
     this.crearGraficaRecepciones(recepcionesSerie);
     this.conectarAccionesReporte();
+    this.conectarSelectorReduccionDecomiso();
   },
 
   kpi(etiqueta, valor, icono, clase, detalle) {
@@ -769,6 +787,89 @@ window.ReportesKPIs = {
         </div>
       </article>
     `;
+  },
+
+  velocimetroReduccionDecomiso(indicadores) {
+    const reduccion = this.calcularReduccionDecomiso(
+      indicadores,
+      this.periodoReduccionDecomiso
+    );
+    const opciones = this.opcionesReduccionDecomiso(indicadores);
+    const valor = Math.max(0, this.valorNumero(reduccion.avanceMeta));
+    const limitado = Math.min(100, valor);
+    const angulo = -90 + limitado * 1.8;
+    const clase = !reduccion.disponible
+      ? "rojo"
+      : valor >= 100 ? "verde" : valor >= 85 ? "amarillo" : valor >= 60 ? "naranja" : "rojo";
+    const variacion = reduccion.reduccionReal >= 0
+      ? `Reducción real ${this.porcentaje(reduccion.reduccionReal)}`
+      : `Aumento ${this.porcentaje(Math.abs(reduccion.reduccionReal))}`;
+    const detalle = reduccion.disponible
+      ? `${variacion} · meta ${this.porcentaje(reduccion.meta)}`
+      : reduccion.mensaje;
+    const estado = !reduccion.disponible
+      ? "Seleccione un período disponible."
+      : reduccion.avanceMeta >= 100
+        ? "Meta alcanzada o superada"
+        : `${this.porcentaje(Math.max(0, 100 - reduccion.avanceMeta))} para completar la meta`;
+
+    return `
+      <article id="rkMetaReduccionDecomiso" class="rk-velocimetro rk-velocimetro-decomiso rk-velocimetro-${clase}">
+        <div class="rk-velocimetro-texto">
+          <span>Objetivo de reducción</span>
+          <h3>Meta de reducción de decomiso</h3>
+          <div class="rk-selector-reduccion" role="group" aria-label="Período de comparación de decomisos">
+            ${opciones.map(opcion => `
+              <button
+                type="button"
+                data-rk-periodo-reduccion="${opcion.clave}"
+                class="${opcion.clave === this.periodoReduccionDecomiso ? "activo" : ""}"
+                ${opcion.disponible ? "" : "disabled"}
+                title="${this.escapar(opcion.mensaje)}"
+                aria-pressed="${opcion.clave === this.periodoReduccionDecomiso ? "true" : "false"}"
+              >${this.escapar(opcion.etiqueta)}</button>
+            `).join("")}
+          </div>
+          <strong>${reduccion.disponible ? this.porcentaje(valor) : "--"}</strong>
+          <p>${this.escapar(detalle)}</p>
+          <small>${this.escapar(estado)}</small>
+          ${reduccion.disponible ? `
+            <div class="rk-reduccion-montos">
+              <span>Base <b>${this.moneda(reduccion.montoBase)}</b></span>
+              <span>Último período <b>${this.moneda(reduccion.montoActual)}</b></span>
+            </div>
+          ` : ""}
+        </div>
+        <div class="rk-medidor" role="img" aria-label="Meta de reducción de decomiso: ${reduccion.disponible ? this.porcentaje(valor) : "sin datos suficientes"}">
+          <svg viewBox="0 0 220 126" aria-hidden="true">
+            <path class="rk-medidor-fondo" pathLength="100" d="M 20 108 A 90 90 0 0 1 200 108"></path>
+            <path class="rk-medidor-avance" pathLength="100" stroke-dasharray="${limitado} 100" d="M 20 108 A 90 90 0 0 1 200 108"></path>
+            <g class="rk-aguja" style="transform:rotate(${angulo}deg)">
+              <line x1="110" y1="108" x2="110" y2="35"></line>
+            </g>
+            <circle cx="110" cy="108" r="8"></circle>
+            <text x="17" y="124">0</text>
+            <text x="177" y="124">100% meta</text>
+          </svg>
+        </div>
+      </article>
+    `;
+  },
+
+  conectarSelectorReduccionDecomiso() {
+    document.querySelectorAll("[data-rk-periodo-reduccion]").forEach(boton => {
+      boton.addEventListener("click", () => {
+        if (boton.disabled) return;
+        this.periodoReduccionDecomiso = boton.dataset.rkPeriodoReduccion;
+        const indicadores = this.extraerData(
+          this.datos.decomisosHistorico || this.datos.decomisos
+        ).indicadores || {};
+        const tarjeta = document.getElementById("rkMetaReduccionDecomiso");
+        if (!tarjeta) return;
+        tarjeta.outerHTML = this.velocimetroReduccionDecomiso(indicadores);
+        this.conectarSelectorReduccionDecomiso();
+      });
+    });
   },
 
   trioMontos(datos, proceso) {
@@ -844,16 +945,83 @@ window.ReportesKPIs = {
     return {meta: meta, realizados: realizados, cumplimiento: meta > 0 ? realizados / meta * 100 : 0};
   },
 
-  calcularReduccionDecomiso(indicadores) {
-    const serie = Array.isArray(indicadores.porMes) ? indicadores.porMes : [];
+  opcionesReduccionDecomiso(indicadores) {
+    return [
+      {clave: "MENSUAL", etiqueta: "Mes a mes", mesesGrupo: 1},
+      {clave: "TRIMESTRAL", etiqueta: "Trimestral", mesesGrupo: 3},
+      {clave: "SEMESTRAL", etiqueta: "Semestral", mesesGrupo: 6}
+    ].map(opcion => {
+      const calculo = this.calcularReduccionDecomiso(indicadores, opcion.clave, true);
+      return {
+        ...opcion,
+        disponible: calculo.disponible,
+        mensaje: calculo.disponible
+          ? calculo.descripcion
+          : `Requiere ${opcion.mesesGrupo * 2} meses consecutivos con datos.`
+      };
+    });
+  },
+
+  calcularReduccionDecomiso(indicadores, periodo = this.periodoReduccionDecomiso, omitirOpciones = false) {
+    const configuracion = {
+      MENSUAL: {mesesGrupo: 1, descripcion: "Los dos últimos meses"},
+      TRIMESTRAL: {mesesGrupo: 3, descripcion: "Los últimos tres meses contra los tres anteriores"},
+      SEMESTRAL: {mesesGrupo: 6, descripcion: "Los últimos seis meses contra los seis anteriores"}
+    };
+    const seleccion = configuracion[periodo] || configuracion.MENSUAL;
     const meta = this.valorNumero(indicadores.metaReduccion);
-    let reduccionReal = 0;
-    if (serie.length > 1) {
-      const inicial = this.valorNumero(serie[0].valor);
-      const final = this.valorNumero(serie[serie.length - 1].valor);
-      reduccionReal = inicial > 0 ? Math.max(0, (inicial - final) / inicial * 100) : 0;
+    const mapa = new Map();
+    (Array.isArray(indicadores.porMes) ? indicadores.porMes : []).forEach(item => {
+      const clave = String(item.periodo || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(clave)) mapa.set(clave, this.valorNumero(item.valor));
+    });
+    const claves = Array.from(mapa.keys()).sort();
+    const ultima = claves[claves.length - 1];
+    const mesesNecesarios = seleccion.mesesGrupo * 2;
+    const periodos = [];
+
+    if (ultima) {
+      const partes = ultima.split("-").map(Number);
+      for (let retroceso = mesesNecesarios - 1; retroceso >= 0; retroceso -= 1) {
+        const fecha = new Date(partes[0], partes[1] - 1 - retroceso, 1);
+        periodos.push(`${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`);
+      }
     }
-    return {meta: meta, reduccionReal: reduccionReal, avanceMeta: meta > 0 ? reduccionReal / meta * 100 : 0};
+
+    const disponible = periodos.length === mesesNecesarios && periodos.every(clave => mapa.has(clave));
+    if (!disponible) {
+      return {
+        meta,
+        reduccionReal: 0,
+        avanceMeta: 0,
+        disponible: false,
+        mensaje: `No existen ${mesesNecesarios} meses consecutivos con datos para esta comparación.`,
+        descripcion: seleccion.descripcion,
+        montoBase: 0,
+        montoActual: 0
+      };
+    }
+
+    const base = periodos.slice(0, seleccion.mesesGrupo);
+    const actual = periodos.slice(seleccion.mesesGrupo);
+    const montoBase = base.reduce((suma, clave) => suma + mapa.get(clave), 0);
+    const montoActual = actual.reduce((suma, clave) => suma + mapa.get(clave), 0);
+    const reduccionReal = montoBase > 0 ? (montoBase - montoActual) / montoBase * 100 : 0;
+    const avanceMeta = meta > 0 ? Math.max(0, reduccionReal) / meta * 100 : 0;
+
+    return {
+      meta,
+      reduccionReal,
+      avanceMeta,
+      disponible: true,
+      mensaje: "",
+      descripcion: seleccion.descripcion,
+      montoBase,
+      montoActual,
+      periodosBase: base,
+      periodosActuales: actual,
+      omitirOpciones
+    };
   },
 
   crearGraficaExactitud(serie) {
@@ -947,6 +1115,21 @@ window.ReportesKPIs = {
     const fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
     const iso = fecha => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, "0"), String(fecha.getDate()).padStart(2, "0")].join("-");
     return {fechaDesde: iso(inicio), fechaHasta: iso(fin), mes: iso(inicio).slice(0, 7)};
+  },
+
+  rangoComparativoDecomisos() {
+    const ahora = new Date();
+    const ultimoMesCerrado = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
+    const primerMes = new Date(
+      ultimoMesCerrado.getFullYear(),
+      ultimoMesCerrado.getMonth() - 11,
+      1
+    );
+    const periodo = fecha => [
+      fecha.getFullYear(),
+      String(fecha.getMonth() + 1).padStart(2, "0")
+    ].join("-");
+    return {desde: periodo(primerMes), hasta: periodo(ultimoMesCerrado)};
   },
 
   valorNumero(valor) {

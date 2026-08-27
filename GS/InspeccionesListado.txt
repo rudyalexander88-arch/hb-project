@@ -1,0 +1,1302 @@
+// =====================================================
+// INSPECCIONES_LISTADO.GS
+// Consulta de inspecciones realizadas
+// Sistema Logístico PT - Helados Bon
+// =====================================================
+//
+// Este archivo es nuevo. Agrégalo al proyecto de Apps Script.
+// No reemplaza InspeccionFinalizacion.gs ni modifica el cierre.
+//
+// La acción "listarInspeccionesRealizadas" debe registrarse
+// también en el archivo que contiene doPost(e) o el router.
+// =====================================================
+
+function listarInspeccionesRealizadas(data) {
+
+  try {
+
+    // =====================================================
+    // PARÁMETROS DE CONSULTA
+    // =====================================================
+
+    const parametros =
+      data || {};
+
+
+    const limiteSolicitado =
+      Number(
+        parametros.limite || 10
+      );
+
+
+    const desplazamientoSolicitado =
+      Number(
+        parametros.desplazamiento || 0
+      );
+
+
+    const limite =
+      Math.min(
+        Math.max(
+          Math.trunc(
+            limiteSolicitado
+          ) || 10,
+          1
+        ),
+        50
+      );
+
+
+    const desplazamiento =
+      Math.max(
+        Math.trunc(
+          desplazamientoSolicitado
+        ) || 0,
+        0
+      );
+
+
+    const filtros = {
+
+      busqueda:
+        normalizarTextoListadoInspecciones_(
+          parametros.busqueda
+        ),
+
+      mes:
+        String(
+          parametros.mes || ""
+        ).trim(),
+
+      ano:
+        String(
+          parametros.ano || ""
+        ).trim(),
+
+      estado:
+        normalizarTextoListadoInspecciones_(
+          parametros.estado
+        ),
+
+      resultado:
+        normalizarTextoListadoInspecciones_(
+          parametros.resultado
+        ),
+
+      inspector:
+        normalizarTextoListadoInspecciones_(
+          parametros.inspector
+        )
+
+    };
+
+
+    // =====================================================
+    // HOJA DE INSPECCIONES
+    // =====================================================
+
+    const hoja =
+      getSheet(
+        SHEETS.INSPECCION_CONTENEDORES
+      );
+
+
+    if (!hoja) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "No existe la hoja Inspeccion_Contenedores."
+      });
+
+    }
+
+
+    const ultimaFila =
+      hoja.getLastRow();
+
+
+    const ultimaColumna =
+      hoja.getLastColumn();
+
+
+    if (
+      ultimaFila <= 1 ||
+      ultimaColumna <= 0
+    ) {
+
+      return respuesta({
+
+        ok: true,
+
+        data: {
+
+          registros:
+            [],
+
+          total:
+            0,
+
+          limite:
+            limite,
+
+          desplazamiento:
+            desplazamiento,
+
+          siguienteDesplazamiento:
+            desplazamiento,
+
+          hayMas:
+            false,
+
+          resumen: {
+
+            total:
+              0,
+
+            completadas:
+              0,
+
+            conformes:
+              0,
+
+            conHallazgos:
+              0,
+
+            pendientes:
+              0
+
+          },
+
+          inspectores:
+            []
+
+        }
+
+      });
+
+    }
+
+
+    const valores =
+      hoja
+        .getRange(
+          1,
+          1,
+          ultimaFila,
+          ultimaColumna
+        )
+        .getValues();
+
+
+    const encabezados =
+      valores[0].map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+    const indice =
+      function(nombre) {
+
+        return encabezados.indexOf(
+          nombre
+        );
+
+      };
+
+
+    const obtener =
+      function(fila, nombre) {
+
+        const posicion =
+          indice(nombre);
+
+
+        return posicion === -1
+          ? ""
+          : fila[posicion];
+
+      };
+
+
+    // =====================================================
+    // VALIDAR COLUMNAS PRINCIPALES
+    // =====================================================
+
+    const columnasObligatorias = [
+
+      "ID_Inspeccion",
+      "Fecha_Inspeccion",
+      "Estado",
+      "Resultado_Inspeccion"
+
+    ];
+
+
+    const columnasFaltantes =
+      columnasObligatorias.filter(
+        function(nombre) {
+
+          return indice(nombre) === -1;
+
+        }
+      );
+
+
+    if (
+      columnasFaltantes.length > 0
+    ) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Faltan columnas requeridas en " +
+          "Inspeccion_Contenedores: " +
+          columnasFaltantes.join(", ") +
+          "."
+      });
+
+    }
+
+
+    // =====================================================
+    // FORMATOS
+    // =====================================================
+
+    const zonaHoraria =
+      Session.getScriptTimeZone();
+
+
+    const formatearFecha =
+      function(valor) {
+
+        if (!valor) {
+          return "";
+        }
+
+
+        if (
+          valor instanceof Date &&
+          !isNaN(
+            valor.getTime()
+          )
+        ) {
+
+          return Utilities.formatDate(
+            valor,
+            zonaHoraria,
+            "dd/MM/yyyy"
+          );
+
+        }
+
+
+        return String(
+          valor || ""
+        ).trim();
+
+      };
+
+
+    const formatearFechaHora =
+      function(valor) {
+
+        if (!valor) {
+          return "";
+        }
+
+
+        if (
+          valor instanceof Date &&
+          !isNaN(
+            valor.getTime()
+          )
+        ) {
+
+          return Utilities.formatDate(
+            valor,
+            zonaHoraria,
+            "dd/MM/yyyy HH:mm:ss"
+          );
+
+        }
+
+
+        return String(
+          valor || ""
+        ).trim();
+
+      };
+
+
+    const formatearHora =
+      function(valor) {
+
+        if (!valor) {
+          return "";
+        }
+
+
+        if (
+          valor instanceof Date &&
+          !isNaN(
+            valor.getTime()
+          )
+        ) {
+
+          return Utilities.formatDate(
+            valor,
+            zonaHoraria,
+            "HH:mm"
+          );
+
+        }
+
+
+        const texto =
+          String(
+            valor || ""
+          ).trim();
+
+
+        const coincidencia =
+          texto.match(
+            /(\d{1,2}):(\d{2})/
+          );
+
+
+        return coincidencia
+
+          ? coincidencia[1]
+              .padStart(2, "0") +
+            ":" +
+            coincidencia[2]
+
+          : texto;
+
+      };
+
+
+    const extraerMesAno =
+      function(valor) {
+
+        if (
+          valor instanceof Date &&
+          !isNaN(
+            valor.getTime()
+          )
+        ) {
+
+          return {
+
+            mes:
+              Utilities.formatDate(
+                valor,
+                zonaHoraria,
+                "MM"
+              ),
+
+            ano:
+              Utilities.formatDate(
+                valor,
+                zonaHoraria,
+                "yyyy"
+              )
+
+          };
+
+        }
+
+
+        const texto =
+          String(
+            valor || ""
+          ).trim();
+
+
+        let coincidencia =
+          texto.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+          );
+
+
+        if (coincidencia) {
+
+          return {
+
+            mes:
+              coincidencia[2]
+                .padStart(2, "0"),
+
+            ano:
+              coincidencia[3]
+
+          };
+
+        }
+
+
+        coincidencia =
+          texto.match(
+            /^(\d{4})-(\d{1,2})-(\d{1,2})/
+          );
+
+
+        if (coincidencia) {
+
+          return {
+
+            mes:
+              coincidencia[2]
+                .padStart(2, "0"),
+
+            ano:
+              coincidencia[1]
+
+          };
+
+        }
+
+
+        return {
+          mes: "",
+          ano: ""
+        };
+
+      };
+
+
+    const obtenerMarcaTiempo =
+      function(
+        fechaOriginal,
+        horaOriginal
+      ) {
+
+        if (
+          fechaOriginal instanceof Date &&
+          !isNaN(
+            fechaOriginal.getTime()
+          )
+        ) {
+
+          const fecha =
+            new Date(
+              fechaOriginal.getTime()
+            );
+
+
+          if (
+            horaOriginal instanceof Date &&
+            !isNaN(
+              horaOriginal.getTime()
+            )
+          ) {
+
+            fecha.setHours(
+              horaOriginal.getHours(),
+              horaOriginal.getMinutes(),
+              horaOriginal.getSeconds(),
+              0
+            );
+
+          }
+
+
+          return fecha.getTime();
+
+        }
+
+
+        const fechaTexto =
+          formatearFecha(
+            fechaOriginal
+          );
+
+
+        const horaTexto =
+          formatearHora(
+            horaOriginal
+          );
+
+
+        const coincidencia =
+          fechaTexto.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+          );
+
+
+        if (!coincidencia) {
+          return 0;
+        }
+
+
+        const dia =
+          Number(
+            coincidencia[1]
+          );
+
+
+        const mes =
+          Number(
+            coincidencia[2]
+          ) - 1;
+
+
+        const ano =
+          Number(
+            coincidencia[3]
+          );
+
+
+        let hora = 0;
+        let minuto = 0;
+
+
+        const coincidenciaHora =
+          horaTexto.match(
+            /^(\d{1,2}):(\d{2})/
+          );
+
+
+        if (coincidenciaHora) {
+
+          hora =
+            Number(
+              coincidenciaHora[1]
+            );
+
+
+          minuto =
+            Number(
+              coincidenciaHora[2]
+            );
+
+        }
+
+
+        const fecha =
+          new Date(
+            ano,
+            mes,
+            dia,
+            hora,
+            minuto,
+            0,
+            0
+          );
+
+
+        return isNaN(
+          fecha.getTime()
+        )
+          ? 0
+          : fecha.getTime();
+
+      };
+
+
+    // =====================================================
+    // CONSTRUIR REGISTROS
+    // =====================================================
+
+    const inspectoresEncontrados =
+      new Set();
+
+
+    const inspecciones =
+      valores
+        .slice(1)
+        .filter(
+          function(fila) {
+
+            return String(
+              obtener(
+                fila,
+                "ID_Inspeccion"
+              ) || ""
+            ).trim();
+
+          }
+        )
+        .map(
+          function(fila) {
+
+            const fechaOriginal =
+              obtener(
+                fila,
+                "Fecha_Inspeccion"
+              );
+
+
+            const horaOriginal =
+              obtener(
+                fila,
+                "Hora_Inicio"
+              );
+
+
+            const fecha =
+              formatearFecha(
+                fechaOriginal
+              );
+
+
+            const hora =
+              formatearHora(
+                horaOriginal
+              );
+
+
+            const periodo =
+              extraerMesAno(
+                fechaOriginal
+              );
+
+
+            const inspector =
+              String(
+                obtener(
+                  fila,
+                  "Inspector_Nombre"
+                ) || ""
+              ).trim();
+
+
+            if (inspector) {
+
+              inspectoresEncontrados.add(
+                inspector
+              );
+
+            }
+
+
+            const estado =
+              String(
+                obtener(
+                  fila,
+                  "Estado"
+                ) || "Pendiente"
+              ).trim() || "Pendiente";
+
+
+            const resultado =
+              String(
+                obtener(
+                  fila,
+                  "Resultado_Inspeccion"
+                ) || ""
+              ).trim() || "Pendiente";
+
+
+            const noConformidades =
+              Number(
+                obtener(
+                  fila,
+                  "Cantidad_No_Conformidades"
+                ) || 0
+              );
+
+
+            const registro = {
+
+              idInspeccion:
+                String(
+                  obtener(
+                    fila,
+                    "ID_Inspeccion"
+                  ) || ""
+                ).trim(),
+
+              idConduce:
+                String(
+                  obtener(
+                    fila,
+                    "ID_Conduce"
+                  ) || ""
+                ).trim(),
+
+              noConduce:
+                String(
+                  obtener(
+                    fila,
+                    "No_Conduce"
+                  ) || ""
+                ).trim(),
+
+              fechaInspeccion:
+                fecha,
+
+              horaInicio:
+                hora,
+
+              fechaHora:
+                [
+                  fecha,
+                  hora
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+
+              mes:
+                periodo.mes,
+
+              ano:
+                periodo.ano,
+
+              inspector:
+                inspector,
+
+              inspectorId:
+                String(
+                  obtener(
+                    fila,
+                    "Inspector_ID"
+                  ) || ""
+                ).trim(),
+
+              destino:
+                String(
+                  obtener(
+                    fila,
+                    "Cliente_Destino"
+                  ) || ""
+                ).trim(),
+
+              unidadCarga:
+                String(
+                  obtener(
+                    fila,
+                    "Unidad_Carga"
+                  ) || ""
+                ).trim(),
+
+              tipoContenedor:
+                String(
+                  obtener(
+                    fila,
+                    "Tipo_Contenedor"
+                  ) || ""
+                ).trim(),
+
+              tamanoContenedor:
+                String(
+                  obtener(
+                    fila,
+                    "Tamano_Contenedor"
+                  ) || ""
+                ).trim(),
+
+              chofer:
+                String(
+                  obtener(
+                    fila,
+                    "Chofer"
+                  ) || ""
+                ).trim(),
+
+              noChasis:
+                String(
+                  obtener(
+                    fila,
+                    "No_Chasis"
+                  ) || ""
+                ).trim(),
+
+              estado:
+                estado,
+
+              resultado:
+                resultado,
+
+              noConformidades:
+                noConformidades,
+
+              totalEvidencias:
+                Number(
+                  obtener(
+                    fila,
+                    "Total_Evidencias"
+                  ) || 0
+                ),
+
+              pdfUrl:
+                String(
+                  obtener(
+                    fila,
+                    "PDF_URL"
+                  ) || ""
+                ).trim(),
+
+              carpetaEvidenciasUrl:
+                String(
+                  obtener(
+                    fila,
+                    "Carpeta_Evidencias_URL"
+                  ) || ""
+                ).trim(),
+
+              fechaModificacion:
+                formatearFechaHora(
+                  obtener(
+                    fila,
+                    "Fecha_Modificacion"
+                  )
+                ),
+
+              marcaTiempo:
+                obtenerMarcaTiempo(
+                  fechaOriginal,
+                  horaOriginal
+                )
+
+            };
+
+
+            registro.textoBusqueda =
+              normalizarTextoListadoInspecciones_(
+                [
+
+                  registro.idInspeccion,
+                  registro.idConduce,
+                  registro.noConduce,
+                  registro.inspector,
+                  registro.inspectorId,
+                  registro.destino,
+                  registro.unidadCarga,
+                  registro.tipoContenedor,
+                  registro.tamanoContenedor,
+                  registro.chofer,
+                  registro.noChasis,
+                  registro.estado,
+                  registro.resultado
+
+                ].join(" ")
+              );
+
+
+            return registro;
+
+          }
+        );
+
+
+    // =====================================================
+    // APLICAR FILTROS
+    // =====================================================
+
+    const filtradas =
+      inspecciones.filter(
+        function(item) {
+
+          if (
+            filtros.busqueda &&
+            item.textoBusqueda.indexOf(
+              filtros.busqueda
+            ) === -1
+          ) {
+
+            return false;
+
+          }
+
+
+          if (
+            filtros.mes &&
+            item.mes !== filtros.mes
+          ) {
+
+            return false;
+
+          }
+
+
+          if (
+            filtros.ano &&
+            item.ano !== filtros.ano
+          ) {
+
+            return false;
+
+          }
+
+
+          if (
+            filtros.estado &&
+            normalizarTextoListadoInspecciones_(
+              item.estado
+            ) !== filtros.estado
+          ) {
+
+            return false;
+
+          }
+
+
+          if (
+            filtros.resultado &&
+            normalizarTextoListadoInspecciones_(
+              item.resultado
+            ) !== filtros.resultado
+          ) {
+
+            return false;
+
+          }
+
+
+          if (
+            filtros.inspector &&
+            normalizarTextoListadoInspecciones_(
+              item.inspector
+            ) !== filtros.inspector
+          ) {
+
+            return false;
+
+          }
+
+
+          return true;
+
+        }
+      );
+
+
+    // =====================================================
+    // ORDENAR MÁS RECIENTES PRIMERO
+    // =====================================================
+
+    filtradas.sort(
+      function(a, b) {
+
+        return (
+          Number(
+            b.marcaTiempo || 0
+          ) -
+          Number(
+            a.marcaTiempo || 0
+          )
+        );
+
+      }
+    );
+
+
+    // =====================================================
+    // RESUMEN DE TODOS LOS RESULTADOS FILTRADOS
+    // =====================================================
+
+    const resumen = {
+
+      total:
+        filtradas.length,
+
+      completadas:
+        0,
+
+      conformes:
+        0,
+
+      conHallazgos:
+        0,
+
+      pendientes:
+        0
+
+    };
+
+
+    filtradas.forEach(
+      function(item) {
+
+        const estadoNormalizado =
+          normalizarTextoListadoInspecciones_(
+            item.estado
+          );
+
+
+        const resultadoNormalizado =
+          normalizarTextoListadoInspecciones_(
+            item.resultado
+          );
+
+
+        if (
+          estadoNormalizado ===
+          "completada" ||
+          estadoNormalizado ===
+          "completado"
+        ) {
+
+          resumen.completadas++;
+
+        } else {
+
+          resumen.pendientes++;
+
+        }
+
+
+        if (
+          resultadoNormalizado ===
+          "conforme"
+        ) {
+
+          resumen.conformes++;
+
+        }
+
+
+        if (
+          resultadoNormalizado ===
+            "no conforme" ||
+          resultadoNormalizado ===
+            "con hallazgos" ||
+          Number(
+            item.noConformidades || 0
+          ) > 0
+        ) {
+
+          resumen.conHallazgos++;
+
+        }
+
+      }
+    );
+
+
+    // =====================================================
+    // PAGINACIÓN
+    // =====================================================
+
+    const total =
+      filtradas.length;
+
+
+    const registros =
+      filtradas
+        .slice(
+          desplazamiento,
+          desplazamiento + limite
+        )
+        .map(
+          function(item) {
+
+            /*
+             * Estas propiedades se utilizaron solamente
+             * para filtrar y ordenar en el servidor.
+             */
+            delete item.textoBusqueda;
+            delete item.marcaTiempo;
+
+            return item;
+
+          }
+        );
+
+
+    const siguienteDesplazamiento =
+      desplazamiento +
+      registros.length;
+
+
+    const hayMas =
+      siguienteDesplazamiento <
+      total;
+
+
+    // =====================================================
+    // OPCIONES PARA EL FILTRO DE INSPECTORES
+    // =====================================================
+
+    const inspectores =
+      Array
+        .from(
+          inspectoresEncontrados
+        )
+        .sort(
+          function(a, b) {
+
+            return a.localeCompare(
+              b,
+              "es",
+              {
+                sensitivity:
+                  "base"
+              }
+            );
+
+          }
+        );
+
+
+    // =====================================================
+    // RESPUESTA
+    // =====================================================
+
+    return respuesta({
+
+      ok: true,
+
+      data: {
+
+        registros:
+          registros,
+
+        total:
+          total,
+
+        limite:
+          limite,
+
+        desplazamiento:
+          desplazamiento,
+
+        siguienteDesplazamiento:
+          siguienteDesplazamiento,
+
+        hayMas:
+          hayMas,
+
+        resumen:
+          resumen,
+
+        inspectores:
+          inspectores
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error listando inspecciones realizadas:",
+      error
+    );
+
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error &&
+        error.message
+
+          ? error.message
+
+          : String(error)
+    });
+
+  }
+
+}
+
+
+/**
+ * Normaliza textos utilizados por los filtros del listado.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarTextoListadoInspecciones_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    );
+
+}
+
+
+function probarListadoInspeccionesPaginado() {
+
+  const resultado =
+    listarInspeccionesRealizadas({
+
+      limite:
+        10,
+
+      desplazamiento:
+        0,
+
+      busqueda:
+        "",
+
+      mes:
+        "",
+
+      ano:
+        "",
+
+      estado:
+        "",
+
+      resultado:
+        "",
+
+      inspector:
+        ""
+
+    });
+
+
+  const contenido =
+    JSON.parse(
+      resultado.getContent()
+    );
+
+
+  console.log(
+    JSON.stringify(
+      {
+
+        cantidad:
+          contenido.data.registros.length,
+
+        total:
+          contenido.data.total,
+
+        limite:
+          contenido.data.limite,
+
+        desplazamiento:
+          contenido.data.desplazamiento,
+
+        siguienteDesplazamiento:
+          contenido.data
+            .siguienteDesplazamiento,
+
+        hayMas:
+          contenido.data.hayMas,
+
+        resumen:
+          contenido.data.resumen
+
+      },
+      null,
+      2
+    )
+  );
+
+}
+

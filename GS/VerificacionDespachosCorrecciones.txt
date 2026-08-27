@@ -1,0 +1,1662 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSCORRECCIONES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Registrar correcciones parciales o totales.
+ * - Acumular la cantidad corregida.
+ * - Calcular la diferencia todavía pendiente.
+ * - Normalizar documentos SAP múltiples.
+ * - Utilizar los espacios SAP disponibles del conduce.
+ * - Actualizar Despacho sin sobrescribir documentos originales.
+ * - Recalcular los indicadores de la verificación.
+ *
+ * Formato SAP almacenado:
+ *
+ * 4900012456 ~ 4900012550
+ *
+ * Formatos aceptados como entrada:
+ *
+ * 4900012456
+ * 4900012456 - 4900012550
+ * 4900012456 ~ 4900012550
+ * 4900012456 | 4900012550
+ * ============================================================
+ */
+
+
+/**
+ * Registra una corrección sobre una diferencia existente.
+ *
+ * Parámetros:
+ *
+ * {
+ *   idDetalleVerificacion: "...",
+ *   cantidadCorreccion: 2,
+ *   tipoCorreccion: "REPOSICIÓN DE FALTANTE",
+ *   documentoSAP: "4900012456",
+ *   comentarioCorreccion: "...",
+ *   corregidoPor: "..."
+ * }
+ *
+ * La cantidad de corrección siempre debe ser positiva.
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function guardarCorreccionVerificacionDespacho(
+  data
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  try {
+
+    bloqueo.waitLock(
+      30000
+    );
+
+
+    const parametros =
+      data || {};
+
+
+    const idDetalle =
+      String(
+        parametros.idDetalleVerificacion ||
+        ""
+      ).trim();
+
+
+    const tipoCorreccion =
+      String(
+        parametros.tipoCorreccion ||
+        ""
+      ).trim();
+
+
+    const documentoSAPEntrada =
+      String(
+        parametros.documentoSAP ||
+        ""
+      ).trim();
+
+
+    const comentarioCorreccion =
+      String(
+        parametros.comentarioCorreccion ||
+        ""
+      ).trim();
+
+
+    const corregidoPor =
+      String(
+        parametros.corregidoPor ||
+        parametros.analistaNombre ||
+        parametros.usuario ||
+        ""
+      ).trim();
+
+
+    if (!idDetalle) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el ID del detalle de verificación."
+
+      });
+
+    }
+
+
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        parametros,
+        "cantidadCorreccion"
+      )
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar la cantidad que fue corregida."
+
+      });
+
+    }
+
+
+    const cantidadNuevaCorreccion =
+      convertirCantidadCorreccionVerificacion_(
+        parametros.cantidadCorreccion
+      );
+
+
+    if (
+      cantidadNuevaCorreccion <= 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La cantidad corregida debe ser mayor que cero."
+
+      });
+
+    }
+
+
+    if (!tipoCorreccion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe seleccionar el tipo de corrección."
+
+      });
+
+    }
+
+
+    if (!documentoSAPEntrada) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe registrar el documento SAP de la corrección."
+
+      });
+
+    }
+
+
+    if (!corregidoPor) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No fue posible identificar al usuario que realizó la corrección."
+
+      });
+
+    }
+
+
+    const documentoSAPNormalizado =
+      normalizarDocumentosSAPVerificacion_(
+        documentoSAPEntrada
+      );
+
+
+    const hojaDetalle =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS_DETALLE
+      );
+
+
+    const hojaVerificaciones =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS
+      );
+
+
+    const hojaDespacho =
+      getSheet(
+        SHEETS.DESPACHO
+      );
+
+
+    const hojaMateriales =
+      getSheet(
+        SHEETS.MATERIAL
+      );
+
+
+    if (
+      !hojaDetalle ||
+      !hojaVerificaciones ||
+      !hojaDespacho
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontraron todas las hojas requeridas para registrar la corrección."
+
+      });
+
+    }
+
+
+    const lineaActual =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaDetalle,
+        "ID_Detalle_Verificacion",
+        idDetalle
+      );
+
+
+    if (!lineaActual) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró la línea de verificación seleccionada."
+
+      });
+
+    }
+
+
+    const idVerificacion =
+      String(
+        lineaActual.ID_Verificacion ||
+        ""
+      ).trim();
+
+
+    const idConduce =
+      String(
+        lineaActual.ID_Conduce ||
+        ""
+      ).trim();
+
+
+    if (
+      !idVerificacion ||
+      !idConduce
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La línea no está correctamente vinculada con la verificación y el conduce."
+
+      });
+
+    }
+
+
+    const verificacion =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaVerificaciones,
+        "ID_Verificacion",
+        idVerificacion
+      );
+
+
+    if (!verificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró el encabezado de la verificación."
+
+      });
+
+    }
+
+
+    const estadoVerificacion =
+      normalizarTextoInicioVerificacion_(
+        verificacion.Estado_Verificacion
+      );
+
+
+    if (
+      estadoVerificacion === "finalizada" ||
+      estadoVerificacion === "anulada"
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La verificación no admite correcciones porque está " +
+          verificacion.Estado_Verificacion +
+          "."
+
+      });
+
+    }
+
+
+    const tieneCantidadVerificada =
+      String(
+        lineaActual.Cantidad_Verificada === null ||
+        lineaActual.Cantidad_Verificada === undefined
+          ? ""
+          : lineaActual.Cantidad_Verificada
+      ).trim() !== "";
+
+
+    if (!tieneCantidadVerificada) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Primero debe registrar la cantidad verificada del material."
+
+      });
+
+    }
+
+
+    const diferenciaDetectada =
+      numeroInicioVerificacion_(
+        lineaActual.Diferencia
+      );
+
+
+    if (
+      diferenciaDetectada === 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Este material no tiene una diferencia que requiera corrección."
+
+      });
+
+    }
+
+
+    const cantidadCorregidaAnterior =
+      Math.max(
+        0,
+        numeroInicioVerificacion_(
+          lineaActual.Cantidad_Correccion
+        )
+      );
+
+
+    const magnitudDiferencia =
+      Math.abs(
+        diferenciaDetectada
+      );
+
+
+    const cantidadPendienteAntes =
+      Math.max(
+        0,
+        magnitudDiferencia -
+        cantidadCorregidaAnterior
+      );
+
+
+    if (
+      cantidadPendienteAntes <= 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La diferencia de este material ya está completamente resuelta."
+
+      });
+
+    }
+
+
+    if (
+      cantidadNuevaCorreccion >
+      cantidadPendienteAntes
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La corrección no puede ser mayor que la cantidad pendiente (" +
+          cantidadPendienteAntes +
+          ")."
+
+      });
+
+    }
+
+
+    const cantidadCorreccionAcumulada =
+      redondearInicioVerificacion_(
+        cantidadCorregidaAnterior +
+        cantidadNuevaCorreccion
+      );
+
+
+    const diferenciaPendiente =
+      calcularDiferenciaPendienteVerificacion_(
+        diferenciaDetectada,
+        cantidadCorreccionAcumulada
+      );
+
+
+    const clasificacion =
+      clasificarLineaVerificacion_({
+
+        diferencia:
+          diferenciaDetectada,
+
+        cantidadCorreccion:
+          cantidadCorreccionAcumulada,
+
+        diferenciaPendiente:
+          diferenciaPendiente
+
+      });
+
+
+    /*
+     * Registra el documento SAP en el primer espacio
+     * permitido o lo agrega al espacio de corrección
+     * previamente asignado.
+     */
+    const registroSAP =
+      registrarDocumentoSAPCorreccionConduce_({
+
+        hojaDespacho:
+          hojaDespacho,
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        idConduce:
+          idConduce,
+
+        idVerificacion:
+          idVerificacion,
+
+        posicionAnterior:
+          lineaActual
+            .Posicion_Documento_SAP,
+
+        documentoAnterior:
+          lineaActual
+            .Documento_SAP_Correccion,
+
+        nuevoDocumento:
+          documentoSAPNormalizado
+
+      });
+
+
+    const documentosLinea =
+      agregarDocumentoSAPVerificacion_(
+        lineaActual
+          .Documento_SAP_Correccion,
+        documentoSAPNormalizado
+      );
+
+
+    const material =
+      String(
+        lineaActual.Material ||
+        ""
+      ).trim();
+
+
+    const valorUnidad =
+      obtenerValorUnidadMaterialVerificacion_(
+        hojaMateriales,
+        material
+      );
+
+
+    const valorDesviacion =
+      redondearImporteVerificacion_(
+        magnitudDiferencia *
+        valorUnidad
+      );
+
+
+    const valorCorregido =
+      redondearImporteVerificacion_(
+        cantidadCorreccionAcumulada *
+        valorUnidad
+      );
+
+
+    const valorPendiente =
+      redondearImporteVerificacion_(
+        Math.abs(
+          diferenciaPendiente
+        ) *
+        valorUnidad
+      );
+
+
+    const comentariosAnteriores =
+      String(
+        lineaActual
+          .Comentario_Correccion ||
+        ""
+      ).trim();
+
+
+    const comentarioAcumulado =
+      acumularComentarioCorreccionVerificacion_(
+        comentariosAnteriores,
+        comentarioCorreccion,
+        corregidoPor
+      );
+
+
+    actualizarRegistroPorCampoVerificacion_({
+
+      hoja:
+        hojaDetalle,
+
+      campoBusqueda:
+        "ID_Detalle_Verificacion",
+
+      valorBusqueda:
+        idDetalle,
+
+      datos: {
+
+        Cantidad_Correccion:
+          cantidadCorreccionAcumulada,
+
+        Diferencia_Pendiente:
+          diferenciaPendiente,
+
+        Valor_Desviacion:
+          valorDesviacion,
+
+        Valor_Corregido:
+          valorCorregido,
+
+        Valor_Pendiente:
+          valorPendiente,
+
+        Estado_Resolucion:
+          clasificacion
+            .estadoResolucion,
+
+        Tipo_Correccion:
+          tipoCorreccion,
+
+        Documento_SAP_Correccion:
+          documentosLinea,
+
+        Posicion_Documento_SAP:
+          registroSAP.posicion,
+
+        Fecha_Correccion:
+          new Date(),
+
+        Corregido_Por:
+          corregidoPor,
+
+        Comentario_Correccion:
+          comentarioAcumulado,
+
+        Estado:
+          "Activo"
+
+      }
+
+    });
+
+
+    const detalleActualizado =
+      obtenerDetalleVerificacionExistente_(
+        hojaDetalle,
+        idVerificacion
+      );
+
+
+    const resumen =
+      calcularResumenCompletoVerificacion_(
+        detalleActualizado
+      );
+
+
+    const estadoGeneral =
+      determinarEstadoGeneralVerificacion_(
+        resumen
+      );
+
+    actualizarResumenEncabezadoVerificacion_({
+
+      hoja:
+        hojaVerificaciones,
+
+      idVerificacion:
+        idVerificacion,
+
+      resumen:
+        resumen
+
+    });
+
+
+    /*
+     * Centraliza la clasificación operativa y sincroniza:
+     *
+     * - Verificacion_Despachos
+     * - Despacho
+     *
+     * Estados posibles:
+     *
+     * En proceso
+     * Verificado
+     * Pendiente de resolución
+     * Resuelto
+     */
+    const estadoVerificacionActual =
+      sincronizarEstadoOperativoVerificacion_({
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        hojaDespacho:
+          hojaDespacho,
+
+        idVerificacion:
+          idVerificacion,
+
+        idConduce:
+          idConduce,
+
+        resumen:
+          resumen,
+
+        estadoGeneral:
+          estadoGeneral,
+
+        usuario:
+          corregidoPor
+
+      });
+
+
+    SpreadsheetApp.flush();
+
+
+    const lineaGuardada =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaDetalle,
+        "ID_Detalle_Verificacion",
+        idDetalle
+      );
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      mensaje:
+        diferenciaPendiente === 0
+
+          ? "La incidencia fue resuelta completamente."
+
+          : "La corrección parcial fue registrada correctamente.",
+
+      data: {
+
+        linea:
+          lineaGuardada,
+
+        resumen:
+          resumen,
+
+        estadoGeneral:
+          estadoGeneral,
+
+        estadoVerificacion:
+          estadoVerificacionActual,
+
+        documentoSAP: {
+
+          posicion:
+            registroSAP.posicion,
+
+          valor:
+            registroSAP.valor,
+
+          documentos:
+            registroSAP.documentos
+
+        },
+
+        correccion: {
+
+          cantidadAnterior:
+            cantidadCorregidaAnterior,
+
+          cantidadNueva:
+            cantidadNuevaCorreccion,
+
+          cantidadAcumulada:
+            cantidadCorreccionAcumulada,
+
+          diferenciaPendiente:
+            diferenciaPendiente
+
+        }
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error guardando corrección de verificación:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+
+          ? error.message
+
+          : String(error)
+
+    });
+
+
+  } finally {
+
+    try {
+
+      bloqueo.releaseLock();
+
+    } catch (errorBloqueo) {
+
+      /*
+       * El bloqueo podría no haberse adquirido.
+       */
+
+    }
+
+  }
+
+}
+
+
+/**
+ * Registra uno o varios documentos SAP en Despacho.
+ *
+ * Reglas:
+ *
+ * 1. Los documentos originales no se sobrescriben.
+ * 2. Se utiliza primero una posición vacía.
+ * 3. Si la línea ya tiene posición asignada, los nuevos
+ *    documentos se acumulan en esa misma posición.
+ * 4. Si no hay posiciones vacías, solo puede utilizarse
+ *    una posición previamente identificada como corrección.
+ *
+ * @param {Object} parametros
+ * @return {Object}
+ */
+function registrarDocumentoSAPCorreccionConduce_(
+  parametros
+) {
+
+  const conduce =
+    obtenerRegistroPorCampoVerificacion_(
+      parametros.hojaDespacho,
+      "ID_Conduce",
+      parametros.idConduce
+    );
+
+
+  if (!conduce) {
+
+    throw new Error(
+      "No se encontró el conduce para registrar el documento SAP."
+    );
+
+  }
+
+
+  const verificacion =
+    obtenerRegistroPorCampoVerificacion_(
+      parametros.hojaVerificaciones,
+      "ID_Verificacion",
+      parametros.idVerificacion
+    );
+
+
+  if (!verificacion) {
+
+    throw new Error(
+      "No se encontró la verificación para vincular el documento SAP."
+    );
+
+  }
+
+
+  const posiciones = [
+
+    "Documento_SAP_1",
+    "Documento_SAP_2",
+    "Documento_SAP_3",
+    "Documento_SAP_4"
+
+  ];
+
+
+  const documentosNuevos =
+    separarDocumentosSAPVerificacion_(
+      parametros.nuevoDocumento
+    );
+
+
+  let posicionAsignada =
+    String(
+      parametros.posicionAnterior ||
+      ""
+    ).trim();
+
+
+  /*
+   * Si el documento ya existe en alguna posición,
+   * reutilizamos esa posición.
+   */
+  if (!posicionAsignada) {
+
+    for (
+      let i = 0;
+      i < posiciones.length;
+      i++
+    ) {
+
+      const posicion =
+        posiciones[i];
+
+
+      const documentosPosicion =
+        separarDocumentosSAPVerificacion_(
+          conduce[posicion]
+        );
+
+
+      const coincide =
+        documentosNuevos.some(
+          function(documento) {
+
+            return (
+              documentosPosicion
+                .indexOf(documento) !== -1
+            );
+
+          }
+        );
+
+
+      if (coincide) {
+
+        posicionAsignada =
+          posicion;
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  /*
+   * Si la línea no tiene una posición anterior,
+   * buscamos la primera posición vacía.
+   */
+  if (!posicionAsignada) {
+
+    for (
+      let i = 0;
+      i < posiciones.length;
+      i++
+    ) {
+
+      const posicion =
+        posiciones[i];
+
+
+      if (
+        !String(
+          conduce[posicion] ||
+          ""
+        ).trim()
+      ) {
+
+        posicionAsignada =
+          posicion;
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  /*
+   * Si ya no quedan espacios vacíos, verificamos si
+   * existe una posición registrada como posición de
+   * corrección dentro del encabezado de la verificación.
+   */
+  if (!posicionAsignada) {
+
+    posicionAsignada =
+      obtenerPosicionCorreccionDisponible_(
+        verificacion
+      );
+
+  }
+
+
+  if (!posicionAsignada) {
+
+    throw new Error(
+      "Los cuatro espacios SAP del conduce están ocupados y no existe una posición de corrección habilitada."
+    );
+
+  }
+
+
+  const valorActual =
+    String(
+      conduce[posicionAsignada] ||
+      ""
+    ).trim();
+
+
+  const valorActualizado =
+    agregarDocumentoSAPVerificacion_(
+      valorActual,
+      parametros.nuevoDocumento
+    );
+
+
+  actualizarRegistroPorCampoVerificacion_({
+
+    hoja:
+      parametros.hojaDespacho,
+
+    campoBusqueda:
+      "ID_Conduce",
+
+    valorBusqueda:
+      parametros.idConduce,
+
+    datos: {
+
+      [posicionAsignada]:
+        valorActualizado
+
+    }
+
+  });
+
+
+  registrarDocumentoSAPEnEncabezadoVerificacion_({
+
+    hoja:
+      parametros.hojaVerificaciones,
+
+    idVerificacion:
+      parametros.idVerificacion,
+
+    posicion:
+      posicionAsignada,
+
+    documento:
+      valorActualizado
+
+  });
+
+
+  return {
+
+    posicion:
+      posicionAsignada,
+
+    valor:
+      valorActualizado,
+
+    documentos:
+      separarDocumentosSAPVerificacion_(
+        valorActualizado
+      )
+
+  };
+
+}
+
+
+/**
+ * Registra o actualiza la pareja:
+ *
+ * Documento_SAP_Correccion_N
+ * Posicion_SAP_Correccion_N
+ */
+function registrarDocumentoSAPEnEncabezadoVerificacion_(
+  parametros
+) {
+
+  const verificacion =
+    obtenerRegistroPorCampoVerificacion_(
+      parametros.hoja,
+      "ID_Verificacion",
+      parametros.idVerificacion
+    );
+
+
+  if (!verificacion) {
+
+    throw new Error(
+      "No se encontró la verificación para actualizar los documentos SAP."
+    );
+
+  }
+
+
+  let numeroPosicion =
+    0;
+
+
+  /*
+   * Primero comprobamos si la posición ya está
+   * registrada en el encabezado.
+   */
+  for (
+    let i = 1;
+    i <= 4;
+    i++
+  ) {
+
+    const posicionGuardada =
+      String(
+        verificacion[
+          "Posicion_SAP_Correccion_" +
+          i
+        ] || ""
+      ).trim();
+
+
+    if (
+      posicionGuardada ===
+      parametros.posicion
+    ) {
+
+      numeroPosicion =
+        i;
+
+      break;
+
+    }
+
+  }
+
+
+  /*
+   * Si todavía no existe, usamos el primer par vacío.
+   */
+  if (!numeroPosicion) {
+
+    for (
+      let i = 1;
+      i <= 4;
+      i++
+    ) {
+
+      const documentoGuardado =
+        String(
+          verificacion[
+            "Documento_SAP_Correccion_" +
+            i
+          ] || ""
+        ).trim();
+
+
+      const posicionGuardada =
+        String(
+          verificacion[
+            "Posicion_SAP_Correccion_" +
+            i
+          ] || ""
+        ).trim();
+
+
+      if (
+        !documentoGuardado &&
+        !posicionGuardada
+      ) {
+
+        numeroPosicion =
+          i;
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  if (!numeroPosicion) {
+
+    throw new Error(
+      "No existen espacios disponibles en el encabezado para registrar el documento SAP de corrección."
+    );
+
+  }
+
+
+  const datos = {};
+
+
+  datos[
+    "Documento_SAP_Correccion_" +
+    numeroPosicion
+  ] = parametros.documento;
+
+
+  datos[
+    "Posicion_SAP_Correccion_" +
+    numeroPosicion
+  ] = parametros.posicion;
+
+
+  datos.Fecha_Modificacion =
+    new Date();
+
+
+  actualizarRegistroPorCampoVerificacion_({
+
+    hoja:
+      parametros.hoja,
+
+    campoBusqueda:
+      "ID_Verificacion",
+
+    valorBusqueda:
+      parametros.idVerificacion,
+
+    datos:
+      datos
+
+  });
+
+}
+
+
+/**
+ * Obtiene una posición SAP que ya haya sido
+ * identificada como espacio de corrección.
+ *
+ * @param {Object} verificacion
+ * @return {string}
+ */
+function obtenerPosicionCorreccionDisponible_(
+  verificacion
+) {
+
+  for (
+    let i = 1;
+    i <= 4;
+    i++
+  ) {
+
+    const posicion =
+      String(
+        verificacion[
+          "Posicion_SAP_Correccion_" +
+          i
+        ] || ""
+      ).trim();
+
+
+    if (posicion) {
+      return posicion;
+    }
+
+  }
+
+
+  return "";
+
+}
+
+
+/**
+ * Normaliza uno o varios documentos SAP.
+ *
+ * Acepta:
+ *
+ * 4900012456
+ * 4900012456 - 4900012550
+ * 4900012456 ~ 4900012550
+ * 4900012456 | 4900012550
+ *
+ * Siempre devuelve:
+ *
+ * 4900012456 ~ 4900012550
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarDocumentosSAPVerificacion_(
+  valor
+) {
+
+  const documentos =
+    separarDocumentosSAPVerificacion_(
+      valor
+    );
+
+
+  if (
+    documentos.length === 0
+  ) {
+
+    throw new Error(
+      "Debe registrar al menos un documento SAP."
+    );
+
+  }
+
+
+  const invalidos =
+    documentos.filter(
+      function(documento) {
+
+        return !/^\d{10}$/
+          .test(
+            documento
+          );
+
+      }
+    );
+
+
+  if (
+    invalidos.length > 0
+  ) {
+
+    throw new Error(
+      "Cada documento SAP debe contener exactamente 10 dígitos."
+    );
+
+  }
+
+
+  return documentos.join(
+    " ~ "
+  );
+
+}
+
+
+/**
+ * Convierte un campo SAP en una lista sin duplicados.
+ *
+ * @param {*} valor
+ * @return {Array<string>}
+ */
+function separarDocumentosSAPVerificacion_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  if (!texto) {
+    return [];
+  }
+
+
+  return texto
+    .split(
+      /\s*(?:-|~|\|)\s*/
+    )
+    .map(
+      function(documento) {
+
+        return String(
+          documento || ""
+        ).trim();
+
+      }
+    )
+    .filter(Boolean)
+    .filter(
+      function(documento, indice, lista) {
+
+        return (
+          lista.indexOf(documento) ===
+          indice
+        );
+
+      }
+    );
+
+}
+
+
+/**
+ * Agrega documentos nuevos sin borrar los anteriores.
+ *
+ * @param {*} documentosActuales
+ * @param {*} nuevosDocumentos
+ * @return {string}
+ */
+function agregarDocumentoSAPVerificacion_(
+  documentosActuales,
+  nuevosDocumentos
+) {
+
+  const actuales =
+    separarDocumentosSAPVerificacion_(
+      documentosActuales
+    );
+
+
+  const nuevos =
+    separarDocumentosSAPVerificacion_(
+      nuevosDocumentos
+    );
+
+
+  const combinados =
+    actuales.concat(
+      nuevos
+    )
+      .filter(
+        function(documento, indice, lista) {
+
+          return (
+            lista.indexOf(documento) ===
+            indice
+          );
+
+        }
+      );
+
+
+  const invalidos =
+    combinados.filter(
+      function(documento) {
+
+        return !/^\d{10}$/
+          .test(
+            documento
+          );
+
+      }
+    );
+
+
+  if (
+    invalidos.length > 0
+  ) {
+
+    throw new Error(
+      "Cada documento SAP debe contener exactamente 10 dígitos."
+    );
+
+  }
+
+
+  return combinados.join(
+    " ~ "
+  );
+
+}
+
+
+/**
+ * Convierte y valida la nueva cantidad corregida.
+ *
+ * @param {*} valor
+ * @return {number}
+ */
+function convertirCantidadCorreccionVerificacion_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        /,/g,
+        ""
+      );
+
+
+  if (!texto) {
+
+    throw new Error(
+      "Debe indicar la cantidad corregida."
+    );
+
+  }
+
+
+  const numero =
+    Number(
+      texto
+    );
+
+
+  if (
+    !isFinite(numero)
+  ) {
+
+    throw new Error(
+      "La cantidad corregida no es válida."
+    );
+
+  }
+
+
+  if (
+    numero <= 0
+  ) {
+
+    throw new Error(
+      "La cantidad corregida debe ser mayor que cero."
+    );
+
+  }
+
+
+  return redondearInicioVerificacion_(
+    numero
+  );
+
+}
+
+
+/**
+ * Acumula los comentarios de corrección sin borrar
+ * la trazabilidad de intervenciones anteriores.
+ *
+ * @param {*} comentarioAnterior
+ * @param {*} comentarioNuevo
+ * @param {*} usuario
+ * @return {string}
+ */
+function acumularComentarioCorreccionVerificacion_(
+  comentarioAnterior,
+  comentarioNuevo,
+  usuario
+) {
+
+  const anterior =
+    String(
+      comentarioAnterior ||
+      ""
+    ).trim();
+
+
+  const nuevo =
+    String(
+      comentarioNuevo ||
+      ""
+    ).trim();
+
+
+  if (!nuevo) {
+    return anterior;
+  }
+
+
+  const zonaHoraria =
+    SpreadsheetApp
+      .openById(
+        SHEET_ID
+      )
+      .getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    "America/Santo_Domingo";
+
+
+  const marca =
+    Utilities.formatDate(
+      new Date(),
+      zonaHoraria,
+      "dd/MM/yyyy HH:mm"
+    );
+
+
+  const entrada =
+    "[" +
+    marca +
+    " · " +
+    String(
+      usuario || "Usuario"
+    ).trim() +
+    "] " +
+    nuevo;
+
+
+  return [
+    anterior,
+    entrada
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+}
+
+
+/**
+ * ============================================================
+ * PRUEBA MANUAL
+ * ============================================================
+ *
+ * Utiliza una línea que tenga diferencia pendiente.
+ */
+function probarCorreccionVerificacionDespacho() {
+
+  const resultado =
+    guardarCorreccionVerificacionDespacho({
+
+      idDetalleVerificacion:
+        "2a2a9739-a6be-42f4-923b-09c7aa157a93",
+
+      cantidadCorreccion:
+        200,
+
+      tipoCorreccion:
+        "REPOSICIÓN DE FALTANTE",
+
+      documentoSAP:
+        "4900012478",
+
+      comentarioCorreccion:
+        "Prueba de corrección parcial.",
+
+      corregidoPor:
+        "Analista de prueba"
+
+    });
+
+
+  console.log(
+    resultado.getContent()
+  );
+
+
+  return resultado;
+
+}

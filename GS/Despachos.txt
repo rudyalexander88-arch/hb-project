@@ -1,0 +1,4201 @@
+// ======================================================
+// DESPACHOS.GS
+// Persistencia de conduces y borradores
+// ======================================================
+ 
+/**
+ * Guarda un nuevo borrador o actualiza uno existente.
+ */
+function guardarBorrador(data) {
+
+    const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+  
+  const payload = data && data.conduce;
+ 
+  if (!payload || !payload.encabezado) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se recibieron los datos del conduce."
+    });
+  }
+ 
+  const hojaDespacho = getSheet(SHEETS.DESPACHO);
+  const hojaDetalle = getSheet(SHEETS.DESPACHO_DETALLE);
+ 
+  if (!hojaDespacho || !hojaDetalle) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se encontraron las hojas Despacho o Despacho_Detalle."
+    });
+  }
+ 
+  const encabezado = payload.encabezado;
+  const detalle = Array.isArray(payload.detalle)
+    ? payload.detalle
+    : [];
+ 
+  let idConduce = String(encabezado.idConduce || "").trim();
+  let noConduce = String(encabezado.noConduce || "").trim();
+ 
+  const noConduceAnterior = noConduce;
+  const esNuevo = !idConduce;
+  const ahora = new Date();
+ 
+  const requiereRenumeracion =
+    esNuevo ||
+    encabezado.requiereRenumeracion === true ||
+    !numeroConduceCoincideConRuta(noConduce, encabezado);
+ 
+  if (requiereRenumeracion) {
+ 
+    if (!esNuevo) {
+      liberarNumeroLimpioSiProcede(
+        hojaDespacho,
+        idConduce,
+        noConduceAnterior,
+        encabezado
+      );
+    }
+ 
+    const numeracion = generarNumeracionConduce(
+      encabezado,
+      hojaDespacho,
+      noConduceAnterior
+    );
+ 
+    noConduce = numeracion.noConduce;
+ 
+    if (esNuevo) {
+      idConduce = generarIdConduce(
+        numeracion.identificador,
+        ahora
+      );
+    }
+  }
+ 
+  // ==========================================
+  // NORMALIZAR FECHA DE CREACIÓN
+  // ==========================================
+ 
+  const fechaCreacion = esNuevo
+    ? ahora
+    : obtenerFechaCreacionExistente(
+        hojaDespacho,
+        idConduce
+      );
+ 
+  const fechaDespachoExistente = esNuevo
+    ? ""
+    : obtenerValorExistentePorId(
+        hojaDespacho,
+        "ID_Conduce",
+        idConduce,
+        "Fecha_Despacho"
+      );
+ 
+  const fechaCompletadoExistente = esNuevo
+    ? ""
+    : obtenerValorExistentePorId(
+        hojaDespacho,
+        "ID_Conduce",
+        idConduce,
+        "Fecha_Completado"
+      );
+ 
+  // ==========================================
+  // CALCULAR TOTALES
+  // ==========================================
+ 
+  const totalUnidades = detalle.reduce(
+    function(total, linea) {
+      return total + Number(linea.cantidad || 0);
+    },
+    0
+  );
+ 
+  // ==========================================
+  // PREPARAR ENCABEZADO
+  // ==========================================
+ 
+  const datosEncabezado = {
+    ID_Conduce: idConduce,
+    No_Conduce: noConduce,
+    Fecha_Creacion: fechaCreacion,
+    Fecha_Despacho:
+      fechaDespachoExistente ||
+      encabezado.fechaDespacho ||
+      "",
+    Fecha_Completado:
+      encabezado.fechaCompletado ||
+      fechaCompletadoExistente ||
+      "",
+    Estado: encabezado.estado || "Borrador",
+    Usuario_Creador: encabezado.usuarioCreador || "",
+    RealizadoPor: encabezado.supervisor || "",
+    Chofer: encabezado.chofer || "",
+    Unidad_Carga: encabezado.unidad || "",
+    Cantidad_Destinos: Number(encabezado.cantidadDestinos || 1),
+    Destino_1: encabezado.destino1 || "",
+    Precinto_1: encabezado.precinto1 || "",
+    Destino_2: encabezado.destino2 || "",
+    Precinto_2: encabezado.precinto2 || "",
+    Total_Lineas: detalle.length,
+    Total_Unidades: totalUnidades,
+    PDF_URL: encabezado.pdfUrl || "",
+    Observaciones: encabezado.observaciones || "",
+    AsistenteCalidad: encabezado.asistenteCalidad || "",
+    Temperatura: encabezado.temperatura || "",
+    RevisionURL: encabezado.revisionUrl || "",
+    Documento_SAP_1: encabezado.documentoSAP1 || "",
+    Documento_SAP_2: encabezado.documentoSAP2 || "",
+    Documento_SAP_3: encabezado.documentoSAP3 || "",
+    Documento_SAP_4: encabezado.documentoSAP4 || ""
+  };
+ 
+  // ==========================================
+  // GUARDAR O ACTUALIZAR ENCABEZADO
+  // ==========================================
+ 
+  const filaDespacho = guardarOActualizarPorId(
+    hojaDespacho,
+    "ID_Conduce",
+    idConduce,
+    datosEncabezado
+  );
+ 
+  guardarFechaHoraCorta(
+    hojaDespacho,
+    filaDespacho,
+    "Fecha_Creacion",
+    fechaCreacion
+  );
+ 
+  if (datosEncabezado.Fecha_Despacho) {
+    guardarFechaHoraCorta(
+      hojaDespacho,
+      filaDespacho,
+      "Fecha_Despacho",
+      datosEncabezado.Fecha_Despacho
+    );
+  }
+ 
+  if (datosEncabezado.Fecha_Completado) {
+    guardarFechaHoraCorta(
+      hojaDespacho,
+      filaDespacho,
+      "Fecha_Completado",
+      datosEncabezado.Fecha_Completado
+    );
+  }
+ 
+  sincronizarPrecintosBorrador(
+    encabezado,
+    noConduce,
+    noConduceAnterior
+  );
+ 
+  // ==========================================
+  // REEMPLAZAR DETALLE DEL BORRADOR
+  // ==========================================
+ 
+  eliminarDetallesPorConduce(
+    hojaDetalle,
+    idConduce
+  );
+ 
+  if (detalle.length > 0) {
+ 
+    const encabezadosDetalle = obtenerEncabezados(hojaDetalle);
+ 
+    const filas = detalle.map(function(linea) {
+ 
+      const datosLinea = {
+        ID_Linea: linea.idLinea || Utilities.getUuid(),
+        Tipo_Linea: linea.tipo || "Tarima",
+        Posicion:
+          linea.tipo === "Tarima"
+            ? Number(linea.posicion || 0)
+            : "",
+        ID_Conduce: idConduce,
+        Destino: linea.destino || "",
+        No_Conduce: noConduce,
+        Material: linea.material || "",
+        Descripcion: linea.descripcion || "",
+        Unidad_Medida: linea.unidad || "",
+        Fecha_Produccion: linea.fechaProduccion || "",
+        Lote: linea.lote || "",
+        Fecha_Vencimiento: linea.fechaVencimiento || "",
+        Base: Number(linea.base || 0),
+        Altura: Number(linea.altura || 0),
+        Recorte: Number(linea.recorte || 0),
+        Cantidad: Number(linea.cantidad || 0),
+        ID_Camara: linea.idCamara || "",
+        Codigo_Camara: linea.codigoCamara || "",
+        Observacion_Camara: linea.observacionCamara || ""
+      };
+ 
+      return encabezadosDetalle.map(function(nombreColumna) {
+        return datosLinea[nombreColumna] !== undefined
+          ? datosLinea[nombreColumna]
+          : "";
+      });
+    });
+ 
+    hojaDetalle
+      .getRange(
+        hojaDetalle.getLastRow() + 1,
+        1,
+        filas.length,
+        encabezadosDetalle.length
+      )
+      .setValues(filas);
+  }
+ 
+  return respuesta({
+    ok: true,
+    mensaje: esNuevo
+      ? "Borrador creado correctamente."
+      : "Cambios guardados correctamente.",
+    data: {
+      idConduce: idConduce,
+      noConduce: noConduce,
+      estado: datosEncabezado.Estado,
+      totalLineas: detalle.length,
+      totalUnidades: totalUnidades
+    }
+  });
+
+  } finally {
+
+  bloqueo.releaseLock();
+
+}
+}
+
+ 
+/**
+ * Registra la información final de la carga y cambia el estado a Despachado.
+ */
+function finalizarCarga(data) {
+ 
+  const conduce = data && data.conduce
+    ? data.conduce
+    : {};
+ 
+  const encabezado = conduce.encabezado || {};
+ 
+  const idConduce = String(
+    encabezado.idConduce || ""
+  ).trim();
+ 
+  if (!idConduce) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se recibió el ID del conduce."
+    });
+  }
+ 
+  const asistenteCalidad = String(
+    encabezado.asistenteCalidad || ""
+  ).trim();
+ 
+  const temperatura = String(
+    encabezado.temperatura || ""
+  ).trim();
+ 
+  if (!asistenteCalidad) {
+    return respuesta({
+      ok: false,
+      mensaje: "Debe seleccionar el personal de Calidad."
+    });
+  }
+ 
+  if (!temperatura) {
+    return respuesta({
+      ok: false,
+      mensaje: "Debe registrar la temperatura del contenedor."
+    });
+  }
+ 
+  const hoja = getSheet(SHEETS.DESPACHO);
+ 
+  if (!hoja) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la hoja Despacho."
+    });
+  }
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const indiceId = encabezados.indexOf("ID_Conduce");
+ 
+  if (indiceId === -1) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la columna ID_Conduce."
+    });
+  }
+ 
+  const ultimaFila = hoja.getLastRow();
+ 
+  if (ultimaFila <= 1) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se encontró el conduce."
+    });
+  }
+ 
+  const ids = hoja
+    .getRange(
+      2,
+      indiceId + 1,
+      ultimaFila - 1,
+      1
+    )
+    .getDisplayValues();
+ 
+  let filaConduce = -1;
+ 
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === idConduce) {
+      filaConduce = i + 2;
+      break;
+    }
+  }
+ 
+  if (filaConduce === -1) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se encontró el conduce solicitado."
+    });
+  }
+ 
+  const actualizarColumna = function(nombreColumna, valor) {
+ 
+    const indice = encabezados.indexOf(nombreColumna);
+ 
+    if (indice === -1) {
+      throw new Error(
+        "No existe la columna " +
+        nombreColumna +
+        " en Despacho."
+      );
+    }
+ 
+    hoja
+      .getRange(filaConduce, indice + 1)
+      .setValue(valor);
+  };
+ 
+  actualizarColumna(
+    "AsistenteCalidad",
+    asistenteCalidad
+  );
+ 
+  actualizarColumna(
+    "Temperatura",
+    temperatura
+  );
+ 
+  actualizarColumna(
+    "Observaciones",
+    encabezado.observaciones || ""
+  );
+ 
+  actualizarColumna(
+    "Estado",
+    "Despachado"
+  );
+ 
+  // ============================================================
+  // La fecha de despacho se registra únicamente la primera vez.
+  // Si el conduce se corrige y vuelve a despacharse, conserva
+  // la fecha original para no alterar la meta del día.
+  // ============================================================
+
+  const indiceFechaDespacho =
+    encabezados.indexOf("Fecha_Despacho");
+
+  if (indiceFechaDespacho === -1) {
+    throw new Error(
+      'No existe la columna "Fecha_Despacho" en Despacho.'
+    );
+  }
+
+  const celdaFechaDespacho =
+    hoja.getRange(
+      filaConduce,
+      indiceFechaDespacho + 1
+    );
+
+  const fechaDespachoExistente =
+    celdaFechaDespacho.getValue();
+
+  let fechaDespacho;
+
+  if (
+    fechaDespachoExistente instanceof Date &&
+    !isNaN(fechaDespachoExistente.getTime())
+  ) {
+    fechaDespacho = fechaDespachoExistente;
+
+  } else if (
+    String(fechaDespachoExistente || "").trim()
+  ) {
+    fechaDespacho = new Date(fechaDespachoExistente);
+
+    if (isNaN(fechaDespacho.getTime())) {
+      throw new Error(
+        "La fecha original del despacho no tiene un formato válido. " +
+        "No se modificará para proteger el histórico de metas."
+      );
+    }
+
+  } else {
+    fechaDespacho = new Date();
+
+    guardarFechaHoraCorta(
+      hoja,
+      filaConduce,
+      "Fecha_Despacho",
+      fechaDespacho
+    );
+  }
+
+  marcarPrecintosComoUtilizados(
+  encabezado,
+  encabezado.noConduce || "",
+  fechaDespacho
+  );
+ 
+  SpreadsheetApp.flush();
+
+  return respuesta({
+    ok: true,
+    mensaje: "Carga finalizada correctamente.",
+    data: {
+      estado: "Despachado",
+      noConduce: encabezado.noConduce || "",
+      fechaDespacho: Utilities.formatDate(
+        fechaDespacho,
+        Session.getScriptTimeZone(),
+        "dd/MM/yyyy HH:mm:ss"
+      )
+    }
+  });
+}
+
+function completarConduce(data) {
+
+  const conduce = data.conduce || {};
+  const encabezado = conduce.encabezado || {};
+
+  const idConduce =
+    String(encabezado.idConduce || "").trim();
+
+  if (!idConduce) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se recibió el ID del conduce."
+    });
+  }
+
+  const documentosSAP = [
+    encabezado.documentoSAP1,
+    encabezado.documentoSAP2,
+    encabezado.documentoSAP3,
+    encabezado.documentoSAP4
+  ].map(valor => String(valor || "").trim());
+
+  const tieneDocumento =
+    documentosSAP.some(Boolean);
+
+  if (!tieneDocumento) {
+    return respuesta({
+      ok: false,
+      mensaje: "Debe registrar al menos un documento SAP."
+    });
+  }
+
+  const hoja = getSheet(SHEETS.DESPACHO);
+
+  if (!hoja) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la hoja Despacho."
+    });
+  }
+
+  const encabezados =
+    obtenerEncabezados(hoja);
+
+  const indiceId =
+    encabezados.indexOf("ID_Conduce");
+
+  if (indiceId === -1) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la columna ID_Conduce."
+    });
+  }
+
+  const indiceFechaDespacho =
+    encabezados.indexOf("Fecha_Despacho");
+
+  if (indiceFechaDespacho === -1) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la columna Fecha_Despacho."
+    });
+  }
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+  let filaConduce = -1;
+
+  if (ultimaFila > 1) {
+
+    const ids =
+      hoja
+        .getRange(
+          2,
+          indiceId + 1,
+          ultimaFila - 1,
+          1
+        )
+        .getDisplayValues();
+
+    for (let i = 0; i < ids.length; i++) {
+
+      if (
+        String(ids[i][0]).trim() ===
+        idConduce
+      ) {
+        filaConduce = i + 2;
+        break;
+      }
+    }
+  }
+
+  if (filaConduce === -1) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se encontró el conduce."
+    });
+  }
+
+  // =====================================================
+  // CÁMARAS DE ORIGEN
+  // =====================================================
+  // Toda tarima debe indicar la cámara frigorífica de la
+  // que se tomó. La salida se registra después de cambiar
+  // el estado a Completado y nunca durante el borrador o
+  // al pasar a Despachado.
+
+  const hojaDetalle = getSheet(SHEETS.DESPACHO_DETALLE);
+
+  if (!hojaDetalle) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la hoja Despacho_Detalle."
+    });
+  }
+
+  const encabezadosDetalle = obtenerEncabezados(hojaDetalle);
+  const indiceDetalleConduce = encabezadosDetalle.indexOf("ID_Conduce");
+  const indiceTipoLinea = encabezadosDetalle.indexOf("Tipo_Linea");
+  const indiceCamara = encabezadosDetalle.indexOf("ID_Camara");
+  const indiceLinea = encabezadosDetalle.indexOf("ID_Linea");
+
+  if (indiceDetalleConduce === -1 || indiceTipoLinea === -1 || indiceCamara === -1) {
+    return respuesta({
+      ok: false,
+      mensaje: "Despacho_Detalle debe contener ID_Conduce, Tipo_Linea e ID_Camara."
+    });
+  }
+
+  const detalleGuardado = hojaDetalle.getLastRow() > 1
+    ? hojaDetalle
+        .getRange(2, 1, hojaDetalle.getLastRow() - 1, encabezadosDetalle.length)
+        .getDisplayValues()
+        .filter(fila => String(fila[indiceDetalleConduce] || "").trim() === idConduce)
+    : [];
+
+  const tarimasSinCamara = detalleGuardado.filter(fila =>
+    String(fila[indiceTipoLinea] || "").trim().toUpperCase() === "TARIMA" &&
+    !String(fila[indiceCamara] || "").trim()
+  );
+
+  if (tarimasSinCamara.length) {
+    const lineas = tarimasSinCamara
+      .slice(0, 4)
+      .map(fila => indiceLinea >= 0 ? String(fila[indiceLinea] || "").trim() : "")
+      .filter(Boolean)
+      .join(", ");
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Hay " + tarimasSinCamara.length +
+        " tarima(s) sin cámara frigorífica de origen." +
+        (lineas ? " Revise las líneas: " + lineas + "." : "")
+    });
+  }
+
+  const actualizar = function (
+    nombre,
+    valor
+  ) {
+
+    const indice =
+      encabezados.indexOf(nombre);
+
+    if (indice === -1) {
+      throw new Error(
+        "No existe la columna " +
+        nombre +
+        " en la hoja Despacho."
+      );
+    }
+
+    hoja
+      .getRange(
+        filaConduce,
+        indice + 1
+      )
+      .setValue(valor);
+  };
+
+
+  // =====================================================
+  // DOCUMENTOS SAP
+  // =====================================================
+
+  actualizar(
+    "Documento_SAP_1",
+    documentosSAP[0]
+  );
+
+  actualizar(
+    "Documento_SAP_2",
+    documentosSAP[1]
+  );
+
+  actualizar(
+    "Documento_SAP_3",
+    documentosSAP[2]
+  );
+
+  actualizar(
+    "Documento_SAP_4",
+    documentosSAP[3]
+  );
+
+
+  // =====================================================
+  // OBSERVACIONES
+  // =====================================================
+
+  actualizar(
+    "Observaciones",
+    encabezado.observaciones || ""
+  );
+
+
+  // =====================================================
+  // FECHA DE DESPACHO
+  // =====================================================
+  //
+  // Si el conduce ya fue despachado previamente,
+  // conserva su Fecha_Despacho.
+  //
+  // Si se completa directamente sin imprimir,
+  // se asigna la fecha y hora actual.
+  // =====================================================
+
+  const celdaFechaDespacho =
+    hoja.getRange(
+      filaConduce,
+      indiceFechaDespacho + 1
+    );
+
+  const fechaDespachoActual =
+    celdaFechaDespacho.getValue();
+
+  let fechaDespacho =
+    fechaDespachoActual;
+
+  const tieneFechaDespacho =
+    fechaDespachoActual instanceof Date
+
+      ? !Number.isNaN(
+          fechaDespachoActual.getTime()
+        )
+
+      : String(
+          fechaDespachoActual || ""
+        ).trim() !== "";
+
+  if (!tieneFechaDespacho) {
+
+    fechaDespacho =
+      new Date();
+
+    guardarFechaHoraCorta(
+      hoja,
+      filaConduce,
+      "Fecha_Despacho",
+      fechaDespacho
+    );
+  }
+
+
+  // =====================================================
+  // PRECINTOS
+  // =====================================================
+  //
+  // Reutilizamos exactamente la misma lógica que ya
+  // funciona cuando el conduce pasa a Despachado.
+  //
+  // Esto actualiza en la hoja Precintos:
+  //
+  // Estado            → Utilizado
+  // Fecha_Utilizacion  → Fecha_Despacho
+  //
+  // Aplica a Precinto_1 y Precinto_2 cuando existan.
+  // =====================================================
+
+  marcarPrecintosComoUtilizados(
+    encabezado,
+    encabezado.noConduce || "",
+    fechaDespacho
+  );
+
+
+  // =====================================================
+  // ESTADO
+  // =====================================================
+
+  actualizar(
+    "Estado",
+    "Completado"
+  );
+
+
+  // =====================================================
+  // FECHA DE COMPLETADO
+  // =====================================================
+
+  const fechaCompletado =
+    new Date();
+
+  guardarFechaHoraCorta(
+    hoja,
+    filaConduce,
+    "Fecha_Completado",
+    fechaCompletado
+  );
+
+
+  SpreadsheetApp.flush();
+
+  // Descuenta posiciones una sola vez, únicamente al completar el despacho.
+  if (typeof registrarSalidaCamaraDesdeDespacho_ === "function") {
+    registrarSalidaCamaraDesdeDespacho_(idConduce, {
+      id: encabezado.usuarioCreador || data.idEmpleado || "",
+      nombre: encabezado.supervisor || encabezado.usuarioCreador || ""
+    });
+  }
+
+
+  // =====================================================
+  // RESPUESTA
+  // =====================================================
+
+  return respuesta({
+
+    ok: true,
+
+    mensaje:
+      "Conduce completado correctamente.",
+
+    data: {
+
+      estado:
+        "Completado",
+
+      noConduce:
+        encabezado.noConduce || "",
+
+      fechaDespacho:
+        fechaDespacho instanceof Date
+
+          ? Utilities.formatDate(
+              fechaDespacho,
+              Session.getScriptTimeZone(),
+              "dd/MM/yyyy HH:mm:ss"
+            )
+
+          : String(
+              fechaDespacho || ""
+            ).trim(),
+
+      fechaCompletado:
+        Utilities.formatDate(
+          fechaCompletado,
+          Session.getScriptTimeZone(),
+          "dd/MM/yyyy HH:mm:ss"
+        )
+
+    }
+
+  });
+
+}
+ 
+/**
+ * Devuelve todos los conduces en estado Borrador.
+ */
+function listarBorradores() {
+ 
+  const hoja = getSheet(SHEETS.DESPACHO);
+ 
+  if (!hoja) {
+    return respuesta({
+      ok: false,
+      mensaje: "No existe la hoja Despacho."
+    });
+  }
+ 
+  const datos = hoja.getDataRange().getDisplayValues();
+ 
+  if (datos.length <= 1) {
+    return respuesta({
+      ok: true,
+      data: []
+    });
+  }
+ 
+  const encabezados = datos.shift();
+ 
+  const borradores = datos
+    .map(function(fila) {
+      return convertirFilaAObjeto(encabezados, fila);
+    })
+    .filter(function(item) {
+      return String(item.Estado || "")
+        .trim()
+        .toLowerCase() === "borrador";
+    })
+    .map(function(item) {
+      return {
+        idConduce: item.ID_Conduce,
+        noConduce: item.No_Conduce,
+        fechaCreacion: item.Fecha_Creacion,
+        realizadoPor: item.RealizadoPor,
+        chofer: item.Chofer,
+        unidad: item.Unidad_Carga,
+        totalLineas: Number(item.Total_Lineas || 0),
+        totalUnidades: Number(item.Total_Unidades || 0),
+        estado: item.Estado
+      };
+    });
+ 
+  return respuesta({
+    ok: true,
+    data: borradores
+  });
+}
+ 
+function listarDespachadosYCompletados() {
+
+    const hoja = getSheet(SHEETS.DESPACHO);
+
+    if (!hoja) {
+
+        return respuesta({
+            ok:false,
+            mensaje:"No existe la hoja Despacho."
+        });
+
+    }
+
+    const datos = hoja.getDataRange().getDisplayValues();
+
+    if (datos.length <= 1) {
+
+        return respuesta({
+            ok:true,
+            data:[]
+        });
+
+    }
+
+    const encabezados = datos.shift();
+
+    const conduces = datos
+
+        .map(fila =>
+            convertirFilaAObjeto(
+                encabezados,
+                fila
+            )
+        )
+
+        .filter(item => {
+
+            const estado = String(
+                item.Estado || ""
+            ).trim();
+
+            return (
+                estado === "Despachado" ||
+                estado === "Completado"
+            );
+
+        })
+
+        .sort((a,b)=>{
+
+            if(
+                a.Estado !== b.Estado
+            ){
+
+                if(a.Estado==="Despachado")
+                    return -1;
+
+                return 1;
+
+            }
+
+            return 0;
+
+        })
+
+        .map(item=>({
+
+            idConduce:item.ID_Conduce,
+
+            noConduce:item.No_Conduce,
+
+            fecha:item.Fecha_Despacho ||
+                  item.Fecha_Cierre ||
+                  item.Fecha_Creacion,
+
+            realizadoPor:item.RealizadoPor,
+
+            estado:item.Estado,
+
+            totalLineas:Number(
+                item.Total_Lineas||0
+            ),
+
+            totalUnidades:Number(
+                item.Total_Unidades||0
+            )
+
+        }));
+
+    return respuesta({
+
+        ok:true,
+
+        data:conduces
+
+    });
+
+}
+
+/**
+ * ============================================================
+ * LISTADO PAGINADO DEL DASHBOARD DE DESPACHOS
+ * ============================================================
+ *
+ * Tipos admitidos:
+ *
+ * abiertos:
+ * - Borrador
+ * - Despachado
+ *
+ * completados:
+ * - Completado
+ *
+ * La lectura se realiza desde las filas más recientes hacia
+ * las más antiguas y en bloques, para no cargar toda la hoja
+ * innecesariamente.
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function listarDespachosDashboard(data) {
+
+  const parametros =
+    data || {};
+
+  const tipo =
+    String(
+      parametros.tipo || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const limiteSolicitado =
+    Number(
+      parametros.limite || 10
+    );
+
+  const desplazamientoSolicitado =
+    Number(
+      parametros.desplazamiento || 0
+    );
+
+
+  // ==========================================================
+  // VALIDAR TIPO
+  // ==========================================================
+
+  if (
+    tipo !== "abiertos" &&
+    tipo !== "completados"
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        'El tipo debe ser "abiertos" o "completados".'
+    });
+
+  }
+
+
+  // ==========================================================
+  // NORMALIZAR PAGINACIÓN
+  // ==========================================================
+
+  const limite =
+    Math.min(
+      Math.max(
+        Math.trunc(limiteSolicitado) || 10,
+        1
+      ),
+      50
+    );
+
+  const desplazamiento =
+    Math.max(
+      Math.trunc(
+        desplazamientoSolicitado
+      ) || 0,
+      0
+    );
+
+
+  // ==========================================================
+  // OBTENER HOJA
+  // ==========================================================
+
+  const hoja =
+    getSheet(
+      SHEETS.DESPACHO
+    );
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Despacho."
+    });
+
+  }
+
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+  const ultimaColumna =
+    hoja.getLastColumn();
+
+
+  if (
+    ultimaFila <= 1 ||
+    ultimaColumna <= 0
+  ) {
+
+    return respuesta({
+      ok: true,
+
+      data: {
+        registros: [],
+        limite: limite,
+        desplazamiento:
+          desplazamiento,
+        siguienteDesplazamiento:
+          desplazamiento,
+        hayMas: false
+      }
+    });
+
+  }
+
+
+  // ==========================================================
+  // ENCABEZADOS
+  // ==========================================================
+
+  const encabezados =
+    hoja
+      .getRange(
+        1,
+        1,
+        1,
+        ultimaColumna
+      )
+      .getDisplayValues()[0];
+
+
+  const encabezadosRequeridos = [
+    "ID_Conduce",
+    "No_Conduce",
+    "Estado"
+  ];
+
+
+  const faltantes =
+    encabezadosRequeridos.filter(
+      function(nombre) {
+
+        return (
+          encabezados.indexOf(
+            nombre
+          ) === -1
+        );
+
+      }
+    );
+
+
+  if (faltantes.length > 0) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan columnas requeridas en Despacho: " +
+        faltantes.join(", ") +
+        "."
+    });
+
+  }
+
+
+  // ==========================================================
+  // CONFIGURACIÓN DE LECTURA
+  // ==========================================================
+
+  /*
+   * Solicitamos uno adicional para determinar hayMas.
+   *
+   * Ejemplo:
+   * desplazamiento 0 + límite 10 + 1 = 11 coincidencias.
+   */
+  const coincidenciasNecesarias =
+    desplazamiento +
+    limite +
+    1;
+
+  /*
+   * La hoja se consulta en bloques desde el final.
+   * Puede aumentarse a 300 o 500 si la hoja crece mucho.
+   */
+  const tamanoBloque =
+    200;
+
+  const coincidencias = [];
+
+  let filaFinalBloque =
+    ultimaFila;
+
+
+  // ==========================================================
+  // LEER BLOQUES DESDE EL FINAL
+  // ==========================================================
+
+  while (
+    filaFinalBloque >= 2 &&
+    coincidencias.length <
+      coincidenciasNecesarias
+  ) {
+
+    const filaInicialBloque =
+      Math.max(
+        2,
+        filaFinalBloque -
+        tamanoBloque +
+        1
+      );
+
+    const cantidadFilas =
+      filaFinalBloque -
+      filaInicialBloque +
+      1;
+
+
+    const filas =
+      hoja
+        .getRange(
+          filaInicialBloque,
+          1,
+          cantidadFilas,
+          ultimaColumna
+        )
+        .getDisplayValues();
+
+
+    /*
+     * Recorremos el bloque desde abajo hacia arriba.
+     * De esta manera los registros más recientes aparecen
+     * primero sin ordenar toda la hoja.
+     */
+    for (
+      let indiceFila =
+        filas.length - 1;
+
+      indiceFila >= 0;
+
+      indiceFila--
+    ) {
+
+      const fila =
+        filas[indiceFila];
+
+      const item =
+        convertirFilaAObjeto(
+          encabezados,
+          fila
+        );
+
+      const estado =
+        String(
+          item.Estado || ""
+        )
+          .trim()
+          .toLowerCase();
+
+
+      const coincide =
+        tipo === "abiertos"
+
+          ? (
+              estado === "borrador" ||
+              estado === "despachado"
+            )
+
+          : estado === "completado";
+
+
+      if (!coincide) {
+        continue;
+      }
+
+
+      coincidencias.push(
+        construirRegistroDespachoDashboard_(
+          item
+        )
+      );
+
+
+      if (
+        coincidencias.length >=
+        coincidenciasNecesarias
+      ) {
+        break;
+      }
+
+    }
+
+
+    filaFinalBloque =
+      filaInicialBloque - 1;
+
+  }
+
+
+  // ==========================================================
+  // APLICAR DESPLAZAMIENTO Y LÍMITE
+  // ==========================================================
+
+  const registros =
+    coincidencias.slice(
+      desplazamiento,
+      desplazamiento + limite
+    );
+
+
+  const hayMas =
+    coincidencias.length >
+    desplazamiento + limite;
+
+
+  const siguienteDesplazamiento =
+    desplazamiento +
+    registros.length;
+
+
+  // ==========================================================
+  // RESPUESTA
+  // ==========================================================
+
+  return respuesta({
+
+    ok: true,
+
+    data: {
+
+      tipo:
+        tipo,
+
+      registros:
+        registros,
+
+      limite:
+        limite,
+
+      desplazamiento:
+        desplazamiento,
+
+      siguienteDesplazamiento:
+        siguienteDesplazamiento,
+
+      hayMas:
+        hayMas
+
+    }
+
+  });
+
+}
+
+
+/**
+ * Convierte una fila de Despacho al formato utilizado
+ * por las dos listas pequeñas del dashboard.
+ *
+ * Devuelve propiedades compatibles con el frontend actual.
+ *
+ * @param {Object} item
+ * @return {Object}
+ */
+function construirRegistroDespachoDashboard_(
+  item
+) {
+
+  const estado =
+    String(
+      item.Estado || ""
+    ).trim();
+
+
+  const estadoNormalizado =
+    estado.toLowerCase();
+
+
+  let fechaVisible = "";
+
+
+  if (
+    estadoNormalizado ===
+    "completado"
+  ) {
+
+    fechaVisible =
+      item.Fecha_Completado ||
+      item.Fecha_Despacho ||
+      item.Fecha_Creacion ||
+      "";
+
+  } else if (
+    estadoNormalizado ===
+    "despachado"
+  ) {
+
+    fechaVisible =
+      item.Fecha_Despacho ||
+      item.Fecha_Creacion ||
+      "";
+
+  } else {
+
+    fechaVisible =
+      item.Fecha_Creacion ||
+      "";
+
+  }
+
+
+  return {
+
+    idConduce:
+      item.ID_Conduce || "",
+
+    noConduce:
+      item.No_Conduce || "",
+
+    fecha:
+      fechaVisible,
+
+    fechaTabla:
+      fechaVisible,
+
+    fechaCreacion:
+      item.Fecha_Creacion || "",
+
+    fechaDespacho:
+      item.Fecha_Despacho || "",
+
+    fechaCompletado:
+      item.Fecha_Completado || "",
+
+    realizadoPor:
+      item.RealizadoPor || "",
+
+    supervisor:
+      item.RealizadoPor || "",
+
+    chofer:
+      item.Chofer || "",
+
+    unidad:
+      item.Unidad_Carga || "",
+
+    estado:
+      estado,
+
+    totalLineas:
+      convertirNumeroDespachoDashboard_(
+        item.Total_Lineas
+      ),
+
+    totalUnidades:
+      convertirNumeroDespachoDashboard_(
+        item.Total_Unidades
+      )
+
+  };
+
+}
+
+
+/**
+ * Convierte valores numéricos mostrados por Sheets.
+ *
+ * Admite:
+ * 2430
+ * 2,430
+ * 2.430
+ *
+ * @param {*} valor
+ * @return {number}
+ */
+function convertirNumeroDespachoDashboard_(
+  valor
+) {
+
+  if (
+    typeof valor === "number" &&
+    isFinite(valor)
+  ) {
+    return valor;
+  }
+
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      );
+
+
+  if (!texto) {
+    return 0;
+  }
+
+
+  /*
+   * Los valores de Total_Lineas y Total_Unidades son enteros.
+   * Eliminamos separadores de miles.
+   */
+  const normalizado =
+    texto.replace(
+      /[.,]/g,
+      ""
+    );
+
+
+  const numero =
+    Number(
+      normalizado
+    );
+
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+
+}
+
+// ======================================================
+// LISTADO PAGINADO DE TODOS LOS DESPACHOS
+// ======================================================
+
+function listarTodosDespachos(data) {
+
+  const hoja =
+    getSheet(SHEETS.DESPACHO);
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Despacho."
+    });
+
+  }
+
+  data = data || {};
+
+  /*
+   * Valores permitidos para evitar solicitudes
+   * excesivas desde el frontend.
+   */
+  const limitesPermitidos = [
+    30,
+    50,
+    100
+  ];
+
+  let limite =
+    Number(data.limite || 30);
+
+  if (
+    limitesPermitidos.indexOf(
+      limite
+    ) === -1
+  ) {
+
+    limite = 30;
+
+  }
+
+  let desplazamiento =
+    Number(
+      data.desplazamiento ||
+      data.offset ||
+      0
+    );
+
+  if (
+    !Number.isFinite(
+      desplazamiento
+    ) ||
+    desplazamiento < 0
+  ) {
+
+    desplazamiento = 0;
+
+  }
+
+  desplazamiento =
+    Math.floor(
+      desplazamiento
+    );
+
+  const filtroEstado =
+    String(
+      data.estado || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const filtroAnio =
+    String(
+      data.anio || ""
+    ).trim();
+
+  const filtroMes =
+    String(
+      data.mes || ""
+    ).trim();
+
+  const filtroConduce =
+    normalizarTextoFiltroDespacho_(
+      data.conduce
+    );
+
+  const filtroChofer =
+    normalizarTextoFiltroDespacho_(
+      data.chofer
+    );
+
+  const filtroDestino =
+    normalizarTextoFiltroDespacho_(
+      data.destino
+    );
+
+  const filtroBusqueda =
+  normalizarTextoFiltroDespacho_(
+    data.busqueda
+  );
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+  const ultimaColumna =
+    hoja.getLastColumn();
+
+  if (
+    ultimaFila <= 1 ||
+    ultimaColumna <= 0
+  ) {
+
+    return respuesta({
+      ok: true,
+      data: {
+        registros: [],
+        total: 0,
+        limite: limite,
+        desplazamiento:
+          desplazamiento,
+        hayMas: false
+      }
+    });
+
+  }
+
+  /*
+   * Usamos getValues para conservar las fechas reales
+   * y getDisplayValues para devolver el formato visible.
+   */
+  const valores =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        ultimaColumna
+      )
+      .getValues();
+
+  const valoresVisibles =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        ultimaColumna
+      )
+      .getDisplayValues();
+
+  const encabezados =
+    valoresVisibles[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+  const obtenerIndice =
+    function(nombre) {
+
+      return encabezados.indexOf(
+        nombre
+      );
+
+    };
+
+  const indiceId =
+    obtenerIndice(
+      "ID_Conduce"
+    );
+
+  const indiceNumero =
+    obtenerIndice(
+      "No_Conduce"
+    );
+
+  const indiceFechaCreacion =
+    obtenerIndice(
+      "Fecha_Creacion"
+    );
+
+  const indiceFechaDespacho =
+    obtenerIndice(
+      "Fecha_Despacho"
+    );
+
+  const indiceFechaCompletado =
+    obtenerIndice(
+      "Fecha_Completado"
+    );
+
+  const indiceEstado =
+    obtenerIndice(
+      "Estado"
+    );
+
+  const indiceUsuarioCreador =
+    obtenerIndice(
+      "Usuario_Creador"
+    );
+
+  const indiceRealizadoPor =
+    obtenerIndice(
+      "RealizadoPor"
+    );
+
+  const indiceChofer =
+    obtenerIndice(
+      "Chofer"
+    );
+
+  const indiceUnidad =
+    obtenerIndice(
+      "Unidad_Carga"
+    );
+
+  const indiceCantidadDestinos =
+    obtenerIndice(
+      "Cantidad_Destinos"
+    );
+
+  const indiceDestino1 =
+    obtenerIndice(
+      "Destino_1"
+    );
+
+  const indicePrecinto1 =
+    obtenerIndice(
+      "Precinto_1"
+    );
+
+  const indiceDestino2 =
+    obtenerIndice(
+      "Destino_2"
+    );
+
+  const indicePrecinto2 =
+    obtenerIndice(
+      "Precinto_2"
+    );
+
+  const indiceTotalLineas =
+    obtenerIndice(
+      "Total_Lineas"
+    );
+
+  const indiceTotalUnidades =
+    obtenerIndice(
+      "Total_Unidades"
+    );
+
+  const indicePdf =
+    obtenerIndice(
+      "PDF_URL"
+    );
+
+  const indiceObservaciones =
+    obtenerIndice(
+      "Observaciones"
+    );
+
+  const indiceCalidad =
+    obtenerIndice(
+      "AsistenteCalidad"
+    );
+
+  const indiceTemperatura =
+    obtenerIndice(
+      "Temperatura"
+    );
+
+  const indiceDocumentoSap1 =
+    obtenerIndice(
+      "Documento_SAP_1"
+    );
+
+  const indiceDocumentoSap2 =
+    obtenerIndice(
+      "Documento_SAP_2"
+    );
+
+  const indiceDocumentoSap3 =
+    obtenerIndice(
+      "Documento_SAP_3"
+    );
+
+  const indiceDocumentoSap4 =
+    obtenerIndice(
+      "Documento_SAP_4"
+    );
+
+  if (
+    indiceId === -1 ||
+    indiceNumero === -1 ||
+    indiceEstado === -1
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan columnas requeridas en la hoja Despacho."
+    });
+
+  }
+
+  const zonaHoraria =
+    Session.getScriptTimeZone();
+
+  const obtenerValorVisible =
+    function(fila, indice) {
+
+      return indice !== -1
+        ? String(
+            fila[indice] || ""
+          ).trim()
+        : "";
+
+    };
+
+  const obtenerValorReal =
+    function(fila, indice) {
+
+      return indice !== -1
+        ? fila[indice]
+        : "";
+
+    };
+
+  const registros = [];
+
+  for (
+    let i = 1;
+    i < valoresVisibles.length;
+    i++
+  ) {
+
+    const filaVisible =
+      valoresVisibles[i];
+
+    const filaReal =
+      valores[i];
+
+    const idConduce =
+      obtenerValorVisible(
+        filaVisible,
+        indiceId
+      );
+
+    if (!idConduce) {
+      continue;
+    }
+
+    const estado =
+      obtenerValorVisible(
+        filaVisible,
+        indiceEstado
+      );
+
+    const noConduce =
+      obtenerValorVisible(
+        filaVisible,
+        indiceNumero
+      );
+
+    const chofer =
+      obtenerValorVisible(
+        filaVisible,
+        indiceChofer
+      );
+
+    const destino1 =
+      obtenerValorVisible(
+        filaVisible,
+        indiceDestino1
+      );
+
+    const destino2 =
+      obtenerValorVisible(
+        filaVisible,
+        indiceDestino2
+      );
+
+    if (
+      filtroEstado &&
+      estado
+        .toLowerCase() !==
+        filtroEstado
+    ) {
+      continue;
+    }
+
+    if (
+      filtroConduce &&
+      !normalizarTextoFiltroDespacho_(
+        noConduce
+      ).includes(
+        filtroConduce
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      filtroChofer &&
+      !normalizarTextoFiltroDespacho_(
+        chofer
+      ).includes(
+        filtroChofer
+      )
+    ) {
+      continue;
+    }
+
+    const textoDestinos =
+      normalizarTextoFiltroDespacho_(
+        destino1 +
+        " " +
+        destino2
+      );
+
+    const textoBusquedaRegistro =
+  normalizarTextoFiltroDespacho_(
+    [
+      noConduce,
+      idConduce,
+      chofer,
+      destino1,
+      destino2
+    ].join(" ")
+  );
+
+if (
+  filtroBusqueda &&
+  !textoBusquedaRegistro.includes(
+    filtroBusqueda
+  )
+) {
+  continue;
+}
+
+    if (
+      filtroDestino &&
+      !textoDestinos.includes(
+        filtroDestino
+      )
+    ) {
+      continue;
+    }
+
+    const fechaReferencia =
+      obtenerFechaReferenciaDespacho_(
+        obtenerValorReal(
+          filaReal,
+          indiceFechaCreacion
+        ),
+        obtenerValorReal(
+          filaReal,
+          indiceFechaDespacho
+        ),
+        obtenerValorReal(
+          filaReal,
+          indiceFechaCompletado
+        ),
+        estado
+      );
+
+    if (
+      filtroAnio ||
+      filtroMes
+    ) {
+
+      if (!fechaReferencia) {
+        continue;
+      }
+
+      const anioRegistro =
+        Utilities.formatDate(
+          fechaReferencia,
+          zonaHoraria,
+          "yyyy"
+        );
+
+      const mesRegistro =
+        Utilities.formatDate(
+          fechaReferencia,
+          zonaHoraria,
+          "MM"
+        );
+
+      if (
+        filtroAnio &&
+        anioRegistro !==
+          filtroAnio
+      ) {
+        continue;
+      }
+
+      if (
+        filtroMes &&
+        mesRegistro !==
+          String(
+            filtroMes
+          ).padStart(2, "0")
+      ) {
+        continue;
+      }
+
+    }
+
+    registros.push({
+
+      idConduce:
+        idConduce,
+
+      noConduce:
+        noConduce,
+
+      fechaCreacion:
+        obtenerValorVisible(
+          filaVisible,
+          indiceFechaCreacion
+        ),
+
+      fechaDespacho:
+        obtenerValorVisible(
+          filaVisible,
+          indiceFechaDespacho
+        ),
+
+      fechaCompletado:
+        obtenerValorVisible(
+          filaVisible,
+          indiceFechaCompletado
+        ),
+
+      fechaReferencia:
+        fechaReferencia
+          ? fechaReferencia.getTime()
+          : 0,
+
+      estado:
+        estado,
+
+      usuarioCreador:
+        obtenerValorVisible(
+          filaVisible,
+          indiceUsuarioCreador
+        ),
+
+      realizadoPor:
+        obtenerValorVisible(
+          filaVisible,
+          indiceRealizadoPor
+        ),
+
+      chofer:
+        chofer,
+
+      unidad:
+        obtenerValorVisible(
+          filaVisible,
+          indiceUnidad
+        ),
+
+      cantidadDestinos:
+        Number(
+          obtenerValorVisible(
+            filaVisible,
+            indiceCantidadDestinos
+          ) || 1
+        ),
+
+      destino1:
+        destino1,
+
+      precinto1:
+        obtenerValorVisible(
+          filaVisible,
+          indicePrecinto1
+        ),
+
+      destino2:
+        destino2,
+
+      precinto2:
+        obtenerValorVisible(
+          filaVisible,
+          indicePrecinto2
+        ),
+
+      totalLineas:
+        Number(
+          obtenerValorVisible(
+            filaVisible,
+            indiceTotalLineas
+          ) || 0
+        ),
+
+      totalUnidades:
+        Number(
+          obtenerValorVisible(
+            filaVisible,
+            indiceTotalUnidades
+          ) || 0
+        ),
+
+      pdfUrl:
+        obtenerValorVisible(
+          filaVisible,
+          indicePdf
+        ),
+
+      observaciones:
+        obtenerValorVisible(
+          filaVisible,
+          indiceObservaciones
+        ),
+
+      asistenteCalidad:
+        obtenerValorVisible(
+          filaVisible,
+          indiceCalidad
+        ),
+
+      temperatura:
+        obtenerValorVisible(
+          filaVisible,
+          indiceTemperatura
+        ),
+
+      documentosSAP: [
+        obtenerValorVisible(
+          filaVisible,
+          indiceDocumentoSap1
+        ),
+        obtenerValorVisible(
+          filaVisible,
+          indiceDocumentoSap2
+        ),
+        obtenerValorVisible(
+          filaVisible,
+          indiceDocumentoSap3
+        ),
+        obtenerValorVisible(
+          filaVisible,
+          indiceDocumentoSap4
+        )
+      ].filter(Boolean)
+
+    });
+
+  }
+
+  /*
+   * El registro más reciente queda primero.
+   */
+  registros.sort(
+    function(a, b) {
+
+      return (
+        Number(
+          b.fechaReferencia || 0
+        ) -
+        Number(
+          a.fechaReferencia || 0
+        )
+      );
+
+    }
+  );
+
+  const total =
+    registros.length;
+
+  const registrosPaginados =
+    registros.slice(
+      desplazamiento,
+      desplazamiento + limite
+    );
+
+  /*
+   * La fecha numérica solo se utiliza para ordenar;
+   * no es necesario enviarla al frontend.
+   */
+  registrosPaginados.forEach(
+    function(item) {
+
+      delete item.fechaReferencia;
+
+    }
+  );
+
+  return respuesta({
+    ok: true,
+    data: {
+      registros:
+        registrosPaginados,
+      total:
+        total,
+      limite:
+        limite,
+      desplazamiento:
+        desplazamiento,
+      hayMas:
+        desplazamiento +
+        registrosPaginados.length <
+        total
+    }
+  });
+
+}
+
+function normalizarTextoFiltroDespacho_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .trim()
+    .toLowerCase();
+
+}
+
+
+function obtenerFechaReferenciaDespacho_(
+  fechaCreacion,
+  fechaDespacho,
+  fechaCompletado,
+  estado
+) {
+
+  const estadoNormalizado =
+    String(
+      estado || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  let valorFecha =
+    fechaCreacion;
+
+  if (
+    estadoNormalizado ===
+      "completado"
+  ) {
+
+    valorFecha =
+      fechaCompletado ||
+      fechaDespacho ||
+      fechaCreacion;
+
+  } else if (
+    estadoNormalizado ===
+      "despachado"
+  ) {
+
+    valorFecha =
+      fechaDespacho ||
+      fechaCreacion;
+
+  }
+
+  return convertirFechaDespacho_(
+    valorFecha
+  );
+
+}
+
+
+function convertirFechaDespacho_(
+  valor
+) {
+
+  if (!valor) {
+    return null;
+  }
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return valor;
+
+  }
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+  const coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
+    );
+
+  if (coincidencia) {
+
+    const dia =
+      Number(
+        coincidencia[1]
+      );
+
+    const mes =
+      Number(
+        coincidencia[2]
+      ) - 1;
+
+    const anio =
+      Number(
+        coincidencia[3]
+      );
+
+    let hora =
+      Number(
+        coincidencia[4] || 0
+      );
+
+    const minutos =
+      Number(
+        coincidencia[5] || 0
+      );
+
+    const segundos =
+      Number(
+        coincidencia[6] || 0
+      );
+
+    const periodo =
+      String(
+        coincidencia[7] || ""
+      )
+        .toLowerCase()
+        .replace(
+          /\s|\./g,
+          ""
+        );
+
+    if (
+      periodo === "pm" &&
+      hora < 12
+    ) {
+
+      hora += 12;
+
+    }
+
+    if (
+      periodo === "am" &&
+      hora === 12
+    ) {
+
+      hora = 0;
+
+    }
+
+    const fecha =
+      new Date(
+        anio,
+        mes,
+        dia,
+        hora,
+        minutos,
+        segundos
+      );
+
+    return isNaN(
+      fecha.getTime()
+    )
+      ? null
+      : fecha;
+
+  }
+
+  const alternativa =
+    new Date(texto);
+
+  return isNaN(
+    alternativa.getTime()
+  )
+    ? null
+    : alternativa;
+
+}
+
+// ======================================================
+// ARCHIVO: Despachos.gs
+// FUNCIÓN: obtenerResumenDiarioDespachos()
+//
+// UBICACIÓN:
+// Reemplaza únicamente la función completa que ya tiene
+// este mismo nombre. No reemplaces el archivo completo.
+// ======================================================
+
+function obtenerResumenDiarioDespachos() {
+
+  const hojaDespacho =
+    getSheet(SHEETS.DESPACHO);
+
+  const hojaConfiguracion =
+    getSheet(SHEETS.CONFIGURACION);
+
+  if (
+    !hojaDespacho ||
+    !hojaConfiguracion
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontraron las hojas Despacho o Configuracion."
+    });
+
+  }
+
+  const zonaHoraria =
+    Session.getScriptTimeZone();
+
+  const hoy =
+    Utilities.formatDate(
+      new Date(),
+      zonaHoraria,
+      "yyyy-MM-dd"
+    );
+
+  const datos =
+    hojaDespacho
+      .getDataRange()
+      .getValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: {
+        completadosHoy: 0,
+        paquetesEnviadosHoy: 0,
+        metaDespachos: 0,
+        porcentajeCumplimiento: 0,
+        semaforo: "rojo"
+      }
+    });
+
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return String(valor || "").trim();
+    });
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  const indiceFechaDespacho =
+    encabezados.indexOf(
+      "Fecha_Despacho"
+    );
+
+  const indiceFechaCompletado =
+    encabezados.indexOf(
+      "Fecha_Completado"
+    );
+
+  const indiceTotalUnidades =
+    encabezados.indexOf(
+      "Total_Unidades"
+    );
+
+  if (
+    indiceEstado === -1 ||
+    indiceFechaDespacho === -1 ||
+    indiceFechaCompletado === -1 ||
+    indiceTotalUnidades === -1
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan columnas requeridas en la hoja Despacho."
+    });
+
+  }
+
+  const convertirFecha = function(valor) {
+
+    if (!valor) {
+      return null;
+    }
+
+    if (
+      valor instanceof Date &&
+      !isNaN(valor.getTime())
+    ) {
+      return valor;
+    }
+
+    const texto =
+      String(valor || "").trim();
+
+    /*
+     * Admite fechas guardadas o mostradas como:
+     * 14/07/2026
+     * 14/07/2026 08:35:20
+     * 14/07/2026, 8:35:20 p. m.
+     */
+    const coincidencia =
+      texto.match(
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
+      );
+
+    if (coincidencia) {
+
+      const dia =
+        Number(coincidencia[1]);
+
+      const mes =
+        Number(coincidencia[2]) - 1;
+
+      const ano =
+        Number(coincidencia[3]);
+
+      let hora =
+        Number(
+          coincidencia[4] || 0
+        );
+
+      const minutos =
+        Number(
+          coincidencia[5] || 0
+        );
+
+      const segundos =
+        Number(
+          coincidencia[6] || 0
+        );
+
+      const periodo =
+        String(
+          coincidencia[7] || ""
+        )
+          .toLowerCase()
+          .replace(/\s|\./g, "");
+
+      if (
+        periodo === "pm" &&
+        hora < 12
+      ) {
+        hora += 12;
+      }
+
+      if (
+        periodo === "am" &&
+        hora === 12
+      ) {
+        hora = 0;
+      }
+
+      const fecha =
+        new Date(
+          ano,
+          mes,
+          dia,
+          hora,
+          minutos,
+          segundos
+        );
+
+      return isNaN(fecha.getTime())
+        ? null
+        : fecha;
+
+    }
+
+    const fechaAlternativa =
+      new Date(texto);
+
+    return isNaN(
+      fechaAlternativa.getTime()
+    )
+      ? null
+      : fechaAlternativa;
+
+  };
+
+  const fechaEsHoy = function(valor) {
+
+    const fecha =
+      convertirFecha(valor);
+
+    if (!fecha) {
+      return false;
+    }
+
+    return Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      "yyyy-MM-dd"
+    ) === hoy;
+
+  };
+
+  let completadosHoy = 0;
+  let paquetesEnviadosHoy = 0;
+
+  datos
+    .slice(1)
+    .forEach(function(fila) {
+
+      const estado =
+        String(
+          fila[indiceEstado] || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      const fechaDespacho =
+        fila[indiceFechaDespacho];
+
+      if (
+        (
+          estado === "despachado" ||
+          estado === "completado"
+        ) &&
+        fechaEsHoy(fechaDespacho)
+      ) {
+
+        completadosHoy++;
+
+      }
+
+      if (
+        (
+          estado === "despachado" ||
+          estado === "completado"
+        ) &&
+        fechaEsHoy(fechaDespacho)
+      ) {
+
+        paquetesEnviadosHoy +=
+          Number(
+            fila[
+              indiceTotalUnidades
+            ] || 0
+          );
+
+      }
+
+    });
+
+  const configuracion =
+    hojaConfiguracion
+      .getDataRange()
+      .getValues();
+
+  const partesHoy =
+    hoy.split("-").map(Number);
+
+  const diaSemana =
+    new Date(
+      Date.UTC(
+        partesHoy[0],
+        partesHoy[1] - 1,
+        partesHoy[2]
+      )
+    ).getUTCDay();
+
+  let claveMeta =
+    "Meta_Despachos_Diaria";
+
+  if (diaSemana === 6) {
+    claveMeta =
+      "Meta_Despachos_Sabado";
+  } else if (diaSemana === 0) {
+    claveMeta =
+      "Meta_Despachos_Domingo";
+  }
+
+  const metasConfiguradas = {};
+
+  for (
+    let i = 1;
+    i < configuracion.length;
+    i++
+  ) {
+
+    const clave =
+      String(
+        configuracion[i][0] || ""
+      ).trim();
+
+    if (clave) {
+      metasConfiguradas[clave] =
+        Number(
+          configuracion[i][1] || 0
+        );
+    }
+
+  }
+
+  const metaEspecial =
+    Number(
+      metasConfiguradas[claveMeta] || 0
+    );
+
+  const metaDiaria =
+    Number(
+      metasConfiguradas[
+        "Meta_Despachos_Diaria"
+      ] || 0
+    );
+
+  const metaDespachos =
+    metaEspecial > 0
+      ? metaEspecial
+      : metaDiaria;
+
+  const porcentajeCumplimiento =
+    metaDespachos > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (
+              completadosHoy /
+              metaDespachos
+            ) * 100
+          )
+        )
+      : 0;
+
+  let semaforo = "rojo";
+
+  if (
+    porcentajeCumplimiento >= 95
+  ) {
+
+    semaforo = "verde";
+
+  } else if (
+    porcentajeCumplimiento >= 70
+  ) {
+
+    semaforo = "naranja";
+
+  }
+
+  return respuesta({
+    ok: true,
+    data: {
+      completadosHoy:
+        completadosHoy,
+      paquetesEnviadosHoy:
+        paquetesEnviadosHoy,
+      metaDespachos:
+        metaDespachos,
+      porcentajeCumplimiento:
+        porcentajeCumplimiento,
+      semaforo:
+        semaforo
+    }
+  });
+
+}
+
+
+
+/**
+ * Recupera el encabezado y las líneas de un borrador.
+ */
+function obtenerBorrador(data) {
+ 
+  const idConduce = String(
+    data && data.idConduce
+      ? data.idConduce
+      : ""
+  ).trim();
+ 
+  if (!idConduce) {
+    return respuesta({
+      ok: false,
+      mensaje: "Debe indicar el ID del conduce."
+    });
+  }
+ 
+  const hojaDespacho = getSheet(SHEETS.DESPACHO);
+  const hojaDetalle = getSheet(SHEETS.DESPACHO_DETALLE);
+ 
+  const datosDespacho = hojaDespacho
+    .getDataRange()
+    .getDisplayValues();
+ 
+  const encabezadosDespacho = datosDespacho.shift();
+ 
+  const filaDespacho = datosDespacho.find(function(fila) {
+    const objeto = convertirFilaAObjeto(
+      encabezadosDespacho,
+      fila
+    );
+ 
+    return String(objeto.ID_Conduce).trim() === idConduce;
+  });
+ 
+  if (!filaDespacho) {
+    return respuesta({
+      ok: false,
+      mensaje: "No se encontró el borrador solicitado."
+    });
+  }
+ 
+  const despacho = convertirFilaAObjeto(
+    encabezadosDespacho,
+    filaDespacho
+  );
+ 
+  const datosDetalle = hojaDetalle
+    .getDataRange()
+    .getDisplayValues();
+ 
+  const encabezadosDetalle = datosDetalle.shift();
+ 
+  const detalle = datosDetalle
+    .map(function(fila) {
+      return convertirFilaAObjeto(
+        encabezadosDetalle,
+        fila
+      );
+    })
+    .filter(function(linea) {
+      return String(linea.ID_Conduce).trim() === idConduce;
+    })
+    .map(function(linea) {
+      return {
+        idLinea: linea.ID_Linea,
+        tipo: linea.Tipo_Linea,
+        posicion:
+          linea.Tipo_Linea === "Tarima"
+            ? Number(linea.Posicion || 0)
+            : "",
+        destino: linea.Destino,
+        material: linea.Material,
+        descripcion: linea.Descripcion,
+        unidad: linea.Unidad_Medida,
+        fechaProduccion: normalizarFechaParaInput(
+          linea.Fecha_Produccion
+        ),
+        lote: linea.Lote,
+        fechaVencimiento: normalizarFechaParaInput(
+          linea.Fecha_Vencimiento
+        ),
+        base: Number(linea.Base || 0),
+        altura: Number(linea.Altura || 0),
+        recorte: Number(linea.Recorte || 0),
+        cantidad: Number(linea.Cantidad || 0),
+        idCamara: linea.ID_Camara || "",
+        codigoCamara: linea.Codigo_Camara || "",
+        observacionCamara: linea.Observacion_Camara || ""
+      };
+    });
+ 
+  return respuesta({
+    ok: true,
+    data: {
+      encabezado: {
+        idConduce: despacho.ID_Conduce,
+        noConduce: despacho.No_Conduce,
+        fechaCreacion: despacho.Fecha_Creacion,
+        fechaDespacho: despacho.Fecha_Despacho,
+        fechaCompletado: despacho.Fecha_Completado,
+        estado: despacho.Estado,
+        usuarioCreador: despacho.Usuario_Creador,
+        supervisor: despacho.RealizadoPor,
+        chofer: despacho.Chofer,
+        unidad: despacho.Unidad_Carga,
+        cantidadDestinos: Number(
+          despacho.Cantidad_Destinos || 1
+        ),
+        destino1: despacho.Destino_1,
+        precinto1: despacho.Precinto_1,
+        destino2: despacho.Destino_2,
+        precinto2: despacho.Precinto_2,
+        observaciones: despacho.Observaciones,
+        asistenteCalidad: despacho.AsistenteCalidad,
+        temperatura: despacho.Temperatura,
+        revisionUrl: despacho.RevisionURL,
+        pdfUrl: despacho.PDF_URL,
+        documentoSAP1: despacho.Documento_SAP_1,
+        documentoSAP2: despacho.Documento_SAP_2,
+        documentoSAP3: despacho.Documento_SAP_3,
+        documentoSAP4: despacho.Documento_SAP_4
+      },
+      detalle: detalle
+    }
+  });
+}
+ 
+// ======================================================
+// GENERACIÓN DEL NÚMERO DE CONDUCE
+// ======================================================
+ 
+function generarNumeroConduce() {
+ 
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+ 
+  try {
+ 
+    const hoja = getSheet(SHEETS.CONFIGURACION);
+    const datos = hoja.getDataRange().getValues();
+ 
+    let filaParametro = -1;
+    let ultimoNumero = 10000;
+ 
+    for (let i = 1; i < datos.length; i++) {
+ 
+      if (
+        String(datos[i][0]).trim() ===
+        "Ultimo_No_Conduce"
+      ) {
+        filaParametro = i + 1;
+        ultimoNumero = Number(datos[i][1] || 10000);
+        break;
+      }
+    }
+ 
+    const nuevoNumero = ultimoNumero + 1;
+ 
+    if (filaParametro === -1) {
+      hoja.appendRow([
+        "Ultimo_No_Conduce",
+        nuevoNumero,
+        "Último número de conduce asignado por el sistema."
+      ]);
+    } else {
+      hoja
+        .getRange(filaParametro, 2)
+        .setValue(nuevoNumero);
+    }
+ 
+    SpreadsheetApp.flush();
+ 
+    return String(nuevoNumero);
+ 
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+ 
+function generarNumeracionConduce(
+  encabezado,
+  hojaDespacho,
+  noConduceAnterior
+) {
+ 
+  const tipoRuta = obtenerTipoRutaConduce(encabezado);
+ 
+  if (tipoRuta === "FB") {
+ 
+    const consecutivo = generarNumeroConduce();
+ 
+    return {
+      noConduce: "CON-" + consecutivo,
+      identificador: String(consecutivo)
+    };
+  }
+ 
+  let sufijo = "";
+ 
+  if (tipoRuta === "EXP") {
+    sufijo = "EXP";
+  }
+ 
+  if (tipoRuta === "CON") {
+    sufijo = "CON";
+  }
+ 
+  if (tipoRuta === "EXP/CON") {
+    sufijo = "EXP/CON";
+  }
+ 
+  const ultimoLimpio = obtenerUltimoNumeroLimpio();
+ 
+  const numeroDisponible = buscarNumeroDisponibleConSufijo(
+    hojaDespacho,
+    ultimoLimpio,
+    sufijo,
+    noConduceAnterior
+  );
+ 
+  return {
+    noConduce:
+      "CON-" +
+      numeroDisponible +
+      " " +
+      sufijo,
+    identificador:
+      numeroDisponible +
+      "_" +
+      sufijo.replace("/", "-")
+  };
+}
+ 
+function obtenerUltimoNumeroLimpio() {
+ 
+  const hojaConfiguracion = getSheet(SHEETS.CONFIGURACION);
+  const datos = hojaConfiguracion.getDataRange().getValues();
+ 
+  for (let i = 1; i < datos.length; i++) {
+    if (
+      String(datos[i][0]).trim() ===
+      "Ultimo_No_Conduce"
+    ) {
+      return Number(datos[i][1] || 10000);
+    }
+  }
+ 
+  return 10000;
+}
+ 
+function buscarNumeroDisponibleConSufijo(
+  hojaDespacho,
+  numeroInicial,
+  sufijo,
+  noConduceAnterior
+) {
+ 
+  const datos = hojaDespacho
+    .getDataRange()
+    .getDisplayValues();
+ 
+  if (datos.length <= 1) {
+    return Number(numeroInicial);
+  }
+ 
+  const encabezados = datos[0];
+  const indiceNoConduce = encabezados.indexOf("No_Conduce");
+ 
+  if (indiceNoConduce === -1) {
+    throw new Error(
+      "No existe la columna No_Conduce en la hoja Despacho."
+    );
+  }
+ 
+  const anteriorNormalizado = String(
+    noConduceAnterior || ""
+  )
+    .trim()
+    .toUpperCase();
+ 
+  const numerosExistentes = new Set(
+    datos
+      .slice(1)
+      .map(function(fila) {
+        return String(
+          fila[indiceNoConduce] || ""
+        )
+          .trim()
+          .toUpperCase();
+      })
+      .filter(function(valor) {
+        return valor && valor !== anteriorNormalizado;
+      })
+  );
+ 
+  let numero = Number(numeroInicial);
+ 
+  while (
+    numerosExistentes.has(
+      (
+        "CON-" +
+        numero +
+        " " +
+        sufijo
+      ).toUpperCase()
+    )
+  ) {
+    numero++;
+  }
+ 
+  return numero;
+}
+ 
+function normalizarTextoConduce(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+ 
+function obtenerTipoRutaConduce(encabezado) {
+ 
+  const destinos = [
+    encabezado.destino1 || "",
+    encabezado.destino2 || ""
+  ]
+    .filter(Boolean)
+    .map(normalizarTextoConduce);
+ 
+  const incluyeFrioBox = destinos.some(function(destino) {
+    return destino.includes("friobox");
+  });
+ 
+  const incluyeExportacion = destinos.some(function(destino) {
+    return destino.includes("exportacion");
+  });
+ 
+  const incluyeCongelasa = destinos.some(function(destino) {
+    return destino.includes("congelasa");
+  });
+ 
+  if (incluyeFrioBox) {
+    return "FB";
+  }
+ 
+  if (incluyeExportacion && incluyeCongelasa) {
+    return "EXP/CON";
+  }
+ 
+  if (incluyeExportacion) {
+    return "EXP";
+  }
+ 
+  if (incluyeCongelasa) {
+    return "CON";
+  }
+ 
+  throw new Error(
+    "No fue posible determinar el tipo de ruta del conduce."
+  );
+}
+ 
+function numeroConduceCoincideConRuta(
+  noConduce,
+  encabezado
+) {
+ 
+  if (!noConduce) {
+    return false;
+  }
+ 
+  const tipoRuta = obtenerTipoRutaConduce(encabezado);
+  const numero = String(noConduce)
+    .trim()
+    .toUpperCase();
+ 
+  if (tipoRuta === "FB") {
+    return /^CON-\d+$/.test(numero);
+  }
+ 
+  if (tipoRuta === "EXP") {
+    return /^CON-\d+\s+EXP$/.test(numero);
+  }
+ 
+  if (tipoRuta === "CON") {
+    return /^CON-\d+\s+CON$/.test(numero);
+  }
+ 
+  if (tipoRuta === "EXP/CON") {
+    return /^CON-\d+\s+EXP\/CON$/.test(numero);
+  }
+ 
+  return false;
+}
+ 
+function extraerNumeroLimpio(noConduce) {
+ 
+  const coincidencia = String(noConduce || "")
+    .trim()
+    .toUpperCase()
+    .match(/^CON-(\d+)$/);
+ 
+  if (!coincidencia) {
+    return null;
+  }
+ 
+  return Number(coincidencia[1]);
+}
+ 
+function liberarNumeroLimpioSiProcede(
+  hojaDespacho,
+  idConduce,
+  noConduceAnterior,
+  encabezadoNuevo
+) {
+ 
+  const numeroAnterior = extraerNumeroLimpio(
+    noConduceAnterior
+  );
+ 
+  if (numeroAnterior === null) {
+    return;
+  }
+ 
+  const tipoRutaNueva = obtenerTipoRutaConduce(
+    encabezadoNuevo
+  );
+ 
+  if (tipoRutaNueva === "FB") {
+    return;
+  }
+ 
+  const ultimoLimpio = obtenerUltimoNumeroLimpio();
+ 
+  if (numeroAnterior !== ultimoLimpio) {
+    return;
+  }
+ 
+  const datos = hojaDespacho
+    .getDataRange()
+    .getDisplayValues();
+ 
+  if (datos.length > 1) {
+ 
+    const encabezados = datos[0];
+    const indiceId = encabezados.indexOf("ID_Conduce");
+    const indiceNumero = encabezados.indexOf("No_Conduce");
+ 
+    const usadoPorOtroConduce = datos
+      .slice(1)
+      .some(function(fila) {
+ 
+        const otroId = String(
+          fila[indiceId] || ""
+        ).trim();
+ 
+        const otroNumero = String(
+          fila[indiceNumero] || ""
+        )
+          .trim()
+          .toUpperCase();
+ 
+        return (
+          otroId !== String(idConduce) &&
+          otroNumero === String(noConduceAnterior)
+            .trim()
+            .toUpperCase()
+        );
+      });
+ 
+    if (usadoPorOtroConduce) {
+      return;
+    }
+  }
+ 
+  actualizarUltimoNumeroConduce(
+    numeroAnterior - 1
+  );
+}
+ 
+function actualizarUltimoNumeroConduce(nuevoValor) {
+ 
+  const hoja = getSheet(SHEETS.CONFIGURACION);
+  const datos = hoja.getDataRange().getValues();
+ 
+  for (let i = 1; i < datos.length; i++) {
+ 
+    if (
+      String(datos[i][0]).trim() ===
+      "Ultimo_No_Conduce"
+    ) {
+      hoja
+        .getRange(i + 1, 2)
+        .setValue(Number(nuevoValor));
+ 
+      SpreadsheetApp.flush();
+      return;
+    }
+  }
+ 
+  hoja.appendRow([
+    "Ultimo_No_Conduce",
+    Number(nuevoValor),
+    "Último número de conduce asignado por el sistema."
+  ]);
+ 
+  SpreadsheetApp.flush();
+}
+ 
+// ======================================================
+// UTILIDADES INTERNAS
+// ======================================================
+ 
+function obtenerEncabezados(hoja) {
+  return hoja
+    .getRange(1, 1, 1, hoja.getLastColumn())
+    .getDisplayValues()[0]
+    .map(function(valor) {
+      return String(valor).trim();
+    });
+}
+ 
+function convertirFilaAObjeto(encabezados, fila) {
+ 
+  const objeto = {};
+ 
+  encabezados.forEach(function(encabezado, indice) {
+    objeto[encabezado] = fila[indice];
+  });
+ 
+  return objeto;
+}
+ 
+function guardarOActualizarPorId(
+  hoja,
+  nombreColumnaId,
+  valorId,
+  datos
+) {
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const indiceId = encabezados.indexOf(nombreColumnaId);
+ 
+  if (indiceId === -1) {
+    throw new Error(
+      "No existe la columna " +
+      nombreColumnaId +
+      " en la hoja " +
+      hoja.getName()
+    );
+  }
+ 
+  const ultimaFila = hoja.getLastRow();
+  let filaDestino = -1;
+ 
+  if (ultimaFila > 1) {
+ 
+    const ids = hoja
+      .getRange(
+        2,
+        indiceId + 1,
+        ultimaFila - 1,
+        1
+      )
+      .getDisplayValues();
+ 
+    for (let i = 0; i < ids.length; i++) {
+      if (
+        String(ids[i][0]).trim() ===
+        String(valorId).trim()
+      ) {
+        filaDestino = i + 2;
+        break;
+      }
+    }
+  }
+ 
+  const filaNueva = encabezados.map(function(encabezado) {
+    return datos[encabezado] !== undefined
+      ? datos[encabezado]
+      : "";
+  });
+ 
+  if (filaDestino === -1) {
+    filaDestino = hoja.getLastRow() + 1;
+  }
+ 
+  hoja
+    .getRange(
+      filaDestino,
+      1,
+      1,
+      encabezados.length
+    )
+    .setValues([filaNueva]);
+ 
+  return filaDestino;
+}
+ 
+function eliminarDetallesPorConduce(
+  hojaDetalle,
+  idConduce
+) {
+ 
+  const datos = hojaDetalle
+    .getDataRange()
+    .getDisplayValues();
+ 
+  if (datos.length <= 1) {
+    return;
+  }
+ 
+  const encabezados = datos[0];
+  const indiceIdConduce = encabezados.indexOf(
+    "ID_Conduce"
+  );
+ 
+  if (indiceIdConduce === -1) {
+    throw new Error(
+      "No existe la columna ID_Conduce en Despacho_Detalle."
+    );
+  }
+ 
+  for (let fila = datos.length - 1; fila >= 1; fila--) {
+    if (
+      String(datos[fila][indiceIdConduce]).trim() ===
+      String(idConduce).trim()
+    ) {
+      hojaDetalle.deleteRow(fila + 1);
+    }
+  }
+}
+ 
+function normalizarFechaParaInput(valor) {
+ 
+  if (!valor) {
+    return "";
+  }
+ 
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(valor).trim())) {
+    return String(valor).trim();
+  }
+ 
+  const partes = String(valor).trim().split("/");
+ 
+  if (partes.length === 3) {
+    const dia = partes[0].padStart(2, "0");
+    const mes = partes[1].padStart(2, "0");
+    const ano = partes[2];
+    return ano + "-" + mes + "-" + dia;
+  }
+ 
+  return "";
+}
+ 
+function generarIdConduce(consecutivo, fecha) {
+ 
+  const inicioExcel = new Date(1899, 11, 30);
+  const milisegundosPorDia = 24 * 60 * 60 * 1000;
+ 
+  const numeroSerie = Math.floor(
+    (fecha.getTime() - inicioExcel.getTime()) /
+    milisegundosPorDia
+  );
+ 
+  const horas = String(fecha.getHours()).padStart(2, "0");
+  const minutos = String(fecha.getMinutes()).padStart(2, "0");
+  const segundos = String(fecha.getSeconds()).padStart(2, "0");
+ 
+  const horaCompacta = horas + minutos + segundos;
+ 
+  return (
+    consecutivo +
+    "_" +
+    numeroSerie +
+    "_" +
+    horaCompacta
+  );
+}
+ 
+/**
+ * Aplica formato corto a las columnas de fecha
+ * de la hoja Despacho.
+ */
+function formatearFechasDespacho(hoja) {
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const ultimaFila = hoja.getLastRow();
+ 
+  if (ultimaFila <= 1) {
+    return;
+  }
+ 
+  const columnasFecha = [
+    "Fecha_Creacion",
+    "Fecha_Despacho",
+    "Fecha_Completado"
+  ];
+ 
+  columnasFecha.forEach(function(nombreColumna) {
+ 
+    const indice = encabezados.indexOf(nombreColumna);
+ 
+    if (indice === -1) {
+      return;
+    }
+ 
+    hoja
+      .getRange(
+        2,
+        indice + 1,
+        ultimaFila - 1,
+        1
+      )
+      .setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  });
+}
+ 
+/**
+ * Guarda una fecha real y aplica el formato corto estándar.
+ */
+function guardarFechaHoraCorta(
+  hoja,
+  numeroFila,
+  nombreColumna,
+  fecha
+) {
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const indiceColumna = encabezados.indexOf(nombreColumna);
+ 
+  if (indiceColumna === -1) {
+    throw new Error(
+      "No existe la columna " +
+      nombreColumna +
+      " en la hoja " +
+      hoja.getName()
+    );
+  }
+ 
+  let fechaReal = fecha;
+ 
+  if (!(fechaReal instanceof Date)) {
+
+  const texto =
+    String(fechaReal || "").trim();
+
+  const coincidencia = texto.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*|\s+)?(\d{1,2})?:?(\d{2})?:?(\d{2})?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?$/i
+  );
+
+  if (coincidencia) {
+
+    const dia = Number(coincidencia[1]);
+    const mes = Number(coincidencia[2]) - 1;
+    const ano = Number(coincidencia[3]);
+
+    let hora = Number(coincidencia[4] || 0);
+    const minutos = Number(coincidencia[5] || 0);
+    const segundos = Number(coincidencia[6] || 0);
+
+    const periodo = String(
+      coincidencia[7] || ""
+    )
+      .toLowerCase()
+      .replace(/\s|\./g, "");
+
+    if (periodo === "pm" && hora < 12) {
+      hora += 12;
+    }
+
+    if (periodo === "am" && hora === 12) {
+      hora = 0;
+    }
+
+    fechaReal = new Date(
+      ano,
+      mes,
+      dia,
+      hora,
+      minutos,
+      segundos
+    );
+
+  } else {
+
+    fechaReal = new Date(texto);
+
+  }
+
+}
+ 
+  if (isNaN(fechaReal.getTime())) {
+    throw new Error(
+      "La fecha recibida para " +
+      nombreColumna +
+      " no es válida."
+    );
+  }
+ 
+  const celda = hoja.getRange(
+    numeroFila,
+    indiceColumna + 1
+  );
+ 
+  celda.clearFormat();
+  celda.setValue(fechaReal);
+  celda.setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+ 
+function obtenerFechaCreacionExistente(
+  hojaDespacho,
+  idConduce
+) {
+ 
+  const encabezados = obtenerEncabezados(hojaDespacho);
+  const indiceId = encabezados.indexOf("ID_Conduce");
+  const indiceFecha = encabezados.indexOf("Fecha_Creacion");
+ 
+  if (indiceId === -1 || indiceFecha === -1) {
+    return new Date();
+  }
+ 
+  const ultimaFila = hojaDespacho.getLastRow();
+ 
+  if (ultimaFila <= 1) {
+    return new Date();
+  }
+ 
+  const datos = hojaDespacho
+    .getRange(
+      2,
+      1,
+      ultimaFila - 1,
+      hojaDespacho.getLastColumn()
+    )
+    .getValues();
+ 
+  for (let i = 0; i < datos.length; i++) {
+ 
+    if (
+      String(datos[i][indiceId]).trim() ===
+      String(idConduce).trim()
+    ) {
+ 
+      const fecha = datos[i][indiceFecha];
+ 
+      if (fecha instanceof Date) {
+        return fecha;
+      }
+ 
+      const fechaConvertida = new Date(fecha);
+ 
+      if (!isNaN(fechaConvertida.getTime())) {
+        return fechaConvertida;
+      }
+    }
+  }
+ 
+  return new Date();
+}
+ 
+function obtenerValorExistentePorId(
+  hoja,
+  columnaId,
+  valorId,
+  columnaValor
+) {
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const indiceId = encabezados.indexOf(columnaId);
+  const indiceValor = encabezados.indexOf(columnaValor);
+ 
+  if (indiceId === -1 || indiceValor === -1) {
+    return "";
+  }
+ 
+  const ultimaFila = hoja.getLastRow();
+ 
+  if (ultimaFila <= 1) {
+    return "";
+  }
+ 
+  const datos = hoja
+    .getRange(
+      2,
+      1,
+      ultimaFila - 1,
+      hoja.getLastColumn()
+    )
+    .getValues();
+ 
+  for (let i = 0; i < datos.length; i++) {
+    if (
+      String(datos[i][indiceId]).trim() ===
+      String(valorId).trim()
+    ) {
+      return datos[i][indiceValor];
+    }
+  }
+ 
+  return "";
+}
+ 
+function sincronizarPrecintosBorrador(
+  encabezado,
+  noConduce,
+  noConduceAnterior
+) {
+ 
+  const hoja = getSheet(SHEETS.PRECINTOS);
+ 
+  if (!hoja) {
+    throw new Error("No existe la hoja Precintos.");
+  }
+ 
+  const realizadoPor =
+    encabezado.supervisor ||
+    encabezado.realizadoPor ||
+    "";
+ 
+  const precintosActuales = [];
+ 
+  if (encabezado.precinto1) {
+    precintosActuales.push({
+      numero: String(encabezado.precinto1).trim(),
+      destino: encabezado.destino1 || ""
+    });
+  }
+ 
+  if (encabezado.precinto2) {
+    precintosActuales.push({
+      numero: String(encabezado.precinto2).trim(),
+      destino: encabezado.destino2 || ""
+    });
+  }
+ 
+  const numerosActuales = precintosActuales.map(function(item) {
+    return item.numero;
+  });
+ 
+  if (
+  noConduceAnterior &&
+  noConduceAnterior !== noConduce
+) {
+
+  liberarPrecintosPorRenumeracion(
+    hoja,
+    noConduceAnterior
+  );
+
+}
+ 
+  liberarPrecintosQuitados(
+    hoja,
+    noConduce,
+    numerosActuales
+  );
+ 
+  precintosActuales.forEach(function(item) {
+    reservarPrecinto(
+      hoja,
+      item.numero,
+      item.destino,
+      noConduce,
+      realizadoPor
+    );
+  });
+}
+ 
+function reservarPrecinto(
+  hoja,
+  noPrecinto,
+  destino,
+  noConduce,
+  usuario
+) {
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const datos = hoja.getDataRange().getDisplayValues();
+ 
+  const indiceNumero = encabezados.indexOf("No_Precinto");
+  const indiceEstado = encabezados.indexOf("Estado");
+  const indiceUsuario = encabezados.indexOf("Utilizado_Por");
+  const indiceDestino = encabezados.indexOf("Destino");
+  const indiceConduce = encabezados.indexOf("No_Conduce");
+  const indiceFecha = encabezados.indexOf("Fecha_Estado");
+ 
+  if (
+    indiceNumero === -1 ||
+    indiceEstado === -1 ||
+    indiceUsuario === -1 ||
+    indiceDestino === -1 ||
+    indiceConduce === -1 ||
+    indiceFecha === -1
+  ) {
+    throw new Error(
+      "Faltan columnas requeridas en la hoja Precintos."
+    );
+  }
+ 
+  let filaEncontrada = -1;
+ 
+  for (let i = 1; i < datos.length; i++) {
+    if (
+      String(datos[i][indiceNumero]).trim() ===
+      String(noPrecinto).trim()
+    ) {
+      filaEncontrada = i + 1;
+      break;
+    }
+  }
+ 
+  if (filaEncontrada === -1) {
+    throw new Error(
+      "El precinto " +
+      noPrecinto +
+      " no existe en la base de datos."
+    );
+  }
+ 
+  const estadoActual = String(
+    hoja
+      .getRange(filaEncontrada, indiceEstado + 1)
+      .getDisplayValue()
+  ).trim();
+ 
+  const conduceActual = String(
+    hoja
+      .getRange(filaEncontrada, indiceConduce + 1)
+      .getDisplayValue()
+  ).trim();
+ 
+  const estadoNormalizado =
+  estadoActual.toLowerCase();
+
+const esDelMismoConduce =
+  conduceActual === noConduce;
+
+const estadoPermitido =
+  estadoNormalizado === "disponible" ||
+  (
+    esDelMismoConduce &&
+    (
+      estadoNormalizado === "reservado" ||
+      estadoNormalizado === "utilizado"
+    )
+  );
+
+if (!estadoPermitido) {
+  throw new Error(
+    "El precinto " + noPrecinto +
+    " no está disponible para este conduce. Estado: " +
+    estadoActual
+  );
+}
+ 
+  if (estadoNormalizado !== "utilizado") {
+
+  hoja
+    .getRange(filaEncontrada, indiceEstado + 1)
+    .setValue("Reservado");
+
+}
+ 
+  hoja
+    .getRange(filaEncontrada, indiceUsuario + 1)
+    .setValue(usuario);
+ 
+  hoja
+    .getRange(filaEncontrada, indiceDestino + 1)
+    .setValue(destino);
+ 
+  hoja
+    .getRange(filaEncontrada, indiceConduce + 1)
+    .setValue(noConduce);
+ 
+  const celdaFecha = hoja.getRange(
+    filaEncontrada,
+    indiceFecha + 1
+  );
+ 
+  celdaFecha.setValue(new Date());
+  celdaFecha.setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+ 
+function liberarPrecintosQuitados(
+  hoja,
+  noConduce,
+  precintosActuales
+) {
+ 
+  const encabezados = obtenerEncabezados(hoja);
+  const datos = hoja.getDataRange().getDisplayValues();
+ 
+  const indiceNumero = encabezados.indexOf("No_Precinto");
+  const indiceEstado = encabezados.indexOf("Estado");
+  const indiceUsuario = encabezados.indexOf("Utilizado_Por");
+  const indiceDestino = encabezados.indexOf("Destino");
+  const indiceConduce = encabezados.indexOf("No_Conduce");
+  const indiceFecha = encabezados.indexOf("Fecha_Estado");
+ 
+  for (let i = 1; i < datos.length; i++) {
+ 
+    const numero = String(
+      datos[i][indiceNumero]
+    ).trim();
+ 
+    const estado = String(
+      datos[i][indiceEstado]
+    ).trim();
+ 
+    const conduce = String(
+      datos[i][indiceConduce]
+    ).trim();
+ 
+    const perteneceAlConduce =
+      estado.toLowerCase() === "reservado" &&
+      conduce === noConduce;
+ 
+    const sigueSeleccionado = precintosActuales.includes(numero);
+ 
+    if (perteneceAlConduce && !sigueSeleccionado) {
+ 
+      const numeroFila = i + 1;
+ 
+      hoja
+        .getRange(numeroFila, indiceEstado + 1)
+        .setValue("Disponible");
+ 
+      hoja
+        .getRange(numeroFila, indiceUsuario + 1)
+        .clearContent();
+ 
+      hoja
+        .getRange(numeroFila, indiceDestino + 1)
+        .clearContent();
+ 
+      hoja
+        .getRange(numeroFila, indiceConduce + 1)
+        .clearContent();
+ 
+      hoja
+        .getRange(numeroFila, indiceFecha + 1)
+        .clearContent();
+    }
+  }
+}
+
+function liberarPrecintosPorRenumeracion(
+  hoja,
+  noConduceAnterior
+) {
+
+  const numeroAnterior =
+    String(noConduceAnterior || "").trim();
+
+  if (!numeroAnterior) {
+    return;
+  }
+
+  const encabezados =
+    obtenerEncabezados(hoja);
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  const indiceUsuario =
+    encabezados.indexOf("Utilizado_Por");
+
+  const indiceDestino =
+    encabezados.indexOf("Destino");
+
+  const indiceConduce =
+    encabezados.indexOf("No_Conduce");
+
+  const indiceFechaEstado =
+    encabezados.indexOf("Fecha_Estado");
+
+  const indiceFechaUtilizacion =
+    encabezados.indexOf("Fecha_Utilizacion");
+
+  if (
+    indiceEstado === -1 ||
+    indiceConduce === -1
+  ) {
+
+    throw new Error(
+      "Faltan columnas requeridas para liberar los precintos."
+    );
+
+  }
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const conduceRegistrado =
+      String(
+        datos[i][indiceConduce] || ""
+      ).trim();
+
+    const estado =
+      String(
+        datos[i][indiceEstado] || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    const perteneceAlConduceAnterior =
+      conduceRegistrado === numeroAnterior;
+
+    const estadoReutilizable =
+      estado === "reservado" ||
+      estado === "utilizado";
+
+    if (
+      perteneceAlConduceAnterior &&
+      estadoReutilizable
+    ) {
+
+      const fila = i + 1;
+
+      hoja
+        .getRange(fila, indiceEstado + 1)
+        .setValue("Disponible");
+
+      if (indiceUsuario !== -1) {
+
+        hoja
+          .getRange(fila, indiceUsuario + 1)
+          .clearContent();
+
+      }
+
+      if (indiceDestino !== -1) {
+
+        hoja
+          .getRange(fila, indiceDestino + 1)
+          .clearContent();
+
+      }
+
+      hoja
+        .getRange(fila, indiceConduce + 1)
+        .clearContent();
+
+      if (indiceFechaEstado !== -1) {
+
+        hoja
+          .getRange(fila, indiceFechaEstado + 1)
+          .clearContent();
+
+      }
+
+      if (indiceFechaUtilizacion !== -1) {
+
+        hoja
+          .getRange(
+            fila,
+            indiceFechaUtilizacion + 1
+          )
+          .clearContent();
+
+      }
+
+    }
+
+  }
+
+}
+
+function marcarPrecintosComoUtilizados(
+  encabezado,
+  noConduce,
+  fechaUtilizacion
+) {
+
+  const hoja = getSheet(SHEETS.PRECINTOS);
+
+  if (!hoja) {
+    throw new Error("No existe la hoja Precintos.");
+  }
+
+  const encabezados = obtenerEncabezados(hoja);
+  const datos = hoja.getDataRange().getDisplayValues();
+
+  const indiceNumero =
+    encabezados.indexOf("No_Precinto");
+
+  const indiceEstado =
+    encabezados.indexOf("Estado");
+
+  const indiceUsuario =
+    encabezados.indexOf("Utilizado_Por");
+
+  const indiceConduce =
+    encabezados.indexOf("No_Conduce");
+
+  const indiceFecha =
+    encabezados.indexOf("Fecha_Utilizacion");
+
+  if (
+    indiceNumero === -1 ||
+    indiceEstado === -1 ||
+    indiceUsuario === -1 ||
+    indiceConduce === -1 ||
+    indiceFecha === -1
+  ) {
+    throw new Error(
+      "Faltan columnas necesarias en la hoja Precintos."
+    );
+  }
+
+  const numeros = [
+    encabezado.precinto1,
+    encabezado.precinto2
+  ]
+    .filter(Boolean)
+    .map(numero => String(numero).trim());
+
+  const utilizadoPor =
+    encabezado.supervisor ||
+    encabezado.realizadoPor ||
+    "";
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const numero =
+      String(datos[i][indiceNumero] || "").trim();
+
+    if (!numeros.includes(numero)) {
+      continue;
+    }
+
+    const fila = i + 1;
+
+    hoja
+      .getRange(fila, indiceEstado + 1)
+      .setValue("Utilizado");
+
+    hoja
+      .getRange(fila, indiceUsuario + 1)
+      .setValue(utilizadoPor);
+
+    hoja
+      .getRange(fila, indiceConduce + 1)
+      .setValue(noConduce);
+
+    const celdaFecha =
+      hoja.getRange(fila, indiceFecha + 1);
+
+    celdaFecha.setValue(fechaUtilizacion);
+    celdaFecha.setNumberFormat(
+      "dd/MM/yyyy HH:mm:ss"
+    );
+
+  }
+
+}

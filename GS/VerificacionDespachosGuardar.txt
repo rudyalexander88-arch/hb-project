@@ -1,0 +1,1641 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSGUARDAR.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad exclusiva:
+ * - Guardar incrementalmente la verificación física de una línea.
+ * - Calcular la diferencia entre sistema y cantidad verificada.
+ * - Clasificar faltante, sobrante o sin diferencia.
+ * - Mantener coherencia con una corrección previa si la línea
+ *   se edita posteriormente.
+ * - Calcular el valor histórico de la desviación.
+ * - Recalcular el resumen del encabezado.
+ * - Sincronizar el estado operativo mediante el archivo:
+ *
+ *     VerificacionDespachosEstados.gs
+ *
+ * Este archivo NO:
+ * - Solicita documentos SAP.
+ * - Registra nuevas correcciones.
+ * - Asigna posiciones SAP.
+ * - Guarda causas o comentarios de corrección.
+ *
+ * Las correcciones generales pertenecen a:
+ *
+ *     VerificacionDespachosCorreccionGeneral.gs
+ * ============================================================
+ */
+
+
+/**
+ * Guarda la cantidad físicamente verificada de un material.
+ *
+ * Parámetros:
+ *
+ * {
+ *   idDetalleVerificacion: "...",
+ *   cantidadVerificada: 238,
+ *   tarimasVerificadas: 2,
+ *   recortesVerificados: 14,
+ *   analistaNombre: "..."
+ * }
+ *
+ * Regla:
+ *
+ * Diferencia =
+ * Cantidad_Verificada - Cantidad_Sistema
+ *
+ * Diferencia < 0:
+ * FALTANTE
+ *
+ * Diferencia > 0:
+ * SOBRANTE
+ *
+ * Diferencia = 0:
+ * SIN DIFERENCIA
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function guardarLineaVerificacionDespacho(
+  data
+) {
+
+  const parametros =
+    data || {};
+
+
+  const bloqueoAdministradoExternamente =
+    parametros.__bloqueoMasivo === true;
+
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  try {
+
+    if (!bloqueoAdministradoExternamente) {
+
+      bloqueo.waitLock(
+        30000
+      );
+
+    }
+
+
+    const idDetalle =
+      String(
+        parametros.idDetalleVerificacion ||
+        ""
+      ).trim();
+
+
+    const analistaNombre =
+      String(
+        parametros.analistaNombre ||
+        parametros.usuario ||
+        ""
+      ).trim();
+
+
+    if (!idDetalle) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el ID del detalle de verificación."
+
+      });
+
+    }
+
+
+    /*
+     * Debe distinguirse entre:
+     *
+     * cantidadVerificada = 0
+     *
+     * y
+     *
+     * cantidadVerificada ausente.
+     */
+    const recibioCantidadVerificada =
+      Object.prototype.hasOwnProperty.call(
+        parametros,
+        "cantidadVerificada"
+      );
+
+
+    if (!recibioCantidadVerificada) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar la cantidad verificada."
+
+      });
+
+    }
+
+
+    const cantidadVerificada =
+      convertirCantidadVerificacion_(
+        parametros.cantidadVerificada,
+        "Cantidad verificada"
+      );
+
+
+    const recibioTarimas =
+      Object.prototype.hasOwnProperty.call(
+        parametros,
+        "tarimasVerificadas"
+      );
+
+
+    const recibioRecortes =
+      Object.prototype.hasOwnProperty.call(
+        parametros,
+        "recortesVerificados"
+      );
+
+
+    const hojaDetalle =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS_DETALLE
+      );
+
+
+    const hojaVerificaciones =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS
+      );
+
+
+    const hojaDespacho =
+      getSheet(
+        SHEETS.DESPACHO
+      );
+
+
+    const hojaMateriales =
+      getSheet(
+        SHEETS.MATERIAL
+      );
+
+
+    if (
+      !hojaDetalle ||
+      !hojaVerificaciones ||
+      !hojaDespacho
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontraron las hojas requeridas para guardar la verificación."
+
+      });
+
+    }
+
+
+    const lineaActual =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaDetalle,
+        "ID_Detalle_Verificacion",
+        idDetalle
+      );
+
+
+    if (!lineaActual) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró el material solicitado."
+
+      });
+
+    }
+
+
+    if (
+      normalizarTextoInicioVerificacion_(
+        lineaActual.Estado
+      ) === "eliminado"
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La línea de verificación está eliminada."
+
+      });
+
+    }
+
+
+    const idVerificacion =
+      String(
+        lineaActual.ID_Verificacion ||
+        ""
+      ).trim();
+
+
+    if (!idVerificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La línea no está asociada a una verificación."
+
+      });
+
+    }
+
+
+    const verificacion =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaVerificaciones,
+        "ID_Verificacion",
+        idVerificacion
+      );
+
+
+    if (!verificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró el encabezado de la verificación."
+
+      });
+
+    }
+
+
+    /*
+     * Verificado y Resuelto pueden reabrirse desde el lápiz.
+     * Solo una verificación anulada queda bloqueada.
+     */
+    if (
+      normalizarTextoInicioVerificacion_(
+        verificacion.Estado_Verificacion
+      ) === "anulada"
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La verificación está anulada y no admite cambios."
+
+      });
+
+    }
+
+
+    const cantidadSistema =
+      numeroInicioVerificacion_(
+        lineaActual.Cantidad_Sistema
+      );
+
+
+    const diferencia =
+      redondearInicioVerificacion_(
+        cantidadVerificada -
+        cantidadSistema
+      );
+
+
+    const magnitudDiferencia =
+      Math.abs(
+        diferencia
+      );
+
+
+    /*
+     * Si la línea ya tenía una corrección y posteriormente
+     * se edita la cantidad verificada, se conserva la
+     * corrección hasta el máximo que permita la nueva
+     * diferencia.
+     *
+     * Esto evita perder trazabilidad o dejar una corrección
+     * mayor que la incidencia recalculada.
+     */
+    const correccionAnterior =
+      Math.max(
+        0,
+        numeroInicioVerificacion_(
+          lineaActual.Cantidad_Correccion
+        )
+      );
+
+
+    const cantidadCorreccion =
+      Math.min(
+        correccionAnterior,
+        magnitudDiferencia
+      );
+
+
+    const diferenciaPendiente =
+      calcularDiferenciaPendienteVerificacion_(
+        diferencia,
+        cantidadCorreccion
+      );
+
+
+    const clasificacion =
+      clasificarLineaVerificacion_({
+
+        diferencia:
+          diferencia,
+
+        cantidadCorreccion:
+          cantidadCorreccion,
+
+        diferenciaPendiente:
+          diferenciaPendiente
+
+      });
+
+
+    let tarimasVerificadas =
+      lineaActual.Tarimas_Verificadas;
+
+
+    let recortesVerificados =
+      lineaActual.Recortes_Verificados;
+
+
+    if (recibioTarimas) {
+
+      tarimasVerificadas =
+        convertirCantidadVerificacion_(
+          parametros.tarimasVerificadas,
+          "Tarimas verificadas"
+        );
+
+    }
+
+
+    if (recibioRecortes) {
+
+      recortesVerificados =
+        convertirCantidadVerificacion_(
+          parametros.recortesVerificados,
+          "Recortes verificados"
+        );
+
+    }
+
+
+    const tarimasSistema =
+      numeroInicioVerificacion_(
+        lineaActual.Tarimas_Sistema
+      );
+
+
+    const recortesSistema =
+      numeroInicioVerificacion_(
+        lineaActual.Recortes_Sistema
+      );
+
+
+    const tieneTarimasVerificadas =
+      tieneValorVerificacion_(
+        tarimasVerificadas
+      );
+
+
+    const tieneRecortesVerificados =
+      tieneValorVerificacion_(
+        recortesVerificados
+      );
+
+
+    const diferenciaTarimas =
+      tieneTarimasVerificadas
+
+        ? redondearInicioVerificacion_(
+            numeroInicioVerificacion_(
+              tarimasVerificadas
+            ) -
+            tarimasSistema
+          )
+
+        : "";
+
+
+    const diferenciaRecortes =
+      tieneRecortesVerificados
+
+        ? redondearInicioVerificacion_(
+            numeroInicioVerificacion_(
+              recortesVerificados
+            ) -
+            recortesSistema
+          )
+
+        : "";
+
+
+    const material =
+      String(
+        lineaActual.Material ||
+        ""
+      ).trim();
+
+
+    const valorUnidad =
+      obtenerValorUnidadMaterialVerificacion_(
+        hojaMateriales,
+        material
+      );
+
+
+    const valorDesviacion =
+      redondearImporteVerificacion_(
+        magnitudDiferencia *
+        valorUnidad
+      );
+
+
+    /*
+     * Estos valores no registran una corrección nueva.
+     * Solo conservan la corrección histórica que ya existía.
+     */
+    const valorCorregido =
+      redondearImporteVerificacion_(
+        cantidadCorreccion *
+        valorUnidad
+      );
+
+
+    const valorPendiente =
+      redondearImporteVerificacion_(
+        Math.abs(
+          diferenciaPendiente
+        ) *
+        valorUnidad
+      );
+
+
+    actualizarRegistroPorCampoVerificacion_({
+
+      hoja:
+        hojaDetalle,
+
+      campoBusqueda:
+        "ID_Detalle_Verificacion",
+
+      valorBusqueda:
+        idDetalle,
+
+      datos: {
+
+        Cantidad_Verificada:
+          cantidadVerificada,
+
+        Diferencia:
+          diferencia,
+
+        Cantidad_Correccion:
+          cantidadCorreccion,
+
+        Diferencia_Pendiente:
+          diferenciaPendiente,
+
+        Valor_Desviacion:
+          valorDesviacion,
+
+        Valor_Corregido:
+          valorCorregido,
+
+        Valor_Pendiente:
+          valorPendiente,
+
+        Estado_Resolucion:
+          clasificacion
+            .estadoResolucion,
+
+        Tipo_Diferencia:
+          clasificacion
+            .tipoDiferencia,
+
+        Resultado_Linea:
+          clasificacion
+            .resultadoLinea,
+
+        Tarimas_Verificadas:
+          tarimasVerificadas,
+
+        Diferencia_Tarimas:
+          diferenciaTarimas,
+
+        Recortes_Verificados:
+          recortesVerificados,
+
+        Diferencia_Recortes:
+          diferenciaRecortes,
+
+        Registrado_Por:
+          analistaNombre ||
+          lineaActual.Registrado_Por ||
+          "",
+
+        Fecha_Registro:
+          new Date(),
+
+        Estado:
+          "Activo"
+
+      }
+
+    });
+
+
+    /*
+     * En el guardado masivo las líneas intermedias no deben
+     * recalcular el encabezado ni sincronizar estados. Esa
+     * consolidación se realiza una sola vez con la última línea.
+     */
+    if (
+      parametros.__omitirConsolidacion === true
+    ) {
+
+      return respuesta({
+
+        ok:
+          true,
+
+        mensaje:
+          "Línea preparada correctamente.",
+
+        data: {
+
+          idVerificacion:
+            idVerificacion,
+
+          idDetalleVerificacion:
+            idDetalle,
+
+          diferencia:
+            diferencia
+
+        }
+
+      });
+
+    }
+
+
+    /*
+     * Relectura obligatoria:
+     * el resumen debe construirse con los valores realmente
+     * guardados en la hoja.
+     */
+    const detalleActualizado =
+      obtenerDetalleVerificacionExistente_(
+        hojaDetalle,
+        idVerificacion
+      );
+
+
+    const resumen =
+      calcularResumenCompletoVerificacion_(
+        detalleActualizado
+      );
+
+
+    const estadoGeneral =
+      determinarEstadoGeneralVerificacion_(
+        resumen
+      );
+
+
+    /*
+     * Primero se actualizan todos los indicadores del
+     * encabezado. Luego se sincronizan los estados.
+     */
+    actualizarResumenEncabezadoVerificacion_({
+
+      hoja:
+        hojaVerificaciones,
+
+      idVerificacion:
+        idVerificacion,
+
+      resumen:
+        resumen
+
+    });
+
+
+    const sincronizacion =
+      sincronizarEstadoOperativoVerificacion_({
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        hojaDespacho:
+          hojaDespacho,
+
+        idVerificacion:
+          idVerificacion,
+
+        idConduce:
+          verificacion.ID_Conduce,
+
+        resumen:
+          resumen,
+
+        estadoGeneral:
+          estadoGeneral,
+
+        usuario:
+          analistaNombre ||
+          verificacion.Analista_Nombre ||
+          ""
+
+      });
+
+
+    /*
+     * Compatibilidad:
+     * la versión nueva de Estados devuelve un objeto.
+     * Se tolera también una versión anterior que devuelva
+     * solamente el texto.
+     */
+    const estadoVerificacionActual =
+      sincronizacion &&
+      typeof sincronizacion === "object"
+
+        ? (
+            sincronizacion
+              .estadoVerificacion ||
+            sincronizacion.estado ||
+            ""
+          )
+
+        : String(
+            sincronizacion ||
+            ""
+          );
+
+
+    SpreadsheetApp.flush();
+
+
+    const lineaGuardada =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaDetalle,
+        "ID_Detalle_Verificacion",
+        idDetalle
+      );
+
+
+    const verificacionGuardada =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaVerificaciones,
+        "ID_Verificacion",
+        idVerificacion
+      );
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      mensaje:
+        diferencia === 0
+
+          ? "Material verificado sin diferencias."
+
+          : "Material guardado con diferencia detectada.",
+
+      data: {
+
+        linea:
+          lineaGuardada,
+
+        verificacion:
+          verificacionGuardada,
+
+        resumen:
+          resumen,
+
+        estadoGeneral:
+          estadoGeneral,
+
+        estadoVerificacion:
+          estadoVerificacionActual,
+
+        presentacion:
+          sincronizacion &&
+          typeof sincronizacion === "object"
+
+            ? sincronizacion
+
+            : null
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error guardando línea de verificación:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+
+          ? error.message
+
+          : String(error)
+
+    });
+
+
+  } finally {
+
+    try {
+
+      if (!bloqueoAdministradoExternamente) {
+
+        bloqueo.releaseLock();
+
+      }
+
+    } catch (errorBloqueo) {
+
+      /*
+       * El bloqueo podría no haberse adquirido.
+       */
+
+    }
+
+  }
+
+}
+
+
+/**
+ * Guarda todas las cantidades físicas de una verificación con
+ * una sola petición del frontend y un solo bloqueo de escritura.
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function guardarVerificacionDespachoMasiva(
+  data
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  try {
+
+    bloqueo.waitLock(
+      30000
+    );
+
+
+    const parametros =
+      data || {};
+
+
+    const lineas =
+      Array.isArray(
+        parametros.lineas
+      )
+        ? parametros.lineas
+        : [];
+
+
+    if (lineas.length === 0) {
+
+      return respuesta({
+        ok:false,
+        mensaje:"No se recibieron materiales para guardar."
+      });
+
+    }
+
+
+    const resultados = [];
+
+
+    for (
+      let indice = 0;
+      indice < lineas.length;
+      indice++
+    ) {
+
+      const linea =
+        lineas[indice] || {};
+
+
+      const payload = {
+
+        idDetalleVerificacion:
+          linea.idDetalleVerificacion,
+
+        cantidadVerificada:
+          linea.cantidadVerificada,
+
+        analistaNombre:
+          parametros.analistaNombre || "",
+
+        __bloqueoMasivo:
+          true,
+
+        __omitirConsolidacion:
+          indice < lineas.length - 1
+
+      };
+
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          linea,
+          "tarimasVerificadas"
+        )
+      ) {
+
+        payload.tarimasVerificadas =
+          linea.tarimasVerificadas;
+
+      }
+
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          linea,
+          "recortesVerificados"
+        )
+      ) {
+
+        payload.recortesVerificados =
+          linea.recortesVerificados;
+
+      }
+
+
+      const salida =
+        guardarLineaVerificacionDespacho(
+          payload
+        );
+
+
+      const contenido =
+        salida &&
+        typeof salida.getContent === "function"
+          ? salida.getContent()
+          : "";
+
+
+      const resultado =
+        contenido
+          ? JSON.parse(contenido)
+          : salida;
+
+
+      if (
+        !resultado ||
+        resultado.ok !== true
+      ) {
+
+        throw new Error(
+          resultado && resultado.mensaje
+            ? resultado.mensaje
+            : "No fue posible guardar uno de los materiales."
+        );
+
+      }
+
+
+      resultados.push(
+        resultado.data || {}
+      );
+
+    }
+
+
+    const consolidado =
+      resultados[
+        resultados.length - 1
+      ] || {};
+
+
+    const resumen =
+      consolidado.resumen || {};
+
+
+    const existenDiferencias =
+      numeroInicioVerificacion_(
+        resumen.materialesConDiferencia
+      ) > 0 ||
+      numeroInicioVerificacion_(
+        resumen.incidenciasDetectadas
+      ) > 0;
+
+
+    return respuesta({
+
+      ok:true,
+
+      mensaje:
+        existenDiferencias
+          ? "Verificación guardada con diferencias detectadas."
+          : "Verificación completada sin diferencias.",
+
+      data: {
+
+        resumen:
+          resumen,
+
+        verificacion:
+          consolidado.verificacion || null,
+
+        estadoGeneral:
+          consolidado.estadoGeneral || null,
+
+        estadoVerificacion:
+          consolidado.estadoVerificacion || "",
+
+        presentacion:
+          consolidado.presentacion || null,
+
+        existenDiferencias:
+          existenDiferencias,
+
+        cantidadLineas:
+          lineas.length
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error guardando verificación masiva:",
+      error
+    );
+
+
+    return respuesta({
+      ok:false,
+      mensaje:error && error.message ? error.message : String(error)
+    });
+
+
+  } finally {
+
+    try {
+      bloqueo.releaseLock();
+    } catch (errorBloqueo) {
+      /* El bloqueo podría no haberse adquirido. */
+    }
+
+  }
+
+}
+
+
+/**
+ * Indica si un valor fue registrado.
+ *
+ * Debe aceptar cero como valor válido.
+ *
+ * @param {*} valor
+ * @return {boolean}
+ */
+function tieneValorVerificacion_(
+  valor
+) {
+
+  return String(
+    valor === null ||
+    valor === undefined
+
+      ? ""
+
+      : valor
+  ).trim() !== "";
+
+}
+
+
+/**
+ * Calcula la diferencia todavía pendiente.
+ *
+ * La cantidad corregida siempre se recibe positiva.
+ *
+ * diferencia -5, corrección 2:
+ * pendiente -3
+ *
+ * diferencia +5, corrección 2:
+ * pendiente +3
+ *
+ * @param {number} diferencia
+ * @param {number} cantidadCorreccion
+ * @return {number}
+ */
+function calcularDiferenciaPendienteVerificacion_(
+  diferencia,
+  cantidadCorreccion
+) {
+
+  const diferenciaNumerica =
+    numeroInicioVerificacion_(
+      diferencia
+    );
+
+
+  const correccion =
+    Math.max(
+      0,
+      numeroInicioVerificacion_(
+        cantidadCorreccion
+      )
+    );
+
+
+  if (
+    diferenciaNumerica === 0
+  ) {
+
+    return 0;
+
+  }
+
+
+  const aplicada =
+    Math.min(
+      correccion,
+      Math.abs(
+        diferenciaNumerica
+      )
+    );
+
+
+  if (
+    diferenciaNumerica < 0
+  ) {
+
+    return redondearInicioVerificacion_(
+      diferenciaNumerica +
+      aplicada
+    );
+
+  }
+
+
+  return redondearInicioVerificacion_(
+    diferenciaNumerica -
+    aplicada
+  );
+
+}
+
+
+/**
+ * Clasifica una línea después de guardar la verificación
+ * física.
+ *
+ * @param {Object} parametros
+ * @return {Object}
+ */
+function clasificarLineaVerificacion_(
+  parametros
+) {
+
+  const diferencia =
+    numeroInicioVerificacion_(
+      parametros.diferencia
+    );
+
+
+  const correccion =
+    Math.max(
+      0,
+      numeroInicioVerificacion_(
+        parametros.cantidadCorreccion
+      )
+    );
+
+
+  const pendiente =
+    numeroInicioVerificacion_(
+      parametros.diferenciaPendiente
+    );
+
+
+  if (
+    diferencia === 0
+  ) {
+
+    return {
+
+      tipoDiferencia:
+        "SIN DIFERENCIA",
+
+      resultadoLinea:
+        "OK",
+
+      estadoResolucion:
+        "SIN DIFERENCIA"
+
+    };
+
+  }
+
+
+  const tipoDiferencia =
+    diferencia < 0
+
+      ? "FALTANTE"
+
+      : "SOBRANTE";
+
+
+  let estadoResolucion =
+    "PENDIENTE";
+
+
+  if (
+    pendiente === 0
+  ) {
+
+    estadoResolucion =
+      "RESUELTA";
+
+
+  } else if (
+    correccion > 0
+  ) {
+
+    estadoResolucion =
+      "PARCIALMENTE RESUELTA";
+
+  }
+
+
+  return {
+
+    tipoDiferencia:
+      tipoDiferencia,
+
+    resultadoLinea:
+      "CON DIFERENCIA",
+
+    estadoResolucion:
+      estadoResolucion
+
+  };
+
+}
+
+
+/**
+ * Calcula el resumen completo de una verificación.
+ *
+ * Incluye:
+ * - materiales contados;
+ * - materiales pendientes;
+ * - valores monetarios históricos.
+ *
+ * @param {Array<Object>} detalle
+ * @return {Object}
+ */
+function calcularResumenCompletoVerificacion_(
+  detalle
+) {
+
+  const resumen =
+    calcularResumenInicialVerificacion_(
+      detalle
+    );
+
+
+  resumen.materialesVerificados =
+    0;
+
+
+  resumen.materialesPendientesVerificar =
+    0;
+
+
+  resumen.valorDesviacion =
+    0;
+
+
+  resumen.valorCorregido =
+    0;
+
+
+  resumen.valorPendiente =
+    0;
+
+
+  detalle.forEach(
+    function(item) {
+
+      if (
+        tieneValorVerificacion_(
+          item.Cantidad_Verificada
+        )
+      ) {
+
+        resumen.materialesVerificados++;
+
+      } else {
+
+        resumen
+          .materialesPendientesVerificar++;
+
+      }
+
+
+      resumen.valorDesviacion +=
+        numeroInicioVerificacion_(
+          item.Valor_Desviacion
+        );
+
+
+      resumen.valorCorregido +=
+        numeroInicioVerificacion_(
+          item.Valor_Corregido
+        );
+
+
+      resumen.valorPendiente +=
+        numeroInicioVerificacion_(
+          item.Valor_Pendiente
+        );
+
+    }
+  );
+
+
+  resumen.valorDesviacion =
+    redondearImporteVerificacion_(
+      resumen.valorDesviacion
+    );
+
+
+  resumen.valorCorregido =
+    redondearImporteVerificacion_(
+      resumen.valorCorregido
+    );
+
+
+  resumen.valorPendiente =
+    redondearImporteVerificacion_(
+      resumen.valorPendiente
+    );
+
+
+  return resumen;
+
+}
+
+
+/**
+ * Determina:
+ *
+ * - Resultado_Verificacion
+ * - Estado_Resolucion_General
+ *
+ * Estado_Verificacion se determina exclusivamente en:
+ *
+ * VerificacionDespachosEstados.gs
+ *
+ * @param {Object} resumen
+ * @return {Object}
+ */
+function determinarEstadoGeneralVerificacion_(
+  resumen
+) {
+
+  if (
+    numeroInicioVerificacion_(
+      resumen.materialesPendientesVerificar
+    ) > 0
+  ) {
+
+    return {
+
+      resultadoVerificacion:
+        "",
+
+      estadoResolucionGeneral:
+        "PENDIENTE"
+
+    };
+
+  }
+
+
+  if (
+    numeroInicioVerificacion_(
+      resumen.incidenciasDetectadas
+    ) === 0
+  ) {
+
+    return {
+
+      resultadoVerificacion:
+        "CONFORME",
+
+      estadoResolucionGeneral:
+        "NO APLICA"
+
+    };
+
+  }
+
+
+  let estadoResolucionGeneral =
+    "PENDIENTE";
+
+
+  if (
+    numeroInicioVerificacion_(
+      resumen.incidenciasPendientes
+    ) === 0 &&
+    numeroInicioVerificacion_(
+      resumen
+        .incidenciasParcialmenteResueltas
+    ) === 0
+  ) {
+
+    estadoResolucionGeneral =
+      "RESUELTA";
+
+
+  } else if (
+    numeroInicioVerificacion_(
+      resumen.incidenciasResueltas
+    ) > 0 ||
+    numeroInicioVerificacion_(
+      resumen
+        .incidenciasParcialmenteResueltas
+    ) > 0
+  ) {
+
+    estadoResolucionGeneral =
+      "PARCIALMENTE RESUELTA";
+
+  }
+
+
+  return {
+
+    resultadoVerificacion:
+      "CON DIFERENCIAS",
+
+    estadoResolucionGeneral:
+      estadoResolucionGeneral
+
+  };
+
+}
+
+
+/**
+ * Obtiene el valor unitario del material.
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet|null} hoja
+ * @param {string} material
+ * @return {number}
+ */
+function obtenerValorUnidadMaterialVerificacion_(
+  hoja,
+  material
+) {
+
+  if (
+    !hoja ||
+    !material
+  ) {
+
+    return 0;
+
+  }
+
+
+  const catalogo =
+    obtenerCatalogoMaterialesVerificacion_(
+      hoja
+    );
+
+
+  return catalogo[material]
+
+    ? numeroInicioVerificacion_(
+        catalogo[material]
+          .valorUnidad
+      )
+
+    : 0;
+
+}
+
+
+/**
+ * Valida una cantidad introducida por el analista.
+ *
+ * Permite cero.
+ * No permite negativos.
+ *
+ * @param {*} valor
+ * @param {string} nombreCampo
+ * @return {number}
+ */
+function convertirCantidadVerificacion_(
+  valor,
+  nombreCampo
+) {
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+
+        ? ""
+
+        : valor
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        /,/g,
+        ""
+      );
+
+
+  if (!texto) {
+
+    throw new Error(
+      "Debe indicar " +
+      String(
+        nombreCampo ||
+        "la cantidad"
+      ).toLowerCase() +
+      "."
+    );
+
+  }
+
+
+  const numero =
+    Number(
+      texto
+    );
+
+
+  if (
+    !isFinite(
+      numero
+    )
+  ) {
+
+    throw new Error(
+      String(
+        nombreCampo ||
+        "La cantidad"
+      ) +
+      " no es válida."
+    );
+
+  }
+
+
+  if (
+    numero < 0
+  ) {
+
+    throw new Error(
+      String(
+        nombreCampo ||
+        "La cantidad"
+      ) +
+      " no puede ser negativa."
+    );
+
+  }
+
+
+  return redondearInicioVerificacion_(
+    numero
+  );
+
+}
+
+
+/**
+ * Redondea importes monetarios.
+ *
+ * @param {*} valor
+ * @return {number}
+ */
+function redondearImporteVerificacion_(
+  valor
+) {
+
+  return Math.round(
+    numeroInicioVerificacion_(
+      valor
+    ) * 100
+  ) / 100;
+
+}
+
+
+/**
+ * Prueba manual.
+ *
+ * Sustituya el ID por uno real de:
+ *
+ * Verificacion_Despachos_Detalle
+ */
+function probarGuardarLineaVerificacionDespacho() {
+
+  const resultado =
+    guardarLineaVerificacionDespacho({
+
+      idDetalleVerificacion:
+        "REEMPLAZAR_ID_DETALLE",
+
+      cantidadVerificada:
+        1840,
+
+      tarimasVerificadas:
+        2,
+
+      recortesVerificados:
+        0,
+
+      analistaNombre:
+        "Analista de prueba"
+
+    });
+
+
+  console.log(
+    resultado.getContent()
+  );
+
+
+  return resultado;
+
+}

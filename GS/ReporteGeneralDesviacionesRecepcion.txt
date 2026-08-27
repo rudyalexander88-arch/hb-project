@@ -1,0 +1,563 @@
+/**
+ * REPORTEGENERALDESVIACIONESRECEPCION.GS
+ * Reporte histórico de todas las desviaciones de recepción.
+ */
+
+function enviarReporteGeneralDesviacionesRecepcion(periodo, opciones) {
+  opciones = opciones || {};
+
+  if (opciones.validarActivo === true) {
+    const activo = String(
+      obtenerConfiguracionAutomatizaciones_(
+        "Enviar_Reporte_General_Desviaciones",
+        obtenerConfiguracionAutomatizaciones_(
+          "Enviar_Reporte_Mensual_Desviaciones",
+          "NO"
+        )
+      ) || ""
+    ).trim().toUpperCase();
+
+    if (!["SI","SÍ","TRUE","1"].includes(activo)) {
+      return {
+        exito:true,
+        enviado:false,
+        mensaje:"El reporte automático general de desviaciones está desactivado."
+      };
+    }
+  }
+
+  const periodoInfo = rgdObtenerPeriodo_(periodo || "MENSUAL");
+  const correos = rgdObtenerCorreos_();
+  const datos = rgdObtenerDatos_(periodoInfo);
+  const graficos = rgdCrearGraficos_(datos);
+  const html = rgdConstruirHtml_(datos, periodoInfo, graficos);
+
+  const opcionesCorreo = {
+    to:correos.join(","),
+    subject:
+      "Reporte general de desviaciones - " +
+      periodoInfo.etiqueta + " - " +
+      periodoInfo.rangoTexto,
+    htmlBody:html,
+    name:"Sistema Logístico PT - Helados BON"
+  };
+
+  if (Object.keys(graficos.inlineImages).length) {
+    opcionesCorreo.inlineImages = graficos.inlineImages;
+  }
+
+  MailApp.sendEmail(opcionesCorreo);
+
+  return {
+    exito:true,
+    enviado:true,
+    destinatarios:correos,
+    periodo:periodoInfo.clave,
+    rango:periodoInfo.rangoTexto,
+    totalDesviaciones:datos.resumen.totalDesviaciones,
+    totalCorregidas:datos.resumen.totalCorregidas,
+    totalPendientes:datos.resumen.totalPendientes,
+    valorOriginal:datos.resumen.valorOriginal,
+    valorCorregido:datos.resumen.valorCorregido,
+    valorPendiente:datos.resumen.valorPendiente
+  };
+}
+
+function enviarReporteGeneralDesviacionesRecepcionManual(data) {
+  try {
+    data = data || {};
+
+    if (!data.__sesionValidada) {
+      return respuesta({
+        ok:false,
+        mensaje:"La sesión no está autorizada para enviar el reporte."
+      });
+    }
+
+    const resultado = enviarReporteGeneralDesviacionesRecepcion(
+      data.periodo || "MENSUAL",
+      {validarActivo:false}
+    );
+
+    return respuesta({
+      ok:true,
+      mensaje:"Reporte general enviado correctamente.",
+      destinatarios:resultado.destinatarios || [],
+      periodo:resultado.periodo,
+      rango:resultado.rango,
+      totalDesviaciones:resultado.totalDesviaciones || 0,
+      totalCorregidas:resultado.totalCorregidas || 0,
+      totalPendientes:resultado.totalPendientes || 0,
+      valorOriginal:resultado.valorOriginal || 0,
+      valorCorregido:resultado.valorCorregido || 0,
+      valorPendiente:resultado.valorPendiente || 0
+    });
+
+  } catch (error) {
+    return respuesta({
+      ok:false,
+      mensaje:error && error.message ? error.message : String(error)
+    });
+  }
+}
+
+function rgdObtenerDatos_(periodoInfo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName("Verificaciones_Recepciones");
+  if (!hoja) throw new Error('No existe la hoja "Verificaciones_Recepciones".');
+
+  const tabla = rgdLeerTabla_(hoja);
+
+  const registros = tabla.filas.map(function(fila) {
+    const fecha = rgdFecha_(rgdValor_(fila,tabla.mapa,"Fecha_Verificacion"));
+    if (!fecha || fecha < periodoInfo.inicio || fecha > periodoInfo.fin) return null;
+
+    const desviacionOriginal = rgdNumero_(
+      rgdValor_(fila,tabla.mapa,"Desviacion_Original")
+    );
+    const valorOriginal = Math.abs(rgdNumero_(
+      rgdValor_(fila,tabla.mapa,"Valor_Desviacion_Original")
+    ));
+
+    if (Math.abs(desviacionOriginal) <= 0 && valorOriginal <= 0) return null;
+
+    const corregida = Math.abs(rgdNumero_(
+      rgdValor_(fila,tabla.mapa,"Cantidad_Corregida")
+    ));
+    const pendiente = Math.abs(rgdNumero_(
+      rgdValor_(fila,tabla.mapa,"Desviacion_Pendiente")
+    ));
+
+    return {
+      fecha:fecha,
+      idRecepcion:rgdTexto_(rgdValor_(fila,tabla.mapa,"ID_Recepcion")),
+      material:rgdTexto_(rgdValor_(fila,tabla.mapa,"Material")) || "-",
+      descripcion:rgdTexto_(rgdValor_(fila,tabla.mapa,"Descripcion")) || "-",
+      responsableProduccion:
+        rgdTexto_(rgdValor_(fila,tabla.mapa,"Responsable_Produccion_Nombre")) ||
+        "Sin responsable",
+      supervisorPT:
+        rgdTexto_(rgdValor_(fila,tabla.mapa,"Supervisor_PT_Nombre")) ||
+        "Sin supervisor",
+      linea:
+        rgdTexto_(rgdValor_(fila,tabla.mapa,"Linea_Produccion")) ||
+        "Sin línea",
+      tipo:
+        rgdTexto_(rgdValor_(fila,tabla.mapa,"Tipo_Desviacion")) ||
+        "Sin clasificación",
+      desviacionOriginal:Math.abs(desviacionOriginal),
+      cantidadCorregida:corregida,
+      desviacionPendiente:pendiente,
+      valorOriginal:valorOriginal,
+      valorCorregido:Math.abs(rgdNumero_(
+        rgdValor_(fila,tabla.mapa,"Valor_Corregido")
+      )),
+      valorPendiente:Math.abs(rgdNumero_(
+        rgdValor_(fila,tabla.mapa,"Valor_Pendiente")
+      )),
+      estado:
+        pendiente > 0
+          ? (corregida > 0 ? "PARCIAL" : "PENDIENTE")
+          : "CORREGIDA"
+    };
+  }).filter(Boolean).sort(function(a,b) {
+    return b.fecha.getTime() - a.fecha.getTime();
+  });
+
+  const resumen = {
+    totalDesviaciones:registros.length,
+    totalCorregidas:0,
+    totalParciales:0,
+    totalPendientes:0,
+    cantidadOriginal:0,
+    cantidadCorregida:0,
+    cantidadPendiente:0,
+    valorOriginal:0,
+    valorCorregido:0,
+    valorPendiente:0
+  };
+
+  const porProduccion = {};
+  const porSupervisor = {};
+  const porLinea = {};
+  const porMaterial = {};
+  const porTipo = {};
+
+  registros.forEach(function(item) {
+    if (item.estado === "CORREGIDA") resumen.totalCorregidas++;
+    else if (item.estado === "PARCIAL") resumen.totalParciales++;
+    else resumen.totalPendientes++;
+
+    resumen.cantidadOriginal += item.desviacionOriginal;
+    resumen.cantidadCorregida += item.cantidadCorregida;
+    resumen.cantidadPendiente += item.desviacionPendiente;
+    resumen.valorOriginal += item.valorOriginal;
+    resumen.valorCorregido += item.valorCorregido;
+    resumen.valorPendiente += item.valorPendiente;
+
+    rgdAcumular_(porProduccion,item.responsableProduccion,item);
+    rgdAcumular_(porSupervisor,item.supervisorPT,item);
+    rgdAcumular_(porLinea,item.linea,item);
+    rgdAcumular_(porTipo,item.tipo,item);
+    rgdAcumular_(
+      porMaterial,
+      item.material + " - " + item.descripcion,
+      item
+    );
+  });
+
+  Object.keys(resumen).forEach(function(clave) {
+    if (typeof resumen[clave] === "number") {
+      resumen[clave] = rgdRedondear_(resumen[clave]);
+    }
+  });
+
+  return {
+    registros:registros,
+    resumen:resumen,
+    porProduccion:rgdOrdenarAgrupacion_(porProduccion,"valorOriginal"),
+    porSupervisor:rgdOrdenarAgrupacion_(porSupervisor,"valorOriginal"),
+    porLinea:rgdOrdenarAgrupacion_(porLinea,"valorOriginal"),
+    porMaterial:rgdOrdenarAgrupacion_(porMaterial,"cantidad"),
+    porTipo:rgdOrdenarAgrupacion_(porTipo,"cantidad")
+  };
+}
+
+function rgdAcumular_(destino, clave, item) {
+  if (!destino[clave]) {
+    destino[clave] = {
+      etiqueta:clave,
+      cantidad:0,
+      corregidas:0,
+      pendientes:0,
+      cantidadOriginal:0,
+      cantidadCorregida:0,
+      cantidadPendiente:0,
+      valorOriginal:0,
+      valorCorregido:0,
+      valorPendiente:0
+    };
+  }
+
+  const d = destino[clave];
+  d.cantidad++;
+  if (item.estado === "CORREGIDA") d.corregidas++;
+  else d.pendientes++;
+  d.cantidadOriginal += item.desviacionOriginal;
+  d.cantidadCorregida += item.cantidadCorregida;
+  d.cantidadPendiente += item.desviacionPendiente;
+  d.valorOriginal += item.valorOriginal;
+  d.valorCorregido += item.valorCorregido;
+  d.valorPendiente += item.valorPendiente;
+}
+
+function rgdOrdenarAgrupacion_(objeto, campo) {
+  return Object.keys(objeto || {}).map(function(clave) {
+    const item = objeto[clave];
+    Object.keys(item).forEach(function(k) {
+      if (typeof item[k] === "number") item[k] = rgdRedondear_(item[k]);
+    });
+    return item;
+  }).sort(function(a,b) {
+    return b[campo] - a[campo];
+  });
+}
+
+function rgdCrearGraficos_(datos) {
+  const inlineImages = {};
+
+  if (datos.porProduccion.length) {
+    inlineImages.rgdProduccion = rgdGraficoBarras_(
+      "Valor de desviaciones por responsable de Producción",
+      datos.porProduccion.slice(0,10),
+      "valorOriginal"
+    );
+  }
+
+  if (datos.porSupervisor.length) {
+    inlineImages.rgdSupervisor = rgdGraficoBarras_(
+      "Valor de desviaciones por supervisor PT",
+      datos.porSupervisor.slice(0,10),
+      "valorOriginal"
+    );
+  }
+
+  if (datos.porMaterial.length) {
+    inlineImages.rgdMaterial = rgdGraficoColumnas_(
+      "Top materiales con más desviaciones",
+      datos.porMaterial.slice(0,10),
+      "cantidad"
+    );
+  }
+
+  return {inlineImages:inlineImages};
+}
+
+function rgdGraficoBarras_(titulo, datos, campo) {
+  const constructor = Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING,"Concepto")
+    .addColumn(Charts.ColumnType.NUMBER,"Valor");
+
+  datos.forEach(function(item) {
+    constructor.addRow([item.etiqueta,Number(item[campo] || 0)]);
+  });
+
+  return Charts.newBarChart()
+    .setDataTable(constructor.build())
+    .setTitle(titulo)
+    .setDimensions(760,340)
+    .setColors(["#d71920"])
+    .setLegendPosition(Charts.Position.NONE)
+    .build()
+    .getAs("image/png");
+}
+
+function rgdGraficoColumnas_(titulo, datos, campo) {
+  const constructor = Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING,"Material")
+    .addColumn(Charts.ColumnType.NUMBER,"Desviaciones");
+
+  datos.forEach(function(item) {
+    constructor.addRow([item.etiqueta,Number(item[campo] || 0)]);
+  });
+
+  return Charts.newColumnChart()
+    .setDataTable(constructor.build())
+    .setTitle(titulo)
+    .setDimensions(760,320)
+    .setColors(["#1976d2"])
+    .setLegendPosition(Charts.Position.NONE)
+    .build()
+    .getAs("image/png");
+}
+
+function rgdConstruirHtml_(datos, periodo, graficos) {
+  const r = datos.resumen;
+  const imagenes = Object.keys(graficos.inlineImages).map(function(clave) {
+    return "<img src='cid:" + clave + "' style='width:100%;max-width:760px;margin:12px auto;display:block'>";
+  }).join("");
+
+  return "<!doctype html><html><body style='margin:0;background:#f4f5f7;font-family:Arial,sans-serif;color:#202124'>" +
+    "<div style='max-width:1150px;margin:auto;padding:22px'>" +
+      "<div style='background:#fff;border-top:6px solid #d71920;border-radius:12px;padding:22px'>" +
+        "<h2 style='margin:0'>Reporte general de desviaciones de Recepción</h2>" +
+        "<p style='color:#6b7280'>" + rgdHtml_(periodo.etiqueta) + " · " + rgdHtml_(periodo.rangoTexto) + "</p>" +
+        rgdTarjetasResumen_(r) +
+        imagenes +
+        rgdTablaAgrupacion_("Responsables de Producción",datos.porProduccion.slice(0,20)) +
+        rgdTablaAgrupacion_("Supervisores PT",datos.porSupervisor.slice(0,20)) +
+        rgdTablaAgrupacion_("Líneas de Producción",datos.porLinea.slice(0,20)) +
+        rgdTablaAgrupacion_("Top materiales",datos.porMaterial.slice(0,20)) +
+        rgdTablaDetalle_(datos.registros.slice(0,100),datos.registros.length) +
+      "</div>" +
+    "</div></body></html>";
+}
+
+function rgdTarjetasResumen_(r) {
+  const tarjetas = [
+    ["TOTAL DESVIACIONES",r.totalDesviaciones,"#202124"],
+    ["CORREGIDAS",r.totalCorregidas,"#168a45"],
+    ["PARCIALES",r.totalParciales,"#d97706"],
+    ["PENDIENTES",r.totalPendientes,"#d71920"],
+    ["VALOR ORIGINAL",rgdMoneda_(r.valorOriginal),"#202124"],
+    ["VALOR CORREGIDO",rgdMoneda_(r.valorCorregido),"#168a45"],
+    ["VALOR PENDIENTE",rgdMoneda_(r.valorPendiente),"#d71920"]
+  ];
+
+  return "<div style='margin:16px 0'>" + tarjetas.map(function(t) {
+    return "<div style='display:inline-block;vertical-align:top;margin:4px;padding:12px 15px;background:#f6f7f9;border-radius:9px'>" +
+      "<span style='font-size:10px;color:#6b7280'>" + t[0] + "</span><br>" +
+      "<strong style='font-size:19px;color:" + t[2] + "'>" + t[1] + "</strong></div>";
+  }).join("") + "</div>";
+}
+
+function rgdTablaAgrupacion_(titulo, filas) {
+  const cuerpo = filas.length ? filas.map(function(x) {
+    return "<tr>" +
+      "<td style='padding:8px'>" + rgdHtml_(x.etiqueta) + "</td>" +
+      "<td style='padding:8px;text-align:center'>" + x.cantidad + "</td>" +
+      "<td style='padding:8px;text-align:center'>" + x.corregidas + "</td>" +
+      "<td style='padding:8px;text-align:center'>" + x.pendientes + "</td>" +
+      "<td style='padding:8px;text-align:right'>" + rgdMoneda_(x.valorOriginal) + "</td>" +
+      "<td style='padding:8px;text-align:right;color:#168a45'>" + rgdMoneda_(x.valorCorregido) + "</td>" +
+      "<td style='padding:8px;text-align:right;color:#d71920'>" + rgdMoneda_(x.valorPendiente) + "</td>" +
+    "</tr>";
+  }).join("") : "<tr><td colspan='7' style='padding:18px;text-align:center'>Sin registros</td></tr>";
+
+  return "<h3 style='margin:24px 0 8px'>" + rgdHtml_(titulo) + "</h3>" +
+    "<div style='overflow-x:auto'><table style='width:100%;border-collapse:collapse;font-size:12px'>" +
+      "<thead><tr style='background:#202124;color:#fff'>" +
+        "<th style='padding:8px;text-align:left'>Concepto</th><th>Total</th><th>Corregidas</th><th>Pendientes</th>" +
+        "<th>Valor original</th><th>Valor corregido</th><th>Valor pendiente</th>" +
+      "</tr></thead><tbody>" + cuerpo + "</tbody></table></div>";
+}
+
+function rgdTablaDetalle_(filas,total) {
+  const cuerpo = filas.length ? filas.map(function(x) {
+    return "<tr>" +
+      "<td style='padding:7px'>" + rgdFechaTexto_(x.fecha) + "</td>" +
+      "<td style='padding:7px'>" + rgdHtml_(x.material) + "<br><small>" + rgdHtml_(x.descripcion) + "</small></td>" +
+      "<td style='padding:7px'>" + rgdHtml_(x.responsableProduccion) + "</td>" +
+      "<td style='padding:7px'>" + rgdHtml_(x.supervisorPT) + "</td>" +
+      "<td style='padding:7px'>" + rgdHtml_(x.linea) + "</td>" +
+      "<td style='padding:7px;text-align:right'>" + rgdMoneda_(x.valorOriginal) + "</td>" +
+      "<td style='padding:7px;text-align:right;color:#168a45'>" + rgdMoneda_(x.valorCorregido) + "</td>" +
+      "<td style='padding:7px;text-align:right;color:#d71920'>" + rgdMoneda_(x.valorPendiente) + "</td>" +
+    "</tr>";
+  }).join("") : "<tr><td colspan='8' style='padding:20px;text-align:center'>Sin desviaciones en el período</td></tr>";
+
+  const nota = total > filas.length
+    ? "<p style='color:#6b7280;font-size:11px'>Se muestran las primeras " + filas.length + " de " + total + " desviaciones.</p>"
+    : "";
+
+  return "<h3 style='margin:24px 0 8px'>Detalle de desviaciones</h3>" + nota +
+    "<div style='overflow-x:auto'><table style='width:100%;border-collapse:collapse;font-size:11px'>" +
+      "<thead><tr style='background:#d71920;color:#fff'><th>Fecha</th><th>Material</th><th>Producción</th>" +
+      "<th>Supervisor PT</th><th>Línea</th><th>Original</th><th>Corregido</th><th>Pendiente</th></tr></thead>" +
+      "<tbody>" + cuerpo + "</tbody></table></div>";
+}
+
+function rgdObtenerPeriodo_(valor) {
+  const clave = String(valor || "MENSUAL").trim().toUpperCase();
+  const ahora = new Date();
+  const hoy = new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate());
+  let inicio;
+  let fin;
+  let etiqueta;
+
+  if (clave === "SEMANAL") {
+    const dia = hoy.getDay() || 7;
+    inicio = new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()-dia+1);
+    fin = new Date(hoy);
+    etiqueta = "Semana actual";
+  } else if (clave === "QUINCENAL" || clave === "QUINCENA") {
+    const primera = hoy.getDate() <= 15;
+    inicio = new Date(hoy.getFullYear(),hoy.getMonth(),primera ? 1 : 16);
+    fin = primera
+      ? new Date(hoy.getFullYear(),hoy.getMonth(),15)
+      : new Date(hoy.getFullYear(),hoy.getMonth()+1,0);
+    etiqueta = primera ? "Primera quincena" : "Segunda quincena";
+  } else if (clave === "TRIMESTRAL") {
+    const mes = Math.floor(hoy.getMonth()/3)*3;
+    inicio = new Date(hoy.getFullYear(),mes,1);
+    fin = new Date(hoy.getFullYear(),mes+3,0);
+    etiqueta = "Trimestre actual";
+  } else if (clave === "SEMESTRAL") {
+    const mes = hoy.getMonth() < 6 ? 0 : 6;
+    inicio = new Date(hoy.getFullYear(),mes,1);
+    fin = new Date(hoy.getFullYear(),mes+6,0);
+    etiqueta = "Semestre actual";
+  } else if (clave === "ANUAL") {
+    inicio = new Date(hoy.getFullYear(),0,1);
+    fin = new Date(hoy.getFullYear(),11,31);
+    etiqueta = "Año actual";
+  } else {
+    inicio = new Date(hoy.getFullYear(),hoy.getMonth(),1);
+    fin = new Date(hoy.getFullYear(),hoy.getMonth()+1,0);
+    etiqueta = "Mes actual";
+  }
+
+  inicio.setHours(0,0,0,0);
+  fin.setHours(23,59,59,999);
+
+  return {
+    clave:clave === "QUINCENA" ? "QUINCENAL" : (clave || "MENSUAL"),
+    etiqueta:etiqueta,
+    inicio:inicio,
+    fin:fin,
+    rangoTexto:rgdFechaTexto_(inicio) + " al " + rgdFechaTexto_(fin)
+  };
+}
+
+function rgdObtenerCorreos_() {
+  const especificos = obtenerConfiguracionAutomatizaciones_(
+    "Correos_Reporte_General_Desviaciones",
+    ""
+  );
+  const respaldo = obtenerConfiguracionAutomatizaciones_(
+    "Correos_Reporte_Semanal_Verificacion",
+    ""
+  );
+  const correos = rgdNormalizarCorreos_(especificos || respaldo);
+  if (!correos.length) {
+    throw new Error("No existen correos válidos para el reporte general de desviaciones.");
+  }
+  return correos;
+}
+
+function rgdNormalizarCorreos_(valor) {
+  return String(valor || "").split(/[;,\n]+/).map(function(x) {
+    return x.trim();
+  }).filter(function(x) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
+  });
+}
+
+function rgdLeerTabla_(hoja) {
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores.length ? valores[0].map(rgdTexto_) : [];
+  const mapa = {};
+  encabezados.forEach(function(x,i) { if (x) mapa[x] = i; });
+  return {mapa:mapa,filas:valores.slice(1)};
+}
+
+function rgdValor_(fila,mapa,encabezado) {
+  return mapa[encabezado] === undefined ? "" : fila[mapa[encabezado]];
+}
+
+function rgdTexto_(valor) {
+  return valor === null || valor === undefined ? "" : String(valor).trim();
+}
+
+function rgdNumero_(valor) {
+  if (typeof valor === "number") return isFinite(valor) ? valor : 0;
+  let texto = String(valor === null || valor === undefined ? "" : valor)
+    .trim().replace(/\s/g,"");
+  if (texto.includes(",") && texto.includes(".")) texto = texto.replace(/,/g,"");
+  else if (texto.includes(",")) texto = texto.replace(",",".");
+  const numero = Number(texto);
+  return isFinite(numero) ? numero : 0;
+}
+
+function rgdRedondear_(valor) {
+  return Math.round((rgdNumero_(valor)+Number.EPSILON)*100)/100;
+}
+
+function rgdFecha_(valor) {
+  if (valor instanceof Date && !isNaN(valor.getTime())) return new Date(valor.getTime());
+  const fecha = new Date(String(valor || "").replace(" ","T"));
+  return isNaN(fecha.getTime()) ? null : fecha;
+}
+
+function rgdFechaTexto_(fecha) {
+  return Utilities.formatDate(
+    fecha,
+    obtenerZonaHorariaAutomatizaciones_(),
+    "dd/MM/yyyy"
+  );
+}
+
+function rgdMoneda_(valor) {
+  return "RD$" + rgdNumero_(valor).toLocaleString("es-DO",{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+
+function rgdHtml_(valor) {
+  return String(valor === null || valor === undefined ? "" : valor)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/\"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function probarReporteGeneralDesviacionesRecepcion() {
+  const resultado = enviarReporteGeneralDesviacionesRecepcion(
+    "MENSUAL",
+    {validarActivo:false}
+  );
+  console.log(JSON.stringify(resultado,null,2));
+  return resultado;
+}

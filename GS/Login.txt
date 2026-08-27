@@ -1,0 +1,1797 @@
+/**
+ * ============================================================
+ * LOGIN.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Control aplicado:
+ * - Una sola fila activa por usuario.
+ * - Un solo token por usuario.
+ * - Al cerrar sesión se elimina la fila.
+ * - Al forzar una nueva sesión se reemplaza la fila anterior.
+ * - Se usa ScriptLock para impedir dobles tokens por solicitudes
+ *   simultáneas o doble envío del formulario.
+ *
+ * Encabezados requeridos en Sesiones_Usuarios:
+ *
+ * ID_Sesion | IDEmpleado | Usuario | Token | Fecha_Inicio |
+ * Ultima_Actividad | Dispositivo | Estado
+ * ============================================================
+ */
+
+
+function login(datos) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const parametros =
+      datos || {};
+
+    const hojaUsuarios =
+      getSheet("Usuarios");
+
+    const hojaPermisos =
+      getSheet("Permisos_Roles");
+
+    const hojaSesiones =
+      getSheet("Sesiones_Usuarios");
+
+
+    if (!hojaUsuarios) {
+
+      return respuesta({
+        ok: false,
+        mensaje: "No existe la hoja Usuarios."
+      });
+
+    }
+
+
+    if (!hojaPermisos) {
+
+      return respuesta({
+        ok: false,
+        mensaje: "No existe la hoja Permisos_Roles."
+      });
+
+    }
+
+
+    if (!hojaSesiones) {
+
+      return respuesta({
+        ok: false,
+        mensaje: "No existe la hoja Sesiones_Usuarios."
+      });
+
+    }
+
+
+    const usuarioEncontrado =
+      validarCredencialesUsuario_(
+        hojaUsuarios,
+        parametros
+      );
+
+
+    if (!usuarioEncontrado.ok) {
+
+      return respuesta(
+        usuarioEncontrado
+      );
+
+    }
+
+
+    const usuario =
+      usuarioEncontrado.usuario;
+
+
+    const sesionExistente =
+      buscarFilaSesionUsuario_(
+        hojaSesiones,
+        usuario.idEmpleado,
+        usuario.usuario
+      );
+
+
+    if (sesionExistente) {
+
+      return respuesta({
+        ok: false,
+        codigo: "SESION_ACTIVA",
+        requiereConfirmacionSesion: true,
+        mensaje:
+          "Este usuario ya tiene una sesión activa en otro dispositivo.",
+        data: {
+          sesionAnterior: {
+            idSesion:
+              sesionExistente.idSesion,
+            dispositivo:
+              sesionExistente.dispositivo ||
+              "Dispositivo no identificado",
+            fechaInicio:
+              sesionExistente.fechaInicio,
+            ultimaActividad:
+              sesionExistente.ultimaActividad
+          },
+          usuario: {
+            idEmpleado:
+              usuario.idEmpleado,
+            nombre:
+              usuario.nombre,
+            usuario:
+              usuario.usuario,
+            rol:
+              usuario.rol
+          }
+        }
+      });
+
+    }
+
+
+    return crearOReemplazarSesionUsuario_(
+      hojaPermisos,
+      hojaSesiones,
+      usuario,
+      parametros,
+      false
+    );
+
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/**
+ * Confirma el reemplazo de la sesión anterior.
+ */
+function forzarNuevaSesion(datos) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const parametros =
+      datos || {};
+
+    const hojaUsuarios =
+      getSheet("Usuarios");
+
+    const hojaPermisos =
+      getSheet("Permisos_Roles");
+
+    const hojaSesiones =
+      getSheet("Sesiones_Usuarios");
+
+
+    if (
+      !hojaUsuarios ||
+      !hojaPermisos ||
+      !hojaSesiones
+    ) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "No se encontraron las hojas requeridas para iniciar sesión."
+      });
+
+    }
+
+
+    const usuarioEncontrado =
+      validarCredencialesUsuario_(
+        hojaUsuarios,
+        parametros
+      );
+
+
+    if (!usuarioEncontrado.ok) {
+
+      return respuesta(
+        usuarioEncontrado
+      );
+
+    }
+
+
+    return crearOReemplazarSesionUsuario_(
+      hojaPermisos,
+      hojaSesiones,
+      usuarioEncontrado.usuario,
+      parametros,
+      true
+    );
+
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/**
+ * Verifica que el token siga siendo el activo.
+ */
+function verificarSesionUsuario(datos) {
+
+  try {
+
+    const parametros =
+      datos || {};
+
+    const hojaSesiones =
+      getSheet("Sesiones_Usuarios");
+
+
+    if (!hojaSesiones) {
+
+      return respuesta({
+        ok: false,
+        codigo: "SESION_INVALIDADA",
+        mensaje:
+          "No fue posible validar la sesión."
+      });
+
+    }
+
+
+    const idEmpleado =
+      normalizarTextoSesion_(
+        parametros.idEmpleado
+      );
+
+    const tokenSesion =
+      normalizarTextoSesion_(
+        parametros.tokenSesion
+      );
+
+
+    if (
+      !idEmpleado ||
+      !tokenSesion
+    ) {
+
+      return respuesta({
+        ok: false,
+        codigo: "SESION_INVALIDADA",
+        mensaje:
+          "La sesión no contiene credenciales válidas."
+      });
+
+    }
+
+
+    const validacion =
+      validarTokenSesion_(
+        hojaSesiones,
+        idEmpleado,
+        tokenSesion,
+        true
+      );
+
+
+    if (!validacion.valida) {
+
+      return respuesta({
+        ok: false,
+        codigo: "SESION_INVALIDADA",
+        mensaje:
+          "Su sesión fue cerrada porque se inició en otro dispositivo."
+      });
+
+    }
+
+
+    return respuesta({
+      ok: true,
+      data: {
+        sesionActiva: true
+      }
+    });
+
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      codigo: "SESION_INVALIDADA",
+      mensaje:
+        "No fue posible validar la sesión."
+    });
+
+  }
+
+}
+
+
+/**
+ * Al cerrar sesión se elimina por completo la fila activa.
+ */
+function cerrarSesionUsuario(datos) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const parametros =
+      datos || {};
+
+    const hojaSesiones =
+      getSheet("Sesiones_Usuarios");
+
+
+    if (!hojaSesiones) {
+
+      return respuesta({
+        ok: true
+      });
+
+    }
+
+
+    const idEmpleado =
+      normalizarTextoSesion_(
+        parametros.idEmpleado
+      );
+
+    const tokenSesion =
+      normalizarTextoSesion_(
+        parametros.tokenSesion
+      );
+
+
+    eliminarSesionPorToken_(
+      hojaSesiones,
+      idEmpleado,
+      tokenSesion
+    );
+
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Sesión cerrada correctamente."
+    });
+
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/**
+ * Normaliza Fecha_Ingreso para enviarla al frontend.
+ *
+ * Admite:
+ * - fechas reales de Google Sheets (objeto Date)
+ * - texto ya almacenado en la hoja, por ejemplo 3-24-2025
+ *
+ * No modifica la fecha en la hoja.
+ */
+function normalizarFechaIngresoSesion_(valor) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(valor.getTime())
+  ) {
+
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone(),
+      "M-d-yyyy"
+    );
+
+  }
+
+
+  return normalizarTextoSesion_(
+    valor
+  );
+
+}
+
+
+/* ============================================================
+ * VALIDACIÓN DE CREDENCIALES
+ * ============================================================ */
+
+
+function validarCredencialesUsuario_(
+  hojaUsuarios,
+  datos
+) {
+
+  const usuarioIngresado =
+    normalizarTextoSesion_(
+      datos.usuario
+    ).toLowerCase();
+
+  const passwordIngresado =
+    normalizarTextoSesion_(
+      datos.password
+    );
+
+
+  if (
+    !usuarioIngresado ||
+    !passwordIngresado
+  ) {
+
+    return {
+      ok: false,
+      mensaje:
+        "Debe indicar usuario y contraseña."
+    };
+
+  }
+
+
+  const tabla =
+    leerTablaSesion_(
+      hojaUsuarios
+    );
+
+
+  exigirColumnasSesion_(
+    tabla.mapa,
+    [
+      "IDEmpleado",
+      "Nombre",
+      "Usuario",
+      "Rol",
+      "Password",
+      "Correo",
+      "Estado",
+      "Fecha_Ingreso"
+    ],
+    "Usuarios"
+  );
+
+
+  for (
+    let i = 0;
+    i < tabla.filas.length;
+    i++
+  ) {
+
+    const fila =
+      tabla.filas[i];
+
+    const usuario =
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Usuario"
+        )
+      );
+
+    const password =
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Password"
+        )
+      );
+
+
+    if (
+      usuario.toLowerCase() ===
+        usuarioIngresado &&
+      password ===
+        passwordIngresado
+    ) {
+
+      const estado =
+        normalizarClaveSesion_(
+          valorSesion_(
+            fila,
+            tabla.mapa,
+            "Estado"
+          )
+        );
+
+
+      if (estado !== "ACTIVO") {
+
+        return {
+          ok: false,
+          mensaje: "Usuario inactivo."
+        };
+
+      }
+
+
+      return {
+        ok: true,
+        usuario: {
+          idEmpleado:
+            normalizarTextoSesion_(
+              valorSesion_(
+                fila,
+                tabla.mapa,
+                "IDEmpleado"
+              )
+            ),
+          nombre:
+            normalizarTextoSesion_(
+              valorSesion_(
+                fila,
+                tabla.mapa,
+                "Nombre"
+              )
+            ),
+          usuario:
+            usuario,
+          rol:
+            normalizarClaveSesion_(
+              valorSesion_(
+                fila,
+                tabla.mapa,
+                "Rol"
+              )
+            ),
+          correo:
+            normalizarTextoSesion_(
+              valorSesion_(
+                fila,
+                tabla.mapa,
+                "Correo"
+              )
+            ),
+          fechaIngreso:
+            normalizarFechaIngresoSesion_(
+              valorSesion_(
+                fila,
+                tabla.mapa,
+                "Fecha_Ingreso"
+              )
+            )
+        }
+      };
+
+    }
+
+  }
+
+
+  return {
+    ok: false,
+    mensaje:
+      "Usuario o contraseña incorrectos."
+  };
+
+}
+
+
+/* ============================================================
+ * CREAR O REEMPLAZAR SESIÓN
+ * ============================================================ */
+
+
+function crearOReemplazarSesionUsuario_(
+  hojaPermisos,
+  hojaSesiones,
+  usuario,
+  datos,
+  reemplazar
+) {
+
+  const acceso =
+    obtenerPermisosRol_(
+      hojaPermisos,
+      usuario.rol
+    );
+
+
+  const tabla =
+    leerTablaSesion_(
+      hojaSesiones
+    );
+
+
+  exigirColumnasSesion_(
+    tabla.mapa,
+    [
+      "ID_Sesion",
+      "IDEmpleado",
+      "Usuario",
+      "Token",
+      "Fecha_Inicio",
+      "Ultima_Actividad",
+      "Dispositivo",
+      "Estado"
+    ],
+    "Sesiones_Usuarios"
+  );
+
+
+  const sesionExistente =
+    buscarFilaSesionUsuario_(
+      hojaSesiones,
+      usuario.idEmpleado,
+      usuario.usuario
+    );
+
+
+  if (
+    sesionExistente &&
+    !reemplazar
+  ) {
+
+    return respuesta({
+      ok: false,
+      codigo: "SESION_ACTIVA",
+      requiereConfirmacionSesion: true,
+      mensaje:
+        "Este usuario ya tiene una sesión activa en otro dispositivo."
+    });
+
+  }
+
+
+  const ahora =
+    new Date();
+
+  const zona =
+    Session.getScriptTimeZone();
+
+  const idSesion =
+    [
+      "SES",
+      Utilities.formatDate(
+        ahora,
+        zona,
+        "yyyyMMdd-HHmmss"
+      ),
+      Utilities
+        .getUuid()
+        .slice(0, 6)
+        .toUpperCase()
+    ].join("-");
+
+
+  const tokenSesion =
+    Utilities
+      .getUuid()
+      .replace(/-/g, "") +
+    Utilities
+      .getUuid()
+      .replace(/-/g, "");
+
+
+  const fechaHora =
+    Utilities.formatDate(
+      ahora,
+      zona,
+      "yyyy-MM-dd HH:mm:ss"
+    );
+
+
+  const dispositivo =
+    normalizarTextoSesion_(
+      datos.dispositivo
+    ) ||
+    "Dispositivo no identificado";
+
+
+  const nuevaSesion = {
+    ID_Sesion:
+      idSesion,
+    IDEmpleado:
+      usuario.idEmpleado,
+    Usuario:
+      usuario.usuario,
+    Token:
+      tokenSesion,
+    Fecha_Inicio:
+      fechaHora,
+    Ultima_Actividad:
+      fechaHora,
+    Dispositivo:
+      dispositivo,
+    Estado:
+      "ACTIVA"
+  };
+
+
+  const filaNueva =
+    construirFilaSesion_(
+      tabla.encabezados,
+      nuevaSesion
+    );
+
+
+  if (sesionExistente) {
+
+    hojaSesiones
+      .getRange(
+        sesionExistente.numeroFila,
+        1,
+        1,
+        tabla.encabezados.length
+      )
+      .setValues([
+        filaNueva
+      ]);
+
+  } else {
+
+    hojaSesiones.appendRow(
+      filaNueva
+    );
+
+  }
+
+
+  /*
+   * Limpieza preventiva:
+   * si por pruebas anteriores existen filas duplicadas
+   * del mismo usuario, conserva solo la nueva.
+   */
+  eliminarSesionesDuplicadasUsuario_(
+    hojaSesiones,
+    usuario.idEmpleado,
+    tokenSesion
+  );
+
+
+  SpreadsheetApp.flush();
+
+
+  return respuesta({
+    ok: true,
+    idEmpleado:
+      usuario.idEmpleado,
+    nombre:
+      usuario.nombre,
+    usuario:
+      usuario.usuario,
+    correo:
+      usuario.correo,
+    fechaIngreso:
+      usuario.fechaIngreso || "",
+    rol:
+      usuario.rol,
+    modulos:
+      acceso.modulos,
+    permisos:
+      acceso.permisos,
+    accesoTotal:
+      acceso.accesoTotal,
+    tokenSesion:
+      tokenSesion,
+    idSesion:
+      idSesion,
+    dispositivo:
+      dispositivo
+  });
+
+}
+
+
+/* ============================================================
+ * BÚSQUEDA, VALIDACIÓN Y ELIMINACIÓN
+ * ============================================================ */
+
+
+function buscarFilaSesionUsuario_(
+  hojaSesiones,
+  idEmpleado,
+  usuario
+) {
+
+  const tabla =
+    leerTablaSesion_(
+      hojaSesiones
+    );
+
+
+  if (!tabla.filas.length) {
+    return null;
+  }
+
+
+  for (
+    let i = tabla.filas.length - 1;
+    i >= 0;
+    i--
+  ) {
+
+    const fila =
+      tabla.filas[i];
+
+    const idFila =
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "IDEmpleado"
+        )
+      );
+
+    const usuarioFila =
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Usuario"
+        )
+      );
+
+    const estado =
+      normalizarClaveSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Estado"
+        )
+      );
+
+
+    if (
+      estado === "ACTIVA" &&
+      (
+        (
+          idEmpleado &&
+          idFila === idEmpleado
+        ) ||
+        (
+          usuario &&
+          usuarioFila.toLowerCase() ===
+            usuario.toLowerCase()
+        )
+      )
+    ) {
+
+      return {
+        numeroFila:
+          i + 2,
+        idSesion:
+          normalizarTextoSesion_(
+            valorSesion_(
+              fila,
+              tabla.mapa,
+              "ID_Sesion"
+            )
+          ),
+        fechaInicio:
+          normalizarTextoSesion_(
+            valorSesion_(
+              fila,
+              tabla.mapa,
+              "Fecha_Inicio"
+            )
+          ),
+        ultimaActividad:
+          normalizarTextoSesion_(
+            valorSesion_(
+              fila,
+              tabla.mapa,
+              "Ultima_Actividad"
+            )
+          ),
+        dispositivo:
+          normalizarTextoSesion_(
+            valorSesion_(
+              fila,
+              tabla.mapa,
+              "Dispositivo"
+            )
+          )
+      };
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+function validarTokenSesion_(
+  hojaSesiones,
+  idEmpleado,
+  tokenSesion,
+  actualizarActividad
+) {
+
+  const tabla =
+    leerTablaSesion_(
+      hojaSesiones
+    );
+
+
+  for (
+    let i = tabla.filas.length - 1;
+    i >= 0;
+    i--
+  ) {
+
+    const fila =
+      tabla.filas[i];
+
+
+    if (
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "IDEmpleado"
+        )
+      ) === idEmpleado &&
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Token"
+        )
+      ) === tokenSesion &&
+      normalizarClaveSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Estado"
+        )
+      ) === "ACTIVA"
+    ) {
+
+      if (actualizarActividad) {
+
+        hojaSesiones
+          .getRange(
+            i + 2,
+            tabla.mapa.Ultima_Actividad + 1
+          )
+          .setValue(
+            Utilities.formatDate(
+              new Date(),
+              Session.getScriptTimeZone(),
+              "yyyy-MM-dd HH:mm:ss"
+            )
+          );
+
+      }
+
+
+      return {
+        valida: true,
+        numeroFila: i + 2
+      };
+
+    }
+
+  }
+
+
+  return {
+    valida: false
+  };
+
+}
+
+
+function eliminarSesionPorToken_(
+  hojaSesiones,
+  idEmpleado,
+  tokenSesion
+) {
+
+  if (
+    !idEmpleado ||
+    !tokenSesion
+  ) {
+    return;
+  }
+
+
+  const tabla =
+    leerTablaSesion_(
+      hojaSesiones
+    );
+
+
+  for (
+    let i = tabla.filas.length - 1;
+    i >= 0;
+    i--
+  ) {
+
+    const fila =
+      tabla.filas[i];
+
+
+    if (
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "IDEmpleado"
+        )
+      ) === idEmpleado &&
+      normalizarTextoSesion_(
+        valorSesion_(
+          fila,
+          tabla.mapa,
+          "Token"
+        )
+      ) === tokenSesion
+    ) {
+
+      hojaSesiones.deleteRow(
+        i + 2
+      );
+
+      return;
+
+    }
+
+  }
+
+}
+
+
+function eliminarSesionesDuplicadasUsuario_(
+  hojaSesiones,
+  idEmpleado,
+  tokenConservar
+) {
+
+  const tabla =
+    leerTablaSesion_(
+      hojaSesiones
+    );
+
+
+  const filasEliminar = [];
+
+
+  tabla.filas.forEach(
+    function(fila, indice) {
+
+      const idFila =
+        normalizarTextoSesion_(
+          valorSesion_(
+            fila,
+            tabla.mapa,
+            "IDEmpleado"
+          )
+        );
+
+      const tokenFila =
+        normalizarTextoSesion_(
+          valorSesion_(
+            fila,
+            tabla.mapa,
+            "Token"
+          )
+        );
+
+
+      if (
+        idFila === idEmpleado &&
+        tokenFila !== tokenConservar
+      ) {
+
+        filasEliminar.push(
+          indice + 2
+        );
+
+      }
+
+    }
+  );
+
+
+  filasEliminar
+    .sort(
+      function(a, b) {
+        return b - a;
+      }
+    )
+    .forEach(
+      function(numeroFila) {
+        hojaSesiones.deleteRow(
+          numeroFila
+        );
+      }
+    );
+
+}
+
+
+/* ============================================================
+ * PERMISOS
+ * ============================================================ */
+
+
+function obtenerPermisosRol_(
+  hojaPermisos,
+  rolUsuario
+) {
+
+  /* MONTACARGUISTA hereda exactamente los permisos de AUXILIAR. */
+  const rolPermisos =
+    rolUsuario === "MONTACARGUISTA"
+      ? "AUXILIAR"
+      : rolUsuario;
+
+  const datos =
+    hojaPermisos
+      .getDataRange()
+      .getDisplayValues();
+
+  const modulos = [];
+  const permisos = [];
+
+  let accesoTotal =
+    false;
+
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    const fila =
+      datos[i];
+
+    const rol =
+      normalizarClaveSesion_(
+        fila[0]
+      );
+
+    const modulo =
+      normalizarClaveSesion_(
+        fila[1]
+      );
+
+    const permiso =
+      normalizarClaveSesion_(
+        fila[2]
+      );
+
+    const estado =
+      normalizarClaveSesion_(
+        fila[3]
+      );
+
+
+    if (
+      rol !== rolPermisos ||
+      estado !== "ACTIVO"
+    ) {
+      continue;
+    }
+
+
+    if (permiso === "TODOS") {
+      accesoTotal = true;
+    }
+
+
+    if (
+      modulo &&
+      modulos.indexOf(modulo) === -1
+    ) {
+      modulos.push(modulo);
+    }
+
+
+    if (
+      permiso &&
+      permisos.indexOf(permiso) === -1
+    ) {
+      permisos.push(permiso);
+    }
+
+  }
+
+
+  return {
+    modulos: modulos,
+    permisos: permisos,
+    accesoTotal: accesoTotal
+  };
+
+}
+
+
+/* ============================================================
+ * AUXILIARES
+ * ============================================================ */
+
+
+function leerTablaSesion_(hoja) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  const encabezados =
+    datos.length
+      ? datos[0].map(
+          normalizarTextoSesion_
+        )
+      : [];
+
+  const mapa = {};
+
+  encabezados.forEach(
+    function(encabezado, indice) {
+      mapa[encabezado] = indice;
+    }
+  );
+
+  return {
+    encabezados: encabezados,
+    mapa: mapa,
+    filas: datos.slice(1)
+  };
+
+}
+
+
+function valorSesion_(
+  fila,
+  mapa,
+  encabezado
+) {
+
+  const indice =
+    mapa[encabezado];
+
+  return typeof indice === "undefined"
+    ? ""
+    : fila[indice];
+
+}
+
+
+function exigirColumnasSesion_(
+  mapa,
+  columnas,
+  nombreHoja
+) {
+
+  const faltantes =
+    columnas.filter(
+      function(columna) {
+        return typeof mapa[columna] ===
+          "undefined";
+      }
+    );
+
+  if (faltantes.length) {
+
+    throw new Error(
+      "Faltan columnas en " +
+      nombreHoja +
+      ": " +
+      faltantes.join(", ")
+    );
+
+  }
+
+}
+
+
+function construirFilaSesion_(
+  encabezados,
+  valores
+) {
+
+  return encabezados.map(
+    function(encabezado) {
+      return Object.prototype
+        .hasOwnProperty.call(
+          valores,
+          encabezado
+        )
+          ? valores[encabezado]
+          : "";
+    }
+  );
+
+}
+
+
+function normalizarTextoSesion_(valor) {
+
+  return (
+    valor === null ||
+    valor === undefined
+  )
+    ? ""
+    : String(valor).trim();
+
+}
+
+
+function normalizarClaveSesion_(valor) {
+
+  return normalizarTextoSesion_(valor)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(/\s+/g, "_")
+    .trim();
+
+}
+
+
+/**
+ * Acciones del switch:
+ *
+ * case "login":
+ *   return login(data);
+ *
+ * case "forzarNuevaSesion":
+ *   return forzarNuevaSesion(data);
+ *
+ * case "verificarSesionUsuario":
+ *   return verificarSesionUsuario(data);
+ *
+ * case "cerrarSesionUsuario":
+ *   return cerrarSesionUsuario(data);
+ */
+
+function validarPeticionSesion_(
+  datos
+) {
+
+  const hojaSesiones =
+    getSheet(
+      "Sesiones_Usuarios"
+    );
+
+
+  if (!hojaSesiones) {
+
+    return {
+      ok: false,
+      mensaje:
+        "No fue posible validar la sesión."
+    };
+
+  }
+
+
+  const idEmpleado =
+    normalizarTextoSesion_(
+      datos.idEmpleado
+    );
+
+
+  const tokenSesion =
+    normalizarTextoSesion_(
+      datos.tokenSesion
+    );
+
+
+  if (
+    !idEmpleado ||
+    !tokenSesion
+  ) {
+
+    return {
+      ok: false,
+      mensaje:
+        "La solicitud no contiene una sesión válida."
+    };
+
+  }
+
+
+  const resultado =
+  validarTokenSesion_(
+    hojaSesiones,
+    idEmpleado,
+    tokenSesion,
+    false
+  );
+
+  if (
+    !resultado.valida
+  ) {
+
+    return {
+      ok: false,
+      mensaje:
+        "Su sesión fue cerrada o reemplazada por otra."
+    };
+
+  }
+
+
+  return {
+    ok: true
+  };
+
+}
+
+
+/* ============================================================
+ * PERFIL DEL COLABORADOR
+ * ============================================================ */
+
+function obtenerPerfilUsuario(datos) {
+  try {
+    const contexto = puObtenerUsuarioAutenticado_(datos);
+
+    if (!contexto.ok) {
+      return respuesta(contexto);
+    }
+
+    return respuesta({
+      ok:true,
+      data:{
+        perfil:puConstruirPerfil_(contexto.fila, contexto.mapa)
+      }
+    });
+  } catch (error) {
+    return respuesta({
+      ok:false,
+      mensaje:error && error.message ? error.message : String(error)
+    });
+  }
+}
+
+
+function actualizarPerfilUsuario(datos) {
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+    const parametros = datos || {};
+    const contexto = puObtenerUsuarioAutenticado_(parametros);
+
+    if (!contexto.ok) {
+      return respuesta(contexto);
+    }
+
+    const cedula = puSoloDigitos_(parametros.cedula);
+    const telefono = puSoloDigitos_(parametros.numeroTelefono);
+    const correo = normalizarTextoSesion_(parametros.correo).toLowerCase();
+    const tieneHijos = normalizarClaveSesion_(parametros.tieneHijos);
+    const cantidadHijos = Math.max(
+      0,
+      Math.floor(Number(parametros.cantidadHijos || 0))
+    );
+
+    if (cedula && cedula.length !== 11) {
+      return respuesta({
+        ok:false,
+        mensaje:"La cédula debe contener 11 dígitos."
+      });
+    }
+
+    if (telefono && telefono.length !== 10) {
+      return respuesta({
+        ok:false,
+        mensaje:"El número de teléfono debe contener 10 dígitos."
+      });
+    }
+
+    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      return respuesta({
+        ok:false,
+        mensaje:"El correo electrónico no tiene un formato válido."
+      });
+    }
+
+    if (["SI","NO"].indexOf(tieneHijos) === -1) {
+      return respuesta({
+        ok:false,
+        mensaje:"Indique si tiene hijos."
+      });
+    }
+
+    if (tieneHijos === "SI" && cantidadHijos < 1) {
+      return respuesta({
+        ok:false,
+        mensaje:"Indique la cantidad de hijos."
+      });
+    }
+
+    const passwordActual = normalizarTextoSesion_(parametros.passwordActual);
+    const passwordNueva = normalizarTextoSesion_(parametros.passwordNueva);
+    const confirmarPassword = normalizarTextoSesion_(parametros.confirmarPassword);
+    const solicitaCambioPassword = Boolean(
+      passwordActual || passwordNueva || confirmarPassword
+    );
+
+    if (solicitaCambioPassword) {
+      const passwordGuardada = normalizarTextoSesion_(
+        valorSesion_(contexto.fila, contexto.mapa, "Password")
+      );
+
+      if (!passwordActual || passwordActual !== passwordGuardada) {
+        return respuesta({
+          ok:false,
+          mensaje:"La contraseña actual no es correcta."
+        });
+      }
+
+      if (passwordNueva.length < 6) {
+        return respuesta({
+          ok:false,
+          mensaje:"La nueva contraseña debe tener al menos 6 caracteres."
+        });
+      }
+
+      if (passwordNueva !== confirmarPassword) {
+        return respuesta({
+          ok:false,
+          mensaje:"La confirmación de la nueva contraseña no coincide."
+        });
+      }
+
+      if (passwordNueva === passwordGuardada) {
+        return respuesta({
+          ok:false,
+          mensaje:"La nueva contraseña debe ser diferente de la actual."
+        });
+      }
+    }
+
+    puEscribirCampo_(
+      contexto.hoja,
+      contexto.numeroFila,
+      contexto.mapa,
+      "Cedula",
+      cedula
+    );
+    puEscribirCampo_(
+      contexto.hoja,
+      contexto.numeroFila,
+      contexto.mapa,
+      "Correo",
+      correo
+    );
+    puEscribirCampo_(
+      contexto.hoja,
+      contexto.numeroFila,
+      contexto.mapa,
+      "Numero_Telefono",
+      telefono
+    );
+    puEscribirCampo_(
+      contexto.hoja,
+      contexto.numeroFila,
+      contexto.mapa,
+      "Tiene_Hijos",
+      tieneHijos
+    );
+    puEscribirCampo_(
+      contexto.hoja,
+      contexto.numeroFila,
+      contexto.mapa,
+      "Cantidad_Hijos",
+      tieneHijos === "SI" ? cantidadHijos : 0
+    );
+
+    if (solicitaCambioPassword) {
+      puEscribirCampo_(
+        contexto.hoja,
+        contexto.numeroFila,
+        contexto.mapa,
+        "Password",
+        passwordNueva
+      );
+
+      const hojaSesiones = getSheet("Sesiones_Usuarios");
+      if (hojaSesiones) {
+        eliminarSesionPorToken_(
+          hojaSesiones,
+          normalizarTextoSesion_(parametros.idEmpleado),
+          normalizarTextoSesion_(parametros.tokenSesion)
+        );
+      }
+    }
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok:true,
+      mensaje:solicitaCambioPassword
+        ? "Perfil y contraseña actualizados correctamente."
+        : "Perfil actualizado correctamente.",
+      data:{
+        passwordCambiada:solicitaCambioPassword,
+        cerrarSesion:solicitaCambioPassword,
+        perfil:puConstruirPerfilActualizado_(
+          contexto.fila,
+          contexto.mapa,
+          {
+            cedula:cedula,
+            correo:correo,
+            numeroTelefono:telefono,
+            tieneHijos:tieneHijos,
+            cantidadHijos:tieneHijos === "SI" ? cantidadHijos : 0
+          }
+        )
+      }
+    });
+  } catch (error) {
+    return respuesta({
+      ok:false,
+      mensaje:error && error.message ? error.message : String(error)
+    });
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+
+function puObtenerUsuarioAutenticado_(datos) {
+  const parametros = datos || {};
+
+  if (!parametros.__sesionValidada || parametros.__sesionValidada.ok !== true) {
+    return {
+      ok:false,
+      mensaje:"La sesión no está autorizada para consultar este perfil."
+    };
+  }
+
+  const idEmpleado = normalizarTextoSesion_(parametros.idEmpleado);
+  const usuarioSesion = normalizarTextoSesion_(parametros.usuarioSesion).toLowerCase();
+
+  if (!idEmpleado) {
+    return {
+      ok:false,
+      mensaje:"No fue posible identificar al colaborador de la sesión."
+    };
+  }
+
+  const hoja = getSheet("Usuarios");
+  if (!hoja) {
+    return {ok:false,mensaje:"No existe la hoja Usuarios."};
+  }
+
+  const tabla = leerTablaSesion_(hoja);
+  exigirColumnasSesion_(
+    tabla.mapa,
+    [
+      "IDEmpleado","Nombre","Usuario","Rol","Password","Cedula",
+      "Correo","Numero_Telefono","Tiene_Hijos","Cantidad_Hijos"
+    ],
+    "Usuarios"
+  );
+
+  for (let i = 0; i < tabla.filas.length; i++) {
+    const fila = tabla.filas[i];
+    const idFila = normalizarTextoSesion_(
+      valorSesion_(fila, tabla.mapa, "IDEmpleado")
+    );
+    const usuarioFila = normalizarTextoSesion_(
+      valorSesion_(fila, tabla.mapa, "Usuario")
+    ).toLowerCase();
+
+    if (
+      idFila === idEmpleado &&
+      (!usuarioSesion || usuarioFila === usuarioSesion)
+    ) {
+      return {
+        ok:true,
+        hoja:hoja,
+        mapa:tabla.mapa,
+        fila:fila,
+        numeroFila:i + 2
+      };
+    }
+  }
+
+  return {
+    ok:false,
+    mensaje:"No se encontró el usuario autenticado en la hoja Usuarios."
+  };
+}
+
+
+function puConstruirPerfil_(fila, mapa) {
+  return {
+    idEmpleado:normalizarTextoSesion_(valorSesion_(fila,mapa,"IDEmpleado")),
+    nombre:normalizarTextoSesion_(valorSesion_(fila,mapa,"Nombre")),
+    usuario:normalizarTextoSesion_(valorSesion_(fila,mapa,"Usuario")),
+    rol:normalizarTextoSesion_(valorSesion_(fila,mapa,"Rol")),
+    cedula:puSoloDigitos_(valorSesion_(fila,mapa,"Cedula")),
+    correo:normalizarTextoSesion_(valorSesion_(fila,mapa,"Correo")),
+    numeroTelefono:puSoloDigitos_(valorSesion_(fila,mapa,"Numero_Telefono")),
+    tieneHijos:normalizarClaveSesion_(valorSesion_(fila,mapa,"Tiene_Hijos")),
+    cantidadHijos:Math.max(
+      0,
+      Math.floor(Number(valorSesion_(fila,mapa,"Cantidad_Hijos") || 0))
+    )
+  };
+}
+
+
+function puConstruirPerfilActualizado_(fila, mapa, cambios) {
+  const perfil = puConstruirPerfil_(fila, mapa);
+  Object.keys(cambios || {}).forEach(function(clave) {
+    perfil[clave] = cambios[clave];
+  });
+  return perfil;
+}
+
+
+function puEscribirCampo_(hoja, numeroFila, mapa, encabezado, valor) {
+  const indice = mapa[encabezado];
+  if (indice === undefined) {
+    throw new Error("No existe la columna " + encabezado + " en Usuarios.");
+  }
+  hoja.getRange(numeroFila, indice + 1).setValue(valor);
+}
+
+
+function puSoloDigitos_(valor) {
+  return String(valor == null ? "" : valor).replace(/\D/g, "");
+}

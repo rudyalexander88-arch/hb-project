@@ -1,0 +1,1654 @@
+/**
+ * ============================================================
+ * RECEPCIONMATERIALESREPORTES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Incluye:
+ * - Recepciones cerradas recientes.
+ * - Histórico paginado con filtros.
+ * - Rendimiento semanal o mensual por colaborador.
+ * - Consolidación en Rendimiento_Recepciones.
+ * ============================================================
+ */
+
+
+/* ============================================================
+ * ACCIONES PÚBLICAS
+ * ============================================================ */
+
+function listarRecepcionesRecientes(data) {
+
+  try {
+
+    const limite = Math.min(
+      Math.max(
+        Number((data || {}).limite || 5),
+        1
+      ),
+      20
+    );
+
+    const resumenes =
+      obtenerResumenesReportesRecepcion_();
+
+    const lista = Object.values(resumenes)
+      .filter(function(item) {
+        return esEstadoCerradoReporteRecepcion_(item.estado);
+      })
+      .sort(function(a, b) {
+        return b.marcaOrden - a.marcaOrden;
+      })
+      .slice(0, limite);
+
+    return respuesta({
+      ok: true,
+      data: lista
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje: error && error.message
+        ? error.message
+        : String(error)
+    });
+
+  }
+
+}
+
+
+function listarRecepcionesHistorico(data) {
+
+  try {
+
+    const parametros = data || {};
+
+    const pagina = Math.max(
+      Number(parametros.pagina || 1),
+      1
+    );
+
+    const limite = Math.min(
+      Math.max(
+        Number(parametros.limite || 20),
+        1
+      ),
+      100
+    );
+
+    const fechaDesde =
+      convertirFechaReporteRecepcion_(
+        parametros.fechaDesde
+      );
+
+    const fechaHasta =
+      convertirFechaReporteRecepcion_(
+        parametros.fechaHasta
+      );
+
+    if (fechaHasta) {
+      fechaHasta.setHours(23, 59, 59, 999);
+    }
+
+    const buscar =
+      claveRecepcionMateriales_(
+        parametros.buscar || ""
+      );
+
+    const estado =
+      claveRecepcionMateriales_(
+        parametros.estado || ""
+      );
+
+    const turno =
+      claveRecepcionMateriales_(
+        parametros.turno || ""
+      );
+
+    const auxiliar =
+      claveRecepcionMateriales_(
+        parametros.auxiliar || ""
+      );
+
+    const material =
+      claveRecepcionMateriales_(
+        parametros.material || ""
+      );
+
+    const origen =
+      claveRecepcionMateriales_(
+        parametros.origenTraslado || ""
+      );
+
+    const idCamara =
+      claveRecepcionMateriales_(
+        parametros.idCamara || ""
+      );
+
+    const resumenes =
+      Object.values(
+        obtenerResumenesReportesRecepcion_()
+      );
+
+    const filtrados = resumenes.filter(function(item) {
+
+      const fechaItem =
+        convertirFechaReporteRecepcion_(
+          item.fecha
+        );
+
+      if (
+        fechaDesde &&
+        (
+          !fechaItem ||
+          fechaItem < fechaDesde
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        fechaHasta &&
+        (
+          !fechaItem ||
+          fechaItem > fechaHasta
+        )
+      ) {
+        return false;
+      }
+
+      if (
+        estado &&
+        estado !== "TODOS" &&
+        estado !== "TODAS" &&
+        claveRecepcionMateriales_(item.estado) !== estado
+      ) {
+        return false;
+      }
+
+      if (
+        turno &&
+        turno !== "TODOS" &&
+        claveRecepcionMateriales_(item.turno) !== turno
+      ) {
+        return false;
+      }
+
+      if (
+        material &&
+        claveRecepcionMateriales_(
+          item.material + " " + item.descripcion
+        ).indexOf(material) === -1
+      ) {
+        return false;
+      }
+
+      if (
+        auxiliar &&
+        !item.auxiliares.some(function(usuario) {
+          return claveRecepcionMateriales_(
+            usuario.id + " " + usuario.nombre
+          ).indexOf(auxiliar) !== -1;
+        })
+      ) {
+        return false;
+      }
+
+      if (
+        origen &&
+        item.origenes.map(
+          claveRecepcionMateriales_
+        ).indexOf(origen) === -1
+      ) {
+        return false;
+      }
+
+      if (
+        idCamara &&
+        !item.camaras.some(function(camara) {
+          return (
+            claveRecepcionMateriales_(camara.idCamara) === idCamara ||
+            claveRecepcionMateriales_(camara.codigo) === idCamara
+          );
+        })
+      ) {
+        return false;
+      }
+
+      if (buscar) {
+
+        const texto = claveRecepcionMateriales_([
+          item.idRecepcion,
+          item.material,
+          item.descripcion,
+          item.estado,
+          item.turno,
+          item.auxiliares.map(function(usuario) {
+            return usuario.nombre;
+          }).join(" "),
+          item.camaras.map(function(camara) {
+            return camara.codigo + " " + camara.nombre;
+          }).join(" ")
+        ].join(" "));
+
+        if (texto.indexOf(buscar) === -1) {
+          return false;
+        }
+
+      }
+
+      return true;
+
+    }).sort(function(a, b) {
+      return b.marcaOrden - a.marcaOrden;
+    });
+
+    const totalRegistros = filtrados.length;
+    const totalPaginas = Math.max(
+      1,
+      Math.ceil(totalRegistros / limite)
+    );
+
+    const paginaAplicada = Math.min(
+      pagina,
+      totalPaginas
+    );
+
+    const inicio =
+      (paginaAplicada - 1) * limite;
+
+    return respuesta({
+      ok: true,
+      data: {
+        registros: filtrados.slice(
+          inicio,
+          inicio + limite
+        ),
+        paginacion: {
+          pagina: paginaAplicada,
+          limite: limite,
+          totalRegistros: totalRegistros,
+          totalPaginas: totalPaginas,
+          tieneAnterior: paginaAplicada > 1,
+          tieneSiguiente:
+            paginaAplicada < totalPaginas
+        }
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje: error && error.message
+        ? error.message
+        : String(error)
+    });
+
+  }
+
+}
+
+
+function obtenerRendimientoRecepcionesUsuario(data) {
+
+  try {
+
+    const parametros = data || {};
+
+    const usuarioId =
+      normalizarTextoRecepcionMateriales_(
+        parametros.usuarioId || ""
+      );
+
+    const usuarioNombre =
+      normalizarTextoRecepcionMateriales_(
+        parametros.usuarioNombre || ""
+      );
+
+    if (!usuarioId && !usuarioNombre) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar el colaborador."
+      });
+    }
+
+    const tipoPeriodo =
+      claveRecepcionMateriales_(
+        parametros.tipoPeriodo || "SEMANA"
+      ) === "MES"
+        ? "MES"
+        : "SEMANA";
+
+    const fechaReferencia =
+      convertirFechaReporteRecepcion_(
+        parametros.fechaReferencia
+      ) || new Date();
+
+    const periodo =
+      obtenerPeriodoReporteRecepcion_(
+        tipoPeriodo,
+        fechaReferencia
+      );
+
+    const resultado =
+      calcularRendimientoReporteRecepcion_({
+        usuarioId: usuarioId,
+        usuarioNombre: usuarioNombre,
+        tipoPeriodo: tipoPeriodo,
+        periodo: periodo
+      });
+
+    return respuesta({
+      ok: true,
+      data: resultado
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje: error && error.message
+        ? error.message
+        : String(error)
+    });
+
+  }
+
+}
+
+
+function consolidarRendimientoRecepcionesPeriodo(data) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const resultadoRespuesta =
+      obtenerRendimientoRecepcionesUsuario(
+        data
+      );
+
+    const contenido =
+      JSON.parse(
+        resultadoRespuesta.getContent()
+      );
+
+    if (!contenido.ok) {
+      return resultadoRespuesta;
+    }
+
+    const resultado =
+      contenido.data;
+
+    const hoja =
+      obtenerHojaRecepcionMateriales_(
+        "Rendimiento_Recepciones"
+      );
+
+    const validacion =
+      validarEncabezadosRecepcionMateriales_(
+        hoja,
+        [
+          "ID_Rendimiento",
+          "Tipo_Periodo",
+          "Fecha_Inicio",
+          "Fecha_Fin",
+          "Año",
+          "Mes",
+          "Semana",
+          "Usuario_ID",
+          "Usuario_Nombre",
+          "Recepciones_Participadas",
+          "Recepciones_Finalizadas",
+          "Ingresos_Registrados",
+          "Tarimas_Recibidas",
+          "Parciales_Recibidos",
+          "Bultos_Recibidos",
+          "Posiciones_Ocupadas",
+          "Camaras_Utilizadas",
+          "Duracion_Total_Minutos",
+          "Duracion_Promedio_Ingreso",
+          "Recepciones_Validadas",
+          "Recepciones_Con_Incidencias",
+          "Total_Incidencias",
+          "Incidencias_Pendientes",
+          "Exactitud_Porcentaje",
+          "Fecha_Calculo",
+          "Fecha_Modificacion"
+        ]
+      );
+
+    const idRendimiento = [
+      "RR",
+      resultado.tipoPeriodo,
+      String(resultado.fechaInicio).replace(/-/g, ""),
+      resultado.usuarioId ||
+      resultado.usuarioNombre
+    ].join("-");
+
+    const marcaTiempo =
+      obtenerMarcaTiempoRecepcionMateriales_();
+
+    const fila = {
+      ID_Rendimiento: idRendimiento,
+      Tipo_Periodo: resultado.tipoPeriodo,
+      Fecha_Inicio: resultado.fechaInicio,
+      Fecha_Fin: resultado.fechaFin,
+      Año: resultado.anio,
+      Mes: resultado.mes,
+      Semana: resultado.semana,
+      Usuario_ID: resultado.usuarioId,
+      Usuario_Nombre: resultado.usuarioNombre,
+      Recepciones_Participadas:
+        resultado.recepcionesParticipadas,
+      Recepciones_Finalizadas:
+        resultado.recepcionesFinalizadas,
+      Ingresos_Registrados:
+        resultado.ingresosRegistrados,
+      Tarimas_Recibidas:
+        resultado.tarimasRecibidas,
+      Parciales_Recibidos:
+        resultado.parcialesRecibidos,
+      Bultos_Recibidos:
+        resultado.bultosRecibidos,
+      Posiciones_Ocupadas:
+        resultado.posicionesOcupadas,
+      Camaras_Utilizadas:
+        resultado.camarasUtilizadas,
+      Duracion_Total_Minutos:
+        resultado.duracionTotalMinutos,
+      Duracion_Promedio_Ingreso:
+        resultado.duracionPromedioIngreso,
+      Recepciones_Validadas:
+        resultado.recepcionesValidadas,
+      Recepciones_Con_Incidencias:
+        resultado.recepcionesConIncidencias,
+      Total_Incidencias:
+        resultado.totalIncidencias,
+      Incidencias_Pendientes:
+        resultado.incidenciasPendientes,
+      Exactitud_Porcentaje:
+        resultado.exactitudPorcentaje,
+      Fecha_Calculo:
+        marcaTiempo.fechaHora,
+      Fecha_Modificacion:
+        marcaTiempo.fechaHora
+    };
+
+    const existente =
+      buscarRegistroRecepcionMateriales_(
+        hoja,
+        "ID_Rendimiento",
+        idRendimiento
+      );
+
+    if (existente.encontrada) {
+
+      actualizarRegistroRecepcionMateriales_(
+        hoja,
+        existente.numeroFila,
+        fila
+      );
+
+    } else {
+
+      const nuevaFila =
+        construirFilaRecepcionMateriales_(
+          validacion.encabezados,
+          fila
+        );
+
+      hoja
+        .getRange(
+          hoja.getLastRow() + 1,
+          1,
+          1,
+          nuevaFila.length
+        )
+        .setValues([nuevaFila]);
+
+    }
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Rendimiento consolidado correctamente.",
+      data: resultado
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje: error && error.message
+        ? error.message
+        : String(error)
+    });
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/* ============================================================
+ * RESUMEN DE RECEPCIONES
+ * ============================================================ */
+
+function obtenerResumenesReportesRecepcion_() {
+
+  const hojaEncabezado =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS
+        .RECEPCIONES_ENCABEZADO
+    );
+
+  const hojaDetalle =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS
+        .RECEPCIONES_DETALLE
+    );
+
+  const encabezado =
+    leerHojaReporteRecepcion_(
+      hojaEncabezado
+    );
+
+  const detalle =
+    leerHojaReporteRecepcion_(
+      hojaDetalle
+    );
+
+  const mapaCamaras =
+    obtenerMapaCamarasRecepcionMateriales_();
+
+  const resumenes = {};
+
+  encabezado.filas.forEach(function(fila) {
+
+    const idRecepcion =
+      valorReporteRecepcion_(
+        fila,
+        encabezado.mapa,
+        "ID_Recepcion"
+      );
+
+    if (!idRecepcion) {
+      return;
+    }
+
+    const fecha =
+      formatearFechaReporteRecepcion_(
+        valorReporteRecepcion_(
+          fila,
+          encabezado.mapa,
+          "Fecha"
+        )
+      );
+
+    const horaInicio =
+      formatearHoraReporteRecepcion_(
+        valorReporteRecepcion_(
+          fila,
+          encabezado.mapa,
+          "Hora_Inicio"
+        )
+      );
+
+    const horaFinal =
+      formatearHoraReporteRecepcion_(
+        valorReporteRecepcion_(
+          fila,
+          encabezado.mapa,
+          "Hora_Final"
+        )
+      );
+
+    resumenes[idRecepcion] = {
+      idRecepcion: idRecepcion,
+      fecha: fecha,
+      horaInicio: horaInicio,
+      horaFinal: horaFinal,
+      duracionMinutos:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            encabezado.mapa,
+            "Duracion_Minutos"
+          )
+        ),
+      turno:
+        valorReporteRecepcion_(
+          fila,
+          encabezado.mapa,
+          "Turno"
+        ),
+      estado:
+        valorReporteRecepcion_(
+          fila,
+          encabezado.mapa,
+          "Estado"
+        ),
+      produccionFinalizada:
+        valorReporteRecepcion_(
+          fila,
+          encabezado.mapa,
+          "Produccion_Finalizada"
+        ),
+      totalTarimas:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            encabezado.mapa,
+            "Total_Tarimas"
+          )
+        ),
+      totalParciales:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            encabezado.mapa,
+            "Total_Parciales"
+          )
+        ),
+      totalPosicionesOcupadas:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            encabezado.mapa,
+            "Total_Posiciones_Ocupadas"
+          )
+        ),
+      totalUnidades:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            encabezado.mapa,
+            "Total_Unidades"
+          )
+        ),
+      material: "",
+      descripcion: "",
+      auxiliares: [],
+      camaras: [],
+      origenes: [],
+      detalles: [],
+      ingresosRegistrados: 0,
+      incidencias: {
+        total: 0,
+        pendientes: 0
+      },
+      marcaOrden:
+        construirMarcaOrdenReporteRecepcion_(
+          fecha,
+          horaFinal || horaInicio
+        )
+    };
+
+  });
+
+  const auxiliares = {};
+  const camaras = {};
+  const origenes = {};
+
+  detalle.filas.forEach(function(fila) {
+
+    const idRecepcion =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "ID_Recepcion"
+      );
+
+    const resumen =
+      resumenes[idRecepcion];
+
+    if (!resumen) {
+      return;
+    }
+
+    const estadoDetalle =
+      claveRecepcionMateriales_(
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "Estado"
+        )
+      );
+
+    if (
+      estadoDetalle === "ANULADO" ||
+      estadoDetalle === "ANULADA" ||
+      estadoDetalle === "INACTIVO"
+    ) {
+      return;
+    }
+
+    const material =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Material"
+      );
+
+    const descripcion =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Descripcion"
+      );
+
+    if (!resumen.material) {
+      resumen.material = material;
+      resumen.descripcion = descripcion;
+    }
+
+    const auxiliarId =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Auxiliar_ID"
+      );
+
+    const auxiliarNombre =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Auxiliar_Nombre"
+      );
+
+    const idCamara =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "ID_Camara"
+      );
+
+    const origen =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Origen_Traslado"
+      );
+
+    auxiliares[idRecepcion] =
+      auxiliares[idRecepcion] || {};
+
+    if (auxiliarId || auxiliarNombre) {
+      auxiliares[idRecepcion][
+        auxiliarId || auxiliarNombre
+      ] = {
+        id: auxiliarId,
+        nombre: auxiliarNombre
+      };
+    }
+
+    camaras[idRecepcion] =
+      camaras[idRecepcion] || {};
+
+    if (idCamara) {
+
+      const camara =
+        mapaCamaras[idCamara] || {};
+
+      camaras[idRecepcion][idCamara] = {
+        idCamara: idCamara,
+        codigo: camara.codigo || idCamara,
+        nombre: camara.nombre || idCamara
+      };
+
+    }
+
+    origenes[idRecepcion] =
+      origenes[idRecepcion] || {};
+
+    if (origen) {
+      origenes[idRecepcion][origen] = true;
+    }
+
+    resumen.detalles.push({
+      idDetalle:
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "ID_Detalle_Recepcion"
+        ),
+      auxiliarId: auxiliarId,
+      auxiliarNombre: auxiliarNombre,
+      idCamara: idCamara,
+      origenTraslado: origen,
+      tarimasCompletas:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            detalle.mapa,
+            "Tarimas_Completas"
+          )
+        ),
+      parcialUnidades:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            detalle.mapa,
+            "Parcial_Unidades"
+          )
+        ),
+      posicionesOcupadas:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            detalle.mapa,
+            "Posiciones_Ocupadas"
+          )
+        ),
+      totalUnidades:
+        numeroReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            detalle.mapa,
+            "Total_Unidades"
+          )
+        ),
+      fechaRegistro:
+        formatearFechaReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            detalle.mapa,
+            "Fecha_Registro"
+          )
+        ),
+      horaRegistro:
+        formatearHoraReporteRecepcion_(
+          valorReporteRecepcion_(
+            fila,
+            detalle.mapa,
+            "Hora_Registro"
+          )
+        )
+    });
+
+  });
+
+  Object.keys(resumenes).forEach(function(id) {
+
+    const resumen = resumenes[id];
+
+    resumen.auxiliares =
+      Object.values(auxiliares[id] || {});
+
+    resumen.camaras =
+      Object.values(camaras[id] || {});
+
+    resumen.origenes =
+      Object.keys(origenes[id] || {});
+
+    resumen.ingresosRegistrados =
+      resumen.detalles.length;
+
+  });
+
+  return resumenes;
+
+}
+
+
+/* ============================================================
+ * RENDIMIENTO
+ * ============================================================ */
+
+function calcularRendimientoReporteRecepcion_(opciones) {
+
+  const hojaDetalle =
+    obtenerHojaRecepcionMateriales_(
+      RECEPCION_MATERIALES_HOJAS
+        .RECEPCIONES_DETALLE
+    );
+
+  const detalle =
+    leerHojaReporteRecepcion_(
+      hojaDetalle
+    );
+
+  const usuarioId =
+    claveRecepcionMateriales_(
+      opciones.usuarioId || ""
+    );
+
+  const usuarioNombre =
+    claveRecepcionMateriales_(
+      opciones.usuarioNombre || ""
+    );
+
+  const periodo = opciones.periodo;
+
+  const recepciones = {};
+  const ingresos = {};
+  const camaras = {};
+
+  let tarimas = 0;
+  let parciales = 0;
+  let bultos = 0;
+  let posiciones = 0;
+  let nombreDetectado =
+    opciones.usuarioNombre || "";
+
+  detalle.filas.forEach(function(fila) {
+
+    const fecha =
+      convertirFechaReporteRecepcion_(
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "Fecha_Registro"
+        )
+      );
+
+    if (
+      !fecha ||
+      fecha < periodo.fechaInicio ||
+      fecha > periodo.fechaFin
+    ) {
+      return;
+    }
+
+    const idFila =
+      claveRecepcionMateriales_(
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "Auxiliar_ID"
+        )
+      );
+
+    const nombreFila =
+      claveRecepcionMateriales_(
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "Auxiliar_Nombre"
+        )
+      );
+
+    const coincide =
+      (
+        usuarioId &&
+        idFila === usuarioId
+      ) ||
+      (
+        !usuarioId &&
+        usuarioNombre &&
+        nombreFila === usuarioNombre
+      );
+
+    if (!coincide) {
+      return;
+    }
+
+    const idRecepcion =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "ID_Recepcion"
+      );
+
+    const idDetalle =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "ID_Detalle_Recepcion"
+      );
+
+    const idCamara =
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "ID_Camara"
+      );
+
+    if (idRecepcion) {
+      recepciones[idRecepcion] = true;
+    }
+
+    if (idDetalle) {
+      ingresos[idDetalle] = true;
+    }
+
+    if (idCamara) {
+      camaras[idCamara] = true;
+    }
+
+    tarimas += numeroReporteRecepcion_(
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Tarimas_Completas"
+      )
+    );
+
+    if (
+      numeroReporteRecepcion_(
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "Parcial_Unidades"
+        )
+      ) > 0
+    ) {
+      parciales++;
+    }
+
+    bultos += numeroReporteRecepcion_(
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Total_Unidades"
+      )
+    );
+
+    posiciones += numeroReporteRecepcion_(
+      valorReporteRecepcion_(
+        fila,
+        detalle.mapa,
+        "Posiciones_Ocupadas"
+      )
+    );
+
+    if (!nombreDetectado) {
+      nombreDetectado =
+        valorReporteRecepcion_(
+          fila,
+          detalle.mapa,
+          "Auxiliar_Nombre"
+        );
+    }
+
+  });
+
+  const resumenes =
+    obtenerResumenesReportesRecepcion_();
+
+  let finalizadas = 0;
+  let duracionTotal = 0;
+
+  Object.keys(recepciones).forEach(function(id) {
+
+    const resumen = resumenes[id];
+
+    if (
+      resumen &&
+      esEstadoCerradoReporteRecepcion_(
+        resumen.estado
+      )
+    ) {
+      finalizadas++;
+      duracionTotal +=
+        Number(resumen.duracionMinutos || 0);
+    }
+
+  });
+
+  const incidencias =
+    obtenerIncidenciasRendimientoRecepcion_(
+      opciones.usuarioId,
+      nombreDetectado,
+      periodo
+    );
+
+  const cantidadIngresos =
+    Object.keys(ingresos).length;
+
+  return {
+    tipoPeriodo: opciones.tipoPeriodo,
+    fechaInicio:
+      formatearFechaReporteRecepcion_(
+        periodo.fechaInicio
+      ),
+    fechaFin:
+      formatearFechaReporteRecepcion_(
+        periodo.fechaFin
+      ),
+    anio: periodo.anio,
+    mes: periodo.mes,
+    semana: periodo.semana,
+    usuarioId: opciones.usuarioId,
+    usuarioNombre: nombreDetectado,
+    recepcionesParticipadas:
+      Object.keys(recepciones).length,
+    recepcionesFinalizadas: finalizadas,
+    ingresosRegistrados: cantidadIngresos,
+    tarimasRecibidas: tarimas,
+    parcialesRecibidos: parciales,
+    bultosRecibidos: bultos,
+    posicionesOcupadas: posiciones,
+    camarasUtilizadas:
+      Object.keys(camaras).length,
+    duracionTotalMinutos: duracionTotal,
+    duracionPromedioIngreso:
+      cantidadIngresos > 0
+        ? Math.round(
+            (
+              duracionTotal /
+              cantidadIngresos
+            ) * 100
+          ) / 100
+        : 0,
+    recepcionesValidadas:
+      incidencias.recepcionesValidadas,
+    recepcionesConIncidencias:
+      incidencias.recepcionesConIncidencias,
+    totalIncidencias:
+      incidencias.totalIncidencias,
+    incidenciasPendientes:
+      incidencias.incidenciasPendientes,
+    exactitudPorcentaje:
+      incidencias.recepcionesValidadas > 0
+        ? Math.round(
+            (
+              (
+                incidencias.recepcionesValidadas -
+                incidencias.recepcionesConIncidencias
+              ) /
+              incidencias.recepcionesValidadas
+            ) *
+            10000
+          ) / 100
+        : 0
+  };
+
+}
+
+
+function obtenerIncidenciasRendimientoRecepcion_(
+  usuarioId,
+  usuarioNombre,
+  periodo
+) {
+
+  const libro =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const hoja =
+    libro.getSheetByName(
+      "Incidencias_Recepcion"
+    );
+
+  const vacio = {
+    recepcionesValidadas: 0,
+    recepcionesConIncidencias: 0,
+    totalIncidencias: 0,
+    incidenciasPendientes: 0
+  };
+
+  if (!hoja || hoja.getLastRow() <= 1) {
+    return vacio;
+  }
+
+  const lectura =
+    leerHojaReporteRecepcion_(hoja);
+
+  const recepciones = {};
+  let total = 0;
+  let pendientes = 0;
+
+  lectura.filas.forEach(function(fila) {
+
+    const fecha =
+      convertirFechaReporteRecepcion_(
+        valorReporteRecepcion_(
+          fila,
+          lectura.mapa,
+          "Fecha_Deteccion"
+        ) ||
+        valorReporteRecepcion_(
+          fila,
+          lectura.mapa,
+          "Fecha_Registro"
+        )
+      );
+
+    if (
+      !fecha ||
+      fecha < periodo.fechaInicio ||
+      fecha > periodo.fechaFin
+    ) {
+      return;
+    }
+
+    const id =
+      claveRecepcionMateriales_(
+        valorReporteRecepcion_(
+          fila,
+          lectura.mapa,
+          "Usuario_ID_Recepcion"
+        )
+      );
+
+    const nombre =
+      claveRecepcionMateriales_(
+        valorReporteRecepcion_(
+          fila,
+          lectura.mapa,
+          "Usuario_Nombre_Recepcion"
+        )
+      );
+
+    const coincide =
+      (
+        usuarioId &&
+        id === claveRecepcionMateriales_(usuarioId)
+      ) ||
+      (
+        !usuarioId &&
+        usuarioNombre &&
+        nombre === claveRecepcionMateriales_(usuarioNombre)
+      );
+
+    if (!coincide) {
+      return;
+    }
+
+    const idRecepcion =
+      valorReporteRecepcion_(
+        fila,
+        lectura.mapa,
+        "ID_Recepcion"
+      );
+
+    if (idRecepcion) {
+      recepciones[idRecepcion] = true;
+    }
+
+    total++;
+
+    const estado =
+      claveRecepcionMateriales_(
+        valorReporteRecepcion_(
+          fila,
+          lectura.mapa,
+          "Estado"
+        )
+      );
+
+    if (
+      estado !== "CERRADA" &&
+      estado !== "CERRADO" &&
+      estado !== "RESUELTA" &&
+      estado !== "RESUELTO" &&
+      estado !== "CORREGIDA" &&
+      estado !== "CORREGIDO"
+    ) {
+      pendientes++;
+    }
+
+  });
+
+  return {
+    recepcionesValidadas:
+      Object.keys(recepciones).length,
+    recepcionesConIncidencias:
+      Object.keys(recepciones).length,
+    totalIncidencias: total,
+    incidenciasPendientes: pendientes
+  };
+
+}
+
+
+/* ============================================================
+ * AUXILIARES
+ * ============================================================ */
+
+function leerHojaReporteRecepcion_(hoja) {
+
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (!datos.length) {
+    return {
+      mapa: {},
+      filas: []
+    };
+  }
+
+  const mapa = {};
+
+  datos[0].forEach(function(encabezado, indice) {
+    mapa[
+      normalizarTextoRecepcionMateriales_(
+        encabezado
+      )
+    ] = indice;
+  });
+
+  return {
+    mapa: mapa,
+    filas: datos.slice(1)
+  };
+
+}
+
+
+function valorReporteRecepcion_(
+  fila,
+  mapa,
+  encabezado
+) {
+
+  const indice = mapa[encabezado];
+
+  if (typeof indice === "undefined") {
+    return "";
+  }
+
+  return fila[indice];
+
+}
+
+
+function numeroReporteRecepcion_(valor) {
+
+  const numero = Number(valor);
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+
+}
+
+
+function convertirFechaReporteRecepcion_(valor) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(valor.getTime())
+  ) {
+
+    const fecha = new Date(valor);
+    fecha.setHours(0, 0, 0, 0);
+    return fecha;
+
+  }
+
+  const texto =
+    normalizarTextoRecepcionMateriales_(
+      valor
+    );
+
+  if (!texto) {
+    return null;
+  }
+
+  let partes =
+    texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (partes) {
+    return new Date(
+      Number(partes[1]),
+      Number(partes[2]) - 1,
+      Number(partes[3])
+    );
+  }
+
+  partes =
+    texto.match(
+      /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/
+    );
+
+  if (partes) {
+    return new Date(
+      Number(partes[3]),
+      Number(partes[2]) - 1,
+      Number(partes[1])
+    );
+  }
+
+  const fecha = new Date(texto);
+
+  if (!isNaN(fecha.getTime())) {
+    fecha.setHours(0, 0, 0, 0);
+    return fecha;
+  }
+
+  return null;
+
+}
+
+
+function formatearFechaReporteRecepcion_(valor) {
+
+  const fecha =
+    convertirFechaReporteRecepcion_(valor);
+
+  if (!fecha) {
+    return "";
+  }
+
+  return Utilities.formatDate(
+    fecha,
+    Session.getScriptTimeZone(),
+    "yyyy-MM-dd"
+  );
+
+}
+
+
+function formatearHoraReporteRecepcion_(valor) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(valor.getTime())
+  ) {
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone(),
+      "HH:mm:ss"
+    );
+  }
+
+  const texto =
+    normalizarTextoRecepcionMateriales_(
+      valor
+    );
+
+  const partes =
+    texto.match(
+      /(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/
+    );
+
+  if (!partes) {
+    return texto;
+  }
+
+  return (
+    String(partes[1]).padStart(2, "0") +
+    ":" +
+    partes[2] +
+    ":" +
+    (partes[3] || "00")
+  );
+
+}
+
+
+function construirMarcaOrdenReporteRecepcion_(
+  fecha,
+  hora
+) {
+
+  const valor =
+    convertirFechaReporteRecepcion_(fecha);
+
+  if (!valor) {
+    return 0;
+  }
+
+  const horaNormalizada =
+    formatearHoraReporteRecepcion_(
+      hora
+    );
+
+  const partes =
+    String(horaNormalizada || "").match(
+      /^(\d{1,2}):(\d{2})(?::(\d{2}))?/
+    );
+
+  if (partes) {
+    valor.setHours(
+      Number(partes[1]),
+      Number(partes[2]),
+      Number(partes[3] || 0),
+      0
+    );
+  }
+
+  return valor.getTime();
+
+}
+
+
+function esEstadoCerradoReporteRecepcion_(estado) {
+
+  const clave =
+    claveRecepcionMateriales_(estado);
+
+  return [
+    "FINALIZADA",
+    "FINALIZADO",
+    "CERRADA",
+    "CERRADO",
+    "COMPLETADA",
+    "COMPLETADO"
+  ].indexOf(clave) !== -1;
+
+}
+
+
+function obtenerPeriodoReporteRecepcion_(
+  tipoPeriodo,
+  referencia
+) {
+
+  const fecha = new Date(referencia);
+  fecha.setHours(0, 0, 0, 0);
+
+  let inicio;
+  let fin;
+
+  if (tipoPeriodo === "MES") {
+
+    inicio = new Date(
+      fecha.getFullYear(),
+      fecha.getMonth(),
+      1
+    );
+
+    fin = new Date(
+      fecha.getFullYear(),
+      fecha.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+  } else {
+
+    const dia = fecha.getDay();
+    const ajuste =
+      dia === 0
+        ? -6
+        : 1 - dia;
+
+    inicio = new Date(fecha);
+    inicio.setDate(
+      inicio.getDate() + ajuste
+    );
+
+    fin = new Date(inicio);
+    fin.setDate(fin.getDate() + 6);
+    fin.setHours(23, 59, 59, 999);
+
+  }
+
+  return {
+    fechaInicio: inicio,
+    fechaFin: fin,
+    anio: inicio.getFullYear(),
+    mes: inicio.getMonth() + 1,
+    semana:
+      obtenerNumeroSemanaReporteRecepcion_(
+        inicio
+      )
+  };
+
+}
+
+
+function obtenerNumeroSemanaReporteRecepcion_(fecha) {
+
+  const valor = new Date(
+    Date.UTC(
+      fecha.getFullYear(),
+      fecha.getMonth(),
+      fecha.getDate()
+    )
+  );
+
+  const dia = valor.getUTCDay() || 7;
+
+  valor.setUTCDate(
+    valor.getUTCDate() + 4 - dia
+  );
+
+  const inicioAnio = new Date(
+    Date.UTC(
+      valor.getUTCFullYear(),
+      0,
+      1
+    )
+  );
+
+  return Math.ceil(
+    (
+      (
+        valor - inicioAnio
+      ) /
+      86400000 +
+      1
+    ) /
+    7
+  );
+
+}
+
+
+/**
+ * ============================================================
+ * AGREGAR ANTES DEL DEFAULT DEL SWITCH PRINCIPAL
+ * ============================================================
+ *
+ * case "listarRecepcionesRecientes":
+ *   return listarRecepcionesRecientes(data);
+ *
+ * case "listarRecepcionesHistorico":
+ *   return listarRecepcionesHistorico(data);
+ *
+ * case "obtenerRendimientoRecepcionesUsuario":
+ *   return obtenerRendimientoRecepcionesUsuario(data);
+ *
+ * case "consolidarRendimientoRecepcionesPeriodo":
+ *   return consolidarRendimientoRecepcionesPeriodo(data);
+ */

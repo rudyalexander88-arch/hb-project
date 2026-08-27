@@ -1,0 +1,2479 @@
+/**
+ * ============================================================
+ * PRIORIDADESREPORTES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Consultar el histórico de Prioridades.
+ * - Generar reportes por día, semana, mes o rango.
+ * - Construir el PDF corporativo.
+ * - Entregar el PDF al frontend en Base64.
+ * - Enviar el PDF por correo.
+ *
+ * Fuentes:
+ * - Prioridades_Diarias
+ * - Prioridades_Historico
+ * - Configuracion
+ * - Documentos.gs
+ * ============================================================
+ */
+
+
+/**
+ * Genera un PDF para descargar desde el frontend.
+ *
+ * Parámetros:
+ * {
+ *   periodo: "hoy" | "semana" | "mes" | "rango",
+ *   fechaDesde: "yyyy-MM-dd",
+ *   fechaHasta: "yyyy-MM-dd"
+ * }
+ *
+ * @param {Object} data
+ * @return {ContentService.TextOutput}
+ */
+function generarReportePrioridades(
+  data
+) {
+
+  try {
+
+    const paquete =
+      generarPaqueteReportePrioridades_(
+        data || {}
+      );
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      data: {
+
+        nombreArchivo:
+          paquete.nombreArchivo,
+
+        mimeType:
+          "application/pdf",
+
+        base64:
+          Utilities.base64Encode(
+            paquete.pdfBlob.getBytes()
+          ),
+
+        periodo:
+          paquete.datos.periodo,
+
+        fechaDesde:
+          paquete.datos.fechaDesdeVisible,
+
+        fechaHasta:
+          paquete.datos.fechaHastaVisible,
+
+        resumen:
+          paquete.datos.resumen
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error generando reporte de prioridades:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+
+    });
+
+  }
+
+}
+
+
+/**
+ * Envía manualmente un reporte por correo.
+ *
+ * Los destinatarios se leen desde:
+ * Correos_Reportes_Prioridades
+ *
+ * @param {Object} data
+ * @return {ContentService.TextOutput}
+ */
+function enviarReportePrioridades(
+  data
+) {
+
+  try {
+
+    const resultado =
+      enviarReportePrioridadesInterno_(
+        data || {}
+      );
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      data:
+        resultado
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error enviando reporte de prioridades:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+
+    });
+
+  }
+
+}
+
+
+/**
+ * Función interna utilizada tanto por el frontend
+ * como por las automatizaciones.
+ *
+ * @param {Object} data
+ * @return {Object}
+ */
+function enviarReportePrioridadesInterno_(
+  data
+) {
+
+  const configuracion =
+    obtenerConfiguracionReportePrioridades_();
+
+
+  const destinatarios =
+    normalizarCorreosReportePrioridades_(
+      configuracion
+        .Correos_Reportes_Prioridades
+    );
+
+
+  if (
+    destinatarios.length === 0
+  ) {
+
+    throw new Error(
+      'No existen destinatarios configurados en "Correos_Reportes_Prioridades".'
+    );
+
+  }
+
+
+  const paquete =
+    generarPaqueteReportePrioridades_(
+      data || {}
+    );
+
+
+  const guardado =
+    guardarPDFReportePrioridades_(
+      paquete
+    );
+
+
+  const periodoVisible =
+    paquete.datos.fechaDesdeVisible ===
+    paquete.datos.fechaHastaVisible
+
+      ? paquete.datos.fechaDesdeVisible
+
+      : paquete.datos.fechaDesdeVisible +
+        " al " +
+        paquete.datos.fechaHastaVisible;
+
+
+  const asunto =
+    "Reporte de abastecimiento FB - " +
+    periodoVisible;
+
+
+  const resumen =
+    paquete.datos.resumen;
+
+
+  const cuerpoTexto = [
+
+    "REPORTE DE CUMPLIMIENTO DE ABASTECIMIENTO A FRIOBOX",
+    "",
+    "Periodo: " + periodoVisible,
+    "",
+    "Cumplimiento por materiales: " +
+      formatearPorcentajeReportePrioridades_(
+        resumen.cumplimientoMateriales
+      ),
+
+    "Cumplimiento por cantidad: " +
+      formatearPorcentajeReportePrioridades_(
+        resumen.cumplimientoCantidad
+      ),
+
+    "Materiales abastecidos: " +
+      resumen.materialesAbastecidos +
+      " de " +
+      resumen.oportunidadesAtendibles,
+
+    "Oportunidades perdidas: " +
+      resumen.oportunidadesPerdidas,
+
+    "Cantidad objetivo: " +
+      formatearNumeroReportePrioridades_(
+        resumen.cantidadObjetivo
+      ),
+
+    "Cantidad atendida: " +
+      formatearNumeroReportePrioridades_(
+        resumen.cantidadAtendida
+      ),
+
+    "Días de stock repuestos: " +
+      formatearNumeroReportePrioridades_(
+        resumen.diasStockRepuestos
+      ),
+
+    "",
+    "Se adjunta el reporte completo en formato PDF.",
+    "",
+    "Sistema Logístico PT - Helados BON"
+
+  ].join("\n");
+
+
+  const cuerpoHTML = `
+    <div
+      style="
+        font-family:Arial,Helvetica,sans-serif;
+        color:#292929;
+        line-height:1.5;
+      "
+    >
+
+      <h2
+        style="
+          margin:0 0 8px;
+          color:#d71920;
+        "
+      >
+        Reporte de abastecimiento a FrioBox
+      </h2>
+
+      <p>
+        <strong>Periodo:</strong>
+        ${escaparHTMLReportePrioridades_(
+          periodoVisible
+        )}
+      </p>
+
+      <table
+        cellpadding="8"
+        cellspacing="0"
+        style="
+          width:100%;
+          max-width:680px;
+          border-collapse:collapse;
+          margin:15px 0;
+        "
+      >
+
+        <tr>
+          <td
+            style="
+              border:1px solid #dddddd;
+              background:#f7f7f7;
+            "
+          >
+            Cumplimiento por materiales
+          </td>
+
+          <td
+            style="
+              border:1px solid #dddddd;
+              font-weight:bold;
+            "
+          >
+            ${formatearPorcentajeReportePrioridades_(
+              resumen.cumplimientoMateriales
+            )}
+          </td>
+        </tr>
+
+        <tr>
+          <td
+            style="
+              border:1px solid #dddddd;
+              background:#f7f7f7;
+            "
+          >
+            Cumplimiento por cantidad
+          </td>
+
+          <td
+            style="
+              border:1px solid #dddddd;
+              font-weight:bold;
+            "
+          >
+            ${formatearPorcentajeReportePrioridades_(
+              resumen.cumplimientoCantidad
+            )}
+          </td>
+        </tr>
+
+        <tr>
+          <td
+            style="
+              border:1px solid #dddddd;
+              background:#f7f7f7;
+            "
+          >
+            Materiales abastecidos
+          </td>
+
+          <td
+            style="
+              border:1px solid #dddddd;
+              font-weight:bold;
+            "
+          >
+            ${resumen.materialesAbastecidos}
+            /
+            ${resumen.oportunidadesAtendibles}
+          </td>
+        </tr>
+
+        <tr>
+          <td
+            style="
+              border:1px solid #dddddd;
+              background:#f7f7f7;
+            "
+          >
+            Oportunidades perdidas
+          </td>
+
+          <td
+            style="
+              border:1px solid #dddddd;
+              font-weight:bold;
+            "
+          >
+            ${resumen.oportunidadesPerdidas}
+          </td>
+        </tr>
+
+      </table>
+
+      <p>
+        Se adjunta el reporte completo en formato PDF.
+      </p>
+
+      <p
+        style="
+          color:#777777;
+          font-size:12px;
+        "
+      >
+        Sistema Logístico PT · Helados BON
+      </p>
+
+    </div>
+  `;
+
+
+  GmailApp.sendEmail(
+
+    destinatarios.join(","),
+
+    asunto,
+
+    cuerpoTexto,
+
+    {
+
+      htmlBody:
+        cuerpoHTML,
+
+      attachments: [
+        paquete.pdfBlob
+      ],
+
+      name:
+        configuracion
+          .Reporte_Prioridades_Nombre_Remitente ||
+        "Sistema Logístico PT - Helados BON"
+
+    }
+
+  );
+
+
+  return {
+
+  enviado:
+    true,
+
+  guardado:
+    true,
+
+  destinatarios:
+    destinatarios,
+
+  cantidadDestinatarios:
+    destinatarios.length,
+
+  asunto:
+    asunto,
+
+  nombreArchivo:
+    guardado.nombreArchivo,
+
+  archivoId:
+    guardado.idArchivo,
+
+  archivoUrl:
+    guardado.url,
+
+  carpetaId:
+    guardado.idCarpeta,
+
+  carpetaNombre:
+    guardado.nombreCarpeta,
+
+  periodo:
+    periodoVisible
+
+};
+
+}
+
+
+/**
+ * Construye los datos, el HTML y el PDF.
+ *
+ * No guarda el PDF en Drive.
+ *
+ * @param {Object} data
+ * @return {Object}
+ */
+function generarPaqueteReportePrioridades_(
+  data
+) {
+
+  if (
+    typeof Documentos !==
+    "object"
+  ) {
+
+    throw new Error(
+      "No se encontró el motor Documentos.gs."
+    );
+
+  }
+
+
+  const datos =
+    obtenerDatosReportePrioridades_(
+      data || {}
+    );
+
+
+  const html =
+    construirHTMLReportePrioridades_(
+      datos
+    );
+
+
+  const nombreArchivo =
+    Documentos.limpiarNombreArchivo(
+
+      "Reporte_abastecimiento_FB_" +
+
+      datos.fechaDesdeNombre +
+
+      "_a_" +
+
+      datos.fechaHastaNombre
+
+    ) + ".pdf";
+
+
+  const pdfBlob =
+    Utilities
+      .newBlob(
+        html,
+        "text/html",
+        nombreArchivo.replace(
+          /\.pdf$/i,
+          ".html"
+        )
+      )
+      .getAs(
+        MimeType.PDF
+      )
+      .setName(
+        nombreArchivo
+      );
+
+
+  return {
+
+    datos:
+      datos,
+
+    html:
+      html,
+
+    nombreArchivo:
+      nombreArchivo,
+
+    pdfBlob:
+      pdfBlob
+
+  };
+
+}
+
+
+/**
+ * Consulta ambas hojas históricas.
+ *
+ * @param {Object} parametros
+ * @return {Object}
+ */
+function obtenerDatosReportePrioridades_(
+  parametros
+) {
+
+  const ss =
+    SpreadsheetApp
+      .getActiveSpreadsheet();
+
+
+  const zonaHoraria =
+    ss.getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    "America/Santo_Domingo";
+
+
+  const rango =
+    obtenerRangoReportePrioridades_(
+      parametros || {}
+    );
+
+
+  const hojaDiaria =
+    ss.getSheetByName(
+      "Prioridades_Diarias"
+    );
+
+
+  const hojaHistorico =
+    ss.getSheetByName(
+      "Prioridades_Historico"
+    );
+
+
+  if (!hojaDiaria) {
+
+    throw new Error(
+      'No existe la hoja "Prioridades_Diarias".'
+    );
+
+  }
+
+
+  if (!hojaHistorico) {
+
+    throw new Error(
+      'No existe la hoja "Prioridades_Historico".'
+    );
+
+  }
+
+
+  const registrosDiarios =
+    leerRegistrosHojaPrioridades_(
+      hojaDiaria
+    )
+      .filter(
+        function(item) {
+
+          return fechaDentroRangoPrioridades_(
+            item.Fecha,
+            rango.desde,
+            rango.hasta
+          );
+
+        }
+      );
+
+
+  const registrosDetalle =
+    leerRegistrosHojaPrioridades_(
+      hojaHistorico
+    )
+      .filter(
+        function(item) {
+
+          return fechaDentroRangoPrioridades_(
+            item.Fecha,
+            rango.desde,
+            rango.hasta
+          );
+
+        }
+      );
+
+
+  const resumen =
+    calcularResumenReportePrioridades_(
+      registrosDiarios
+    );
+
+
+  const materiales =
+    calcularMaterialesReportePrioridades_(
+      registrosDetalle
+    );
+
+
+  return {
+
+    periodo:
+      rango.periodo,
+
+    etiquetaPeriodo:
+      rango.etiqueta,
+
+    fechaDesde:
+      rango.desde,
+
+    fechaHasta:
+      rango.hasta,
+
+    fechaDesdeVisible:
+      Utilities.formatDate(
+        rango.desde,
+        zonaHoraria,
+        "dd/MM/yyyy"
+      ),
+
+    fechaHastaVisible:
+      Utilities.formatDate(
+        rango.hasta,
+        zonaHoraria,
+        "dd/MM/yyyy"
+      ),
+
+    fechaDesdeNombre:
+      Utilities.formatDate(
+        rango.desde,
+        zonaHoraria,
+        "dd-MM-yyyy"
+      ),
+
+    fechaHastaNombre:
+      Utilities.formatDate(
+        rango.hasta,
+        zonaHoraria,
+        "dd-MM-yyyy"
+      ),
+
+    resumen:
+      resumen,
+
+    registrosDiarios:
+      registrosDiarios,
+
+    registrosDetalle:
+      registrosDetalle,
+
+    materiales:
+      materiales,
+
+    zonaHoraria:
+      zonaHoraria
+
+  };
+
+}
+
+
+/**
+ * Construye el documento corporativo.
+ *
+ * @param {Object} datos
+ * @return {string}
+ */
+function construirHTMLReportePrioridades_(
+  datos
+) {
+
+  const configuracion =
+    obtenerConfiguracionReportePrioridades_();
+
+
+  const logoEmpresa =
+    Documentos.obtenerImagenDataUri(
+      configuracion.LogoURL ||
+      configuracion.LogoEmpresa ||
+      ""
+    );
+
+
+  const resumen =
+    datos.resumen;
+
+
+  const encabezado =
+    Documentos.crearEncabezado({
+
+      empresa:
+        configuracion.Empresa ||
+        "Helados Bon SRL",
+
+      direccion:
+        configuracion.Ubicacion ||
+        configuracion.Direccion ||
+        "",
+
+      titulo:
+        "REPORTE DE ABASTECIMIENTO A FRIOBOX",
+
+      version:
+        datos.etiquetaPeriodo,
+
+      referencia:
+        datos.fechaDesdeVisible +
+        " al " +
+        datos.fechaHastaVisible,
+
+      numeroDocumento:
+        Utilities.formatDate(
+          new Date(),
+          datos.zonaHoraria,
+          "yyyyMMdd-HHmm"
+        ),
+
+      etiquetaNumero:
+        "Generado",
+
+      logoPrincipal:
+        logoEmpresa
+
+    });
+
+
+  const metricasPrincipales =
+    Documentos.crearMetricas(
+
+      [
+
+        {
+          etiqueta:
+            "Cumplimiento materiales",
+
+          valor:
+            formatearPorcentajeReportePrioridades_(
+              resumen.cumplimientoMateriales
+            )
+        },
+
+        {
+          etiqueta:
+            "Cumplimiento cantidad",
+
+          valor:
+            formatearPorcentajeReportePrioridades_(
+              resumen.cumplimientoCantidad
+            )
+        },
+
+        {
+          etiqueta:
+            "Materiales abastecidos",
+
+          valor:
+            resumen.materialesAbastecidos +
+            " / " +
+            resumen.oportunidadesAtendibles
+        },
+
+        {
+          etiqueta:
+            "Oportunidades perdidas",
+
+          valor:
+            resumen.oportunidadesPerdidas
+        },
+
+        {
+          etiqueta:
+            "Cantidad objetivo",
+
+          valor:
+            formatearNumeroReportePrioridades_(
+              resumen.cantidadObjetivo
+            )
+        },
+
+        {
+          etiqueta:
+            "Cantidad atendida",
+
+          valor:
+            formatearNumeroReportePrioridades_(
+              resumen.cantidadAtendida
+            )
+        },
+
+        {
+          etiqueta:
+            "Cantidad faltante",
+
+          valor:
+            formatearNumeroReportePrioridades_(
+              resumen.cantidadFaltante
+            )
+        },
+
+        {
+          etiqueta:
+            "Días stock repuestos",
+
+          valor:
+            formatearNumeroReportePrioridades_(
+              resumen.diasStockRepuestos
+            )
+        }
+
+      ],
+
+      4
+
+    );
+
+
+  const filasDiarias =
+    datos.registrosDiarios
+      .map(
+        function(item) {
+
+          return [
+
+            formatearFechaReportePrioridades_(
+              item.Fecha,
+              datos.zonaHoraria
+            ),
+
+            formatearNumeroReportePrioridades_(
+              item.Oportunidades_Atendibles
+            ),
+
+            formatearNumeroReportePrioridades_(
+              item.Materiales_Abastecidos
+            ),
+
+            formatearNumeroReportePrioridades_(
+              item.Oportunidades_Perdidas
+            ),
+
+            formatearPorcentajeReportePrioridades_(
+              item
+                .Cumplimiento_Materiales_Porcentaje
+            ),
+
+            formatearPorcentajeReportePrioridades_(
+              item
+                .Cumplimiento_Cantidad_Porcentaje
+            ),
+
+            formatearNumeroReportePrioridades_(
+              item.Dias_Stock_Repuestos
+            )
+
+          ];
+
+        }
+      );
+
+
+  const tablaDiaria =
+    Documentos.crearTabla(
+
+      [
+        "Fecha",
+        "Atendibles",
+        "Abastecidos",
+        "Perdidas",
+        "% materiales",
+        "% cantidad",
+        "Días repuestos"
+      ],
+
+      filasDiarias
+
+    );
+
+
+  const filasMateriales =
+    datos.materiales
+      .slice(
+        0,
+        20
+      )
+      .map(
+        function(item) {
+
+          return [
+
+            item.material,
+
+            item.descripcion,
+
+            item.apariciones,
+
+            item.atenciones,
+
+            item.oportunidadesPerdidas,
+
+            formatearNumeroReportePrioridades_(
+              item.cantidadObjetivo
+            ),
+
+            formatearNumeroReportePrioridades_(
+              item.cantidadDespachada
+            ),
+
+            formatearPorcentajeReportePrioridades_(
+              item.cumplimientoPromedio
+            )
+
+          ];
+
+        }
+      );
+
+
+  const tablaMateriales =
+    Documentos.crearTabla(
+
+      [
+        "Material",
+        "Descripción",
+        "Veces",
+        "Atendido",
+        "Perdidas",
+        "Objetivo",
+        "Despachado",
+        "% promedio"
+      ],
+
+      filasMateriales
+
+    );
+
+
+  const contenido =
+
+    encabezado
+
+    +
+
+    Documentos.crearTituloSeccion(
+      "Resumen ejecutivo"
+    )
+
+    +
+
+    metricasPrincipales
+
+    +
+
+    Documentos.crearEspaciador(
+      7
+    )
+
+    +
+
+    Documentos.crearTarjeta(
+
+      "Comportamiento diario",
+
+      filasDiarias.length > 0
+
+        ? tablaDiaria
+
+        : "No existen cierres registrados en el periodo."
+
+    )
+
+    +
+
+    Documentos.crearEspaciador(
+      7
+    )
+
+    +
+
+    Documentos.crearTarjeta(
+
+      "Materiales con mayor recurrencia",
+
+      filasMateriales.length > 0
+
+        ? tablaMateriales
+
+        : "No existen materiales registrados en el periodo."
+
+    )
+
+    +
+
+    Documentos.crearPie({
+
+      empresa:
+        configuracion.Empresa ||
+        "Helados Bon SRL",
+
+      sistema:
+        "Sistema Logístico PT",
+
+      codigoDocumento:
+        "REPORTE-PRIORIDADES",
+
+      textoAdicional:
+        "Documento generado automáticamente"
+
+    });
+
+
+  return Documentos.crearDocumentoHTML({
+
+    tamano:
+      "Letter",
+
+    orientacion:
+      "horizontal",
+
+    contenido:
+      contenido,
+
+    estilosAdicionales: `
+      .doc-tabla th,
+      .doc-tabla td {
+        font-size: 6.2px;
+        padding: 3px 4px;
+      }
+
+      .doc-tarjeta {
+        page-break-inside: auto;
+      }
+
+      .doc-tarjeta-titulo {
+        text-align: left;
+        color: #d71920;
+      }
+    `
+
+  });
+
+}
+
+
+/**
+ * Resume los registros de Prioridades_Diarias.
+ *
+ * @param {Array<Object>} registros
+ * @return {Object}
+ */
+function calcularResumenReportePrioridades_(
+  registros
+) {
+
+  const resumen = {
+
+    diasRegistrados:
+      registros.length,
+
+    prioridadesDetectadas:
+      0,
+
+    oportunidadesAtendibles:
+      0,
+
+    materialesAbastecidos:
+      0,
+
+    atendidosTotal:
+      0,
+
+    atendidosParcial:
+      0,
+
+    oportunidadesPerdidas:
+      0,
+
+    cantidadObjetivo:
+      0,
+
+    cantidadDespachada:
+      0,
+
+    cantidadAtendida:
+      0,
+
+    cantidadFaltante:
+      0,
+
+    diasStockRepuestos:
+      0,
+
+    cumplimientoMateriales:
+      0,
+
+    cumplimientoCantidad:
+      0
+
+  };
+
+
+  registros.forEach(
+    function(item) {
+
+      resumen.prioridadesDetectadas +=
+        numeroReportePrioridades_(
+          item.Prioridades_Detectadas
+        );
+
+
+      resumen.oportunidadesAtendibles +=
+        numeroReportePrioridades_(
+          item.Oportunidades_Atendibles
+        );
+
+
+      resumen.materialesAbastecidos +=
+        numeroReportePrioridades_(
+          item.Materiales_Abastecidos
+        );
+
+
+      resumen.atendidosTotal +=
+        numeroReportePrioridades_(
+          item.Atendidos_Total
+        );
+
+
+      resumen.atendidosParcial +=
+        numeroReportePrioridades_(
+          item.Atendidos_Parcial
+        );
+
+
+      resumen.oportunidadesPerdidas +=
+        numeroReportePrioridades_(
+          item.Oportunidades_Perdidas
+        );
+
+
+      resumen.cantidadObjetivo +=
+        numeroReportePrioridades_(
+          item.Cantidad_Objetivo_FB
+        );
+
+
+      resumen.cantidadDespachada +=
+        numeroReportePrioridades_(
+          item.Cantidad_Despachada_FB
+        );
+
+
+      resumen.cantidadAtendida +=
+        numeroReportePrioridades_(
+          item.Cantidad_Atendida_FB
+        );
+
+
+      resumen.cantidadFaltante +=
+        numeroReportePrioridades_(
+          item.Cantidad_Faltante
+        );
+
+
+      resumen.diasStockRepuestos +=
+        numeroReportePrioridades_(
+          item.Dias_Stock_Repuestos
+        );
+
+    }
+  );
+
+
+  if (
+    resumen.oportunidadesAtendibles > 0
+  ) {
+
+    resumen.cumplimientoMateriales =
+      (
+        resumen.materialesAbastecidos /
+        resumen.oportunidadesAtendibles
+      ) * 100;
+
+  }
+
+
+  if (
+    resumen.cantidadObjetivo > 0
+  ) {
+
+    resumen.cumplimientoCantidad =
+      (
+        resumen.cantidadAtendida /
+        resumen.cantidadObjetivo
+      ) * 100;
+
+  }
+
+
+  Object.keys(
+    resumen
+  ).forEach(
+    function(clave) {
+
+      if (
+        typeof resumen[clave] ===
+        "number"
+      ) {
+
+        resumen[clave] =
+          Math.round(
+            resumen[clave] * 100
+          ) / 100;
+
+      }
+
+    }
+  );
+
+
+  return resumen;
+
+}
+
+
+/**
+ * Agrupa el histórico por material.
+ *
+ * @param {Array<Object>} registros
+ * @return {Array<Object>}
+ */
+function calcularMaterialesReportePrioridades_(
+  registros
+) {
+
+  const mapa = {};
+
+
+  registros.forEach(
+    function(item) {
+
+      const material =
+        String(
+          item.Material || ""
+        ).trim();
+
+
+      if (!material) {
+        return;
+      }
+
+
+      if (!mapa[material]) {
+
+        mapa[material] = {
+
+          material:
+            material,
+
+          descripcion:
+            String(
+              item.Descripcion || ""
+            ).trim(),
+
+          apariciones:
+            0,
+
+          atenciones:
+            0,
+
+          oportunidadesPerdidas:
+            0,
+
+          cantidadObjetivo:
+            0,
+
+          cantidadDespachada:
+            0,
+
+          sumaCumplimiento:
+            0,
+
+          cumplimientoPromedio:
+            0
+
+        };
+
+      }
+
+
+      const registro =
+        mapa[material];
+
+
+      registro.apariciones++;
+
+
+      if (
+        String(
+          item.Fue_Abastecido || ""
+        )
+          .trim()
+          .toUpperCase() ===
+        "SI"
+      ) {
+
+        registro.atenciones++;
+
+      }
+
+
+      if (
+        String(
+          item.Oportunidad_Perdida || ""
+        )
+          .trim()
+          .toUpperCase() ===
+        "SI"
+      ) {
+
+        registro
+          .oportunidadesPerdidas++;
+
+      }
+
+
+      registro.cantidadObjetivo +=
+        numeroReportePrioridades_(
+          item.Cantidad_Objetivo_FB
+        );
+
+
+      registro.cantidadDespachada +=
+        numeroReportePrioridades_(
+          item.Cantidad_Despachada_FB
+        );
+
+
+      registro.sumaCumplimiento +=
+        numeroReportePrioridades_(
+          item.Cumplimiento_Material
+        );
+
+    }
+  );
+
+
+  return Object
+    .values(
+      mapa
+    )
+    .map(
+      function(item) {
+
+        item.cumplimientoPromedio =
+          item.apariciones > 0
+
+            ? item.sumaCumplimiento /
+              item.apariciones
+
+            : 0;
+
+
+        item.cumplimientoPromedio =
+          Math.round(
+            item.cumplimientoPromedio *
+            100
+          ) / 100;
+
+
+        return item;
+
+      }
+    )
+    .sort(
+      function(a, b) {
+
+        if (
+          a.oportunidadesPerdidas !==
+          b.oportunidadesPerdidas
+        ) {
+
+          return (
+            b.oportunidadesPerdidas -
+            a.oportunidadesPerdidas
+          );
+
+        }
+
+
+        if (
+          a.apariciones !==
+          b.apariciones
+        ) {
+
+          return (
+            b.apariciones -
+            a.apariciones
+          );
+
+        }
+
+
+        return String(
+          a.descripcion || ""
+        ).localeCompare(
+          String(
+            b.descripcion || ""
+          ),
+          "es"
+        );
+
+      }
+    );
+
+}
+
+
+/**
+ * Determina el rango solicitado.
+ *
+ * @param {Object} parametros
+ * @return {Object}
+ */
+function obtenerRangoReportePrioridades_(
+  parametros
+) {
+
+  const periodo =
+    String(
+      parametros.periodo ||
+      "mes"
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const hoy =
+    normalizarFechaReportePrioridades_(
+      new Date()
+    );
+
+
+  let desde =
+    new Date(
+      hoy.getTime()
+    );
+
+
+  let hasta =
+    new Date(
+      hoy.getTime()
+    );
+
+
+  let etiqueta =
+    "HOY";
+
+
+  if (
+    periodo === "semana"
+  ) {
+
+    const diaSemana =
+      hoy.getDay();
+
+
+    const diferenciaLunes =
+      diaSemana === 0
+        ? -6
+        : 1 - diaSemana;
+
+
+    desde.setDate(
+      hoy.getDate() +
+      diferenciaLunes
+    );
+
+
+    etiqueta =
+      "ESTA SEMANA";
+
+  }
+
+
+  else if (
+    periodo === "mes"
+  ) {
+
+    desde =
+      new Date(
+        hoy.getFullYear(),
+        hoy.getMonth(),
+        1
+      );
+
+
+    hasta =
+      new Date(
+        hoy.getFullYear(),
+        hoy.getMonth() + 1,
+        0
+      );
+
+
+    etiqueta =
+      "ESTE MES";
+
+  }
+
+
+  else if (
+    periodo === "rango"
+  ) {
+
+    desde =
+      convertirFechaReportePrioridades_(
+        parametros.fechaDesde
+      );
+
+
+    hasta =
+      convertirFechaReportePrioridades_(
+        parametros.fechaHasta
+      );
+
+
+    if (
+      !desde ||
+      !hasta
+    ) {
+
+      throw new Error(
+        "Debe indicar la fecha inicial y final del reporte."
+      );
+
+    }
+
+
+    desde =
+      normalizarFechaReportePrioridades_(
+        desde
+      );
+
+
+    hasta =
+      normalizarFechaReportePrioridades_(
+        hasta
+      );
+
+
+    if (
+      desde > hasta
+    ) {
+
+      throw new Error(
+        "La fecha inicial no puede ser mayor que la fecha final."
+      );
+
+    }
+
+
+    etiqueta =
+      "RANGO SELECCIONADO";
+
+  }
+
+
+  return {
+
+    periodo:
+      periodo,
+
+    etiqueta:
+      etiqueta,
+
+    desde:
+      normalizarFechaReportePrioridades_(
+        desde
+      ),
+
+    hasta:
+      normalizarFechaReportePrioridades_(
+        hasta
+      )
+
+  };
+
+}
+
+
+/**
+ * Lee una hoja y devuelve objetos.
+ *
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} hoja
+ * @return {Array<Object>}
+ */
+function leerRegistrosHojaPrioridades_(
+  hoja
+) {
+
+  const valores =
+    hoja.getDataRange().getValues();
+
+
+  if (
+    valores.length <= 1
+  ) {
+
+    return [];
+
+  }
+
+
+  const encabezados =
+    valores[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+
+  return valores
+    .slice(1)
+    .map(
+      function(fila) {
+
+        const objeto = {};
+
+
+        encabezados.forEach(
+          function(encabezado, indice) {
+
+            if (encabezado) {
+
+              objeto[encabezado] =
+                fila[indice];
+
+            }
+
+          }
+        );
+
+
+        return objeto;
+
+      }
+    );
+
+}
+
+
+/**
+ * Indica si una fecha está dentro del rango.
+ */
+function fechaDentroRangoPrioridades_(
+  valor,
+  desde,
+  hasta
+) {
+
+  const fecha =
+    convertirFechaReportePrioridades_(
+      valor
+    );
+
+
+  if (!fecha) {
+    return false;
+  }
+
+
+  const normalizada =
+    normalizarFechaReportePrioridades_(
+      fecha
+    );
+
+
+  return (
+    normalizada >= desde &&
+    normalizada <= hasta
+  );
+
+}
+
+
+/**
+ * Lee Configuracion.
+ */
+function obtenerConfiguracionReportePrioridades_() {
+
+  return Documentos
+    .obtenerConfiguracion();
+
+}
+
+/**
+ * Obtiene la carpeta configurada para los reportes
+ * de Prioridades.
+ *
+ * Configuracion:
+ * - CarpetaReportesPrioridades
+ *
+ * @return {GoogleAppsScript.Drive.Folder}
+ */
+function obtenerCarpetaReportesPrioridades_() {
+
+  const configuracion =
+    obtenerConfiguracionReportePrioridades_();
+
+
+  const idCarpeta =
+    String(
+      configuracion
+        .CarpetaReportesPrioridades ||
+      ""
+    ).trim();
+
+
+  if (!idCarpeta) {
+
+    throw new Error(
+      'No se ha configurado la clave "CarpetaReportesPrioridades".'
+    );
+
+  }
+
+
+  try {
+
+    return DriveApp.getFolderById(
+      idCarpeta
+    );
+
+
+  } catch (error) {
+
+    throw new Error(
+      'No fue posible acceder a la carpeta configurada en "CarpetaReportesPrioridades". Verifique el ID y los permisos.'
+    );
+
+  }
+
+}
+
+/**
+ * Obtiene o crea la carpeta de destino organizada.
+ *
+ * Estructura:
+ * Carpeta principal
+ * └── 2026
+ *     └── 07 - Julio
+ *         ├── Diario
+ *         ├── Semanal
+ *         ├── Mensual
+ *         └── Rango
+ *
+ * @param {Date} fechaReferencia
+ * @param {string} periodo
+ * @return {GoogleAppsScript.Drive.Folder}
+ */
+function obtenerCarpetaDestinoReportePrioridades_(
+  fechaReferencia,
+  periodo
+) {
+
+  const carpetaPrincipal =
+    obtenerCarpetaReportesPrioridades_();
+
+
+  const zonaHoraria =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    "America/Santo_Domingo";
+
+
+  const anio =
+    Utilities.formatDate(
+      fechaReferencia,
+      zonaHoraria,
+      "yyyy"
+    );
+
+
+  const numeroMes =
+    Utilities.formatDate(
+      fechaReferencia,
+      zonaHoraria,
+      "MM"
+    );
+
+
+  const nombresMeses = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre"
+  ];
+
+
+  const indiceMes =
+    Number(numeroMes) - 1;
+
+
+  const nombreMes =
+    numeroMes +
+    " - " +
+    nombresMeses[indiceMes];
+
+
+  const carpetaAnio =
+    obtenerOCrearSubcarpetaPrioridades_(
+      carpetaPrincipal,
+      anio
+    );
+
+
+  const carpetaMes =
+    obtenerOCrearSubcarpetaPrioridades_(
+      carpetaAnio,
+      nombreMes
+    );
+
+
+  const tipo =
+    obtenerNombreCarpetaPeriodoPrioridades_(
+      periodo
+    );
+
+
+  return obtenerOCrearSubcarpetaPrioridades_(
+    carpetaMes,
+    tipo
+  );
+
+}
+
+
+/**
+ * Obtiene o crea una subcarpeta por nombre.
+ *
+ * @param {GoogleAppsScript.Drive.Folder} carpetaPadre
+ * @param {string} nombre
+ * @return {GoogleAppsScript.Drive.Folder}
+ */
+function obtenerOCrearSubcarpetaPrioridades_(
+  carpetaPadre,
+  nombre
+) {
+
+  const existentes =
+    carpetaPadre.getFoldersByName(
+      nombre
+    );
+
+
+  if (existentes.hasNext()) {
+
+    return existentes.next();
+
+  }
+
+
+  return carpetaPadre.createFolder(
+    nombre
+  );
+
+}
+
+
+/**
+ * Convierte el periodo en el nombre de carpeta.
+ *
+ * @param {string} periodo
+ * @return {string}
+ */
+function obtenerNombreCarpetaPeriodoPrioridades_(
+  periodo
+) {
+
+  switch (
+    String(periodo || "")
+      .trim()
+      .toLowerCase()
+  ) {
+
+    case "hoy":
+    case "diario":
+      return "Diario";
+
+    case "semana":
+    case "semanal":
+      return "Semanal";
+
+    case "mes":
+    case "mensual":
+      return "Mensual";
+
+    default:
+      return "Rango";
+
+  }
+
+}
+
+/**
+ * Guarda el PDF en la carpeta configurada.
+ *
+ * Si ya existe un archivo con el mismo nombre,
+ * actualiza la referencia creando una nueva versión
+ * con fecha y hora para evitar sobrescribir datos.
+ *
+ * @param {Object} paquete
+ * @return {Object}
+ */
+function guardarPDFReportePrioridades_(
+  paquete
+) {
+
+  if (
+    !paquete ||
+    !paquete.pdfBlob ||
+    !paquete.datos
+  ) {
+
+    throw new Error(
+      "No se recibió un paquete de reporte válido."
+    );
+
+  }
+
+
+  const carpetaDestino =
+    obtenerCarpetaDestinoReportePrioridades_(
+      paquete.datos.fechaHasta,
+      paquete.datos.periodo
+    );
+
+
+  const zonaHoraria =
+    paquete.datos.zonaHoraria ||
+    "America/Santo_Domingo";
+
+
+  let nombreArchivo =
+    paquete.nombreArchivo;
+
+
+  const existentes =
+    carpetaDestino.getFilesByName(
+      nombreArchivo
+    );
+
+
+  if (existentes.hasNext()) {
+
+    const marcaTiempo =
+      Utilities.formatDate(
+        new Date(),
+        zonaHoraria,
+        "yyyyMMdd_HHmmss"
+      );
+
+
+    nombreArchivo =
+      nombreArchivo.replace(
+        /\.pdf$/i,
+        "_" + marcaTiempo + ".pdf"
+      );
+
+  }
+
+
+  const blob =
+    paquete.pdfBlob.copyBlob()
+      .setName(
+        nombreArchivo
+      );
+
+
+  const archivo =
+    carpetaDestino.createFile(
+      blob
+    );
+
+
+  return {
+
+    guardado:
+      true,
+
+    idArchivo:
+      archivo.getId(),
+
+    nombreArchivo:
+      archivo.getName(),
+
+    url:
+      archivo.getUrl(),
+
+    idCarpeta:
+      carpetaDestino.getId(),
+
+    nombreCarpeta:
+      carpetaDestino.getName()
+
+  };
+
+}
+
+/**
+ * Normaliza destinatarios.
+ */
+function normalizarCorreosReportePrioridades_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .split(
+      /[,;\n]+/
+    )
+    .map(
+      function(correo) {
+
+        return correo.trim();
+
+      }
+    )
+    .filter(
+      function(correo) {
+
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          .test(
+            correo
+          );
+
+      }
+    )
+    .filter(
+      function(correo, indice, lista) {
+
+        return (
+          lista.indexOf(correo) ===
+          indice
+        );
+
+      }
+    );
+
+}
+
+
+/**
+ * Convierte un valor numérico.
+ */
+function numeroReportePrioridades_(
+  valor
+) {
+
+  const numero =
+    Number(
+      String(
+        valor === null ||
+        valor === undefined
+          ? ""
+          : valor
+      )
+        .replace(
+          /,/g,
+          ""
+        )
+        .trim()
+    );
+
+
+  return Number.isFinite(
+    numero
+  )
+    ? numero
+    : 0;
+
+}
+
+
+/**
+ * Formatea números.
+ */
+function formatearNumeroReportePrioridades_(
+  valor
+) {
+
+  return numeroReportePrioridades_(
+    valor
+  )
+    .toLocaleString(
+      "en-US",
+      {
+        minimumFractionDigits:
+          0,
+
+        maximumFractionDigits:
+          2
+      }
+    );
+
+}
+
+
+/**
+ * Formatea porcentajes.
+ */
+function formatearPorcentajeReportePrioridades_(
+  valor
+) {
+
+  return numeroReportePrioridades_(
+    valor
+  )
+    .toFixed(
+      2
+    ) + "%";
+
+}
+
+
+/**
+ * Convierte fechas.
+ */
+function convertirFechaReportePrioridades_(
+  valor
+) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return new Date(
+      valor.getTime()
+    );
+
+  }
+
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  if (!texto) {
+    return null;
+  }
+
+
+  let coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(
+        coincidencia[1]
+      ),
+      Number(
+        coincidencia[2]
+      ) - 1,
+      Number(
+        coincidencia[3]
+      )
+    );
+
+  }
+
+
+  coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(
+        coincidencia[3]
+      ),
+      Number(
+        coincidencia[2]
+      ) - 1,
+      Number(
+        coincidencia[1]
+      )
+    );
+
+  }
+
+
+  const fecha =
+    new Date(
+      texto
+    );
+
+
+  return isNaN(
+    fecha.getTime()
+  )
+    ? null
+    : fecha;
+
+}
+
+
+/**
+ * Normaliza una fecha sin hora.
+ */
+function normalizarFechaReportePrioridades_(
+  fecha
+) {
+
+  return new Date(
+    fecha.getFullYear(),
+    fecha.getMonth(),
+    fecha.getDate()
+  );
+
+}
+
+
+/**
+ * Formatea una fecha.
+ */
+function formatearFechaReportePrioridades_(
+  valor,
+  zonaHoraria
+) {
+
+  const fecha =
+    convertirFechaReportePrioridades_(
+      valor
+    );
+
+
+  if (!fecha) {
+    return "-";
+  }
+
+
+  return Utilities.formatDate(
+    fecha,
+    zonaHoraria,
+    "dd/MM/yyyy"
+  );
+
+}
+
+
+/**
+ * Escapa HTML para el correo.
+ */
+function escaparHTMLReportePrioridades_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+
+/**
+ * ============================================================
+ * PRUEBAS
+ * ============================================================
+ */
+
+
+/**
+ * Genera el PDF mensual y lo guarda dentro de
+ * la carpeta configurada para Prioridades.
+ */
+function probarPDFReportePrioridades() {
+
+  const paquete =
+    generarPaqueteReportePrioridades_({
+
+      periodo:
+        "mes"
+
+    });
+
+
+  const guardado =
+    guardarPDFReportePrioridades_(
+      paquete
+    );
+
+
+  const resultado = {
+
+    exito:
+      true,
+
+    periodo:
+      paquete.datos.periodo,
+
+    nombre:
+      guardado.nombreArchivo,
+
+    url:
+      guardado.url,
+
+    carpeta:
+      guardado.nombreCarpeta,
+
+    idCarpeta:
+      guardado.idCarpeta,
+
+    resumen:
+      paquete.datos.resumen
+
+  };
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}
+
+/**
+ * Envía una prueba mensual a los correos configurados.
+ */
+function probarCorreoReportePrioridades() {
+
+  const resultado =
+    enviarReportePrioridadesInterno_({
+
+      periodo:
+        "mes"
+
+    });
+
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+
+  return resultado;
+
+}

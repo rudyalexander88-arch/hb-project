@@ -1,0 +1,800 @@
+/**
+ * ============================================================
+ * PRIORIDADESCONSULTAS.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Consulta el cumplimiento histórico desde Prioridades_Diarias.
+ *
+ * Periodos:
+ * - hoy
+ * - semana
+ * - mes
+ * - rango
+ * ============================================================
+ */
+
+
+function obtenerResumenHistoricoPrioridades(
+  data
+) {
+
+  try {
+
+    const parametros =
+      data || {};
+
+
+    const periodo =
+      String(
+        parametros.periodo || "mes"
+      )
+        .trim()
+        .toLowerCase();
+
+
+    const ss =
+      SpreadsheetApp
+        .getActiveSpreadsheet();
+
+
+    const hoja =
+      ss.getSheetByName(
+        "Prioridades_Diarias"
+      );
+
+
+    if (!hoja) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          'No existe la hoja "Prioridades_Diarias".'
+      });
+
+    }
+
+
+    const zonaHoraria =
+      ss.getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      "America/Santo_Domingo";
+
+
+    const hoy =
+      normalizarFechaConsultaPrioridades_(
+        new Date()
+      );
+
+
+    const rango =
+      obtenerRangoConsultaPrioridades_({
+
+        periodo:
+          periodo,
+
+        hoy:
+          hoy,
+
+        fechaDesde:
+          parametros.fechaDesde,
+
+        fechaHasta:
+          parametros.fechaHasta
+
+      });
+
+
+    const ultimaFila =
+      hoja.getLastRow();
+
+
+    const ultimaColumna =
+      hoja.getLastColumn();
+
+
+    if (
+      ultimaFila <= 1 ||
+      ultimaColumna <= 0
+    ) {
+
+      return respuesta({
+
+        ok: true,
+
+        data:
+          crearResumenHistoricoPrioridadesVacio_(
+            periodo,
+            rango,
+            zonaHoraria
+          )
+
+      });
+
+    }
+
+
+    const valores =
+      hoja
+        .getRange(
+          1,
+          1,
+          ultimaFila,
+          ultimaColumna
+        )
+        .getValues();
+
+
+    const encabezados =
+      valores[0].map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+    validarColumnasConsultaPrioridades_(
+      encabezados,
+      [
+        "Fecha",
+        "Oportunidades_Atendibles",
+        "Materiales_Abastecidos",
+        "Oportunidades_Perdidas",
+        "Cantidad_Objetivo_FB",
+        "Cantidad_Despachada_FB",
+        "Cantidad_Atendida_FB",
+        "Dias_Stock_Repuestos"
+      ]
+    );
+
+
+    const indice =
+      function(nombre) {
+
+        return encabezados.indexOf(
+          nombre
+        );
+
+      };
+
+
+    const resumen = {
+
+      periodo:
+        periodo,
+
+      etiquetaPeriodo:
+        obtenerEtiquetaPeriodoPrioridades_(
+          periodo
+        ),
+
+      fechaDesde:
+        Utilities.formatDate(
+          rango.desde,
+          zonaHoraria,
+          "dd/MM/yyyy"
+        ),
+
+      fechaHasta:
+        Utilities.formatDate(
+          rango.hasta,
+          zonaHoraria,
+          "dd/MM/yyyy"
+        ),
+
+      diasRegistrados:
+        0,
+
+      oportunidadesAtendibles:
+        0,
+
+      materialesAbastecidos:
+        0,
+
+      oportunidadesPerdidas:
+        0,
+
+      cantidadObjetivo:
+        0,
+
+      cantidadDespachada:
+        0,
+
+      cantidadAtendida:
+        0,
+
+      cantidadFaltante:
+        0,
+
+      diasStockRepuestos:
+        0,
+
+      cumplimientoMateriales:
+        0,
+
+      cumplimientoCantidad:
+        0
+
+    };
+
+
+    valores
+      .slice(1)
+      .forEach(
+        function(fila) {
+
+          const fecha =
+            convertirFechaConsultaPrioridades_(
+              fila[
+                indice("Fecha")
+              ]
+            );
+
+
+          if (!fecha) {
+            return;
+          }
+
+
+          const fechaNormalizada =
+            normalizarFechaConsultaPrioridades_(
+              fecha
+            );
+
+
+          if (
+            fechaNormalizada <
+              rango.desde ||
+            fechaNormalizada >
+              rango.hasta
+          ) {
+            return;
+          }
+
+
+          resumen.diasRegistrados++;
+
+
+          resumen
+            .oportunidadesAtendibles +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Oportunidades_Atendibles"
+                  )
+                ]
+              );
+
+
+          resumen
+            .materialesAbastecidos +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Materiales_Abastecidos"
+                  )
+                ]
+              );
+
+
+          resumen
+            .oportunidadesPerdidas +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Oportunidades_Perdidas"
+                  )
+                ]
+              );
+
+
+          resumen
+            .cantidadObjetivo +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Cantidad_Objetivo_FB"
+                  )
+                ]
+              );
+
+
+          resumen
+            .cantidadDespachada +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Cantidad_Despachada_FB"
+                  )
+                ]
+              );
+
+
+          resumen
+            .cantidadAtendida +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Cantidad_Atendida_FB"
+                  )
+                ]
+              );
+
+
+          resumen
+            .diasStockRepuestos +=
+              numeroInventario_(
+                fila[
+                  indice(
+                    "Dias_Stock_Repuestos"
+                  )
+                ]
+              );
+
+        }
+      );
+
+
+    resumen.cantidadFaltante =
+      Math.max(
+        resumen.cantidadObjetivo -
+        resumen.cantidadAtendida,
+        0
+      );
+
+
+    if (
+      resumen
+        .oportunidadesAtendibles > 0
+    ) {
+
+      resumen.cumplimientoMateriales =
+        redondearInventario_(
+          (
+            resumen
+              .materialesAbastecidos /
+            resumen
+              .oportunidadesAtendibles
+          ) * 100,
+          2
+        );
+
+    }
+
+
+    if (
+      resumen
+        .cantidadObjetivo > 0
+    ) {
+
+      resumen.cumplimientoCantidad =
+        redondearInventario_(
+          (
+            resumen
+              .cantidadAtendida /
+            resumen
+              .cantidadObjetivo
+          ) * 100,
+          2
+        );
+
+    }
+
+
+    [
+      "cantidadObjetivo",
+      "cantidadDespachada",
+      "cantidadAtendida",
+      "cantidadFaltante",
+      "diasStockRepuestos"
+    ].forEach(
+      function(propiedad) {
+
+        resumen[propiedad] =
+          redondearInventario_(
+            resumen[propiedad],
+            2
+          );
+
+      }
+    );
+
+
+    return respuesta({
+
+      ok: true,
+
+      data:
+        resumen
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error consultando histórico de prioridades:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok: false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    });
+
+  }
+
+}
+
+
+function obtenerRangoConsultaPrioridades_(
+  datos
+) {
+
+  const periodo =
+    datos.periodo;
+
+
+  const hoy =
+    datos.hoy;
+
+
+  let desde =
+    new Date(
+      hoy.getTime()
+    );
+
+
+  let hasta =
+    new Date(
+      hoy.getTime()
+    );
+
+
+  if (
+    periodo === "semana"
+  ) {
+
+    const diaSemana =
+      hoy.getDay();
+
+
+    const diferenciaLunes =
+      diaSemana === 0
+        ? -6
+        : 1 - diaSemana;
+
+
+    desde.setDate(
+      hoy.getDate() +
+      diferenciaLunes
+    );
+
+  }
+
+
+  else if (
+    periodo === "mes"
+  ) {
+
+    desde =
+      new Date(
+        hoy.getFullYear(),
+        hoy.getMonth(),
+        1
+      );
+
+
+    hasta =
+      new Date(
+        hoy.getFullYear(),
+        hoy.getMonth() + 1,
+        0
+      );
+
+  }
+
+
+  else if (
+    periodo === "rango"
+  ) {
+
+    desde =
+      convertirFechaConsultaPrioridades_(
+        datos.fechaDesde
+      );
+
+
+    hasta =
+      convertirFechaConsultaPrioridades_(
+        datos.fechaHasta
+      );
+
+
+    if (
+      !desde ||
+      !hasta
+    ) {
+
+      throw new Error(
+        "Debe seleccionar una fecha inicial y una fecha final."
+      );
+
+    }
+
+
+    desde =
+      normalizarFechaConsultaPrioridades_(
+        desde
+      );
+
+
+    hasta =
+      normalizarFechaConsultaPrioridades_(
+        hasta
+      );
+
+
+    if (
+      desde > hasta
+    ) {
+
+      throw new Error(
+        "La fecha inicial no puede ser mayor que la fecha final."
+      );
+
+    }
+
+  }
+
+
+  return {
+    desde:
+      normalizarFechaConsultaPrioridades_(
+        desde
+      ),
+
+    hasta:
+      normalizarFechaConsultaPrioridades_(
+        hasta
+      )
+  };
+
+}
+
+
+function crearResumenHistoricoPrioridadesVacio_(
+  periodo,
+  rango,
+  zonaHoraria
+) {
+
+  return {
+
+    periodo:
+      periodo,
+
+    etiquetaPeriodo:
+      obtenerEtiquetaPeriodoPrioridades_(
+        periodo
+      ),
+
+    fechaDesde:
+      Utilities.formatDate(
+        rango.desde,
+        zonaHoraria,
+        "dd/MM/yyyy"
+      ),
+
+    fechaHasta:
+      Utilities.formatDate(
+        rango.hasta,
+        zonaHoraria,
+        "dd/MM/yyyy"
+      ),
+
+    diasRegistrados:
+      0,
+
+    oportunidadesAtendibles:
+      0,
+
+    materialesAbastecidos:
+      0,
+
+    oportunidadesPerdidas:
+      0,
+
+    cantidadObjetivo:
+      0,
+
+    cantidadDespachada:
+      0,
+
+    cantidadAtendida:
+      0,
+
+    cantidadFaltante:
+      0,
+
+    diasStockRepuestos:
+      0,
+
+    cumplimientoMateriales:
+      0,
+
+    cumplimientoCantidad:
+      0
+
+  };
+
+}
+
+
+function obtenerEtiquetaPeriodoPrioridades_(
+  periodo
+) {
+
+  switch (periodo) {
+
+    case "hoy":
+      return "HOY";
+
+    case "semana":
+      return "ESTA SEMANA";
+
+    case "rango":
+      return "RANGO SELECCIONADO";
+
+    default:
+      return "ESTE MES";
+
+  }
+
+}
+
+
+function validarColumnasConsultaPrioridades_(
+  encabezados,
+  obligatorias
+) {
+
+  const faltantes =
+    obligatorias.filter(
+      function(nombre) {
+
+        return encabezados
+          .indexOf(nombre) === -1;
+
+      }
+    );
+
+
+  if (
+    faltantes.length > 0
+  ) {
+
+    throw new Error(
+      "Faltan columnas en Prioridades_Diarias: " +
+      faltantes.join(", ") +
+      "."
+    );
+
+  }
+
+}
+
+
+function normalizarFechaConsultaPrioridades_(
+  fecha
+) {
+
+  return new Date(
+    fecha.getFullYear(),
+    fecha.getMonth(),
+    fecha.getDate()
+  );
+
+}
+
+
+function convertirFechaConsultaPrioridades_(
+  valor
+) {
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return new Date(
+      valor.getTime()
+    );
+
+  }
+
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+
+  if (!texto) {
+    return null;
+  }
+
+
+  let coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(
+        coincidencia[1]
+      ),
+      Number(
+        coincidencia[2]
+      ) - 1,
+      Number(
+        coincidencia[3]
+      )
+    );
+
+  }
+
+
+  coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+    );
+
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(
+        coincidencia[3]
+      ),
+      Number(
+        coincidencia[2]
+      ) - 1,
+      Number(
+        coincidencia[1]
+      )
+    );
+
+  }
+
+
+  const fecha =
+    new Date(
+      texto
+    );
+
+
+  return isNaN(
+    fecha.getTime()
+  )
+    ? null
+    : fecha;
+
+}

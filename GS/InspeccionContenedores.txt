@@ -1,0 +1,2536 @@
+// ======================================================
+// INSPECCIONCONTENEDORES.GS
+// Funciones de lectura para inspección de contenedores
+// ======================================================
+
+
+/**
+ * Lista los conduces en estado Borrador que pueden
+ * utilizarse para iniciar una inspección.
+ */
+function listarConducesInspeccion() {
+
+  const hojaDespacho =
+    getSheet(SHEETS.DESPACHO);
+
+  const hojaInspeccion =
+    getSheet(
+      SHEETS.INSPECCION_CONTENEDORES
+    );
+
+  if (!hojaDespacho) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Despacho."
+    });
+
+  }
+
+  const datosDespacho =
+    hojaDespacho
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datosDespacho.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: []
+    });
+
+  }
+
+  const encabezadosDespacho =
+    datosDespacho[0];
+
+  /*
+   * Identificamos conduces que ya tienen una
+   * inspección activa o completada.
+   */
+  const conducesConInspeccion =
+    new Set();
+
+  if (
+    hojaInspeccion &&
+    hojaInspeccion.getLastRow() > 1
+  ) {
+
+    const datosInspeccion =
+      hojaInspeccion
+        .getDataRange()
+        .getDisplayValues();
+
+    const encabezadosInspeccion =
+      datosInspeccion[0];
+
+    const indiceIdConduce =
+      encabezadosInspeccion.indexOf(
+        "ID_Conduce"
+      );
+
+    const indiceEstado =
+      encabezadosInspeccion.indexOf(
+        "Estado"
+      );
+
+    if (
+      indiceIdConduce !== -1 &&
+      indiceEstado !== -1
+    ) {
+
+      datosInspeccion
+        .slice(1)
+        .forEach(function(fila) {
+
+          const estado =
+            normalizarTextoInspeccion(
+              fila[indiceEstado]
+            );
+
+          const bloqueaNuevaInspeccion =
+            estado === "completada" ||
+            estado === "completado";
+
+          if (bloqueaNuevaInspeccion) {
+
+            conducesConInspeccion.add(
+              String(
+                fila[indiceIdConduce] || ""
+              ).trim()
+            );
+
+          }
+
+        });
+
+    }
+
+  }
+
+  const conduces =
+    datosDespacho
+      .slice(1)
+      .map(function(fila) {
+
+        return convertirFilaAObjeto(
+          encabezadosDespacho,
+          fila
+        );
+
+      })
+      .filter(function(item) {
+
+        const estado =
+          normalizarTextoInspeccion(
+            item.Estado
+          );
+
+        const idConduce =
+          String(
+            item.ID_Conduce || ""
+          ).trim();
+
+        return (
+          estado === "borrador" &&
+          idConduce !== "" &&
+          !conducesConInspeccion.has(
+            idConduce
+          )
+        );
+
+      })
+      .map(function(item) {
+
+        return {
+
+          idConduce:
+            item.ID_Conduce || "",
+
+          noConduce:
+            item.No_Conduce || "",
+
+          fechaCreacion:
+            item.Fecha_Creacion || "",
+
+          supervisor:
+            item.RealizadoPor || "",
+
+          chofer:
+            item.Chofer || "",
+
+          unidadCarga:
+            item.Unidad_Carga || "",
+
+          cantidadDestinos:
+            Number(
+              item.Cantidad_Destinos || 1
+            ),
+
+          destino1:
+            item.Destino_1 || "",
+
+          destino2:
+            item.Destino_2 || "",
+
+          texto:
+            (
+              item.No_Conduce +
+              " | " +
+              (
+                item.Unidad_Carga || ""
+              )
+            ).trim()
+
+        };
+
+      });
+
+  return respuesta({
+    ok: true,
+    data: conduces
+  });
+
+}
+
+
+/**
+ * Obtiene todos los datos necesarios para llenar
+ * el primer paso del formulario de inspección.
+ */
+function obtenerDatosConduceInspeccion(
+  data
+) {
+
+  const idConduce =
+    String(
+      data.idConduce || ""
+    ).trim();
+
+  if (!idConduce) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Debe indicar el ID del conduce."
+    });
+
+  }
+
+  const hojaDespacho =
+    getSheet(SHEETS.DESPACHO);
+
+  const hojaChoferes =
+    getSheet(SHEETS.CHOFERES);
+
+  const hojaUnidades =
+    getSheet(SHEETS.UNIDADES_CARGA);
+
+  const hojaConfiguracion =
+    getSheet(SHEETS.CONFIGURACION);
+
+  if (
+    !hojaDespacho ||
+    !hojaChoferes ||
+    !hojaUnidades ||
+    !hojaConfiguracion
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan hojas requeridas para cargar la inspección."
+    });
+
+  }
+
+  const despacho =
+    buscarRegistroPorColumnaInspeccion(
+      hojaDespacho,
+      "ID_Conduce",
+      idConduce
+    );
+
+  if (!despacho) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontró el conduce solicitado."
+    });
+
+  }
+
+  const estadoDespacho =
+    normalizarTextoInspeccion(
+      despacho.Estado
+    );
+
+  if (estadoDespacho !== "borrador") {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Solo se pueden inspeccionar conduces en estado Borrador."
+    });
+
+  }
+
+  const chofer =
+    buscarRegistroFlexibleInspeccion(
+      hojaChoferes,
+      [
+        "ID_Chofer",
+        "Nombre_Chofer"
+      ],
+      despacho.Chofer
+    );
+
+  const unidad =
+    buscarRegistroFlexibleInspeccion(
+      hojaUnidades,
+      [
+        "ID_Unidad",
+        "Identificacion"
+      ],
+      despacho.Unidad_Carga
+    );
+
+  const configuracion =
+    obtenerConfiguracionComoObjetoInspeccion(
+      hojaConfiguracion
+    );
+
+  const precintos = [];
+
+  if (despacho.Precinto_1) {
+
+    precintos.push({
+      numero:
+        String(
+          despacho.Precinto_1
+        ).trim(),
+
+      destino:
+        despacho.Destino_1 || "",
+
+      orden: 1
+    });
+
+  }
+
+  if (despacho.Precinto_2) {
+
+    precintos.push({
+      numero:
+        String(
+          despacho.Precinto_2
+        ).trim(),
+
+      destino:
+        despacho.Destino_2 || "",
+
+      orden: 2
+    });
+
+  }
+
+  const selloSugerido =
+    seleccionarSelloSalidaSugerido(
+      precintos
+    );
+
+  const chasisPorDefecto =
+    chofer
+      ? String(
+          chofer.Chasis_porDefecto || ""
+        ).trim()
+      : "";
+
+  const contenedorPorDefecto =
+    chofer
+      ? String(
+          chofer.Contenedor_porDefecto ||
+          ""
+        ).trim()
+      : "";
+
+  const fechaActual =
+    Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd"
+    );
+
+  return respuesta({
+    ok: true,
+
+    data: {
+
+      despacho: {
+
+        idConduce:
+          despacho.ID_Conduce || "",
+
+        noConduce:
+          despacho.No_Conduce || "",
+
+        estado:
+          despacho.Estado || "",
+
+        supervisor:
+          despacho.RealizadoPor || "",
+
+        chofer:
+          despacho.Chofer || "",
+
+        unidadCarga:
+          despacho.Unidad_Carga || "",
+
+        cantidadDestinos:
+          Number(
+            despacho.Cantidad_Destinos ||
+            1
+          ),
+
+        destino1:
+          despacho.Destino_1 || "",
+
+        destino2:
+          despacho.Destino_2 || "",
+
+        precinto1:
+          despacho.Precinto_1 || "",
+
+        precinto2:
+          despacho.Precinto_2 || ""
+
+      },
+
+      chofer: {
+
+        id:
+          chofer
+            ? chofer.ID_Chofer || ""
+            : "",
+
+        nombre:
+          chofer
+            ? chofer.Nombre_Chofer || ""
+            : "",
+
+        cedula:
+          chofer
+            ? chofer.Cedula || ""
+            : "",
+
+        contenedorPorDefecto:
+          contenedorPorDefecto,
+
+        chasisPorDefecto:
+          chasisPorDefecto
+
+      },
+
+      contenedor: {
+
+        id:
+          unidad
+            ? unidad.ID_Unidad || ""
+            : "",
+
+        identificacion:
+          unidad
+            ? unidad.Identificacion || ""
+            : extraerIdentificacionInspeccion(
+                despacho.Unidad_Carga
+              ),
+
+        tipo:
+          unidad
+            ? unidad.Tipo_Contenedor || ""
+            : "",
+
+        tamano:
+          unidad
+            ? unidad.Tamano_Contenedor ||
+              ""
+            : ""
+
+      },
+
+      sellos:
+        precintos,
+
+      selloSugerido:
+        selloSugerido,
+
+      empresaOrigen:
+        configuracion.Empresa || "",
+
+      nombreFormulario:
+        configuracion
+          .Nombre_Formulario_Inspeccion ||
+        "FORMULARIO DE INSPECCIÓN DE CONTENEDORES REFRIGERADOS",
+
+      versionFormulario:
+        configuracion
+          .Version_Formulario_Inspeccion ||
+        "F-0158",
+
+      tipoTransporte:
+        "Terrestre",
+
+      fechaActual:
+        fechaActual
+
+    }
+
+  });
+
+}
+
+
+/**
+ * Lista los chasis activos registrados en
+ * Unidades_Carga.
+ */
+function listarChasisInspeccion() {
+
+  const hoja =
+    getSheet(SHEETS.UNIDADES_CARGA);
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Unidades_Carga."
+    });
+
+  }
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: []
+    });
+
+  }
+
+  const encabezados =
+    datos[0];
+
+  const chasis =
+    datos
+      .slice(1)
+      .map(function(fila) {
+
+        return convertirFilaAObjeto(
+          encabezados,
+          fila
+        );
+
+      })
+      .filter(function(item) {
+
+        return (
+          normalizarTextoInspeccion(
+            item.Tipo
+          ) === "chasis" &&
+          normalizarTextoInspeccion(
+            item.Estado
+          ) === "activo"
+        );
+
+      })
+      .map(function(item) {
+
+        return {
+
+          id:
+            item.ID_Unidad || "",
+
+          identificacion:
+            item.Identificacion || "",
+
+          texto:
+            (
+              item.ID_Unidad +
+              " - " +
+              item.Identificacion
+            ).trim()
+
+        };
+
+      });
+
+  return respuesta({
+    ok: true,
+    data: chasis
+  });
+
+}
+
+
+/**
+ * Lista los puntos activos del catálogo de inspección,
+ * ordenados según la columna Orden.
+ */
+function listarCatalogoInspeccion() {
+
+  const hoja =
+    getSheet(
+      SHEETS.CATALOGO_INSPECCION
+    );
+
+  if (!hoja) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Catalogo_Inspeccion."
+    });
+
+  }
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+
+    return respuesta({
+      ok: true,
+      data: []
+    });
+
+  }
+
+  const encabezados =
+    datos[0];
+
+  const puntos =
+    datos
+      .slice(1)
+      .map(function(fila) {
+
+        return convertirFilaAObjeto(
+          encabezados,
+          fila
+        );
+
+      })
+      .filter(function(item) {
+
+        return (
+          normalizarTextoInspeccion(
+            item.Estado
+          ) === "activo"
+        );
+
+      })
+      .sort(function(a, b) {
+
+        return (
+          Number(a.Orden || 0) -
+          Number(b.Orden || 0)
+        );
+
+      })
+      .map(function(item) {
+
+        return {
+
+          codigo:
+            item.Codigo_Punto || "",
+
+          categoria:
+            item.Categoria || "",
+
+          descripcion:
+            item.Descripcion || "",
+
+          codigoZonaEvidencia:
+            item.Codigo_Zona_Evidencia ||
+            "",
+
+          orden:
+            Number(item.Orden || 0),
+
+          versionFormulario:
+            item.Version_Formulario ||
+            "",
+
+          requiereObservacionNoCumple:
+            normalizarTextoInspeccion(
+              item
+                .Requiere_Observacion_Si_NoCumple
+            ) === "si"
+
+        };
+
+      });
+
+  return respuesta({
+    ok: true,
+    data: puntos
+  });
+
+}
+
+
+
+// ======================================================
+// FUNCIONES DE ESCRITURA Y RECUPERACIÓN
+// Adaptadas a los encabezados originales de las hojas
+// ======================================================
+
+
+/**
+ * Crea una inspección nueva o recupera la inspección
+ * activa del conduce si ya fue iniciada.
+ */
+function iniciarInspeccionContenedor(
+  data
+) {
+
+  const idConduce =
+    String(
+      data.idConduce || ""
+    ).trim();
+
+  const inspectorId =
+    String(
+      data.inspectorId ||
+      data.usuarioId ||
+      ""
+    ).trim();
+
+  const inspectorNombre =
+    String(
+      data.inspectorNombre ||
+      data.inspector ||
+      data.usuario ||
+      ""
+    ).trim();
+
+  if (!idConduce) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Debe indicar el ID del conduce."
+    });
+
+  }
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const hojaInspeccion =
+      getSheet(
+        SHEETS.INSPECCION_CONTENEDORES
+      );
+
+    if (!hojaInspeccion) {
+
+      return respuesta({
+        ok: false,
+        mensaje:
+          "No existe la hoja Inspeccion_Contenedores."
+      });
+
+    }
+
+    const inspeccionActiva =
+      buscarInspeccionActivaPorConduce(
+        hojaInspeccion,
+        idConduce
+      );
+
+    if (inspeccionActiva) {
+
+      return respuesta({
+        ok: true,
+        mensaje:
+          "Se recuperó la inspección en proceso.",
+        data:
+          construirRespuestaInspeccion(
+            inspeccionActiva
+          )
+      });
+
+    }
+
+    const datosConduce =
+      obtenerDatosConduceInspeccionObjeto(
+        idConduce
+      );
+
+    if (!datosConduce.ok) {
+
+      return respuesta(datosConduce);
+
+    }
+
+    const hojaConfiguracion =
+      getSheet(SHEETS.CONFIGURACION);
+
+    const configuracion =
+      hojaConfiguracion
+        ? obtenerConfiguracionComoObjetoInspeccion(
+            hojaConfiguracion
+          )
+        : {};
+
+    const ahora =
+      new Date();
+
+    const zonaHoraria =
+      Session.getScriptTimeZone();
+
+    const fechaInspeccion =
+      Utilities.formatDate(
+        ahora,
+        zonaHoraria,
+        "yyyy-MM-dd"
+      );
+
+    const horaInicio =
+      Utilities.formatDate(
+        ahora,
+        zonaHoraria,
+        "HH:mm:ss"
+      );
+
+    const idInspeccion =
+      generarSiguienteCodigoInspeccion(
+        hojaInspeccion,
+        "ID_Inspeccion",
+        "INS-",
+        6
+      );
+
+    const despacho =
+      datosConduce.data.despacho || {};
+
+    const contenedor =
+      datosConduce.data.contenedor || {};
+
+    const chofer =
+      datosConduce.data.chofer || {};
+
+    const selloSugerido =
+      datosConduce.data.selloSugerido ||
+      null;
+
+    /*
+     * Los sellos de salida corresponden a los precintos
+     * asignados a cada destino en el despacho.
+     *
+     * Un destino:
+     * PRECINTO_1
+     *
+     * Dos destinos:
+     * PRECINTO_1 ~ PRECINTO_2
+     */
+    const sellosSalida =
+      [
+        despacho.precinto1 || "",
+        despacho.precinto2 || ""
+      ]
+        .map(function(valor) {
+          return String(valor || "").trim();
+        })
+        .filter(Boolean)
+        .join(" ~ ");
+
+    /*
+     * Los destinos se conservan en el mismo orden que
+     * sus respectivos sellos de salida.
+     */
+    const destinosSellosSalida =
+      [
+        despacho.destino1 || "",
+        despacho.destino2 || ""
+      ]
+        .map(function(valor) {
+          return String(valor || "").trim();
+        })
+        .filter(Boolean)
+        .join(" ~ ");
+
+    const clienteDestino =
+      Number(
+        despacho.cantidadDestinos || 1
+      ) === 2
+        ? [
+            despacho.destino1 || "",
+            despacho.destino2 || ""
+          ]
+            .filter(Boolean)
+            .join(" | ")
+        : despacho.destino1 || "";
+
+    const registro = {
+
+      ID_Inspeccion:
+        idInspeccion,
+
+      ID_Conduce:
+        despacho.idConduce || "",
+
+      No_Conduce:
+        despacho.noConduce || "",
+
+      Fecha_Inspeccion:
+        fechaInspeccion,
+
+      Hora_Inicio:
+        horaInicio,
+
+      Hora_Final:
+        "",
+
+      Duracion_Minutos:
+        "",
+
+      Inspector_ID:
+        inspectorId,
+
+      Inspector_Nombre:
+        inspectorNombre,
+
+      Cliente_Destino:
+        clienteDestino,
+
+      Unidad_Carga:
+        contenedor.identificacion ||
+        despacho.unidadCarga ||
+        "",
+
+      Tamano_Contenedor:
+        contenedor.tamano || "",
+
+      Tipo_Contenedor:
+        contenedor.tipo || "",
+
+      Chofer:
+        chofer.nombre ||
+        despacho.chofer ||
+        "",
+
+      ID_Chasis:
+        String(
+          data.idChasis ||
+          chofer.chasisPorDefecto ||
+          ""
+        ).trim(),
+
+      No_Chasis:
+        String(
+          data.noChasis ||
+          data.chasis ||
+          chofer.chasisPorDefecto ||
+          ""
+        ).trim(),
+
+      Chasis_Manual:
+        data.chasisManual === true
+          ? "Sí"
+          : "No",
+
+      Motivo_Chasis_Manual:
+        String(
+          data.motivoChasisManual ||
+          ""
+        ).trim(),
+
+      Tipo_Transporte:
+        datosConduce.data
+          .tipoTransporte ||
+        "Terrestre",
+
+      /*
+       * El sello de entrada se registra durante la
+       * inspección y se actualizará al finalizarla.
+       */
+      Sello_Entrada:
+        "",
+
+      Sello_Salida:
+        sellosSalida,
+
+      Destino_Sello_Salida:
+        destinosSellosSalida,
+
+      Seleccion_Sello_Automatica:
+        selloSugerido &&
+        selloSugerido
+          .seleccionAutomatica === true
+          ? "Sí"
+          : "No",
+
+      Empresa_Origen:
+        datosConduce.data
+          .empresaOrigen ||
+        configuracion.Empresa ||
+        "",
+
+      Estado:
+        "En proceso",
+
+      Resultado_Inspeccion:
+        "",
+
+      Cantidad_No_Conformidades:
+        0,
+
+      Observaciones_Generales:
+        "",
+
+      Carpeta_Evidencias_ID:
+        "",
+
+      Carpeta_Evidencias_URL:
+        "",
+
+      Firma_URL_Usada:
+        "",
+
+      PDF_URL:
+        "",
+
+      Nombre_Formulario:
+        configuracion
+          .Nombre_Formulario_Inspeccion ||
+        datosConduce.data
+          .nombreFormulario ||
+        "",
+
+      Version_Formulario:
+        configuracion
+          .Version_Formulario_Inspeccion ||
+        datosConduce.data
+          .versionFormulario ||
+        "",
+
+      Fecha_Creacion:
+        ahora,
+
+      Fecha_Modificacion:
+        ahora,
+
+      Version_BASC:
+        configuracion.Version_BASC || "",
+
+      Estandar_BASC:
+        configuracion.Estandar_BASC || ""
+
+    };
+
+    agregarRegistroPorEncabezadosInspeccion(
+      hojaInspeccion,
+      registro
+    );
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Inspección iniciada correctamente.",
+      data:
+        construirRespuestaInspeccion(
+          registro
+        )
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No fue posible iniciar la inspección: " +
+        error.message
+    });
+
+  } finally {
+
+    bloqueo.releaseLock();
+
+  }
+
+}
+
+
+/**
+ * Recupera una inspección activa y sus respuestas.
+ */
+function obtenerInspeccionActiva(
+  data
+) {
+
+  const idConduce =
+    String(
+      data.idConduce || ""
+    ).trim();
+
+  const idInspeccionSolicitada =
+    String(
+      data.idInspeccion || ""
+    ).trim();
+
+  if (
+    !idConduce &&
+    !idInspeccionSolicitada
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Debe indicar el ID del conduce o de la inspección."
+    });
+
+  }
+
+  const hojaInspeccion =
+    getSheet(
+      SHEETS.INSPECCION_CONTENEDORES
+    );
+
+  const hojaDetalle =
+    getSheet(
+      SHEETS
+        .INSPECCION_CONTENEDORES_DETALLE
+    );
+
+  if (
+    !hojaInspeccion ||
+    !hojaDetalle
+  ) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Faltan las hojas de inspección requeridas."
+    });
+
+  }
+
+  let inspeccion = null;
+
+  if (idInspeccionSolicitada) {
+
+    inspeccion =
+      buscarRegistroPorColumnaInspeccion(
+        hojaInspeccion,
+        "ID_Inspeccion",
+        idInspeccionSolicitada
+      );
+
+  } else {
+
+    inspeccion =
+      buscarInspeccionActivaPorConduce(
+        hojaInspeccion,
+        idConduce
+      );
+
+  }
+
+  if (!inspeccion) {
+
+    return respuesta({
+      ok: true,
+      data: null
+    });
+
+  }
+
+  const idInspeccion =
+    String(
+      inspeccion.ID_Inspeccion || ""
+    ).trim();
+
+  const detalle =
+    listarDetalleInspeccionPorId(
+      hojaDetalle,
+      idInspeccion
+    );
+
+  return respuesta({
+    ok: true,
+    data: {
+      inspeccion:
+        construirRespuestaInspeccion(
+          inspeccion
+        ),
+      detalle:
+        detalle
+    }
+  });
+
+}
+
+
+/**
+ * Guarda o actualiza las respuestas del Paso 2.
+ */
+function guardarDetalleInspeccion(
+  data
+) {
+  const idInspeccion = String(data && data.idInspeccion || "").trim();
+  const detalle = Array.isArray(data && data.detalle) ? data.detalle : [];
+  const usuario = String(data && (data.usuario || data.inspector) || "").trim();
+  if (!idInspeccion) return respuesta({ok:false,mensaje:"Debe indicar el ID de la inspección."});
+  if (!detalle.length) return respuesta({ok:false,mensaje:"No se recibieron respuestas para guardar."});
+
+  const bloqueo = LockService.getScriptLock();
+  let bloqueoAdquirido = false;
+
+  try {
+    bloqueo.waitLock(20000);
+    bloqueoAdquirido = true;
+
+    const hojaInspeccion = getSheet(SHEETS.INSPECCION_CONTENEDORES);
+    const hojaDetalle = getSheet(SHEETS.INSPECCION_CONTENEDORES_DETALLE);
+    if (!hojaInspeccion || !hojaDetalle) throw new Error("Faltan las hojas de inspección requeridas.");
+
+    const datosInspeccion = hojaInspeccion.getDataRange().getValues();
+    const encabezadosInspeccion = datosInspeccion[0].map(String);
+    const columnaInspeccion = encabezadosInspeccion.indexOf("ID_Inspeccion");
+    const indiceInspeccion = datosInspeccion.findIndex((fila,indice) => indice > 0 && String(fila[columnaInspeccion] || "").trim() === idInspeccion);
+    if (indiceInspeccion < 1) throw new Error("No se encontró la inspección indicada.");
+
+    const filaInspeccion = datosInspeccion[indiceInspeccion].slice();
+    const inspeccion = {};
+    encabezadosInspeccion.forEach((nombre,indice) => inspeccion[nombre] = filaInspeccion[indice]);
+    const estado = normalizarTextoInspeccion(inspeccion.Estado);
+    if (estado === "completada" || estado === "completado") throw new Error("La inspección ya está completada y no puede modificarse.");
+
+    // Una sola lectura del detalle y escrituras por filas completas.
+    const datosDetalle = hojaDetalle.getDataRange().getValues();
+    if (!datosDetalle.length) throw new Error("La hoja de detalle no tiene encabezados.");
+    const encabezadosDetalle = datosDetalle[0].map(String);
+    const mapaColumnas = {};
+    encabezadosDetalle.forEach((nombre,indice) => mapaColumnas[nombre] = indice);
+    if (mapaColumnas.ID_Inspeccion === undefined || mapaColumnas.Codigo_Punto === undefined || mapaColumnas.ID_Detalle === undefined) throw new Error("Faltan columnas obligatorias en la hoja de detalle.");
+
+    const filasPorPunto = {};
+    let mayorSecuencia = 0;
+    datosDetalle.slice(1).forEach((fila,indice) => {
+      const coincidencia = String(fila[mapaColumnas.ID_Detalle] || "").match(/(\d+)$/);
+      if (coincidencia) mayorSecuencia = Math.max(mayorSecuencia, Number(coincidencia[1]));
+      if (String(fila[mapaColumnas.ID_Inspeccion] || "").trim() === idInspeccion) filasPorPunto[String(fila[mapaColumnas.Codigo_Punto] || "").trim()] = indice + 1;
+    });
+
+    const ahora = new Date();
+    const actualizadas = {};
+    const nuevas = [];
+
+    detalle.forEach(item => {
+      const codigoPunto = String(item.codigoPunto || item.codigo || "").trim();
+      if (!codigoPunto) return;
+      const indiceExistente = filasPorPunto[codigoPunto];
+      const fila = indiceExistente ? datosDetalle[indiceExistente].slice() : encabezadosDetalle.map(() => "");
+      const cambios = {
+        ID_Detalle:indiceExistente ? fila[mapaColumnas.ID_Detalle] : "DET-" + String(++mayorSecuencia).padStart(7,"0"),
+        ID_Inspeccion:idInspeccion,
+        Codigo_Punto:codigoPunto,
+        Categoria:item.categoria || "",
+        Codigo_Zona_Evidencia:item.codigoZonaEvidencia || "",
+        Resultado:String(item.resultado || item.estado || "").trim(),
+        Observacion:String(item.observacion || "").trim(),
+        Foto_Requerida:item.fotoRequerida === true || normalizarTextoInspeccion(item.fotoRequerida) === "si" ? "Sí" : "No",
+        Fecha_Registro:ahora,
+        Registrado_Por:usuario,
+        Version_Formulario:inspeccion.Version_Formulario || ""
+      };
+      Object.keys(cambios).forEach(nombre => { if (mapaColumnas[nombre] !== undefined) fila[mapaColumnas[nombre]] = cambios[nombre]; });
+      if (indiceExistente) {
+        datosDetalle[indiceExistente] = fila;
+        actualizadas[indiceExistente] = fila;
+      } else {
+        filasPorPunto[codigoPunto] = datosDetalle.length;
+        datosDetalle.push(fila);
+        nuevas.push(fila);
+      }
+    });
+
+    // Se agrupan filas contiguas para minimizar viajes a Google Sheets.
+    const indices = Object.keys(actualizadas).map(Number).sort((a,b) => a - b);
+    let inicioGrupo = 0;
+    while (inicioGrupo < indices.length) {
+      let finGrupo = inicioGrupo;
+      while (finGrupo + 1 < indices.length && indices[finGrupo + 1] === indices[finGrupo] + 1) finGrupo++;
+      const filasGrupo = indices.slice(inicioGrupo,finGrupo + 1).map(indice => actualizadas[indice]);
+      hojaDetalle.getRange(indices[inicioGrupo] + 1,1,filasGrupo.length,encabezadosDetalle.length).setValues(filasGrupo);
+      inicioGrupo = finGrupo + 1;
+    }
+    if (nuevas.length) hojaDetalle.getRange(hojaDetalle.getLastRow() + 1,1,nuevas.length,encabezadosDetalle.length).setValues(nuevas);
+
+    const detalleGuardado = datosDetalle.slice(1).filter(fila => String(fila[mapaColumnas.ID_Inspeccion] || "").trim() === idInspeccion).map(fila => ({
+      idDetalle:fila[mapaColumnas.ID_Detalle] || "",idInspeccion:idInspeccion,codigoPunto:fila[mapaColumnas.Codigo_Punto] || "",categoria:fila[mapaColumnas.Categoria] || "",codigoZonaEvidencia:fila[mapaColumnas.Codigo_Zona_Evidencia] || "",resultado:fila[mapaColumnas.Resultado] || "",observacion:fila[mapaColumnas.Observacion] || "",fotoRequerida:fila[mapaColumnas.Foto_Requerida] || "",fechaRegistro:fila[mapaColumnas.Fecha_Registro] || "",registradoPor:fila[mapaColumnas.Registrado_Por] || "",versionFormulario:fila[mapaColumnas.Version_Formulario] || ""
+    }));
+    const resumen = calcularResumenDetalleInspeccion(detalleGuardado);
+    const cambiosInspeccion = {Fecha_Modificacion:ahora,Estado:"En proceso",Resultado_Inspeccion:resumen.noCumple > 0 ? "Con hallazgos" : "Conforme",Cantidad_No_Conformidades:resumen.noCumple};
+    Object.keys(cambiosInspeccion).forEach(nombre => { const indice = encabezadosInspeccion.indexOf(nombre); if (indice >= 0) filaInspeccion[indice] = cambiosInspeccion[nombre]; });
+    hojaInspeccion.getRange(indiceInspeccion + 1,1,1,encabezadosInspeccion.length).setValues([filaInspeccion]);
+
+    return respuesta({ok:true,mensaje:"Avance de inspección guardado.",data:{idInspeccion:idInspeccion,resumen:resumen,detalle:detalleGuardado}});
+  } catch(error) {
+    return respuesta({ok:false,mensaje:"No fue posible guardar la inspección: " + (error.message || String(error))});
+  } finally {
+    if (bloqueoAdquirido) bloqueo.releaseLock();
+  }
+}
+
+
+// ======================================================
+// UTILIDADES DE ESCRITURA
+// ======================================================
+
+
+function obtenerDatosConduceInspeccionObjeto(
+  idConduce
+) {
+
+  const hojaDespacho =
+    getSheet(SHEETS.DESPACHO);
+
+  const hojaChoferes =
+    getSheet(SHEETS.CHOFERES);
+
+  const hojaUnidades =
+    getSheet(SHEETS.UNIDADES_CARGA);
+
+  const hojaConfiguracion =
+    getSheet(SHEETS.CONFIGURACION);
+
+  if (
+    !hojaDespacho ||
+    !hojaChoferes ||
+    !hojaUnidades ||
+    !hojaConfiguracion
+  ) {
+
+    return {
+      ok: false,
+      mensaje:
+        "Faltan hojas requeridas para cargar la inspección."
+    };
+
+  }
+
+  const despacho =
+    buscarRegistroPorColumnaInspeccion(
+      hojaDespacho,
+      "ID_Conduce",
+      idConduce
+    );
+
+  if (!despacho) {
+
+    return {
+      ok: false,
+      mensaje:
+        "No se encontró el conduce solicitado."
+    };
+
+  }
+
+  const estadoDespacho =
+    normalizarTextoInspeccion(
+      despacho.Estado
+    );
+
+  if (estadoDespacho !== "borrador") {
+
+    return {
+      ok: false,
+      mensaje:
+        "Solo se pueden inspeccionar conduces en estado Borrador."
+    };
+
+  }
+
+  const chofer =
+    buscarRegistroFlexibleInspeccion(
+      hojaChoferes,
+      [
+        "ID_Chofer",
+        "Nombre_Chofer"
+      ],
+      despacho.Chofer
+    );
+
+  const unidad =
+    buscarRegistroFlexibleInspeccion(
+      hojaUnidades,
+      [
+        "ID_Unidad",
+        "Identificacion"
+      ],
+      despacho.Unidad_Carga
+    );
+
+  const configuracion =
+    obtenerConfiguracionComoObjetoInspeccion(
+      hojaConfiguracion
+    );
+
+  const precintos = [];
+
+  if (despacho.Precinto_1) {
+
+    precintos.push({
+      numero:
+        String(
+          despacho.Precinto_1
+        ).trim(),
+
+      destino:
+        despacho.Destino_1 || "",
+
+      orden:
+        1
+    });
+
+  }
+
+  if (despacho.Precinto_2) {
+
+    precintos.push({
+      numero:
+        String(
+          despacho.Precinto_2
+        ).trim(),
+
+      destino:
+        despacho.Destino_2 || "",
+
+      orden:
+        2
+    });
+
+  }
+
+  return {
+    ok: true,
+    data: {
+
+      despacho: {
+
+        idConduce:
+          despacho.ID_Conduce || "",
+
+        noConduce:
+          despacho.No_Conduce || "",
+
+        estado:
+          despacho.Estado || "",
+
+        supervisor:
+          despacho.RealizadoPor || "",
+
+        chofer:
+          despacho.Chofer || "",
+
+        unidadCarga:
+          despacho.Unidad_Carga || "",
+
+        cantidadDestinos:
+          Number(
+            despacho.Cantidad_Destinos ||
+            1
+          ),
+
+        destino1:
+          despacho.Destino_1 || "",
+
+        destino2:
+          despacho.Destino_2 || "",
+
+        precinto1:
+          despacho.Precinto_1 || "",
+
+        precinto2:
+          despacho.Precinto_2 || ""
+
+      },
+
+      chofer: {
+
+        id:
+          chofer
+            ? chofer.ID_Chofer || ""
+            : "",
+
+        nombre:
+          chofer
+            ? chofer.Nombre_Chofer || ""
+            : "",
+
+        cedula:
+          chofer
+            ? chofer.Cedula || ""
+            : "",
+
+        contenedorPorDefecto:
+          chofer
+            ? chofer
+                .Contenedor_porDefecto ||
+              ""
+            : "",
+
+        chasisPorDefecto:
+          chofer
+            ? chofer
+                .Chasis_porDefecto ||
+              ""
+            : ""
+
+      },
+
+      contenedor: {
+
+        id:
+          unidad
+            ? unidad.ID_Unidad || ""
+            : "",
+
+        identificacion:
+          unidad
+            ? unidad.Identificacion || ""
+            : extraerIdentificacionInspeccion(
+                despacho.Unidad_Carga
+              ),
+
+        tipo:
+          unidad
+            ? unidad.Tipo_Contenedor ||
+              ""
+            : "",
+
+        tamano:
+          unidad
+            ? unidad.Tamano_Contenedor ||
+              ""
+            : ""
+
+      },
+
+      sellos:
+        precintos,
+
+      selloSugerido:
+        seleccionarSelloSalidaSugerido(
+          precintos
+        ),
+
+      empresaOrigen:
+        configuracion.Empresa || "",
+
+      nombreFormulario:
+        configuracion
+          .Nombre_Formulario_Inspeccion ||
+        "FORMULARIO DE INSPECCIÓN DE CONTENEDORES REFRIGERADOS",
+
+      versionFormulario:
+        configuracion
+          .Version_Formulario_Inspeccion ||
+        "F-0158",
+
+      tipoTransporte:
+        "Terrestre"
+
+    }
+  };
+
+}
+
+
+function buscarInspeccionActivaPorConduce(
+  hoja,
+  idConduce
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+    return null;
+  }
+
+  const encabezados =
+    datos[0];
+
+  const registros =
+    datos
+      .slice(1)
+      .map(function(fila) {
+
+        return convertirFilaAObjeto(
+          encabezados,
+          fila
+        );
+
+      })
+      .filter(function(item) {
+
+        const mismoConduce =
+          String(
+            item.ID_Conduce || ""
+          ).trim() === idConduce;
+
+        const estado =
+          normalizarTextoInspeccion(
+            item.Estado
+          );
+
+        return (
+          mismoConduce &&
+          (
+            estado === "borrador" ||
+            estado === "en proceso"
+          )
+        );
+
+      });
+
+  return registros.length > 0
+    ? registros[
+        registros.length - 1
+      ]
+    : null;
+
+}
+
+
+function generarSiguienteCodigoInspeccion(
+  hoja,
+  columna,
+  prefijo,
+  cantidadDigitos
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length === 0) {
+
+    throw new Error(
+      "La hoja " +
+      hoja.getName() +
+      " no tiene encabezados."
+    );
+
+  }
+
+  const encabezados =
+    datos[0];
+
+  const indice =
+    encabezados.indexOf(
+      columna
+    );
+
+  if (indice === -1) {
+
+    throw new Error(
+      "No existe la columna " +
+      columna +
+      " en la hoja " +
+      hoja.getName() +
+      "."
+    );
+
+  }
+
+  let mayor = 0;
+
+  datos
+    .slice(1)
+    .forEach(function(fila) {
+
+      const valor =
+        String(
+          fila[indice] || ""
+        ).trim();
+
+      const coincidencia =
+        valor.match(/(\d+)$/);
+
+      if (coincidencia) {
+
+        mayor =
+          Math.max(
+            mayor,
+            Number(
+              coincidencia[1]
+            )
+          );
+
+      }
+
+    });
+
+  return (
+    prefijo +
+    String(
+      mayor + 1
+    ).padStart(
+      cantidadDigitos,
+      "0"
+    )
+  );
+
+}
+
+
+function agregarRegistroPorEncabezadosInspeccion(
+  hoja,
+  objeto
+) {
+
+  const encabezados =
+    hoja
+      .getRange(
+        1,
+        1,
+        1,
+        hoja.getLastColumn()
+      )
+      .getDisplayValues()[0];
+
+  const fila =
+    encabezados.map(function(nombre) {
+
+      return Object.prototype
+        .hasOwnProperty.call(
+          objeto,
+          nombre
+        )
+        ? objeto[nombre]
+        : "";
+
+    });
+
+  hoja.appendRow(fila);
+
+}
+
+
+function actualizarRegistroPorClaveInspeccion(
+  hoja,
+  nombreClave,
+  valorClave,
+  cambios
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+    return false;
+  }
+
+  const encabezados =
+    datos[0];
+
+  const indiceClave =
+    encabezados.indexOf(
+      nombreClave
+    );
+
+  if (indiceClave === -1) {
+
+    throw new Error(
+      "No existe la columna " +
+      nombreClave +
+      " en la hoja " +
+      hoja.getName() +
+      "."
+    );
+
+  }
+
+  let numeroFila = -1;
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    if (
+      String(
+        datos[i][indiceClave] || ""
+      ).trim() ===
+      String(
+        valorClave || ""
+      ).trim()
+    ) {
+
+      numeroFila = i + 1;
+      break;
+
+    }
+
+  }
+
+  if (numeroFila === -1) {
+    return false;
+  }
+
+  Object.keys(cambios)
+    .forEach(function(nombreColumna) {
+
+      const indice =
+        encabezados.indexOf(
+          nombreColumna
+        );
+
+      if (indice !== -1) {
+
+        hoja
+          .getRange(
+            numeroFila,
+            indice + 1
+          )
+          .setValue(
+            cambios[nombreColumna]
+          );
+
+      }
+
+    });
+
+  return true;
+
+}
+
+
+function actualizarOAgregarDetalleInspeccion(
+  hoja,
+  registro
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length === 0) {
+
+    throw new Error(
+      "La hoja " +
+      hoja.getName() +
+      " no tiene encabezados."
+    );
+
+  }
+
+  const encabezados =
+    datos[0];
+
+  const indiceInspeccion =
+    encabezados.indexOf(
+      "ID_Inspeccion"
+    );
+
+  const indicePunto =
+    encabezados.indexOf(
+      "Codigo_Punto"
+    );
+
+  if (
+    indiceInspeccion === -1 ||
+    indicePunto === -1
+  ) {
+
+    throw new Error(
+      "Faltan las columnas ID_Inspeccion o Codigo_Punto en " +
+      hoja.getName() +
+      "."
+    );
+
+  }
+
+  let numeroFila = -1;
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    const mismoId =
+      String(
+        datos[i][indiceInspeccion] || ""
+      ).trim() ===
+      String(
+        registro.ID_Inspeccion || ""
+      ).trim();
+
+    const mismoPunto =
+      String(
+        datos[i][indicePunto] || ""
+      ).trim() ===
+      String(
+        registro.Codigo_Punto || ""
+      ).trim();
+
+    if (
+      mismoId &&
+      mismoPunto
+    ) {
+
+      numeroFila = i + 1;
+      break;
+
+    }
+
+  }
+
+  if (numeroFila === -1) {
+
+    registro.ID_Detalle =
+      generarSiguienteCodigoInspeccion(
+        hoja,
+        "ID_Detalle",
+        "DET-",
+        7
+      );
+
+    agregarRegistroPorEncabezadosInspeccion(
+      hoja,
+      registro
+    );
+
+    return;
+
+  }
+
+  Object.keys(registro)
+    .forEach(function(nombreColumna) {
+
+      if (
+        nombreColumna ===
+        "ID_Detalle"
+      ) {
+        return;
+      }
+
+      const indice =
+        encabezados.indexOf(
+          nombreColumna
+        );
+
+      if (indice !== -1) {
+
+        hoja
+          .getRange(
+            numeroFila,
+            indice + 1
+          )
+          .setValue(
+            registro[nombreColumna]
+          );
+
+      }
+
+    });
+
+}
+
+
+function listarDetalleInspeccionPorId(
+  hoja,
+  idInspeccion
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+    return [];
+  }
+
+  const encabezados =
+    datos[0];
+
+  return datos
+    .slice(1)
+    .map(function(fila) {
+
+      return convertirFilaAObjeto(
+        encabezados,
+        fila
+      );
+
+    })
+    .filter(function(item) {
+
+      return (
+        String(
+          item.ID_Inspeccion || ""
+        ).trim() === idInspeccion
+      );
+
+    })
+    .map(function(item) {
+
+      return {
+        idDetalle:
+          item.ID_Detalle || "",
+
+        idInspeccion:
+          item.ID_Inspeccion || "",
+
+        codigoPunto:
+          item.Codigo_Punto || "",
+
+        categoria:
+          item.Categoria || "",
+
+        codigoZonaEvidencia:
+          item.Codigo_Zona_Evidencia ||
+          "",
+
+        resultado:
+          item.Resultado || "",
+
+        observacion:
+          item.Observacion || "",
+
+        fotoRequerida:
+          item.Foto_Requerida || "",
+
+        fechaRegistro:
+          item.Fecha_Registro || "",
+
+        registradoPor:
+          item.Registrado_Por || "",
+
+        versionFormulario:
+          item.Version_Formulario || ""
+      };
+
+    });
+
+}
+
+
+function calcularResumenDetalleInspeccion(
+  detalle
+) {
+
+  const resumen = {
+    total: 0,
+    cumple: 0,
+    noCumple: 0,
+    noAplica: 0
+  };
+
+  detalle.forEach(function(item) {
+
+    const resultado =
+      normalizarTextoInspeccion(
+        item.resultado
+      );
+
+    if (!resultado) {
+      return;
+    }
+
+    resumen.total++;
+
+    if (resultado === "cumple") {
+      resumen.cumple++;
+    }
+
+    if (resultado === "no cumple") {
+      resumen.noCumple++;
+    }
+
+    if (resultado === "no aplica") {
+      resumen.noAplica++;
+    }
+
+  });
+
+  return resumen;
+
+}
+
+
+function construirRespuestaInspeccion(
+  item
+) {
+
+  return {
+    idInspeccion:
+      item.ID_Inspeccion || "",
+
+    idConduce:
+      item.ID_Conduce || "",
+
+    noConduce:
+      item.No_Conduce || "",
+
+    fechaInspeccion:
+      item.Fecha_Inspeccion || "",
+
+    horaInicio:
+      item.Hora_Inicio || "",
+
+    horaFinal:
+      item.Hora_Final || "",
+
+    duracionMinutos:
+      Number(
+        item.Duracion_Minutos || 0
+      ),
+
+    inspectorId:
+      item.Inspector_ID || "",
+
+    inspectorNombre:
+      item.Inspector_Nombre || "",
+
+    clienteDestino:
+      item.Cliente_Destino || "",
+
+    unidadCarga:
+      item.Unidad_Carga || "",
+
+    tamanoContenedor:
+      item.Tamano_Contenedor || "",
+
+    tipoContenedor:
+      item.Tipo_Contenedor || "",
+
+    chofer:
+      item.Chofer || "",
+
+    idChasis:
+      item.ID_Chasis || "",
+
+    noChasis:
+      item.No_Chasis || "",
+
+    chasisManual:
+      item.Chasis_Manual || "",
+
+    motivoChasisManual:
+      item.Motivo_Chasis_Manual || "",
+
+    tipoTransporte:
+      item.Tipo_Transporte || "",
+
+    selloEntrada:
+      item.Sello_Entrada || "",
+
+    selloSalida:
+      item.Sello_Salida || "",
+
+    destinoSelloSalida:
+      item.Destino_Sello_Salida || "",
+
+    seleccionSelloAutomatica:
+      item
+        .Seleccion_Sello_Automatica ||
+      "",
+
+    empresaOrigen:
+      item.Empresa_Origen || "",
+
+    estado:
+      item.Estado || "",
+
+    resultadoInspeccion:
+      item.Resultado_Inspeccion || "",
+
+    cantidadNoConformidades:
+      Number(
+        item
+          .Cantidad_No_Conformidades ||
+        0
+      ),
+
+    observacionesGenerales:
+      item.Observaciones_Generales ||
+      "",
+
+    carpetaEvidenciasId:
+      item.Carpeta_Evidencias_ID || "",
+
+    carpetaEvidenciasUrl:
+      item.Carpeta_Evidencias_URL || "",
+
+    firmaUrlUsada:
+      item.Firma_URL_Usada || "",
+
+    pdfUrl:
+      item.PDF_URL || "",
+
+    nombreFormulario:
+      item.Nombre_Formulario || "",
+
+    versionFormulario:
+      item.Version_Formulario || "",
+
+    fechaCreacion:
+      item.Fecha_Creacion || "",
+
+    fechaModificacion:
+      item.Fecha_Modificacion || "",
+
+    versionBASC:
+      item.Version_BASC || "",
+
+    estandarBASC:
+      item.Estandar_BASC || ""
+
+  };
+
+}
+
+
+// ======================================================
+// UTILIDADES INTERNAS DEL MÓDULO
+// ======================================================
+
+
+function normalizarTextoInspeccion(
+  texto
+) {
+
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .trim()
+    .toLowerCase();
+
+}
+
+
+/**
+ * Busca un registro por coincidencia exacta.
+ */
+function buscarRegistroPorColumnaInspeccion(
+  hoja,
+  nombreColumna,
+  valorBuscado
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+    return null;
+  }
+
+  const encabezados =
+    datos[0];
+
+  const indice =
+    encabezados.indexOf(
+      nombreColumna
+    );
+
+  if (indice === -1) {
+
+    throw new Error(
+      "No existe la columna " +
+      nombreColumna +
+      " en la hoja " +
+      hoja.getName() +
+      "."
+    );
+
+  }
+
+  const buscado =
+    String(valorBuscado || "").trim();
+
+  for (
+    let i = 1;
+    i < datos.length;
+    i++
+  ) {
+
+    if (
+      String(
+        datos[i][indice] || ""
+      ).trim() === buscado
+    ) {
+
+      return convertirFilaAObjeto(
+        encabezados,
+        datos[i]
+      );
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+/**
+ * Busca valores que pueden recibirse como:
+ * UC001 - TTNU-849166-0
+ * TTNU-849166-0
+ * UC001
+ */
+function buscarRegistroFlexibleInspeccion(
+  hoja,
+  columnas,
+  valorBuscado
+) {
+
+  const textoBuscado =
+    normalizarTextoInspeccion(
+      valorBuscado
+    );
+
+  if (!textoBuscado) {
+    return null;
+  }
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  if (datos.length <= 1) {
+    return null;
+  }
+
+  const encabezados =
+    datos[0];
+
+  const registros =
+    datos
+      .slice(1)
+      .map(function(fila) {
+
+        return convertirFilaAObjeto(
+          encabezados,
+          fila
+        );
+
+      });
+
+  return registros.find(
+    function(registro) {
+
+      return columnas.some(
+        function(columna) {
+
+          const valor =
+            normalizarTextoInspeccion(
+              registro[columna]
+            );
+
+          return (
+            valor !== "" &&
+            (
+              textoBuscado === valor ||
+              textoBuscado.includes(valor) ||
+              valor.includes(textoBuscado)
+            )
+          );
+
+        }
+      );
+
+    }
+  ) || null;
+
+}
+
+
+/**
+ * Convierte la hoja Configuracion en un objeto:
+ * NombreParametro -> Valor.
+ */
+function obtenerConfiguracionComoObjetoInspeccion(
+  hoja
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+  const configuracion = {};
+
+  datos
+    .slice(1)
+    .forEach(function(fila) {
+
+      const nombre =
+        String(
+          fila[0] || ""
+        ).trim();
+
+      if (nombre) {
+
+        configuracion[nombre] =
+          fila[1] !== undefined
+            ? fila[1]
+            : "";
+
+      }
+
+    });
+
+  return configuracion;
+
+}
+
+
+/**
+ * Si hay dos destinos y uno es FrioBox,
+ * recomienda el precinto del otro destino.
+ */
+function seleccionarSelloSalidaSugerido(
+  precintos
+) {
+
+  if (
+    !Array.isArray(precintos) ||
+    precintos.length === 0
+  ) {
+
+    return null;
+
+  }
+
+  if (precintos.length === 1) {
+
+    return {
+      numero:
+        precintos[0].numero,
+
+      destino:
+        precintos[0].destino,
+
+      seleccionAutomatica:
+        true,
+
+      motivo:
+        "Único sello disponible"
+    };
+
+  }
+
+  const noFrioBox =
+    precintos.find(function(item) {
+
+      return !normalizarTextoInspeccion(
+        item.destino
+      ).includes("friobox");
+
+    });
+
+  const incluyeFrioBox =
+    precintos.some(function(item) {
+
+      return normalizarTextoInspeccion(
+        item.destino
+      ).includes("friobox");
+
+    });
+
+  if (
+    incluyeFrioBox &&
+    noFrioBox
+  ) {
+
+    return {
+      numero:
+        noFrioBox.numero,
+
+      destino:
+        noFrioBox.destino,
+
+      seleccionAutomatica:
+        true,
+
+      motivo:
+        "Primera parada distinta de FrioBox"
+    };
+
+  }
+
+  return {
+    numero:
+      precintos[0].numero,
+
+    destino:
+      precintos[0].destino,
+
+    seleccionAutomatica:
+      false,
+
+    motivo:
+      "Selección manual recomendada"
+  };
+
+}
+
+
+/**
+ * Extrae la identificación visible cuando la unidad
+ * viene como: UC001 - TTNU-849166-0.
+ */
+function extraerIdentificacionInspeccion(
+  valor
+) {
+
+  const texto =
+    String(valor || "").trim();
+
+  if (!texto) {
+    return "";
+  }
+
+  const partes =
+    texto.split(" - ");
+
+  return partes.length > 1
+    ? partes.slice(1).join(" - ").trim()
+    : texto;
+
+}

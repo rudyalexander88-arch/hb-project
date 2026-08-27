@@ -1,0 +1,183 @@
+/**
+ * FRONTEND.GS
+ * Sistema LogÃ­stico PT - Helados BON.
+ *
+ * Sirve el login y el dashboard sin modificar doPost, Login.gs ni los
+ * archivos JavaScript existentes. Las imÃ¡genes se leen desde la carpeta
+ * definida en Configuracion con la clave:
+ * Carpeta_Drive_Recursos_Frontend.
+ */
+
+const BON_CLAVE_CARPETA_RECURSOS_FRONTEND =
+    "Carpeta_Drive_Recursos_Frontend";
+
+
+function doGet(e) {
+
+    const parametros = e && e.parameter ? e.parameter : {};
+
+    const pagina = String(parametros.pagina || "index")
+        .trim()
+        .toLowerCase() === "dashboard"
+        ? "dashboard"
+        : "index";
+
+    const plantilla = HtmlService.createTemplateFromFile(pagina);
+
+    plantilla.recursos = obtenerRecursosFrontend_(pagina);
+
+    plantilla.urlAplicacion = ScriptApp.getService().getUrl() || "";
+
+    return plantilla
+        .evaluate()
+        .setTitle(
+            pagina === "dashboard"
+                ? "Dashboard | Sistema LogÃ­stico PT"
+                : "Helados BON | Sistema LogÃ­stico PT"
+        );
+
+}
+
+
+function incluir(nombreArchivo) {
+
+    return HtmlService
+        .createHtmlOutputFromFile(nombreArchivo)
+        .getContent();
+
+}
+
+
+function obtenerIdCarpetaRecursosFrontend_() {
+
+    const nombreHoja =
+        typeof SHEETS !== "undefined" && SHEETS.CONFIGURACION
+            ? SHEETS.CONFIGURACION
+            : "Configuracion";
+
+    const hoja = getSheet(nombreHoja);
+
+    if (!hoja) {
+        throw new Error(
+            "No existe la hoja Configuracion para cargar los recursos del frontend."
+        );
+    }
+
+    const datos = hoja.getDataRange().getDisplayValues();
+
+    for (let indice = 1; indice < datos.length; indice++) {
+
+        const clave = String(datos[indice][0] || "").trim();
+
+        if (clave !== BON_CLAVE_CARPETA_RECURSOS_FRONTEND) {
+            continue;
+        }
+
+        const valor = String(datos[indice][1] || "").trim();
+
+        if (!valor) {
+            throw new Error(
+                "La clave " +
+                BON_CLAVE_CARPETA_RECURSOS_FRONTEND +
+                " no tiene asignado el ID de la carpeta de Drive."
+            );
+        }
+
+        const coincidencia =
+            valor.match(/\/folders\/([a-zA-Z0-9_-]+)/) ||
+            valor.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+
+        return coincidencia ? coincidencia[1] : valor;
+
+    }
+
+    throw new Error(
+        "No se encontrÃ³ la clave " +
+        BON_CLAVE_CARPETA_RECURSOS_FRONTEND +
+        " en la hoja Configuracion."
+    );
+
+}
+
+
+function obtenerRecursosFrontend_(pagina) {
+
+    const carpeta = DriveApp.getFolderById(
+        obtenerIdCarpetaRecursosFrontend_()
+    );
+
+    const logo = obtenerImagenFrontend_(carpeta, "logo.png");
+
+    return {
+        logo: logo,
+        logoDashboard:
+            pagina === "dashboard"
+                ? obtenerImagenFrontend_(carpeta, "logo_dashboard.png") || logo
+                : logo,
+        icono:
+            obtenerImagenFrontend_(carpeta, "icon.png") || logo,
+        fondo:
+            pagina === "index"
+                ? obtenerImagenFrontend_(carpeta, "fondo.png")
+                : ""
+    };
+
+}
+
+
+function obtenerImagenFrontend_(carpeta, nombreArchivo) {
+
+    const archivos = carpeta.getFilesByName(nombreArchivo);
+
+    if (!archivos.hasNext()) {
+        return "";
+    }
+
+    const contenido = archivos.next().getBlob();
+
+    const tipoContenido = String(
+        contenido.getContentType() || ""
+    ).toLowerCase();
+
+    if (tipoContenido.indexOf("image/") !== 0) {
+        throw new Error(
+            "El recurso " + nombreArchivo + " no es una imagen vÃ¡lida."
+        );
+    }
+
+    return (
+        "data:" +
+        tipoContenido +
+        ";base64," +
+        Utilities.base64Encode(contenido.getBytes())
+    );
+
+}
+
+
+/**
+ * Puente interno del frontend. Reutiliza doPost sin cambiar su validaciÃ³n
+ * central de sesiÃ³n, permisos, acciones pÃºblicas ni respuestas existentes.
+ */
+function ejecutarAccionFrontend(datos) {
+
+    if (!datos || typeof datos !== "object" || Array.isArray(datos)) {
+        throw new Error("La solicitud recibida por el frontend no es vÃ¡lida.");
+    }
+
+    const respuestaAccion = doPost({
+        postData: {
+            contents: JSON.stringify(datos)
+        }
+    });
+
+    if (
+        !respuestaAccion ||
+        typeof respuestaAccion.getContent !== "function"
+    ) {
+        throw new Error("El backend no devolviÃ³ una respuesta vÃ¡lida.");
+    }
+
+    return JSON.parse(respuestaAccion.getContent());
+
+}

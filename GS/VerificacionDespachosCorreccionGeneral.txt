@@ -1,0 +1,1205 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSCORRECCIONGENERAL.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Registrar una operación de corrección que puede afectar
+ *   uno, varios o todos los materiales con diferencia.
+ * - Solicitar el documento SAP una sola vez por operación.
+ * - Aplicar ese documento y su posición a todas las líneas.
+ * - Acumular correcciones parciales o totales por material.
+ * - Aplicar las correcciones al Despacho_Detalle.
+ * - Recalcular el resumen y sincronizar el estado.
+ * - Devolver el conduce corregido para regenerar su PDF.
+ * ============================================================
+ */
+
+function guardarCorreccionGeneralVerificacionDespacho(
+  data
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  try {
+
+    bloqueo.waitLock(
+      30000
+    );
+
+    const parametros =
+      data || {};
+
+    const idVerificacion =
+      String(
+        parametros.idVerificacion || ""
+      ).trim();
+
+    const documentoSAPEntrada =
+      String(
+        parametros.documentoSAP || ""
+      ).trim();
+
+    const comentarioGeneral =
+      String(
+        parametros.comentarioGeneral || ""
+      ).trim();
+
+    const corregidoPor =
+      String(
+        parametros.corregidoPor ||
+        parametros.analistaNombre ||
+        parametros.usuario ||
+        ""
+      ).trim();
+
+    const correccionesEntrada =
+      Array.isArray(
+        parametros.correcciones
+      )
+        ? parametros.correcciones
+        : [];
+
+    if (!idVerificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el ID de la verificación."
+
+      });
+
+    }
+
+    if (!documentoSAPEntrada) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe registrar el documento SAP de la corrección."
+
+      });
+
+    }
+
+    if (!corregidoPor) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No fue posible identificar al usuario que realizó la corrección."
+
+      });
+
+    }
+
+    if (
+      correccionesEntrada.length === 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe incluir al menos un material en la corrección."
+
+      });
+
+    }
+
+    const documentoSAPNormalizado =
+      normalizarDocumentosSAPVerificacion_(
+        documentoSAPEntrada
+      );
+
+    const hojaDetalle =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS_DETALLE
+      );
+
+    const hojaVerificaciones =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS
+      );
+
+    const hojaDespacho =
+      getSheet(
+        SHEETS.DESPACHO
+      );
+
+    const hojaMateriales =
+      getSheet(
+        SHEETS.MATERIAL
+      );
+
+    if (
+      !hojaDetalle ||
+      !hojaVerificaciones ||
+      !hojaDespacho
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontraron todas las hojas requeridas para registrar la corrección general."
+
+      });
+
+    }
+
+    const verificacion =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaVerificaciones,
+        "ID_Verificacion",
+        idVerificacion
+      );
+
+    if (!verificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró la verificación indicada."
+
+      });
+
+    }
+
+    const idConduce =
+      String(
+        verificacion.ID_Conduce || ""
+      ).trim();
+
+    if (!idConduce) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La verificación no está vinculada con un conduce."
+
+      });
+
+    }
+
+    if (
+      normalizarTextoInicioVerificacion_(
+        verificacion.Estado_Verificacion
+      ) === "anulada"
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "La verificación está anulada y no admite correcciones."
+
+      });
+
+    }
+
+    const correccionesValidadas = [];
+    const idsProcesados = {};
+
+    for (
+      let i = 0;
+      i < correccionesEntrada.length;
+      i++
+    ) {
+
+      const correccion =
+        correccionesEntrada[i] || {};
+
+      const idDetalle =
+        String(
+          correccion.idDetalleVerificacion || ""
+        ).trim();
+
+      const tipoCorreccion =
+        String(
+          correccion.tipoCorreccion || ""
+        ).trim();
+
+      const causaDiferencia =
+        String(
+          correccion.causaDiferencia || ""
+        ).trim();
+
+      const comentarioDiferencia =
+        String(
+          correccion.comentarioDiferencia || ""
+        ).trim();
+
+      if (!idDetalle) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "La corrección número " +
+            (i + 1) +
+            " no contiene el ID del detalle."
+
+        });
+
+      }
+
+      if (
+        idsProcesados[
+          idDetalle
+        ]
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "El material con ID " +
+            idDetalle +
+            " está repetido en la misma operación."
+
+        });
+
+      }
+
+      idsProcesados[
+        idDetalle
+      ] = true;
+
+      if (
+        !Object.prototype.hasOwnProperty.call(
+          correccion,
+          "cantidadCorreccion"
+        )
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "Debe indicar la cantidad corregida del material número " +
+            (i + 1) +
+            "."
+
+        });
+
+      }
+
+      const cantidadNuevaCorreccion =
+        convertirCantidadCorreccionVerificacion_(
+          correccion.cantidadCorreccion
+        );
+
+      if (
+        cantidadNuevaCorreccion <= 0
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "La cantidad corregida del material número " +
+            (i + 1) +
+            " debe ser mayor que cero."
+
+        });
+
+      }
+
+      if (!tipoCorreccion) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "Debe seleccionar el tipo de corrección del material número " +
+            (i + 1) +
+            "."
+
+        });
+
+      }
+
+      const lineaActual =
+        obtenerRegistroPorCampoVerificacion_(
+          hojaDetalle,
+          "ID_Detalle_Verificacion",
+          idDetalle
+        );
+
+      if (!lineaActual) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "No se encontró uno de los materiales incluidos en la corrección."
+
+        });
+
+      }
+
+      if (
+        String(
+          lineaActual.ID_Verificacion || ""
+        ).trim() !== idVerificacion
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "Uno de los materiales no pertenece a la verificación seleccionada."
+
+        });
+
+      }
+
+      if (
+        normalizarTextoInicioVerificacion_(
+          lineaActual.Estado
+        ) === "eliminado"
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "Uno de los materiales incluidos está eliminado."
+
+        });
+
+      }
+
+      const tieneCantidadVerificada =
+        String(
+          lineaActual.Cantidad_Verificada === null ||
+          lineaActual.Cantidad_Verificada === undefined
+            ? ""
+            : lineaActual.Cantidad_Verificada
+        ).trim() !== "";
+
+      if (!tieneCantidadVerificada) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "Primero debe registrar la cantidad verificada del material " +
+            String(
+              lineaActual.Material || ""
+            ) +
+            "."
+
+        });
+
+      }
+
+      const diferenciaDetectada =
+        numeroInicioVerificacion_(
+          lineaActual.Diferencia
+        );
+
+      if (
+        diferenciaDetectada === 0
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "El material " +
+            String(
+              lineaActual.Material || ""
+            ) +
+            " no tiene una diferencia que requiera corrección."
+
+        });
+
+      }
+
+      const cantidadCorregidaAnterior =
+        Math.max(
+          0,
+          numeroInicioVerificacion_(
+            lineaActual.Cantidad_Correccion
+          )
+        );
+
+      const magnitudDiferencia =
+        Math.abs(
+          diferenciaDetectada
+        );
+
+      const cantidadPendienteAntes =
+        Math.max(
+          0,
+          magnitudDiferencia -
+          cantidadCorregidaAnterior
+        );
+
+      if (
+        cantidadPendienteAntes <= 0
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "La diferencia del material " +
+            String(
+              lineaActual.Material || ""
+            ) +
+            " ya está completamente resuelta."
+
+        });
+
+      }
+
+      if (
+        cantidadNuevaCorreccion >
+        cantidadPendienteAntes
+      ) {
+
+        return respuesta({
+
+          ok:
+            false,
+
+          mensaje:
+            "La corrección del material " +
+            String(
+              lineaActual.Material || ""
+            ) +
+            " no puede ser mayor que su cantidad pendiente (" +
+            cantidadPendienteAntes +
+            ")."
+
+        });
+
+      }
+
+      const cantidadCorreccionAcumulada =
+        redondearInicioVerificacion_(
+          cantidadCorregidaAnterior +
+          cantidadNuevaCorreccion
+        );
+
+      const diferenciaPendiente =
+        calcularDiferenciaPendienteVerificacion_(
+          diferenciaDetectada,
+          cantidadCorreccionAcumulada
+        );
+
+      const clasificacion =
+        clasificarLineaVerificacion_({
+
+          diferencia:
+            diferenciaDetectada,
+
+          cantidadCorreccion:
+            cantidadCorreccionAcumulada,
+
+          diferenciaPendiente:
+            diferenciaPendiente
+
+        });
+
+      const material =
+        String(
+          lineaActual.Material || ""
+        ).trim();
+
+      const valorUnidad =
+        obtenerValorUnidadMaterialVerificacion_(
+          hojaMateriales,
+          material
+        );
+
+      const valorDesviacion =
+        redondearImporteVerificacion_(
+          magnitudDiferencia *
+          valorUnidad
+        );
+
+      const valorCorregido =
+        redondearImporteVerificacion_(
+          cantidadCorreccionAcumulada *
+          valorUnidad
+        );
+
+      const valorPendiente =
+        redondearImporteVerificacion_(
+          Math.abs(
+            diferenciaPendiente
+          ) *
+          valorUnidad
+        );
+
+      correccionesValidadas.push({
+
+        idDetalle:
+          idDetalle,
+
+        lineaActual:
+          lineaActual,
+
+        cantidadCorreccionAcumulada:
+          cantidadCorreccionAcumulada,
+
+        diferenciaPendiente:
+          diferenciaPendiente,
+
+        clasificacion:
+          clasificacion,
+
+        tipoCorreccion:
+          tipoCorreccion,
+
+        causaDiferencia:
+          causaDiferencia,
+
+        comentarioDiferencia:
+          comentarioDiferencia,
+
+        valorDesviacion:
+          valorDesviacion,
+
+        valorCorregido:
+          valorCorregido,
+
+        valorPendiente:
+          valorPendiente,
+
+        materialCruce:
+          correccion.materialCruce &&
+          typeof correccion.materialCruce === "object"
+            ? correccion.materialCruce
+            : null,
+
+        cantidadNuevaCorreccion:
+          cantidadNuevaCorreccion
+
+      });
+
+    }
+
+    let posicionAnterior = "";
+    let documentoAnterior = "";
+
+    for (
+      let i = 0;
+      i < correccionesValidadas.length;
+      i++
+    ) {
+
+      const linea =
+        correccionesValidadas[i]
+          .lineaActual;
+
+      const posicionLinea =
+        String(
+          linea.Posicion_Documento_SAP || ""
+        ).trim();
+
+      if (
+        posicionLinea
+      ) {
+
+        posicionAnterior =
+          posicionLinea;
+
+        documentoAnterior =
+          String(
+            linea.Documento_SAP_Correccion || ""
+          ).trim();
+
+        break;
+
+      }
+
+    }
+
+    const registroSAP =
+      registrarDocumentoSAPCorreccionConduce_({
+
+        hojaDespacho:
+          hojaDespacho,
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        idConduce:
+          idConduce,
+
+        idVerificacion:
+          idVerificacion,
+
+        posicionAnterior:
+          posicionAnterior,
+
+        documentoAnterior:
+          documentoAnterior,
+
+        nuevoDocumento:
+          documentoSAPNormalizado
+
+      });
+
+    /*
+     * =========================================================
+     * APLICAR CORRECCIONES AL CONDUCE ORIGINAL
+     * =========================================================
+     *
+     * El documento SAP ya fue validado y registrado.
+     * Ahora modificamos Despacho_Detalle utilizando el módulo
+     * VerificacionDespachosConduce.gs.
+     *
+     * Para los cruces de material:
+     * - cantidadCorreccion reduce el material original;
+     * - materialCruce define el material realmente despachado;
+     * - la cantidad del material nuevo puede ser distinta.
+     */
+    const resultadoConduce =
+      aplicarCorreccionesVerificacionAlConduce_({
+
+        idConduce:
+          idConduce,
+
+        idVerificacion:
+          idVerificacion,
+
+        corregidoPor:
+          corregidoPor,
+
+        correcciones:
+          correccionesValidadas.map(
+            function(item) {
+
+              return {
+
+                idDetalleVerificacion:
+                  item.idDetalle,
+
+                cantidadCorreccion:
+                  item.cantidadNuevaCorreccion,
+
+                tipoCorreccion:
+                  item.tipoCorreccion,
+
+                materialCruce:
+                  item.materialCruce
+
+              };
+
+            }
+          )
+
+      });
+
+    if (
+      !resultadoConduce ||
+      resultadoConduce.ok !== true
+    ) {
+
+      throw new Error(
+        resultadoConduce &&
+        resultadoConduce.mensaje
+          ? resultadoConduce.mensaje
+          : "No fue posible aplicar las correcciones al conduce."
+      );
+
+    }
+
+    const lineasActualizadas = [];
+
+    for (
+      let i = 0;
+      i < correccionesValidadas.length;
+      i++
+    ) {
+
+      const item =
+        correccionesValidadas[i];
+
+      const lineaActual =
+        item.lineaActual;
+
+      const documentosLinea =
+        agregarDocumentoSAPVerificacion_(
+          lineaActual
+            .Documento_SAP_Correccion,
+          documentoSAPNormalizado
+        );
+
+      const comentarioCorreccion =
+        construirComentarioGeneralCorreccion_({
+
+          comentarioGeneral:
+            comentarioGeneral,
+
+          comentarioDiferencia:
+            item.comentarioDiferencia,
+
+          causaDiferencia:
+            item.causaDiferencia
+
+        });
+
+      const comentarioAcumulado =
+        acumularComentarioCorreccionVerificacion_(
+          String(
+            lineaActual
+              .Comentario_Correccion || ""
+          ).trim(),
+          comentarioCorreccion,
+          corregidoPor
+        );
+
+      actualizarRegistroPorCampoVerificacion_({
+
+        hoja:
+          hojaDetalle,
+
+        campoBusqueda:
+          "ID_Detalle_Verificacion",
+
+        valorBusqueda:
+          item.idDetalle,
+
+        datos: {
+
+          Cantidad_Correccion:
+            item
+              .cantidadCorreccionAcumulada,
+
+          Diferencia_Pendiente:
+            item
+              .diferenciaPendiente,
+
+          Valor_Desviacion:
+            item
+              .valorDesviacion,
+
+          Valor_Corregido:
+            item
+              .valorCorregido,
+
+          Valor_Pendiente:
+            item
+              .valorPendiente,
+
+          Estado_Resolucion:
+            item
+              .clasificacion
+              .estadoResolucion,
+
+          Tipo_Correccion:
+            item.tipoCorreccion,
+
+          Documento_SAP_Correccion:
+            documentosLinea,
+
+          Posicion_Documento_SAP:
+            registroSAP.posicion,
+
+          Fecha_Correccion:
+            new Date(),
+
+          Corregido_Por:
+            corregidoPor,
+
+          Comentario_Correccion:
+            comentarioAcumulado,
+
+          Causa_Diferencia:
+            item.causaDiferencia,
+
+          Comentario_Diferencia:
+            item.comentarioDiferencia,
+
+          Estado:
+            "Activo"
+
+        }
+
+      });
+
+      lineasActualizadas.push(
+
+        obtenerRegistroPorCampoVerificacion_(
+          hojaDetalle,
+          "ID_Detalle_Verificacion",
+          item.idDetalle
+        )
+
+      );
+
+    }
+
+    const detalleActualizado =
+      obtenerDetalleVerificacionExistente_(
+        hojaDetalle,
+        idVerificacion
+      );
+
+    const resumen =
+      calcularResumenCompletoVerificacion_(
+        detalleActualizado
+      );
+
+    const estadoGeneral =
+      determinarEstadoGeneralVerificacion_(
+        resumen
+      );
+
+    actualizarResumenEncabezadoVerificacion_({
+
+      hoja:
+        hojaVerificaciones,
+
+      idVerificacion:
+        idVerificacion,
+
+      resumen:
+        resumen
+
+    });
+
+    const sincronizacion =
+      sincronizarEstadoOperativoVerificacion_({
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        hojaDespacho:
+          hojaDespacho,
+
+        idVerificacion:
+          idVerificacion,
+
+        idConduce:
+          idConduce,
+
+        resumen:
+          resumen,
+
+        estadoGeneral:
+          estadoGeneral,
+
+        usuario:
+          corregidoPor
+
+      });
+
+    const estadoVerificacion =
+      sincronizacion &&
+      typeof sincronizacion === "object"
+        ? (
+            sincronizacion
+              .estadoVerificacion ||
+            sincronizacion.estado ||
+            ""
+          )
+        : String(
+            sincronizacion || ""
+          );
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+
+      ok:
+        true,
+
+      mensaje:
+        numeroInicioVerificacion_(
+          resumen.totalDiferenciaPendiente
+        ) === 0
+          ? "La corrección general fue registrada y las incidencias seleccionadas quedaron resueltas."
+          : "La corrección general fue registrada correctamente.",
+
+      data: {
+
+        idVerificacion:
+          idVerificacion,
+
+        idConduce:
+          idConduce,
+
+        lineas:
+          lineasActualizadas,
+
+        resumen:
+          resumen,
+
+        estadoGeneral:
+          estadoGeneral,
+
+        estadoVerificacion:
+          estadoVerificacion,
+
+        presentacion:
+          sincronizacion &&
+          typeof sincronizacion === "object"
+            ? sincronizacion
+            : null,
+
+        documentoSAP: {
+
+          posicion:
+            registroSAP.posicion,
+
+          valor:
+            registroSAP.valor,
+
+          documentos:
+            registroSAP.documentos
+
+        },
+
+        operacion: {
+
+          materialesCorregidos:
+            lineasActualizadas.length,
+
+          comentarioGeneral:
+            comentarioGeneral,
+
+          corregidoPor:
+            corregidoPor
+
+        },
+
+        conduceCorregido: {
+
+          requiereGenerarPDF:
+            true,
+
+          sufijoPDF:
+            "_Correccion",
+
+          idConduce:
+            resultadoConduce.idConduce,
+
+          noConduce:
+            resultadoConduce.noConduce,
+
+          totalLineas:
+            resultadoConduce.totalLineas,
+
+          totalUnidades:
+            resultadoConduce.totalUnidades,
+
+          movimientos:
+            resultadoConduce.movimientos,
+
+          conduce:
+            resultadoConduce.conduce
+
+        }
+
+      }
+
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error guardando corrección general de verificación:",
+      error
+    );
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    });
+
+  } finally {
+
+    try {
+
+      bloqueo.releaseLock();
+
+    } catch (errorBloqueo) {
+
+      /*
+       * El bloqueo podría no haberse adquirido.
+       */
+
+    }
+
+  }
+
+}
+
+
+function construirComentarioGeneralCorreccion_(
+  parametros
+) {
+
+  const partes = [];
+
+  const causa =
+    String(
+      parametros.causaDiferencia || ""
+    ).trim();
+
+  const comentarioLinea =
+    String(
+      parametros.comentarioDiferencia || ""
+    ).trim();
+
+  const comentarioGeneral =
+    String(
+      parametros.comentarioGeneral || ""
+    ).trim();
+
+  if (causa) {
+
+    partes.push(
+      "Causa: " +
+      causa
+    );
+
+  }
+
+  if (comentarioLinea) {
+
+    partes.push(
+      "Detalle: " +
+      comentarioLinea
+    );
+
+  }
+
+  if (comentarioGeneral) {
+
+    partes.push(
+      "Comentario general: " +
+      comentarioGeneral
+    );
+
+  }
+
+  return partes.join(
+    " | "
+  );
+
+}
+
+
+function probarCorreccionGeneralVerificacionDespacho() {
+
+  const resultado =
+    guardarCorreccionGeneralVerificacionDespacho({
+
+      idVerificacion:
+        "REEMPLAZAR_ID_VERIFICACION",
+
+      documentoSAP:
+        "4900012456",
+
+      comentarioGeneral:
+        "Prueba de corrección general.",
+
+      corregidoPor:
+        "PRUEBA",
+
+      correcciones: [
+
+        {
+
+          idDetalleVerificacion:
+            "REEMPLAZAR_ID_DETALLE",
+
+          cantidadCorreccion:
+            1,
+
+          tipoCorreccion:
+            "REPOSICIÓN DE FALTANTE",
+
+          causaDiferencia:
+            "PRUEBA",
+
+          comentarioDiferencia:
+            "Prueba controlada."
+
+          /*
+           * Para probar un cruce de material, sustituya el tipo
+           * de corrección y agregue:
+           *
+           * materialCruce: {
+           *   material: "CODIGO_MATERIAL_REAL",
+           *   fechaProduccion: "2026-07-30",
+           *   cantidadPrincipal: 240,
+           *   recorte: 10
+           * }
+           */
+
+        }
+
+      ]
+
+    });
+
+  Logger.log(
+    resultado
+  );
+
+}

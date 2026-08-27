@@ -1,0 +1,1749 @@
+/**
+ * ============================================================
+ * METAS DE DESPACHOS - HELADOS BON
+ * Archivo: MetasDespachos.gs
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Leer la meta diaria desde Configuración.
+ * - Consultar la hoja Despachos.
+ * - Contar los despachos realizados en una fecha.
+ * - Considerar como despacho válido:
+ *      DESPACHADO
+ *      COMPLETADO
+ * - Calcular cumplimiento, diferencia y resultado.
+ *
+ * IMPORTANTE:
+ * Este archivo todavía NO:
+ * - Guarda registros en Metas_Diarias.
+ * - Envía mensajes a Google Chat.
+ * - Crea disparadores automáticos.
+ *
+ * Primero validamos que el cálculo sea correcto.
+ * ============================================================
+ */
+
+
+/**
+ * Obtiene los indicadores de la meta de despachos para hoy.
+ *
+ * Puede ejecutarse directamente desde Apps Script para realizar
+ * una prueba inicial.
+ *
+ * @return {Object}
+ */
+function obtenerIndicadoresMetaDespachosHoy() {
+  return obtenerIndicadoresMetaDespachos_(new Date());
+}
+
+
+/**
+ * Calcula los indicadores de meta para una fecha determinada.
+ *
+ * @param {Date|string} fecha Fecha a consultar.
+ * @return {Object}
+ */
+function obtenerIndicadoresMetaDespachos_(fecha) {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const zonaHoraria =
+    ss.getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo';
+
+  const fechaConsulta = normalizarFechaMeta_(fecha);
+
+  if (!fechaConsulta) {
+    throw new Error('La fecha indicada para calcular la meta no es válida.');
+  }
+
+  // ==========================================================
+  // 1. OBTENER META DIARIA DESDE CONFIGURACIÓN
+  // ==========================================================
+
+  const metaDiaria = obtenerMetaDespachosDiaria_(fechaConsulta);
+
+  if (!metaDiaria || metaDiaria <= 0) {
+    throw new Error(
+      'No existe una meta de despachos válida para la fecha consultada.'
+    );
+  }
+
+
+  // ==========================================================
+  // 2. OBTENER HOJA DESPACHOS
+  // ==========================================================
+
+  const hojaDespachos = ss.getSheetByName('Despacho');
+
+  if (!hojaDespachos) {
+    throw new Error('No se encontró la hoja "Despacho".');
+  }
+
+  const ultimaFila = hojaDespachos.getLastRow();
+  const ultimaColumna = hojaDespachos.getLastColumn();
+
+  if (ultimaFila < 2) {
+    return construirResultadoMeta_(
+      fechaConsulta,
+      metaDiaria,
+      0,
+      zonaHoraria
+    );
+  }
+
+
+  // ==========================================================
+  // 3. LEER DATOS
+  // ==========================================================
+
+  const datos = hojaDespachos
+    .getRange(1, 1, ultimaFila, ultimaColumna)
+    .getValues();
+
+  const encabezados = datos[0]
+    .map(valor => normalizarTextoMeta_(valor));
+
+
+  // ==========================================================
+  // 4. LOCALIZAR COLUMNAS
+  // ==========================================================
+  //
+  // Buscamos mediante encabezados para no depender de números
+  // fijos de columna.
+  //
+  // Se contemplan varios nombres posibles de fecha porque
+  // diferentes módulos pueden utilizar nombres ligeramente
+  // distintos.
+  // ==========================================================
+
+  const indiceFecha = buscarIndiceEncabezadoMeta_(
+    encabezados,
+    [
+      'FECHA_DESPACHO',
+      'FECHA',
+      'FECHA_SALIDA',
+      'FECHA_REGISTRO'
+    ]
+  );
+
+  const indiceEstado = buscarIndiceEncabezadoMeta_(
+    encabezados,
+    [
+      'ESTADO',
+      'ESTATUS',
+      'ESTADO_DESPACHO',
+      'ESTATUS_DESPACHO'
+    ]
+  );
+
+
+  if (indiceFecha === -1) {
+    throw new Error(
+      'No se encontró una columna de fecha válida en la hoja "Despachos".'
+    );
+  }
+
+  if (indiceEstado === -1) {
+    throw new Error(
+      'No se encontró la columna Estado/Estatus en la hoja "Despachos".'
+    );
+  }
+
+
+  // ==========================================================
+  // 5. CONTAR DESPACHOS VÁLIDOS
+  // ==========================================================
+
+  let despachosRealizados = 0;
+
+  const fechaObjetivo = Utilities.formatDate(
+    fechaConsulta,
+    zonaHoraria,
+    'yyyy-MM-dd'
+  );
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const fila = datos[i];
+
+    const fechaFila = normalizarFechaMeta_(fila[indiceFecha]);
+
+    if (!fechaFila) {
+      continue;
+    }
+
+    const fechaFilaFormateada = Utilities.formatDate(
+      fechaFila,
+      zonaHoraria,
+      'yyyy-MM-dd'
+    );
+
+
+    // Solo contamos movimientos correspondientes a la fecha
+    // consultada.
+    if (fechaFilaFormateada !== fechaObjetivo) {
+      continue;
+    }
+
+
+    const estado = normalizarTextoMeta_(fila[indiceEstado]);
+
+
+    // ========================================================
+    // REGLA OFICIAL DE META
+    //
+    // DESPACHADO:
+    // El contenedor ya salió físicamente y debe contar aunque
+    // falten documentos SAP para completar su cierre.
+    //
+    // COMPLETADO:
+    // El proceso ya fue cerrado completamente.
+    // ========================================================
+
+    if (
+      estado === 'DESPACHADO' ||
+      estado === 'COMPLETADO'
+    ) {
+      despachosRealizados++;
+    }
+  }
+
+
+  // ==========================================================
+  // 6. CONSTRUIR RESULTADO
+  // ==========================================================
+
+  return construirResultadoMeta_(
+    fechaConsulta,
+    metaDiaria,
+    despachosRealizados,
+    zonaHoraria
+  );
+}
+
+
+/**
+ * Lee la meta correspondiente a la fecha desde la hoja Configuración.
+ *
+ * Espera una estructura tipo:
+ *
+ * CLAVE                     VALOR
+ * Meta_Despachos_Diaria     6
+ * Meta_Despachos_Sabado     4
+ * Meta_Despachos_Domingo    3
+ *
+ * Si la clave especial del fin de semana no existe o no contiene un
+ * valor positivo, utiliza la meta diaria general como respaldo.
+ *
+ * @param {Date|string=} fecha Fecha operativa que se desea evaluar.
+ * @return {number}
+ */
+function obtenerMetaDespachosDiaria_(fecha) {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName('Configuracion');
+
+  if (!hoja) {
+    throw new Error('No se encontró la hoja "Configuracion".');
+  }
+
+  const ultimaFila = hoja.getLastRow();
+
+  if (ultimaFila < 1) {
+    throw new Error('La hoja "Configuracion" está vacía.');
+  }
+
+
+  // Leemos las primeras dos columnas porque la configuración
+  // del proyecto está organizada como:
+  //
+  // Columna A = Clave
+  // Columna B = Valor
+  //
+  if (hoja.getLastColumn() < 2) {
+    throw new Error('La hoja "Configuracion" no contiene una columna de valores.');
+  }
+
+  const datos = hoja
+    .getRange(1, 1, ultimaFila, 2)
+    .getValues();
+
+  const fechaConsulta = normalizarFechaMeta_(fecha || new Date());
+
+  if (!fechaConsulta) {
+    throw new Error('La fecha indicada para obtener la meta no es válida.');
+  }
+
+  const zonaHoraria =
+    ss.getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo';
+
+  const partesFecha = Utilities.formatDate(
+    fechaConsulta,
+    zonaHoraria,
+    'yyyy-MM-dd'
+  ).split('-').map(Number);
+
+  const diaSemana = new Date(
+    Date.UTC(
+      partesFecha[0],
+      partesFecha[1] - 1,
+      partesFecha[2]
+    )
+  ).getUTCDay();
+
+  let claveEspecial = '';
+
+  if (diaSemana === 6) {
+    claveEspecial = 'META_DESPACHOS_SABADO';
+  } else if (diaSemana === 0) {
+    claveEspecial = 'META_DESPACHOS_DOMINGO';
+  }
+
+  const configuracion = {};
+
+  for (let i = 0; i < datos.length; i++) {
+    const clave = normalizarTextoMeta_(datos[i][0]);
+
+    if (clave) {
+      configuracion[clave] = datos[i][1];
+    }
+  }
+
+  if (claveEspecial && Object.prototype.hasOwnProperty.call(configuracion, claveEspecial)) {
+    const metaEspecial = Number(
+      String(configuracion[claveEspecial])
+        .replace(',', '.')
+        .trim()
+    );
+
+    if (Number.isFinite(metaEspecial) && metaEspecial > 0) {
+      return metaEspecial;
+    }
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(configuracion, 'META_DESPACHOS_DIARIA')) {
+    throw new Error('No se encontró la configuración "Meta_Despachos_Diaria".');
+  }
+
+  const metaGeneral = Number(
+    String(configuracion.META_DESPACHOS_DIARIA)
+      .replace(',', '.')
+      .trim()
+  );
+
+  if (!Number.isFinite(metaGeneral) || metaGeneral <= 0) {
+    throw new Error(
+      'La configuración "Meta_Despachos_Diaria" no contiene un valor positivo válido.'
+    );
+  }
+
+  return metaGeneral;
+}
+
+
+/**
+ * Construye el objeto final con todos los indicadores.
+ *
+ * @param {Date} fecha
+ * @param {number} meta
+ * @param {number} realizados
+ * @param {string} zonaHoraria
+ * @return {Object}
+ */
+function construirResultadoMeta_(
+  fecha,
+  meta,
+  realizados,
+  zonaHoraria
+) {
+
+  const cumplimiento =
+    meta > 0
+      ? (realizados / meta) * 100
+      : 0;
+
+  const diferencia = realizados - meta;
+
+
+  let resultado = 'META NO CUMPLIDA';
+
+  if (realizados > meta) {
+    resultado = 'META SUPERADA';
+  }
+  else if (realizados === meta) {
+    resultado = 'META CUMPLIDA';
+  }
+
+
+  return {
+
+    fecha: Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      'dd/MM/yyyy'
+    ),
+
+    fechaISO: Utilities.formatDate(
+      fecha,
+      zonaHoraria,
+      'yyyy-MM-dd'
+    ),
+
+    metaDespachos: meta,
+
+    despachosRealizados: realizados,
+
+    cumplimientoPorcentaje:
+      Number(cumplimiento.toFixed(2)),
+
+    diferenciaMeta:
+      diferencia,
+
+    resultado:
+      resultado
+  };
+}
+
+
+/**
+ * Busca la primera coincidencia entre una lista de posibles
+ * nombres de encabezados.
+ *
+ * @param {Array<string>} encabezados
+ * @param {Array<string>} posibles
+ * @return {number}
+ */
+function buscarIndiceEncabezadoMeta_(
+  encabezados,
+  posibles
+) {
+
+  for (let i = 0; i < posibles.length; i++) {
+
+    const nombre = normalizarTextoMeta_(posibles[i]);
+
+    const indice = encabezados.indexOf(nombre);
+
+    if (indice !== -1) {
+      return indice;
+    }
+  }
+
+  return -1;
+}
+
+
+/**
+ * Normaliza texto para realizar comparaciones seguras.
+ *
+ * Ejemplos:
+ *
+ * "Despachado"       -> DESPACHADO
+ * " despachado "     -> DESPACHADO
+ * "Fecha Despacho"   -> FECHA_DESPACHO
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarTextoMeta_(valor) {
+
+  return String(valor == null ? '' : valor)
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_');
+}
+
+
+/**
+ * Convierte diferentes formatos de fecha a Date.
+ *
+ * Acepta:
+ * - Date de Google Sheets
+ * - dd/MM/yyyy
+ * - yyyy-MM-dd
+ *
+ * @param {*} valor
+ * @return {Date|null}
+ */
+function normalizarFechaMeta_(valor) {
+
+  if (!valor) {
+    return null;
+  }
+
+
+  // Google Sheets normalmente devuelve las fechas como Date.
+  if (
+    Object.prototype.toString.call(valor) === '[object Date]' &&
+    !isNaN(valor.getTime())
+  ) {
+    return new Date(valor.getTime());
+  }
+
+
+  const texto = String(valor).trim();
+
+
+  // dd/MM/yyyy
+  let coincidencia = texto.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+  );
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(coincidencia[3]),
+      Number(coincidencia[2]) - 1,
+      Number(coincidencia[1])
+    );
+  }
+
+
+  // yyyy-MM-dd
+  coincidencia = texto.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})/
+  );
+
+  if (coincidencia) {
+
+    return new Date(
+      Number(coincidencia[1]),
+      Number(coincidencia[2]) - 1,
+      Number(coincidencia[3])
+    );
+  }
+
+
+  const fecha = new Date(texto);
+
+  if (!isNaN(fecha.getTime())) {
+    return fecha;
+  }
+
+
+  return null;
+}
+
+
+/**
+ * ============================================================
+ * FUNCIÓN DE PRUEBA
+ * ============================================================
+ *
+ * Ejecutar manualmente desde Apps Script.
+ *
+ * El resultado aparecerá en:
+ *
+ * Ejecuciones > Registros
+ *
+ * Ejemplo esperado:
+ *
+ * {
+ *   fecha: "21/07/2026",
+ *   fechaISO: "2026-07-21",
+ *   metaDespachos: 6,
+ *   despachosRealizados: 5,
+ *   cumplimientoPorcentaje: 83.33,
+ *   diferenciaMeta: -1,
+ *   resultado: "META NO CUMPLIDA"
+ * }
+ * ============================================================
+ */
+function probarCalculoMetaDespachos() {
+
+  const resultado =
+    obtenerIndicadoresMetaDespachosHoy();
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}
+
+
+/**
+ * ============================================================
+ * REGISTRO DEL CIERRE DIARIO DE LA META DE DESPACHOS
+ * ============================================================
+ *
+ * Esta sección:
+ * - Calcula el resultado oficial del día.
+ * - Lee Hora_Cierre_Despachos desde Configuracion.
+ * - Registra el resultado en Metas_Diarias.
+ * - Actualiza la fila si el cierre del día ya existe.
+ *
+ * IMPORTANTE:
+ * - Los reportes de las 12:00 y 15:00 NO usan esta función.
+ * - Solo el cierre oficial debe registrar información.
+ * ============================================================
+ */
+
+
+/**
+ * Registra o actualiza el cierre oficial de la meta del día actual.
+ *
+ * Esta será posteriormente la función utilizada por:
+ * - El disparador automático de las 17:00.
+ * - El botón manual de cierre.
+ * - El mensaje de cierre del grupo operativo.
+ *
+ * @return {Object}
+ */
+function registrarCierreMetaDespachosHoy() {
+  const resultadoCierre = registrarCierreMetaDespachos_(new Date());
+
+  if (
+    resultadoCierre &&
+    resultadoCierre.exito !== false &&
+    typeof marcarModulosActualizados_ === 'function'
+  ) {
+    try {
+      marcarModulosActualizados_(
+        ['METAS', 'INDICADORES'],
+        'CIERRE_AUTOMATICO_META_DESPACHOS',
+        {
+          id: 'SISTEMA',
+          nombre: 'Cierre automático de metas'
+        }
+      );
+    } catch (errorVersion) {
+      console.error(
+        'La meta se registró, pero no fue posible actualizar su versión:',
+        errorVersion
+      );
+    }
+  }
+
+  return resultadoCierre;
+}
+
+
+/**
+ * Registra o actualiza el cierre de la meta para una fecha.
+ *
+ * Se utiliza LockService para evitar que dos ejecuciones
+ * simultáneas creen registros duplicados.
+ *
+ * @param {Date|string} fecha Fecha operacional del cierre.
+ * @return {Object}
+ */
+function registrarCierreMetaDespachos_(fecha) {
+
+  const bloqueo = LockService.getScriptLock();
+
+  try {
+
+    bloqueo.waitLock(30000);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    const zonaHoraria =
+      ss.getSpreadsheetTimeZone() ||
+      Session.getScriptTimeZone() ||
+      'America/Santo_Domingo';
+
+    const fechaCierre = normalizarFechaMeta_(fecha);
+
+    if (!fechaCierre) {
+      throw new Error(
+        'La fecha proporcionada para registrar el cierre no es válida.'
+      );
+    }
+
+    // ========================================================
+    // 1. CALCULAR LOS INDICADORES OFICIALES
+    // ========================================================
+
+    const indicadores =
+      obtenerIndicadoresMetaDespachos_(fechaCierre);
+
+
+    // ========================================================
+    // 1.1. OBTENER EL SUPERVISOR RESPONSABLE DEL DÍA
+    // ========================================================
+
+    const supervisor =
+      obtenerSupervisorResponsableMeta_(fechaCierre);
+
+
+    // ========================================================
+    // 2. OBTENER LA HORA DE CIERRE DESDE CONFIGURACION
+    // ========================================================
+
+    const horaCierre = obtenerHoraCierreDespachos_();
+
+
+    // ========================================================
+    // 3. LOCALIZAR LA HOJA METAS_DIARIAS
+    // ========================================================
+
+    const hojaMetas = ss.getSheetByName('Metas_Diarias');
+
+    if (!hojaMetas) {
+      throw new Error(
+        'No se encontró la hoja "Metas_Diarias".'
+      );
+    }
+
+    const ultimaFila = hojaMetas.getLastRow();
+    const ultimaColumna = hojaMetas.getLastColumn();
+
+    if (ultimaColumna < 1) {
+      throw new Error(
+        'La hoja "Metas_Diarias" no contiene encabezados.'
+      );
+    }
+
+
+    // ========================================================
+    // 4. LEER Y VALIDAR ENCABEZADOS
+    // ========================================================
+
+    const encabezadosOriginales = hojaMetas
+      .getRange(1, 1, 1, ultimaColumna)
+      .getValues()[0];
+
+    const encabezadosNormalizados =
+      encabezadosOriginales.map(normalizarTextoMeta_);
+
+    const encabezadosRequeridos = [
+      'ID_META',
+      'FECHA',
+      'META_DESPACHOS',
+      'DESPACHOS_REALIZADOS',
+      'CUMPLIMIENTO_PORCENTAJE',
+      'DIFERENCIA_META',
+      'SUPERVISOR_ID',
+      'SUPERVISOR_NOMBRE',
+      'RESULTADO',
+      'HORA_CIERRE',
+      'FECHA_REGISTRO'
+    ];
+
+    encabezadosRequeridos.forEach(function(encabezado) {
+
+      if (encabezadosNormalizados.indexOf(encabezado) === -1) {
+        throw new Error(
+          'Falta el encabezado "' +
+          encabezado +
+          '" en la hoja "Metas_Diarias".'
+        );
+      }
+    });
+
+
+    // ========================================================
+    // 5. CONSTRUIR IDENTIFICADOR ÚNICO DEL DÍA
+    // ========================================================
+
+    const fechaISO = Utilities.formatDate(
+      fechaCierre,
+      zonaHoraria,
+      'yyyyMMdd'
+    );
+
+    const idMeta = 'META-' + fechaISO;
+
+    const fechaOperacion = Utilities.formatDate(
+      fechaCierre,
+      zonaHoraria,
+      'dd/MM/yyyy'
+    );
+
+    const fechaRegistro = new Date();
+
+
+    // ========================================================
+    // 6. PREPARAR LOS VALORES DEL REGISTRO
+    // ========================================================
+
+    const valoresRegistro = {
+
+      ID_META:
+        idMeta,
+
+      FECHA:
+        fechaOperacion,
+
+      META_DESPACHOS:
+        indicadores.metaDespachos,
+
+      DESPACHOS_REALIZADOS:
+        indicadores.despachosRealizados,
+
+      CUMPLIMIENTO_PORCENTAJE:
+        indicadores.cumplimientoPorcentaje,
+
+      DIFERENCIA_META:
+        indicadores.diferenciaMeta,
+
+      SUPERVISOR_ID:
+        supervisor.supervisorId,
+
+      SUPERVISOR_NOMBRE:
+        supervisor.supervisorNombre,
+
+      RESULTADO:
+        indicadores.resultado,
+
+      HORA_CIERRE:
+        horaCierre,
+
+      FECHA_REGISTRO:
+        fechaRegistro
+    };
+
+
+    // ========================================================
+    // 7. BUSCAR SI YA EXISTE EL CIERRE DEL DÍA
+    // ========================================================
+
+    const indiceIdMeta =
+      encabezadosNormalizados.indexOf('ID_META');
+
+    const indiceFecha =
+      encabezadosNormalizados.indexOf('FECHA');
+
+    let filaExistente = -1;
+
+    if (ultimaFila >= 2) {
+
+      const registros = hojaMetas
+        .getRange(
+          2,
+          1,
+          ultimaFila - 1,
+          ultimaColumna
+        )
+        .getValues();
+
+      for (let i = 0; i < registros.length; i++) {
+
+        const idExistente =
+          String(registros[i][indiceIdMeta] || '')
+            .trim()
+            .toUpperCase();
+
+        if (idExistente === idMeta.toUpperCase()) {
+          filaExistente = i + 2;
+          break;
+        }
+
+
+        // Protección adicional:
+        // si por algún motivo el ID está vacío, también buscamos
+        // por la fecha operacional.
+        const fechaExistente =
+          normalizarFechaMeta_(registros[i][indiceFecha]);
+
+        if (fechaExistente) {
+
+          const fechaExistenteISO =
+            Utilities.formatDate(
+              fechaExistente,
+              zonaHoraria,
+              'yyyyMMdd'
+            );
+
+          if (fechaExistenteISO === fechaISO) {
+            filaExistente = i + 2;
+            break;
+          }
+        }
+      }
+    }
+
+
+    // ========================================================
+    // 8. CREAR LA FILA RESPETANDO EL ORDEN DE ENCABEZADOS
+    // ========================================================
+
+    let filaDestino;
+    let accion;
+
+    if (filaExistente !== -1) {
+
+      filaDestino = filaExistente;
+      accion = 'ACTUALIZADO';
+
+    } else {
+
+      filaDestino = ultimaFila + 1;
+      accion = 'CREADO';
+    }
+
+
+    // Si la hoja contiene columnas adicionales en el futuro,
+    // conservamos sus valores cuando se actualiza una fila.
+    let filaCompleta;
+
+    if (accion === 'ACTUALIZADO') {
+
+      filaCompleta = hojaMetas
+        .getRange(
+          filaDestino,
+          1,
+          1,
+          ultimaColumna
+        )
+        .getValues()[0];
+
+    } else {
+
+      filaCompleta =
+        new Array(ultimaColumna).fill('');
+    }
+
+
+    encabezadosNormalizados.forEach(function(encabezado, indice) {
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          valoresRegistro,
+          encabezado
+        )
+      ) {
+        filaCompleta[indice] =
+          valoresRegistro[encabezado];
+      }
+    });
+
+
+    // ========================================================
+    // 9. ESCRIBIR O ACTUALIZAR EL REGISTRO
+    // ========================================================
+
+    hojaMetas
+      .getRange(
+        filaDestino,
+        1,
+        1,
+        ultimaColumna
+      )
+      .setValues([filaCompleta]);
+
+
+    // ========================================================
+    // 10. APLICAR FORMATOS
+    // ========================================================
+
+    const columnaFecha =
+      encabezadosNormalizados.indexOf('FECHA') + 1;
+
+    const columnaCumplimiento =
+      encabezadosNormalizados.indexOf(
+        'CUMPLIMIENTO_PORCENTAJE'
+      ) + 1;
+
+    const columnaFechaRegistro =
+      encabezadosNormalizados.indexOf(
+        'FECHA_REGISTRO'
+      ) + 1;
+
+
+    hojaMetas
+      .getRange(filaDestino, columnaFecha)
+      .setNumberFormat('@');
+
+
+    hojaMetas
+      .getRange(filaDestino, columnaCumplimiento)
+      .setNumberFormat('0.00"%"');
+
+
+    hojaMetas
+      .getRange(filaDestino, columnaFechaRegistro)
+      .setNumberFormat('dd/MM/yyyy HH:mm:ss');
+
+
+    SpreadsheetApp.flush();
+
+
+    // ========================================================
+    // 11. DEVOLVER RESULTADO
+    // ========================================================
+
+    const respuesta = {
+
+      exito:
+        true,
+
+      accion:
+        accion,
+
+      fila:
+        filaDestino,
+
+      idMeta:
+        idMeta,
+
+      fecha:
+        fechaOperacion,
+
+      metaDespachos:
+        indicadores.metaDespachos,
+
+      despachosRealizados:
+        indicadores.despachosRealizados,
+
+      cumplimientoPorcentaje:
+        indicadores.cumplimientoPorcentaje,
+
+      diferenciaMeta:
+        indicadores.diferenciaMeta,
+
+      supervisorId:
+        supervisor.supervisorId,
+
+      supervisorNombre:
+        supervisor.supervisorNombre,
+
+      cantidadSupervisoresDetectados:
+        supervisor.cantidadSupervisores,
+
+      supervisoresDetectados:
+        supervisor.supervisoresDetectados,
+
+      resultado:
+        indicadores.resultado,
+
+      horaCierre:
+        horaCierre,
+
+      fechaRegistro:
+        Utilities.formatDate(
+          fechaRegistro,
+          zonaHoraria,
+          'dd/MM/yyyy HH:mm:ss'
+        )
+    };
+
+    console.log(
+      JSON.stringify(
+        respuesta,
+        null,
+        2
+      )
+    );
+
+    return respuesta;
+
+  } catch (error) {
+
+    console.error(
+      'Error al registrar el cierre diario de metas:',
+      error
+    );
+
+    throw error;
+
+  } finally {
+
+    try {
+      bloqueo.releaseLock();
+    } catch (errorBloqueo) {
+      // El bloqueo puede no haberse adquirido si ocurrió
+      // un error antes de waitLock().
+    }
+  }
+}
+
+
+/**
+ * Lee Hora_Cierre_Despachos desde Configuracion.
+ *
+ * Ejemplo:
+ *
+ * Hora_Cierre_Despachos    17:00
+ *
+ * @return {string}
+ */
+function obtenerHoraCierreDespachos_() {
+
+  const valor =
+    obtenerValorConfiguracionMetas_(
+      'Hora_Cierre_Despachos'
+    );
+
+  if (
+    valor === null ||
+    valor === undefined ||
+    String(valor).trim() === ''
+  ) {
+    throw new Error(
+      'La configuración "Hora_Cierre_Despachos" está vacía.'
+    );
+  }
+
+  return formatearHoraConfiguracionMeta_(valor);
+}
+
+
+/**
+ * Busca una clave en la hoja Configuracion.
+ *
+ * La hoja debe mantener:
+ *
+ * Columna A = nombre de configuración
+ * Columna B = valor
+ *
+ * @param {string} claveBuscada
+ * @return {*}
+ */
+function obtenerValorConfiguracionMetas_(claveBuscada) {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName('Configuracion');
+
+  if (!hoja) {
+    throw new Error(
+      'No se encontró la hoja "Configuracion".'
+    );
+  }
+
+  const ultimaFila = hoja.getLastRow();
+  const ultimaColumna = hoja.getLastColumn();
+
+  if (ultimaFila < 1 || ultimaColumna < 2) {
+    throw new Error(
+      'La hoja "Configuracion" no contiene datos suficientes.'
+    );
+  }
+
+  const datos = hoja
+    .getRange(
+      1,
+      1,
+      ultimaFila,
+      2
+    )
+    .getValues();
+
+  const claveNormalizada =
+    normalizarTextoMeta_(claveBuscada);
+
+  for (let i = 0; i < datos.length; i++) {
+
+    const claveFila =
+      normalizarTextoMeta_(datos[i][0]);
+
+    if (claveFila === claveNormalizada) {
+      return datos[i][1];
+    }
+  }
+
+  throw new Error(
+    'No se encontró la configuración "' +
+    claveBuscada +
+    '".'
+  );
+}
+
+
+/**
+ * Convierte el valor de una hora de Configuracion al formato HH:mm.
+ *
+ * Acepta:
+ * - Una hora real de Google Sheets.
+ * - Texto como 17:00.
+ * - Texto como 5:00 PM.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function formatearHoraConfiguracionMeta_(valor) {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const zonaHoraria =
+    ss.getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo';
+
+
+  if (
+    Object.prototype.toString.call(valor) === '[object Date]' &&
+    !isNaN(valor.getTime())
+  ) {
+    return Utilities.formatDate(
+      valor,
+      zonaHoraria,
+      'HH:mm'
+    );
+  }
+
+
+  const texto = String(valor).trim();
+
+
+  // Formato de 24 horas: 17:00
+  let coincidencia = texto.match(
+    /^([01]?\d|2[0-3]):([0-5]\d)$/
+  );
+
+  if (coincidencia) {
+
+    const horas =
+      String(Number(coincidencia[1]))
+        .padStart(2, '0');
+
+    return horas + ':' + coincidencia[2];
+  }
+
+
+  // Formato de 12 horas: 5:00 PM
+  coincidencia = texto.match(
+    /^(\d{1,2}):([0-5]\d)\s*(AM|PM)$/i
+  );
+
+  if (coincidencia) {
+
+    let horas = Number(coincidencia[1]);
+    const minutos = coincidencia[2];
+    const periodo = coincidencia[3].toUpperCase();
+
+    if (periodo === 'PM' && horas < 12) {
+      horas += 12;
+    }
+
+    if (periodo === 'AM' && horas === 12) {
+      horas = 0;
+    }
+
+    return String(horas).padStart(2, '0') +
+      ':' +
+      minutos;
+  }
+
+
+  throw new Error(
+    'El valor de "Hora_Cierre_Despachos" no tiene un formato válido. ' +
+    'Utilice un valor como 17:00.'
+  );
+}
+
+
+/**
+ * ============================================================
+ * FUNCIÓN DE PRUEBA DEL REGISTRO DE CIERRE
+ * ============================================================
+ *
+ * Esta función SÍ escribe en Metas_Diarias.
+ *
+ * Primera ejecución:
+ *   accion = CREADO
+ *
+ * Segunda ejecución en el mismo día:
+ *   accion = ACTUALIZADO
+ * ============================================================
+ */
+function probarRegistroCierreMetaDespachos() {
+
+  const resultado =
+    registrarCierreMetaDespachosHoy();
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}
+
+
+/**
+ * ============================================================
+ * SUPERVISOR RESPONSABLE DEL CIERRE DIARIO
+ * ============================================================
+ *
+ * Lee los despachos válidos de una fecha y obtiene el valor
+ * registrado en la columna RealizadoPor.
+ *
+ * Regla normal:
+ * - Un único supervisor realiza los despachos del día.
+ *
+ * Caso excepcional:
+ * - Si aparecen varios supervisores, se toma como responsable
+ *   principal al que tenga más despachos.
+ * - Si existe un empate, se toma el primero que aparece.
+ *
+ * Luego busca el nombre en Usuarios para recuperar IDEmpleado.
+ *
+ * @param {Date|string} fecha
+ * @return {Object}
+ */
+function obtenerSupervisorResponsableMeta_(fecha) {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const zonaHoraria =
+    ss.getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo';
+
+  const fechaOperacion = normalizarFechaMeta_(fecha);
+
+  if (!fechaOperacion) {
+    throw new Error(
+      'No fue posible determinar la fecha para obtener el supervisor.'
+    );
+  }
+
+  const hojaDespacho = ss.getSheetByName('Despacho');
+
+  if (!hojaDespacho) {
+    throw new Error(
+      'No se encontró la hoja "Despacho".'
+    );
+  }
+
+  const ultimaFila = hojaDespacho.getLastRow();
+  const ultimaColumna = hojaDespacho.getLastColumn();
+
+  if (ultimaFila < 2 || ultimaColumna < 1) {
+    return crearRespuestaSupervisorVaciaMeta_();
+  }
+
+  const datos = hojaDespacho
+    .getRange(
+      1,
+      1,
+      ultimaFila,
+      ultimaColumna
+    )
+    .getValues();
+
+  const encabezados =
+    datos[0].map(normalizarTextoMeta_);
+
+  const indiceEstado =
+    encabezados.indexOf('ESTADO');
+
+  const indiceRealizadoPor =
+    encabezados.indexOf('REALIZADOPOR');
+
+  const indiceFechaDespacho =
+    encabezados.indexOf('FECHA_DESPACHO');
+
+  const indiceFechaCompletado =
+    encabezados.indexOf('FECHA_COMPLETADO');
+
+  const indiceFechaCreacion =
+    encabezados.indexOf('FECHA_CREACION');
+
+  if (indiceEstado === -1) {
+    throw new Error(
+      'No se encontró la columna "Estado" en la hoja "Despacho".'
+    );
+  }
+
+  if (indiceRealizadoPor === -1) {
+    throw new Error(
+      'No se encontró la columna "RealizadoPor" en la hoja "Despacho".'
+    );
+  }
+
+  if (
+    indiceFechaDespacho === -1 &&
+    indiceFechaCompletado === -1 &&
+    indiceFechaCreacion === -1
+  ) {
+    throw new Error(
+      'No se encontró una columna de fecha válida en la hoja "Despacho".'
+    );
+  }
+
+  const fechaObjetivoISO = Utilities.formatDate(
+    fechaOperacion,
+    zonaHoraria,
+    'yyyyMMdd'
+  );
+
+  const conteoSupervisores = {};
+  const ordenSupervisores = [];
+
+  let despachosValidos = 0;
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const fila = datos[i];
+
+    const estado =
+      normalizarTextoMeta_(fila[indiceEstado]);
+
+    if (
+      estado !== 'DESPACHADO' &&
+      estado !== 'COMPLETADO'
+    ) {
+      continue;
+    }
+
+    /*
+     * Para identificar el día operacional:
+     *
+     * 1. Fecha_Despacho
+     * 2. Fecha_Completado, si Fecha_Despacho está vacía
+     * 3. Fecha_Creacion, como protección final
+     */
+    let valorFecha = null;
+
+    if (
+      indiceFechaDespacho !== -1 &&
+      fila[indiceFechaDespacho] !== '' &&
+      fila[indiceFechaDespacho] !== null
+    ) {
+      valorFecha = fila[indiceFechaDespacho];
+
+    } else if (
+      indiceFechaCompletado !== -1 &&
+      fila[indiceFechaCompletado] !== '' &&
+      fila[indiceFechaCompletado] !== null
+    ) {
+      valorFecha = fila[indiceFechaCompletado];
+
+    } else if (
+      indiceFechaCreacion !== -1 &&
+      fila[indiceFechaCreacion] !== '' &&
+      fila[indiceFechaCreacion] !== null
+    ) {
+      valorFecha = fila[indiceFechaCreacion];
+    }
+
+    const fechaFila =
+      normalizarFechaMeta_(valorFecha);
+
+    if (!fechaFila) {
+      continue;
+    }
+
+    const fechaFilaISO = Utilities.formatDate(
+      fechaFila,
+      zonaHoraria,
+      'yyyyMMdd'
+    );
+
+    if (fechaFilaISO !== fechaObjetivoISO) {
+      continue;
+    }
+
+    despachosValidos++;
+
+    const supervisorNombreOriginal =
+      String(fila[indiceRealizadoPor] || '').trim();
+
+    if (!supervisorNombreOriginal) {
+      continue;
+    }
+
+    const claveSupervisor =
+      normalizarTextoMeta_(supervisorNombreOriginal);
+
+    if (!conteoSupervisores[claveSupervisor]) {
+
+      conteoSupervisores[claveSupervisor] = {
+        nombre: supervisorNombreOriginal,
+        cantidadDespachos: 0,
+        ordenAparicion: ordenSupervisores.length
+      };
+
+      ordenSupervisores.push(claveSupervisor);
+    }
+
+    conteoSupervisores[claveSupervisor]
+      .cantidadDespachos++;
+  }
+
+  const clavesDetectadas =
+    Object.keys(conteoSupervisores);
+
+  if (clavesDetectadas.length === 0) {
+
+    console.warn(
+      'Se encontraron ' +
+      despachosValidos +
+      ' despachos válidos, pero ninguno tenía RealizadoPor.'
+    );
+
+    return {
+      supervisorId: '',
+      supervisorNombre: '',
+      cantidadSupervisores: 0,
+      supervisoresDetectados: [],
+      despachosValidos: despachosValidos
+    };
+  }
+
+  let supervisorPrincipal = null;
+
+  clavesDetectadas.forEach(function(clave) {
+
+    const supervisorActual =
+      conteoSupervisores[clave];
+
+    if (!supervisorPrincipal) {
+      supervisorPrincipal = supervisorActual;
+      return;
+    }
+
+    if (
+      supervisorActual.cantidadDespachos >
+      supervisorPrincipal.cantidadDespachos
+    ) {
+      supervisorPrincipal = supervisorActual;
+      return;
+    }
+
+    /*
+     * Si existe empate, permanece como principal el supervisor
+     * que apareció primero en los despachos del día.
+     */
+    if (
+      supervisorActual.cantidadDespachos ===
+        supervisorPrincipal.cantidadDespachos &&
+      supervisorActual.ordenAparicion <
+        supervisorPrincipal.ordenAparicion
+    ) {
+      supervisorPrincipal = supervisorActual;
+    }
+  });
+
+  const usuario =
+    buscarUsuarioSupervisorMeta_(
+      supervisorPrincipal.nombre
+    );
+
+  const supervisoresDetectados =
+    clavesDetectadas
+      .map(function(clave) {
+
+        return {
+          nombre:
+            conteoSupervisores[clave].nombre,
+
+          cantidadDespachos:
+            conteoSupervisores[clave].cantidadDespachos
+        };
+      })
+      .sort(function(a, b) {
+        return b.cantidadDespachos - a.cantidadDespachos;
+      });
+
+  if (supervisoresDetectados.length > 1) {
+
+    console.warn(
+      'Se detectaron varios supervisores en la fecha ' +
+      Utilities.formatDate(
+        fechaOperacion,
+        zonaHoraria,
+        'dd/MM/yyyy'
+      ) +
+      ': ' +
+      JSON.stringify(supervisoresDetectados)
+    );
+  }
+
+  return {
+
+    supervisorId:
+      usuario ? usuario.idEmpleado : '',
+
+    supervisorNombre:
+      usuario
+        ? usuario.nombre
+        : supervisorPrincipal.nombre,
+
+    cantidadSupervisores:
+      supervisoresDetectados.length,
+
+    supervisoresDetectados:
+      supervisoresDetectados,
+
+    despachosValidos:
+      despachosValidos
+  };
+}
+
+
+/**
+ * Busca un supervisor en la hoja Usuarios mediante su nombre.
+ *
+ * La comparación ignora:
+ * - Mayúsculas y minúsculas.
+ * - Tildes.
+ * - Espacios adicionales.
+ *
+ * Si no encuentra coincidencia, devuelve null. Esto no impide
+ * registrar el cierre: el nombre tomado desde RealizadoPor se
+ * conserva y Supervisor_ID queda vacío.
+ *
+ * @param {string} nombreBuscado
+ * @return {Object|null}
+ */
+function buscarUsuarioSupervisorMeta_(nombreBuscado) {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaUsuarios = ss.getSheetByName('Usuarios');
+
+  if (!hojaUsuarios) {
+
+    console.warn(
+      'No se encontró la hoja "Usuarios". ' +
+      'Supervisor_ID quedará vacío.'
+    );
+
+    return null;
+  }
+
+  const ultimaFila = hojaUsuarios.getLastRow();
+  const ultimaColumna = hojaUsuarios.getLastColumn();
+
+  if (ultimaFila < 2 || ultimaColumna < 1) {
+    return null;
+  }
+
+  const datos = hojaUsuarios
+    .getRange(
+      1,
+      1,
+      ultimaFila,
+      ultimaColumna
+    )
+    .getValues();
+
+  const encabezados =
+    datos[0].map(normalizarTextoMeta_);
+
+  const indiceIdEmpleado =
+    encabezados.indexOf('IDEMPLEADO');
+
+  const indiceNombre =
+    encabezados.indexOf('NOMBRE');
+
+  const indiceEstado =
+    encabezados.indexOf('ESTADO');
+
+  if (indiceNombre === -1) {
+
+    console.warn(
+      'No se encontró la columna "Nombre" en Usuarios.'
+    );
+
+    return null;
+  }
+
+  const nombreNormalizado =
+    normalizarTextoMeta_(nombreBuscado);
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const fila = datos[i];
+
+    const nombreUsuario =
+      String(fila[indiceNombre] || '').trim();
+
+    if (!nombreUsuario) {
+      continue;
+    }
+
+    if (
+      normalizarTextoMeta_(nombreUsuario) !==
+      nombreNormalizado
+    ) {
+      continue;
+    }
+
+    /*
+     * Si existe la columna Estado, se evita vincular un usuario
+     * expresamente inactivo. Si el estado está vacío, se permite.
+     */
+    if (indiceEstado !== -1) {
+
+      const estadoUsuario =
+        normalizarTextoMeta_(fila[indiceEstado]);
+
+      if (
+        estadoUsuario === 'INACTIVO' ||
+        estadoUsuario === 'BLOQUEADO'
+      ) {
+        continue;
+      }
+    }
+
+    return {
+
+      idEmpleado:
+        indiceIdEmpleado !== -1
+          ? String(fila[indiceIdEmpleado] || '').trim()
+          : '',
+
+      nombre:
+        nombreUsuario
+    };
+  }
+
+  console.warn(
+    'El nombre "' +
+    nombreBuscado +
+    '" no fue localizado en la hoja Usuarios. ' +
+    'Se guardará el nombre y Supervisor_ID quedará vacío.'
+  );
+
+  return null;
+}
+
+
+/**
+ * Devuelve una respuesta vacía cuando no existen despachos
+ * válidos para la fecha consultada.
+ *
+ * @return {Object}
+ */
+function crearRespuestaSupervisorVaciaMeta_() {
+
+  return {
+    supervisorId: '',
+    supervisorNombre: '',
+    cantidadSupervisores: 0,
+    supervisoresDetectados: [],
+    despachosValidos: 0
+  };
+}
+
+
+/**
+ * ============================================================
+ * PRUEBA DE DETECCIÓN DEL SUPERVISOR
+ * ============================================================
+ *
+ * Esta función NO escribe en ninguna hoja.
+ * Solo muestra qué supervisor será vinculado al cierre de hoy.
+ */
+function probarSupervisorResponsableMeta() {
+
+  const resultado =
+    obtenerSupervisorResponsableMeta_(new Date());
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}

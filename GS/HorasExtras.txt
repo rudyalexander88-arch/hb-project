@@ -1,0 +1,1853 @@
+/**
+ * ============================================================
+ * HORASEXTRAS.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Módulo independiente para:
+ * - Publicar disponibilidad de horas extras.
+ * - Inscribir colaboradores según cupos.
+ * - Asignar línea de trabajo desde Catalogos.
+ * - Registrar Entrada/Salida con GPS.
+ * - Calcular minutos y horas extras realmente trabajadas.
+ *
+ * Requiere las hojas:
+ * - Horas_Extras_Programacion
+ * - Horas_Extras_Inscripciones
+ * - Catalogos
+ * - Configuracion
+ * - Usuarios
+ * - Permisos_Roles
+ *
+ * Reutiliza las funciones globales existentes:
+ * - getSheet(nombre)
+ * - respuesta(obj)
+ * ============================================================
+ */
+
+const HORAS_EXTRAS_HOJAS = {
+  PROGRAMACION: "Horas_Extras_Programacion",
+  INSCRIPCIONES: "Horas_Extras_Inscripciones",
+  CATALOGOS: "Catalogos",
+  CONFIGURACION: "Configuracion",
+  USUARIOS: "Usuarios",
+  PERMISOS: "Permisos_Roles"
+};
+
+
+function obtenerInicioHorasExtras(data) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  const puedeInscribir =
+    usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_INSCRIBIR"
+    );
+
+  const puedeGestionar =
+    usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_GESTIONAR"
+    );
+
+  const programas =
+    listarProgramacionesHorasExtras_(
+      usuario.idEmpleado
+    );
+
+  const misInscripciones =
+    listarInscripcionesEmpleadoHorasExtras_(
+      usuario.idEmpleado
+    );
+
+  const pendientesGestion =
+    puedeGestionar
+      ? contarPendientesGestionHorasExtras_()
+      : 0;
+
+  return respuesta({
+    ok: true,
+    data: {
+      puedeInscribir: puedeInscribir,
+      puedeGestionar: puedeGestionar,
+      disponibles: programas.filter(function(item) {
+        return item.puedeInscribirse;
+      }).length,
+      misInscripcionesActivas:
+        misInscripciones.filter(function(item) {
+          return [
+            "INSCRITO",
+            "ASIGNADO",
+            "EN_TURNO"
+          ].indexOf(item.estado) !== -1;
+        }).length,
+      pendientesGestion: pendientesGestion
+    }
+  });
+}
+
+
+function listarHorasExtrasDisponibles(data) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  if (
+    !usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_INSCRIBIR"
+    )
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No tiene permiso para inscribirse en horas extras."
+    });
+  }
+
+  return respuesta({
+    ok: true,
+    data: {
+      programaciones:
+        listarProgramacionesHorasExtras_(
+          usuario.idEmpleado
+        ),
+      misInscripciones:
+        listarInscripcionesEmpleadoHorasExtras_(
+          usuario.idEmpleado
+        )
+    }
+  });
+}
+
+
+function inscribirHorasExtra(data) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  if (
+    !usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_INSCRIBIR"
+    )
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No tiene permiso para inscribirse en horas extras."
+    });
+  }
+
+  const idProgramacion =
+    normalizarTextoHorasExtras_(
+      data.idProgramacion
+    );
+
+  if (!idProgramacion) {
+    return respuesta({
+      ok: false,
+      mensaje: "Debe seleccionar una jornada."
+    });
+  }
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    const hojaProgramacion =
+      getSheet(
+        HORAS_EXTRAS_HOJAS.PROGRAMACION
+      );
+
+    const hojaInscripciones =
+      getSheet(
+        HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+      );
+
+    if (!hojaProgramacion || !hojaInscripciones) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "No se encontraron las hojas de Horas Extras."
+      });
+    }
+
+    const programa =
+      buscarProgramacionHorasExtras_(
+        hojaProgramacion,
+        idProgramacion
+      );
+
+    if (!programa) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "La jornada seleccionada ya no está disponible."
+      });
+    }
+
+    if (
+      claveHorasExtras_(programa.Estado) !==
+        "ACTIVO"
+    ) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Esta jornada no admite nuevas inscripciones."
+      });
+    }
+
+    const fechaTrabajo =
+      normalizarFechaHorasExtras_(
+        programa.Fecha
+      );
+
+    if (
+      fechaTrabajo &&
+      fechaTrabajo < obtenerFechaHoyHorasExtras_()
+    ) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "No puede inscribirse en una jornada pasada."
+      });
+    }
+
+    const inscripciones =
+      leerHojaComoObjetosHorasExtras_(
+        hojaInscripciones
+      );
+
+    const duplicada =
+      inscripciones.some(function(item) {
+        return (
+          normalizarTextoHorasExtras_(
+            item.ID_Programacion
+          ) === idProgramacion &&
+          normalizarTextoHorasExtras_(
+            item.Empleado_ID
+          ) === usuario.idEmpleado &&
+          ["CANCELADO", "CANCELADA"]
+            .indexOf(
+              claveHorasExtras_(item.Estado)
+            ) === -1
+        );
+      });
+
+    if (duplicada) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Ya está inscrito en esta jornada."
+      });
+    }
+
+    const cupos =
+      enteroHorasExtras_(
+        programa.Cupos_Disponibles
+      );
+
+    const inscritos =
+      inscripciones.filter(function(item) {
+        return (
+          normalizarTextoHorasExtras_(
+            item.ID_Programacion
+          ) === idProgramacion &&
+          ["CANCELADO", "CANCELADA"]
+            .indexOf(
+              claveHorasExtras_(item.Estado)
+            ) === -1
+        );
+      }).length;
+
+    if (cupos > 0 && inscritos >= cupos) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          "Esta jornada ya alcanzó el límite de colaboradores."
+      });
+    }
+
+    const encabezados =
+      obtenerEncabezadosHorasExtras_(
+        hojaInscripciones
+      );
+
+    validarEncabezadosHorasExtras_(
+      encabezados,
+      [
+        "ID_Inscripcion",
+        "ID_Programacion",
+        "Empleado_ID",
+        "Empleado_Nombre",
+        "Fecha_Trabajo",
+        "Turno",
+        "Hora_Turno_Inicio",
+        "Hora_Turno_Final",
+        "Estado",
+        "Fecha_Registro"
+      ],
+      "Horas_Extras_Inscripciones"
+    );
+
+    const idInscripcion =
+      generarIdHorasExtras_("HEI");
+
+    const fila =
+      construirFilaHorasExtras_(
+        encabezados,
+        {
+          ID_Inscripcion: idInscripcion,
+          ID_Programacion: idProgramacion,
+          Empleado_ID: usuario.idEmpleado,
+          Empleado_Nombre: usuario.nombre,
+          Fecha_Trabajo: fechaTrabajo,
+          Turno:
+            normalizarTextoHorasExtras_(
+              programa.Turno
+            ),
+          Hora_Turno_Inicio:
+            normalizarHoraHorasExtras_(
+              programa.Hora_Inicio
+            ),
+          Hora_Turno_Final:
+            normalizarHoraHorasExtras_(
+              programa.Hora_Final
+            ),
+          Linea_Trabajo: "",
+          Asignado_Por_ID: "",
+          Asignado_Por_Nombre: "",
+          Fecha_Asignacion: "",
+          Estado: "INSCRITO",
+          Fecha_Registro:
+            obtenerMarcaTiempoHorasExtras_().fechaHora,
+          Hora_Entrada: "",
+          Latitud_Entrada: "",
+          Longitud_Entrada: "",
+          Precision_GPS_Entrada: "",
+          Distancia_Entrada_Metros: "",
+          Hora_Salida: "",
+          Latitud_Salida: "",
+          Longitud_Salida: "",
+          Precision_GPS_Salida: "",
+          Distancia_Salida_Metros: "",
+          Minutos_Trabajados: "",
+          Horas_Trabajadas: ""
+        }
+      );
+
+    hojaInscripciones.appendRow(fila);
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Su inscripción de horas extras fue registrada.",
+      data: {
+        idInscripcion: idInscripcion
+      }
+    });
+
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+
+function listarGestionHorasExtras(data) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  if (
+    !usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_GESTIONAR"
+    )
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No tiene permiso para gestionar horas extras."
+    });
+  }
+
+  const hojaProgramacion =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.PROGRAMACION
+    );
+
+  const hojaInscripciones =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+    );
+
+  if (!hojaProgramacion || !hojaInscripciones) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontraron las hojas de Horas Extras."
+    });
+  }
+
+  const programaciones =
+    leerHojaComoObjetosHorasExtras_(
+      hojaProgramacion
+    ).map(normalizarProgramacionHorasExtras_);
+
+  const inscripciones =
+    leerHojaComoObjetosHorasExtras_(
+      hojaInscripciones
+    ).map(normalizarInscripcionHorasExtras_);
+
+  return respuesta({
+    ok: true,
+    data: {
+      programaciones: programaciones,
+      inscripciones: inscripciones,
+      lineasTrabajo:
+        listarLineasTrabajoHorasExtras_()
+    }
+  });
+}
+
+
+function crearProgramacionHorasExtras(data) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  if (
+    !usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_GESTIONAR"
+    )
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No tiene permiso para publicar horas extras."
+    });
+  }
+
+  const fecha =
+    normalizarFechaHorasExtras_(data.fecha);
+
+  const turno =
+    normalizarTextoHorasExtras_(data.turno);
+
+  const horaInicio =
+    normalizarHoraHorasExtras_(data.horaInicio);
+
+  const horaFinal =
+    normalizarHoraHorasExtras_(data.horaFinal);
+
+  const cupos =
+    enteroHorasExtras_(data.cuposDisponibles);
+
+  if (!fecha || !horaInicio || !horaFinal) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Indique fecha, hora de inicio y hora final."
+    });
+  }
+
+  if (fecha < obtenerFechaHoyHorasExtras_()) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "La fecha de horas extras no puede estar en el pasado."
+    });
+  }
+
+  if (cupos <= 0) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Los cupos disponibles deben ser mayores que cero."
+    });
+  }
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.PROGRAMACION
+    );
+
+  if (!hoja) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No existe la hoja Horas_Extras_Programacion."
+    });
+  }
+
+  const encabezados =
+    obtenerEncabezadosHorasExtras_(hoja);
+
+  validarEncabezadosHorasExtras_(
+    encabezados,
+    [
+      "ID_Programacion",
+      "ID_Aviso",
+      "Fecha",
+      "Turno",
+      "Hora_Inicio",
+      "Hora_Final",
+      "Cupos_Disponibles",
+      "Estado",
+      "Fecha_Creacion",
+      "Creado_Por_ID",
+      "Creado_Por_Nombre"
+    ],
+    "Horas_Extras_Programacion"
+  );
+
+  const idProgramacion =
+    generarIdHorasExtras_("HEP");
+
+  const fila =
+    construirFilaHorasExtras_(
+      encabezados,
+      {
+        ID_Programacion: idProgramacion,
+        ID_Aviso:
+          normalizarTextoHorasExtras_(
+            data.idAviso
+          ),
+        Fecha: fecha,
+        Turno: turno,
+        Hora_Inicio: horaInicio,
+        Hora_Final: horaFinal,
+        Cupos_Disponibles: cupos,
+        Estado: "ACTIVO",
+        Fecha_Creacion:
+          obtenerMarcaTiempoHorasExtras_().fechaHora,
+        Creado_Por_ID:
+          usuario.idEmpleado,
+        Creado_Por_Nombre:
+          usuario.nombre
+      }
+    );
+
+  hoja.appendRow(fila);
+  SpreadsheetApp.flush();
+
+  return respuesta({
+    ok: true,
+    mensaje:
+      "Disponibilidad de horas extras publicada.",
+    data: {
+      idProgramacion: idProgramacion
+    }
+  });
+}
+
+
+function asignarLineaHorasExtra(data) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  if (
+    !usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_GESTIONAR"
+    )
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No tiene permiso para asignar líneas de trabajo."
+    });
+  }
+
+  const idInscripcion =
+    normalizarTextoHorasExtras_(
+      data.idInscripcion
+    );
+
+  const linea =
+    normalizarTextoHorasExtras_(
+      data.lineaTrabajo
+    );
+
+  if (!idInscripcion || !linea) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Seleccione una inscripción y una línea de trabajo."
+    });
+  }
+
+  const lineasDisponibles =
+    listarLineasTrabajoHorasExtras_();
+
+  const existeLinea =
+    lineasDisponibles.some(function(item) {
+      return (
+        claveHorasExtras_(item) ===
+        claveHorasExtras_(linea)
+      );
+    });
+
+  if (!existeLinea) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "La línea seleccionada no existe en Catalogos."
+    });
+  }
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+    );
+
+  const resultado =
+    buscarFilaPorIdHorasExtras_(
+      hoja,
+      "ID_Inscripcion",
+      idInscripcion
+    );
+
+  if (!resultado) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontró la inscripción seleccionada."
+    });
+  }
+
+  const estado =
+    claveHorasExtras_(
+      resultado.objeto.Estado
+    );
+
+  if (
+    ["COMPLETADO", "CANCELADO", "NO_ASISTIO"]
+      .indexOf(estado) !== -1
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Esta inscripción ya no puede ser reasignada."
+    });
+  }
+
+  actualizarCamposFilaHorasExtras_(
+    hoja,
+    resultado.fila,
+    resultado.encabezados,
+    {
+      Linea_Trabajo: linea,
+      Asignado_Por_ID:
+        usuario.idEmpleado,
+      Asignado_Por_Nombre:
+        usuario.nombre,
+      Fecha_Asignacion:
+        obtenerMarcaTiempoHorasExtras_().fechaHora,
+      Estado:
+        estado === "EN_TURNO"
+          ? "EN_TURNO"
+          : "ASIGNADO"
+    }
+  );
+
+  SpreadsheetApp.flush();
+
+  return respuesta({
+    ok: true,
+    mensaje:
+      "Línea de trabajo asignada correctamente."
+  });
+}
+
+
+function marcarEntradaHorasExtra(data) {
+
+  return marcarAsistenciaHorasExtras_(
+    data,
+    "ENTRADA"
+  );
+}
+
+
+function marcarSalidaHorasExtra(data) {
+
+  return marcarAsistenciaHorasExtras_(
+    data,
+    "SALIDA"
+  );
+}
+
+
+function marcarAsistenciaHorasExtras_(data, tipo) {
+
+  const usuario = obtenerUsuarioHorasExtras_(data);
+
+  if (!usuario.ok) {
+    return respuesta(usuario);
+  }
+
+  if (
+    !usuarioTienePermisoHorasExtras_(
+      usuario,
+      "HORAS_EXTRA_INSCRIBIR"
+    )
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No tiene permiso para registrar esta jornada."
+    });
+  }
+
+  const idInscripcion =
+    normalizarTextoHorasExtras_(
+      data.idInscripcion
+    );
+
+  const latitud =
+    numeroHorasExtras_(data.latitud);
+
+  const longitud =
+    numeroHorasExtras_(data.longitud);
+
+  const precision =
+    numeroHorasExtras_(data.precision);
+
+  if (
+    !idInscripcion ||
+    !isFinite(latitud) ||
+    !isFinite(longitud)
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No fue posible validar su ubicación. Active el GPS e inténtelo nuevamente."
+    });
+  }
+
+  const configuracion =
+    obtenerConfiguracionHorasExtras_();
+
+  const latEmpresa =
+    numeroHorasExtras_(
+      configuracion.Ubicacion_Empresa_Latitud
+    );
+
+  const lonEmpresa =
+    numeroHorasExtras_(
+      configuracion.Ubicacion_Empresa_Longitud
+    );
+
+  const radioPermitido =
+    numeroHorasExtras_(
+      configuracion.Radio_Marcaje_HE_Metros || 250
+    );
+
+  const precisionMaxima =
+    numeroHorasExtras_(
+      configuracion.Precision_GPS_Maxima_Metros || 150
+    );
+
+  if (
+    !isFinite(latEmpresa) ||
+    !isFinite(lonEmpresa)
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "La ubicación de la empresa no está configurada correctamente."
+    });
+  }
+
+  if (
+    precisionMaxima > 0 &&
+    precision > precisionMaxima
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "La ubicación obtenida no tiene suficiente precisión. Active la ubicación precisa e inténtelo nuevamente."
+    });
+  }
+
+  const distancia =
+    calcularDistanciaMetrosHorasExtras_(
+      latitud,
+      longitud,
+      latEmpresa,
+      lonEmpresa
+    );
+
+  if (distancia > radioPermitido) {
+    return respuesta({
+      ok: false,
+      codigo: "FUERA_DE_RANGO",
+      mensaje:
+        "Debe encontrarse en las instalaciones para registrar su " +
+        (tipo === "ENTRADA" ? "entrada" : "salida") +
+        ".",
+      data: {
+        distanciaMetros:
+          Math.round(distancia),
+        radioPermitidoMetros:
+          radioPermitido
+      }
+    });
+  }
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+    );
+
+  const resultado =
+    buscarFilaPorIdHorasExtras_(
+      hoja,
+      "ID_Inscripcion",
+      idInscripcion
+    );
+
+  if (!resultado) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontró la jornada seleccionada."
+    });
+  }
+
+  if (
+    normalizarTextoHorasExtras_(
+      resultado.objeto.Empleado_ID
+    ) !== usuario.idEmpleado
+  ) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "Esta jornada pertenece a otro colaborador."
+    });
+  }
+
+  const fechaTrabajo =
+    normalizarFechaHorasExtras_(
+      resultado.objeto.Fecha_Trabajo
+    );
+
+  const hoy = obtenerFechaHoyHorasExtras_();
+
+  if (fechaTrabajo !== hoy) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "La entrada y la salida solo pueden registrarse el día programado."
+    });
+  }
+
+  const marca =
+    obtenerMarcaTiempoHorasExtras_();
+
+  if (tipo === "ENTRADA") {
+
+    const estado =
+      claveHorasExtras_(
+        resultado.objeto.Estado
+      );
+
+    if (
+      ["INSCRITO", "ASIGNADO"]
+        .indexOf(estado) === -1
+    ) {
+      return respuesta({
+        ok: false,
+        mensaje:
+          estado === "EN_TURNO"
+            ? "La entrada ya fue registrada."
+            : "Esta jornada no está disponible para entrada."
+      });
+    }
+
+    actualizarCamposFilaHorasExtras_(
+      hoja,
+      resultado.fila,
+      resultado.encabezados,
+      {
+        Hora_Entrada: marca.hora,
+        Latitud_Entrada: latitud,
+        Longitud_Entrada: longitud,
+        Precision_GPS_Entrada:
+          Math.round(precision),
+        Distancia_Entrada_Metros:
+          Math.round(distancia),
+        Estado: "EN_TURNO"
+      }
+    );
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Entrada registrada correctamente.",
+      data: {
+        hora: marca.hora,
+        distanciaMetros:
+          Math.round(distancia)
+      }
+    });
+  }
+
+  const estadoSalida =
+    claveHorasExtras_(
+      resultado.objeto.Estado
+    );
+
+  if (estadoSalida !== "EN_TURNO") {
+    return respuesta({
+      ok: false,
+      mensaje:
+        estadoSalida === "COMPLETADO"
+          ? "La salida ya fue registrada."
+          : "Debe registrar primero la entrada."
+    });
+  }
+
+  const horaEntrada =
+    normalizarHoraHorasExtras_(
+      resultado.objeto.Hora_Entrada
+    );
+
+  if (!horaEntrada) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        "No se encontró la hora de entrada de esta jornada."
+    });
+  }
+
+  const minutos =
+    calcularMinutosEntreHorasExtras_(
+      horaEntrada,
+      marca.hora
+    );
+
+  const horas =
+    Math.round((minutos / 60) * 100) / 100;
+
+  actualizarCamposFilaHorasExtras_(
+    hoja,
+    resultado.fila,
+    resultado.encabezados,
+    {
+      Hora_Salida: marca.hora,
+      Latitud_Salida: latitud,
+      Longitud_Salida: longitud,
+      Precision_GPS_Salida:
+        Math.round(precision),
+      Distancia_Salida_Metros:
+        Math.round(distancia),
+      Minutos_Trabajados: minutos,
+      Horas_Trabajadas: horas,
+      Estado: "COMPLETADO"
+    }
+  );
+
+  SpreadsheetApp.flush();
+
+  return respuesta({
+    ok: true,
+    mensaje:
+      "Salida registrada correctamente.",
+    data: {
+      hora: marca.hora,
+      minutosTrabajados: minutos,
+      horasTrabajadas: horas,
+      distanciaMetros:
+        Math.round(distancia)
+    }
+  });
+}
+
+
+function listarProgramacionesHorasExtras_(idEmpleado) {
+
+  const hojaProgramacion =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.PROGRAMACION
+    );
+
+  const hojaInscripciones =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+    );
+
+  if (!hojaProgramacion || !hojaInscripciones) {
+    return [];
+  }
+
+  const hoy = obtenerFechaHoyHorasExtras_();
+
+  const inscripciones =
+    leerHojaComoObjetosHorasExtras_(
+      hojaInscripciones
+    );
+
+  return leerHojaComoObjetosHorasExtras_(
+    hojaProgramacion
+  )
+    .map(function(item) {
+
+      const programa =
+        normalizarProgramacionHorasExtras_(item);
+
+      const inscritos =
+        inscripciones.filter(function(ins) {
+          return (
+            normalizarTextoHorasExtras_(
+              ins.ID_Programacion
+            ) === programa.idProgramacion &&
+            ["CANCELADO", "CANCELADA"]
+              .indexOf(
+                claveHorasExtras_(ins.Estado)
+              ) === -1
+          );
+        });
+
+      const yaInscrito =
+        inscritos.some(function(ins) {
+          return (
+            normalizarTextoHorasExtras_(
+              ins.Empleado_ID
+            ) === idEmpleado
+          );
+        });
+
+      const cuposRestantes =
+        Math.max(
+          0,
+          programa.cuposDisponibles -
+            inscritos.length
+        );
+
+      programa.inscritos = inscritos.length;
+      programa.cuposRestantes = cuposRestantes;
+      programa.yaInscrito = yaInscrito;
+      programa.puedeInscribirse =
+        programa.estado === "ACTIVO" &&
+        programa.fecha >= hoy &&
+        cuposRestantes > 0 &&
+        !yaInscrito;
+
+      return programa;
+    })
+    .filter(function(item) {
+      return item.fecha >= hoy;
+    })
+    .sort(function(a, b) {
+      return (
+        (a.fecha + " " + a.horaInicio)
+          .localeCompare(
+            b.fecha + " " + b.horaInicio
+          )
+      );
+    });
+}
+
+
+function listarInscripcionesEmpleadoHorasExtras_(
+  idEmpleado
+) {
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+    );
+
+  if (!hoja) {
+    return [];
+  }
+
+  return leerHojaComoObjetosHorasExtras_(hoja)
+    .filter(function(item) {
+      return (
+        normalizarTextoHorasExtras_(
+          item.Empleado_ID
+        ) === idEmpleado
+      );
+    })
+    .map(normalizarInscripcionHorasExtras_)
+    .sort(function(a, b) {
+      return (
+        (b.fechaTrabajo + " " + b.horaTurnoInicio)
+          .localeCompare(
+            a.fechaTrabajo + " " + a.horaTurnoInicio
+          )
+      );
+    });
+}
+
+
+function contarPendientesGestionHorasExtras_() {
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.INSCRIPCIONES
+    );
+
+  if (!hoja) {
+    return 0;
+  }
+
+  return leerHojaComoObjetosHorasExtras_(hoja)
+    .filter(function(item) {
+      return [
+        "INSCRITO",
+        "ASIGNADO",
+        "EN_TURNO"
+      ].indexOf(
+        claveHorasExtras_(item.Estado)
+      ) !== -1;
+    }).length;
+}
+
+
+function listarLineasTrabajoHorasExtras_() {
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.CATALOGOS
+    );
+
+  if (!hoja) {
+    return [];
+  }
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  if (datos.length <= 1) {
+    return [];
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return normalizarTextoHorasExtras_(valor);
+    });
+
+  const indiceTipo =
+    encabezados.indexOf("Tipo");
+
+  const indiceValor =
+    encabezados.indexOf("Valor");
+
+  if (indiceTipo === -1 || indiceValor === -1) {
+    return [];
+  }
+
+  return datos
+    .slice(1)
+    .filter(function(fila) {
+      return (
+        claveHorasExtras_(
+          fila[indiceTipo]
+        ) === "LINEA_TRABAJO"
+      );
+    })
+    .map(function(fila) {
+      return normalizarTextoHorasExtras_(
+        fila[indiceValor]
+      );
+    })
+    .filter(function(valor, indice, lista) {
+      return (
+        valor !== "" &&
+        lista.indexOf(valor) === indice
+      );
+    });
+}
+
+
+function obtenerConfiguracionHorasExtras_() {
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.CONFIGURACION
+    );
+
+  const config = {};
+
+  if (!hoja) {
+    return config;
+  }
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  datos.slice(1).forEach(function(fila) {
+    const parametro =
+      normalizarTextoHorasExtras_(fila[0]);
+
+    if (parametro) {
+      config[parametro] = fila[1];
+    }
+  });
+
+  return config;
+}
+
+
+function obtenerUsuarioHorasExtras_(data) {
+
+  const idEmpleado =
+    normalizarTextoHorasExtras_(
+      data.idEmpleado
+    );
+
+  const usuarioSesion =
+    normalizarTextoHorasExtras_(
+      data.usuarioSesion
+    );
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.USUARIOS
+    );
+
+  if (!hoja) {
+    return {
+      ok: false,
+      mensaje:
+        "No existe la hoja Usuarios."
+    };
+  }
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  if (datos.length <= 1) {
+    return {
+      ok: false,
+      mensaje:
+        "No se encontró el usuario de la sesión."
+    };
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return normalizarTextoHorasExtras_(valor);
+    });
+
+  const idxId = encabezados.indexOf("IDEmpleado");
+  const idxNombre = encabezados.indexOf("Nombre");
+  const idxUsuario = encabezados.indexOf("Usuario");
+  const idxRol = encabezados.indexOf("Rol");
+  const idxEstado = encabezados.indexOf("Estado");
+
+  if (
+    idxId === -1 ||
+    idxNombre === -1 ||
+    idxUsuario === -1 ||
+    idxRol === -1 ||
+    idxEstado === -1
+  ) {
+    return {
+      ok: false,
+      mensaje:
+        "La hoja Usuarios no tiene la estructura esperada."
+    };
+  }
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const fila = datos[i];
+
+    const coincideId =
+      idEmpleado &&
+      normalizarTextoHorasExtras_(
+        fila[idxId]
+      ) === idEmpleado;
+
+    const coincideUsuario =
+      usuarioSesion &&
+      claveHorasExtras_(
+        fila[idxUsuario]
+      ) === claveHorasExtras_(usuarioSesion);
+
+    if (!coincideId && !coincideUsuario) {
+      continue;
+    }
+
+    if (
+      claveHorasExtras_(fila[idxEstado]) !==
+        "ACTIVO"
+    ) {
+      return {
+        ok: false,
+        mensaje: "Usuario inactivo."
+      };
+    }
+
+    return {
+      ok: true,
+      idEmpleado:
+        normalizarTextoHorasExtras_(fila[idxId]),
+      nombre:
+        normalizarTextoHorasExtras_(fila[idxNombre]),
+      usuario:
+        normalizarTextoHorasExtras_(fila[idxUsuario]),
+      rol:
+        claveHorasExtras_(fila[idxRol])
+    };
+  }
+
+  return {
+    ok: false,
+    mensaje:
+      "No se encontró el usuario de la sesión."
+  };
+}
+
+
+function usuarioTienePermisoHorasExtras_(
+  usuario,
+  permiso
+) {
+
+  if (
+    usuario &&
+    usuario.rol === "ADMINISTRADOR"
+  ) {
+    return true;
+  }
+
+  const hoja =
+    getSheet(
+      HORAS_EXTRAS_HOJAS.PERMISOS
+    );
+
+  if (!hoja) {
+    return false;
+  }
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  if (datos.length <= 1) {
+    return false;
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return normalizarTextoHorasExtras_(valor);
+    });
+
+  const idxRol = encabezados.indexOf("Rol");
+  const idxPermiso = encabezados.indexOf("Permiso");
+  const idxEstado = encabezados.indexOf("Estado");
+
+  if (
+    idxRol === -1 ||
+    idxPermiso === -1 ||
+    idxEstado === -1
+  ) {
+    return false;
+  }
+
+  const permisoBuscado =
+    claveHorasExtras_(permiso);
+
+  return datos.slice(1).some(function(fila) {
+    return (
+      claveHorasExtras_(fila[idxRol]) ===
+        usuario.rol &&
+      claveHorasExtras_(fila[idxPermiso]) ===
+        permisoBuscado &&
+      claveHorasExtras_(fila[idxEstado]) ===
+        "ACTIVO"
+    );
+  });
+}
+
+
+function buscarProgramacionHorasExtras_(
+  hoja,
+  idProgramacion
+) {
+
+  const objetos =
+    leerHojaComoObjetosHorasExtras_(hoja);
+
+  return objetos.find(function(item) {
+    return (
+      normalizarTextoHorasExtras_(
+        item.ID_Programacion
+      ) === idProgramacion
+    );
+  }) || null;
+}
+
+
+function buscarFilaPorIdHorasExtras_(
+  hoja,
+  encabezadoId,
+  idBuscado
+) {
+
+  if (!hoja) {
+    return null;
+  }
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  if (datos.length <= 1) {
+    return null;
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return normalizarTextoHorasExtras_(valor);
+    });
+
+  const indice =
+    encabezados.indexOf(encabezadoId);
+
+  if (indice === -1) {
+    return null;
+  }
+
+  for (let i = 1; i < datos.length; i++) {
+    if (
+      normalizarTextoHorasExtras_(
+        datos[i][indice]
+      ) === idBuscado
+    ) {
+      const objeto = {};
+      encabezados.forEach(function(enc, idx) {
+        objeto[enc] = datos[i][idx];
+      });
+
+      return {
+        fila: i + 1,
+        encabezados: encabezados,
+        objeto: objeto
+      };
+    }
+  }
+
+  return null;
+}
+
+
+function actualizarCamposFilaHorasExtras_(
+  hoja,
+  fila,
+  encabezados,
+  cambios
+) {
+
+  Object.keys(cambios).forEach(function(campo) {
+    const indice = encabezados.indexOf(campo);
+    if (indice !== -1) {
+      hoja.getRange(fila, indice + 1)
+        .setValue(cambios[campo]);
+    }
+  });
+}
+
+
+function leerHojaComoObjetosHorasExtras_(hoja) {
+
+  if (!hoja) {
+    return [];
+  }
+
+  const datos =
+    hoja.getDataRange().getDisplayValues();
+
+  if (datos.length <= 1) {
+    return [];
+  }
+
+  const encabezados =
+    datos[0].map(function(valor) {
+      return normalizarTextoHorasExtras_(valor);
+    });
+
+  return datos.slice(1).map(function(fila) {
+    const objeto = {};
+    encabezados.forEach(function(enc, indice) {
+      objeto[enc] = fila[indice];
+    });
+    return objeto;
+  });
+}
+
+
+function obtenerEncabezadosHorasExtras_(hoja) {
+  return hoja
+    .getRange(1, 1, 1, hoja.getLastColumn())
+    .getDisplayValues()[0]
+    .map(function(valor) {
+      return normalizarTextoHorasExtras_(valor);
+    });
+}
+
+
+function validarEncabezadosHorasExtras_(
+  encabezados,
+  requeridos,
+  nombreHoja
+) {
+
+  const faltantes =
+    requeridos.filter(function(campo) {
+      return encabezados.indexOf(campo) === -1;
+    });
+
+  if (faltantes.length) {
+    throw new Error(
+      "Faltan columnas en " +
+      nombreHoja +
+      ": " +
+      faltantes.join(", ")
+    );
+  }
+}
+
+
+function construirFilaHorasExtras_(
+  encabezados,
+  valores
+) {
+  return encabezados.map(function(encabezado) {
+    return valores[encabezado] !== undefined
+      ? valores[encabezado]
+      : "";
+  });
+}
+
+
+function normalizarProgramacionHorasExtras_(item) {
+  return {
+    idProgramacion:
+      normalizarTextoHorasExtras_(
+        item.ID_Programacion
+      ),
+    idAviso:
+      normalizarTextoHorasExtras_(item.ID_Aviso),
+    fecha:
+      normalizarFechaHorasExtras_(item.Fecha),
+    turno:
+      normalizarTextoHorasExtras_(item.Turno),
+    horaInicio:
+      normalizarHoraHorasExtras_(item.Hora_Inicio),
+    horaFinal:
+      normalizarHoraHorasExtras_(item.Hora_Final),
+    cuposDisponibles:
+      enteroHorasExtras_(item.Cupos_Disponibles),
+    estado:
+      claveHorasExtras_(item.Estado),
+    fechaCreacion:
+      normalizarTextoHorasExtras_(item.Fecha_Creacion),
+    creadoPorNombre:
+      normalizarTextoHorasExtras_(item.Creado_Por_Nombre)
+  };
+}
+
+
+function normalizarInscripcionHorasExtras_(item) {
+  return {
+    idInscripcion:
+      normalizarTextoHorasExtras_(item.ID_Inscripcion),
+    idProgramacion:
+      normalizarTextoHorasExtras_(item.ID_Programacion),
+    empleadoId:
+      normalizarTextoHorasExtras_(item.Empleado_ID),
+    empleadoNombre:
+      normalizarTextoHorasExtras_(item.Empleado_Nombre),
+    fechaTrabajo:
+      normalizarFechaHorasExtras_(item.Fecha_Trabajo),
+    turno:
+      normalizarTextoHorasExtras_(item.Turno),
+    horaTurnoInicio:
+      normalizarHoraHorasExtras_(item.Hora_Turno_Inicio),
+    horaTurnoFinal:
+      normalizarHoraHorasExtras_(item.Hora_Turno_Final),
+    lineaTrabajo:
+      normalizarTextoHorasExtras_(item.Linea_Trabajo),
+    asignadoPorNombre:
+      normalizarTextoHorasExtras_(item.Asignado_Por_Nombre),
+    fechaAsignacion:
+      normalizarTextoHorasExtras_(item.Fecha_Asignacion),
+    estado:
+      claveHorasExtras_(item.Estado),
+    fechaRegistro:
+      normalizarTextoHorasExtras_(item.Fecha_Registro),
+    horaEntrada:
+      normalizarHoraHorasExtras_(item.Hora_Entrada),
+    horaSalida:
+      normalizarHoraHorasExtras_(item.Hora_Salida),
+    minutosTrabajados:
+      enteroHorasExtras_(item.Minutos_Trabajados),
+    horasTrabajadas:
+      numeroHorasExtras_(item.Horas_Trabajadas)
+  };
+}
+
+
+function calcularDistanciaMetrosHorasExtras_(
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) {
+
+  const radioTierra = 6371000;
+  const rad = Math.PI / 180;
+
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * rad) *
+    Math.cos(lat2 * rad) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c =
+    2 * Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
+
+  return radioTierra * c;
+}
+
+
+function calcularMinutosEntreHorasExtras_(
+  horaInicio,
+  horaFinal
+) {
+
+  const inicio = convertirHoraMinutosHorasExtras_(
+    horaInicio
+  );
+
+  let final = convertirHoraMinutosHorasExtras_(
+    horaFinal
+  );
+
+  if (final < inicio) {
+    final += 24 * 60;
+  }
+
+  return Math.max(0, final - inicio);
+}
+
+
+function convertirHoraMinutosHorasExtras_(hora) {
+  const partes =
+    normalizarHoraHorasExtras_(hora)
+      .split(":");
+
+  return (
+    Number(partes[0] || 0) * 60 +
+    Number(partes[1] || 0)
+  );
+}
+
+
+function obtenerMarcaTiempoHorasExtras_() {
+  const zona =
+    Session.getScriptTimeZone() ||
+    "America/Santo_Domingo";
+
+  const ahora = new Date();
+
+  return {
+    fecha:
+      Utilities.formatDate(
+        ahora,
+        zona,
+        "yyyy-MM-dd"
+      ),
+    hora:
+      Utilities.formatDate(
+        ahora,
+        zona,
+        "HH:mm:ss"
+      ),
+    fechaHora:
+      Utilities.formatDate(
+        ahora,
+        zona,
+        "yyyy-MM-dd HH:mm:ss"
+      )
+  };
+}
+
+
+function obtenerFechaHoyHorasExtras_() {
+  return obtenerMarcaTiempoHorasExtras_().fecha;
+}
+
+
+function generarIdHorasExtras_(prefijo) {
+  const marca =
+    Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone() ||
+        "America/Santo_Domingo",
+      "yyyyMMdd-HHmmss"
+    );
+
+  const aleatorio =
+    Utilities.getUuid()
+      .replace(/-/g, "")
+      .substring(0, 6)
+      .toUpperCase();
+
+  return prefijo + "-" + marca + "-" + aleatorio;
+}
+
+
+function normalizarTextoHorasExtras_(valor) {
+  return String(
+    valor === null || valor === undefined
+      ? ""
+      : valor
+  ).trim();
+}
+
+
+function claveHorasExtras_(valor) {
+  return normalizarTextoHorasExtras_(valor)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+
+function normalizarFechaHorasExtras_(valor) {
+
+  if (valor instanceof Date) {
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone() ||
+        "America/Santo_Domingo",
+      "yyyy-MM-dd"
+    );
+  }
+
+  const texto = normalizarTextoHorasExtras_(valor);
+
+  const iso = texto.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})/
+  );
+
+  if (iso) {
+    return (
+      iso[1] + "-" +
+      String(iso[2]).padStart(2, "0") + "-" +
+      String(iso[3]).padStart(2, "0")
+    );
+  }
+
+  const latina = texto.match(
+    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/
+  );
+
+  if (latina) {
+    return (
+      latina[3] + "-" +
+      String(latina[2]).padStart(2, "0") + "-" +
+      String(latina[1]).padStart(2, "0")
+    );
+  }
+
+  return "";
+}
+
+
+function normalizarHoraHorasExtras_(valor) {
+
+  if (valor instanceof Date) {
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone() ||
+        "America/Santo_Domingo",
+      "HH:mm:ss"
+    );
+  }
+
+  const texto = normalizarTextoHorasExtras_(valor);
+
+  const coincidencia = texto.match(
+    /^(\d{1,2}):(\d{2})(?::(\d{2}))?/
+  );
+
+  if (!coincidencia) {
+    return "";
+  }
+
+  return (
+    String(coincidencia[1]).padStart(2, "0") +
+    ":" + coincidencia[2] +
+    ":" + (coincidencia[3] || "00")
+  );
+}
+
+
+function enteroHorasExtras_(valor) {
+  const numero = parseInt(
+    String(valor || "0")
+      .replace(",", "."),
+    10
+  );
+
+  return isFinite(numero) ? numero : 0;
+}
+
+
+function numeroHorasExtras_(valor) {
+  const numero = Number(
+    String(
+      valor === null || valor === undefined
+        ? ""
+        : valor
+    )
+      .trim()
+      .replace(",", ".")
+  );
+
+  return numero;
+}

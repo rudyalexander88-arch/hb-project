@@ -864,7 +864,9 @@ function aplicarPermisosDashboard() {
         }
 
         const permitido =
-            item.idMenu === "menuReportes" &&
+            item.idMenu === "menuInventario"
+                ? puedeAccederGestionAlmacenDashboard()
+                : item.idMenu === "menuReportes" &&
             window.ReportesKPIs &&
             typeof window.ReportesKPIs.puedeVer === "function"
                 ? window.ReportesKPIs.puedeVer()
@@ -895,6 +897,28 @@ function aplicarPermisosDashboard() {
         }
 
     });
+
+}
+
+
+function puedeAccederGestionAlmacenDashboard() {
+
+    const rol = String(rolSesion || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toUpperCase();
+
+    const rolOperativoAutorizado =
+        rol === "ADMINISTRADOR" ||
+        rol === "ENCARGADO" ||
+        rol === "SUPERVISOR" ||
+        rol === "GERENCIA" ||
+        rol === "GERENTE" ||
+        rol.includes("ANALISTA");
+
+    return rolOperativoAutorizado ||
+        Sistema.tieneAccesoModulo("INVENTARIO");
 
 }
 
@@ -964,7 +988,13 @@ function inicializarMenu() {
 
     if (menuInventario) {
         menuInventario.addEventListener("click", () => {
-            if (!puedeAbrirModulo("INVENTARIO", "No tiene acceso a Gestión del almacén.")) return;
+            if (!puedeAccederGestionAlmacenDashboard()) {
+                Sistema.advertencia(
+                    "No tiene acceso a Gestión del almacén.",
+                    4200
+                );
+                return;
+            }
             activarMenu("menuInventario");
             if (window.GestionAlmacen && typeof window.GestionAlmacen.cargar === "function") {
                 window.GestionAlmacen.cargar();

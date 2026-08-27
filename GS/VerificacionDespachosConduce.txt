@@ -1,0 +1,2810 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSCONDUCE.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * RESPONSABILIDAD
+ * ------------------------------------------------------------
+ * Aplicar al conduce original las correcciones confirmadas desde
+ * el asistente de verificación.
+ *
+ * Este módulo:
+ * - Modifica Despacho_Detalle.
+ * - Agrega unidades cuando físicamente salió más.
+ * - Reduce unidades cuando el sistema registró de más.
+ * - Resuelve cruces de material.
+ * - Genera lote y vencimiento del material cruzado.
+ * - Reordena posiciones.
+ * - Recalcula Total_Lineas y Total_Unidades.
+ * - Devuelve el conduce corregido en el formato del frontend.
+ *
+ * Este módulo NO:
+ * - Registra el documento SAP.
+ * - Cambia estados de la verificación.
+ * - Genera directamente el PDF.
+ *
+ * Esas responsabilidades continúan en:
+ * - VerificacionDespachosCorreccionGeneral.gs
+ * - despachos.js
+ * - Documentos.gs
+ * ============================================================
+ */
+
+
+/**
+ * Aplica una operación de corrección al conduce.
+ *
+ * Estructura esperada:
+ *
+ * {
+ *   idConduce: "...",
+ *   idVerificacion: "...",
+ *   corregidoPor: "...",
+ *   correcciones: [
+ *     {
+ *       idDetalleVerificacion: "...",
+ *       cantidadCorreccion: 135,
+ *       tipoCorreccion: "AJUSTE DE CANTIDAD",
+ *
+ *       // Solo para CRUCE DE MATERIAL:
+ *       materialCruce: {
+ *         material: "1001234",
+ *         fechaProduccion: "2026-07-30",
+ *         cantidadPrincipal: 240,
+ *         recorte: 10
+ *       }
+ *     }
+ *   ]
+ * }
+ *
+ * @param {Object} parametros
+ * @return {Object}
+ */
+function aplicarCorreccionesVerificacionAlConduce_(
+  parametros
+) {
+
+  const datos =
+    parametros || {};
+
+  const idConduce =
+    String(
+      datos.idConduce || ""
+    ).trim();
+
+  const idVerificacion =
+    String(
+      datos.idVerificacion || ""
+    ).trim();
+
+  const corregidoPor =
+    String(
+      datos.corregidoPor ||
+      datos.usuario ||
+      ""
+    ).trim();
+
+  const correcciones =
+    Array.isArray(
+      datos.correcciones
+    )
+      ? datos.correcciones
+      : [];
+
+  if (!idConduce) {
+
+    throw new Error(
+      "Debe indicar el ID del conduce que será corregido."
+    );
+
+  }
+
+  if (!idVerificacion) {
+
+    throw new Error(
+      "Debe indicar el ID de la verificación."
+    );
+
+  }
+
+  if (
+    correcciones.length === 0
+  ) {
+
+    throw new Error(
+      "No se recibieron correcciones para aplicar al conduce."
+    );
+
+  }
+
+  const hojaDespacho =
+    getSheet(
+      SHEETS.DESPACHO
+    );
+
+  const hojaDetalleDespacho =
+    getSheet(
+      SHEETS.DESPACHO_DETALLE
+    );
+
+  const hojaDetalleVerificacion =
+    getSheet(
+      SHEETS
+        .VERIFICACION_DESPACHOS_DETALLE
+    );
+
+  const hojaMateriales =
+    getSheet(
+      SHEETS.MATERIAL
+    );
+
+  if (
+    !hojaDespacho ||
+    !hojaDetalleDespacho ||
+    !hojaDetalleVerificacion ||
+    !hojaMateriales
+  ) {
+
+    throw new Error(
+      "No se encontraron todas las hojas requeridas para corregir el conduce."
+    );
+
+  }
+
+  const conduce =
+    obtenerRegistroConduceCorreccion_(
+      hojaDespacho,
+      idConduce
+    );
+
+  if (!conduce) {
+
+    throw new Error(
+      "No se encontró el conduce original."
+    );
+
+  }
+
+  const estadoConduce =
+    normalizarTextoCorreccionConduce_(
+      conduce.Estado
+    );
+
+  if (
+    estadoConduce !== "completado"
+  ) {
+
+    throw new Error(
+      "Solo pueden corregirse conduces con estado Completado."
+    );
+
+  }
+
+  const lineasVerificacion =
+    obtenerLineasVerificacionCorreccionConduce_(
+      hojaDetalleVerificacion,
+      idVerificacion
+    );
+
+  const lineasVerificacionPorId = {};
+
+  lineasVerificacion.forEach(
+    function(linea) {
+
+      const idDetalle =
+        String(
+          linea.ID_Detalle_Verificacion ||
+          ""
+        ).trim();
+
+      if (idDetalle) {
+
+        lineasVerificacionPorId[
+          idDetalle
+        ] = linea;
+
+      }
+
+    }
+  );
+
+  const catalogoMateriales =
+    obtenerCatalogoMaterialesCorreccionConduce_(
+      hojaMateriales
+    );
+
+  let detalleConduce =
+    obtenerDetalleConduceCorreccion_(
+      hojaDetalleDespacho,
+      idConduce
+    );
+
+  if (
+    detalleConduce.length === 0
+  ) {
+
+    throw new Error(
+      "El conduce no contiene líneas que puedan ser corregidas."
+    );
+
+  }
+
+  /*
+   * Conservamos una copia para poder restaurar el detalle si
+   * ocurre un error después de comenzar la escritura.
+   */
+  const detalleOriginal =
+    detalleConduce.map(
+      function(linea) {
+
+        return Object.assign(
+          {},
+          linea
+        );
+
+      }
+    );
+
+  const movimientos = [];
+
+  try {
+
+    correcciones.forEach(
+      function(correccion, indiceCorreccion) {
+
+        const item =
+          correccion || {};
+
+        const idDetalleVerificacion =
+          String(
+            item.idDetalleVerificacion ||
+            ""
+          ).trim();
+
+        if (!idDetalleVerificacion) {
+
+          throw new Error(
+            "La corrección número " +
+            (indiceCorreccion + 1) +
+            " no contiene el ID del detalle de verificación."
+          );
+
+        }
+
+        const lineaVerificacion =
+          lineasVerificacionPorId[
+            idDetalleVerificacion
+          ];
+
+        if (!lineaVerificacion) {
+
+          throw new Error(
+            "No se encontró la línea de verificación " +
+            idDetalleVerificacion +
+            "."
+          );
+
+        }
+
+        const materialOriginal =
+          String(
+            lineaVerificacion.Material ||
+            ""
+          ).trim();
+
+        const destino =
+          String(
+            lineaVerificacion
+              .Centro_Destino ||
+            lineaVerificacion.Destino ||
+            ""
+          ).trim();
+
+        const diferenciaDetectada =
+          numeroCorreccionConduce_(
+            lineaVerificacion.Diferencia
+          );
+
+        const cantidadCorreccion =
+          numeroCorreccionConduce_(
+            item.cantidadCorreccion
+          );
+
+        const tipoCorreccion =
+          normalizarTextoCorreccionConduce_(
+            item.tipoCorreccion
+          );
+
+        if (!materialOriginal) {
+
+          throw new Error(
+            "No fue posible identificar el material original de la corrección."
+          );
+
+        }
+
+        if (!destino) {
+
+          throw new Error(
+            "No fue posible identificar el destino del material " +
+            materialOriginal +
+            "."
+          );
+
+        }
+
+        if (
+          diferenciaDetectada === 0
+        ) {
+
+          throw new Error(
+            "El material " +
+            materialOriginal +
+            " no tiene diferencia pendiente."
+          );
+
+        }
+
+        if (
+          cantidadCorreccion <= 0
+        ) {
+
+          throw new Error(
+            "La cantidad corregida del material " +
+            materialOriginal +
+            " debe ser mayor que cero."
+          );
+
+        }
+
+        /*
+         * ==================================================
+         * CRUCE DE MATERIAL
+         * ==================================================
+         *
+         * 1. Se reduce el material que estaba registrado.
+         * 2. Se agrega el material que realmente fue enviado.
+         *
+         * La cantidad retirada del material original puede ser
+         * distinta de la cantidad agregada del nuevo material,
+         * porque ambos pueden pertenecer a familias y estándares
+         * de pallet diferentes.
+         */
+        if (
+          tipoCorreccion ===
+          "cruce de material"
+        ) {
+
+          if (
+            diferenciaDetectada >= 0
+          ) {
+
+            throw new Error(
+              "El cruce de material solo puede aplicarse cuando el material original presenta faltante físico."
+            );
+
+          }
+
+          detalleConduce =
+            reducirMaterialConduce_({
+
+              detalle:
+                detalleConduce,
+
+              material:
+                materialOriginal,
+
+              destino:
+                destino,
+
+              cantidad:
+                cantidadCorreccion,
+
+              catalogo:
+                catalogoMateriales
+
+            });
+
+          const materialCruce =
+            prepararMaterialCruceConduce_({
+
+              correccion:
+                item,
+
+              catalogo:
+                catalogoMateriales,
+
+              idConduce:
+                idConduce,
+
+              noConduce:
+                conduce.No_Conduce,
+
+              destino:
+                destino
+
+            });
+
+          detalleConduce =
+            agregarMaterialConduce_({
+
+              detalle:
+                detalleConduce,
+
+              linea:
+                materialCruce,
+
+              catalogo:
+                catalogoMateriales
+
+            });
+
+          movimientos.push({
+
+            idDetalleVerificacion:
+              idDetalleVerificacion,
+
+            tipo:
+              "CRUCE DE MATERIAL",
+
+            materialOriginal:
+              materialOriginal,
+
+            cantidadRetirada:
+              cantidadCorreccion,
+
+            materialReal:
+              materialCruce.Material,
+
+            cantidadPrincipal:
+              materialCruce
+                .Cantidad_Principal,
+
+            recorte:
+              materialCruce
+                .Recorte_Adicional,
+
+            cantidadAgregada:
+              materialCruce.Cantidad,
+
+            destino:
+              destino
+
+          });
+
+          return;
+
+        }
+
+        /*
+         * ==================================================
+         * DIFERENCIA POSITIVA
+         * ==================================================
+         *
+         * Cantidad verificada > cantidad del sistema.
+         * Físicamente salió más de lo registrado.
+         * Se agregan nuevas líneas al conduce.
+         */
+        if (
+          diferenciaDetectada > 0
+        ) {
+
+          const materialCatalogo =
+            catalogoMateriales[
+              materialOriginal
+            ];
+
+          if (!materialCatalogo) {
+
+            throw new Error(
+              "No se encontró el material " +
+              materialOriginal +
+              " en la hoja Materiales."
+            );
+
+          }
+
+          const referencia =
+            obtenerReferenciaMaterialConduce_(
+              detalleConduce,
+              materialOriginal,
+              destino
+            );
+
+          detalleConduce =
+            agregarMaterialConduce_({
+
+              detalle:
+                detalleConduce,
+
+              linea: {
+
+                ID_Conduce:
+                  idConduce,
+
+                No_Conduce:
+                  conduce.No_Conduce,
+
+                Destino:
+                  destino,
+
+                Material:
+                  materialOriginal,
+
+                Descripcion:
+                  materialCatalogo.descripcion,
+
+                Unidad_Medida:
+                  materialCatalogo.unidadMedida,
+
+                Fecha_Produccion:
+                  referencia
+                    ? referencia.Fecha_Produccion
+                    : "",
+
+                Lote:
+                  referencia
+                    ? referencia.Lote
+                    : "",
+
+                Fecha_Vencimiento:
+                  referencia
+                    ? referencia.Fecha_Vencimiento
+                    : "",
+
+                Base:
+                  materialCatalogo.base,
+
+                Cantidad:
+                  cantidadCorreccion
+
+              },
+
+              catalogo:
+                catalogoMateriales
+
+            });
+
+          movimientos.push({
+
+            idDetalleVerificacion:
+              idDetalleVerificacion,
+
+            tipo:
+              "AUMENTO",
+
+            material:
+              materialOriginal,
+
+            cantidad:
+              cantidadCorreccion,
+
+            destino:
+              destino
+
+          });
+
+          return;
+
+        }
+
+        /*
+         * ==================================================
+         * DIFERENCIA NEGATIVA
+         * ==================================================
+         *
+         * Cantidad verificada < cantidad del sistema.
+         * El conduce tenía unidades registradas de más.
+         * Se descuentan desde la última línea disponible.
+         */
+        detalleConduce =
+          reducirMaterialConduce_({
+
+            detalle:
+              detalleConduce,
+
+            material:
+              materialOriginal,
+
+            destino:
+              destino,
+
+            cantidad:
+              cantidadCorreccion,
+
+            catalogo:
+              catalogoMateriales
+
+          });
+
+        movimientos.push({
+
+          idDetalleVerificacion:
+            idDetalleVerificacion,
+
+          tipo:
+            "REDUCCIÓN",
+
+          material:
+            materialOriginal,
+
+          cantidad:
+            cantidadCorreccion,
+
+          destino:
+            destino
+
+        });
+
+      }
+    );
+
+    /*
+     * Antes de reescribir el conduce, restauramos los datos
+     * documentales de las líneas originales que no fueron
+     * modificados por la corrección.
+     */
+    detalleConduce =
+      conservarFechasDetalleOriginalConduce_({
+
+        detalleCorregido:
+          detalleConduce,
+
+        detalleOriginal:
+          detalleOriginal
+
+      });
+
+
+    detalleConduce =
+      normalizarPosicionesConduceCorregido_(
+        detalleConduce
+      );
+
+    reemplazarDetalleConduceCorregido_({
+
+      hoja:
+        hojaDetalleDespacho,
+
+      idConduce:
+        idConduce,
+
+      detalle:
+        detalleConduce
+
+    });
+
+    const totalUnidades =
+      detalleConduce.reduce(
+        function(total, linea) {
+
+          return total +
+            numeroCorreccionConduce_(
+              linea.Cantidad
+            );
+
+        },
+        0
+      );
+
+    actualizarTotalesConduceCorregido_({
+
+      hoja:
+        hojaDespacho,
+
+      idConduce:
+        idConduce,
+
+      totalLineas:
+        detalleConduce.length,
+
+      totalUnidades:
+        totalUnidades
+
+    });
+
+    SpreadsheetApp.flush();
+
+    const encabezadoActualizado =
+      obtenerRegistroConduceCorreccion_(
+        hojaDespacho,
+        idConduce
+      );
+
+    return {
+
+      ok:
+        true,
+
+      idConduce:
+        idConduce,
+
+      noConduce:
+        String(
+          conduce.No_Conduce || ""
+        ).trim(),
+
+      corregidoPor:
+        corregidoPor,
+
+      totalLineas:
+        detalleConduce.length,
+
+      totalUnidades:
+        totalUnidades,
+
+      movimientos:
+        movimientos,
+
+      conduce:
+        construirConduceCorregidoParaFrontend_({
+
+          encabezado:
+            encabezadoActualizado,
+
+          detalle:
+            detalleConduce
+
+        })
+
+    };
+
+  } catch (error) {
+
+    /*
+     * Si la escritura del nuevo detalle alcanzó a comenzar,
+     * restauramos el detalle original y sus totales.
+     */
+    try {
+
+      const detalleRestaurado =
+        normalizarPosicionesConduceCorregido_(
+          detalleOriginal
+        );
+
+      reemplazarDetalleConduceCorregido_({
+
+        hoja:
+          hojaDetalleDespacho,
+
+        idConduce:
+          idConduce,
+
+        detalle:
+          detalleRestaurado
+
+      });
+
+      actualizarTotalesConduceCorregido_({
+
+        hoja:
+          hojaDespacho,
+
+        idConduce:
+          idConduce,
+
+        totalLineas:
+          detalleRestaurado.length,
+
+        totalUnidades:
+          detalleRestaurado.reduce(
+            function(total, linea) {
+
+              return total +
+                numeroCorreccionConduce_(
+                  linea.Cantidad
+                );
+
+            },
+            0
+          )
+
+      });
+
+      SpreadsheetApp.flush();
+
+    } catch (errorRestauracion) {
+
+      console.error(
+        "No fue posible restaurar el conduce después del error:",
+        errorRestauracion
+      );
+
+    }
+
+    throw error;
+
+  }
+
+}
+
+
+/**
+ * Obtiene el registro de Despacho por ID_Conduce.
+ */
+function obtenerRegistroConduceCorreccion_(
+  hoja,
+  idConduce
+) {
+
+  const registros =
+    leerRegistrosCorreccionConduce_(
+      hoja
+    );
+
+  for (
+    let i = 0;
+    i < registros.length;
+    i++
+  ) {
+
+    if (
+      String(
+        registros[i].ID_Conduce || ""
+      ).trim() === idConduce
+    ) {
+
+      return registros[i];
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+/**
+ * Obtiene el detalle de la verificación seleccionada.
+ */
+function obtenerLineasVerificacionCorreccionConduce_(
+  hoja,
+  idVerificacion
+) {
+
+  return leerRegistrosCorreccionConduce_(
+    hoja
+  ).filter(
+    function(linea) {
+
+      return String(
+        linea.ID_Verificacion || ""
+      ).trim() === idVerificacion;
+
+    }
+  );
+
+}
+
+
+/**
+ * Obtiene el catálogo de materiales requerido para los cálculos.
+ */
+function obtenerCatalogoMaterialesCorreccionConduce_(
+  hoja
+) {
+
+  const registros =
+    leerRegistrosCorreccionConduce_(
+      hoja
+    );
+
+  const catalogo = {};
+
+  registros.forEach(
+    function(item) {
+
+      const idMaterial =
+        String(
+          item.ID_Material || ""
+        ).trim();
+
+      if (!idMaterial) {
+
+        return;
+
+      }
+
+      const base =
+        numeroCorreccionConduce_(
+          item.Base_Estandar
+        );
+
+      const altura =
+        numeroCorreccionConduce_(
+          item.Altura_Estandar
+        );
+
+      catalogo[
+        idMaterial
+      ] = {
+
+        idMaterial:
+          idMaterial,
+
+        descripcion:
+          String(
+            item.Descripcion || ""
+          ).trim(),
+
+        base:
+          base,
+
+        altura:
+          altura,
+
+        estandarPallet:
+          base * altura,
+
+        vidaUtilAnios:
+          numeroCorreccionConduce_(
+            item.Vida_Util_Años
+          ),
+
+        unidadMedida:
+          String(
+            item.Unidad_Medida ||
+            item.UM ||
+            ""
+          ).trim(),
+
+        umb:
+          numeroCorreccionConduce_(
+            item.UMB
+          ),
+
+        um:
+          String(
+            item.UM || ""
+          ).trim()
+
+      };
+
+    }
+  );
+
+  return catalogo;
+
+}
+
+
+/**
+ * Obtiene las líneas físicas del conduce.
+ */
+function obtenerDetalleConduceCorreccion_(
+  hoja,
+  idConduce
+) {
+
+  return leerRegistrosCorreccionConduce_(
+    hoja
+  ).filter(
+    function(linea) {
+
+      return String(
+        linea.ID_Conduce || ""
+      ).trim() === idConduce;
+
+    }
+  );
+
+}
+
+
+/**
+ * Reduce unidades de un material y destino.
+ *
+ * La reducción se realiza desde la última línea hacia la primera.
+ * Si una línea queda en cero, se elimina.
+ */
+function reducirMaterialConduce_(
+  parametros
+) {
+
+  const detalle =
+    Array.isArray(
+      parametros.detalle
+    )
+      ? parametros.detalle.map(
+          function(linea) {
+
+            return Object.assign(
+              {},
+              linea
+            );
+
+          }
+        )
+      : [];
+
+  const material =
+    String(
+      parametros.material || ""
+    ).trim();
+
+  const destino =
+    String(
+      parametros.destino || ""
+    ).trim();
+
+  const catalogo =
+    parametros.catalogo || {};
+
+  let cantidadPendiente =
+    numeroCorreccionConduce_(
+      parametros.cantidad
+    );
+
+  const candidatos =
+    detalle
+      .map(
+        function(linea, indice) {
+
+          return {
+
+            linea:
+              linea,
+
+            indice:
+              indice
+
+          };
+
+        }
+      )
+      .filter(
+        function(item) {
+
+          return (
+            String(
+              item.linea.Material || ""
+            ).trim() === material &&
+            String(
+              item.linea.Destino || ""
+            ).trim() === destino
+          );
+
+        }
+      )
+      .sort(
+        function(a, b) {
+
+          const posicionA =
+            numeroCorreccionConduce_(
+              a.linea.Posicion
+            );
+
+          const posicionB =
+            numeroCorreccionConduce_(
+              b.linea.Posicion
+            );
+
+          if (
+            posicionA !== posicionB
+          ) {
+
+            return posicionB -
+              posicionA;
+
+          }
+
+          return b.indice -
+            a.indice;
+
+        }
+      );
+
+  const cantidadDisponible =
+    candidatos.reduce(
+      function(total, item) {
+
+        return total +
+          numeroCorreccionConduce_(
+            item.linea.Cantidad
+          );
+
+      },
+      0
+    );
+
+  if (
+    cantidadDisponible <
+    cantidadPendiente
+  ) {
+
+    throw new Error(
+      "No existen suficientes unidades del material " +
+      material +
+      " en el destino " +
+      destino +
+      " para aplicar una reducción de " +
+      cantidadPendiente +
+      ". Disponible: " +
+      cantidadDisponible +
+      "."
+    );
+
+  }
+
+  candidatos.forEach(
+    function(item) {
+
+      if (
+        cantidadPendiente <= 0
+      ) {
+
+        return;
+
+      }
+
+      const linea =
+        detalle[
+          item.indice
+        ];
+
+      const cantidadActual =
+        numeroCorreccionConduce_(
+          linea.Cantidad
+        );
+
+      const descuento =
+        Math.min(
+          cantidadActual,
+          cantidadPendiente
+        );
+
+      const nuevaCantidad =
+        cantidadActual -
+        descuento;
+
+      cantidadPendiente -=
+        descuento;
+
+      if (
+        nuevaCantidad <= 0
+      ) {
+
+        detalle[
+          item.indice
+        ] = null;
+
+        return;
+
+      }
+
+      const materialCatalogo =
+        catalogo[
+          material
+        ] || {};
+
+      const base =
+        numeroCorreccionConduce_(
+          linea.Base
+        ) ||
+        numeroCorreccionConduce_(
+          materialCatalogo.base
+        );
+
+      if (
+        base <= 0
+      ) {
+
+        throw new Error(
+          "No fue posible determinar la base del material " +
+          material +
+          "."
+        );
+
+      }
+
+      linea.Cantidad =
+        nuevaCantidad;
+
+      linea.Base =
+        base;
+
+      linea.Altura =
+        Math.floor(
+          nuevaCantidad / base
+        );
+
+      linea.Recorte =
+        nuevaCantidad %
+        base;
+
+      linea.Tipo_Linea =
+        "Tarima";
+
+      detalle[
+        item.indice
+      ] = linea;
+
+    }
+  );
+
+  return detalle.filter(
+    Boolean
+  );
+
+}
+
+/**
+ * Genera el siguiente ID_Linea manteniendo la estructura
+ * existente del conduce.
+ *
+ * Ejemplo:
+ * 3500_46225_081500_017
+ * 3500_46225_081500_018
+ */
+function generarSiguienteIdLineaCorreccionConduce_(
+  detalle,
+  lineaBase
+) {
+
+  const lineas =
+    Array.isArray(
+      detalle
+    )
+      ? detalle
+      : [];
+
+
+  const idReferencia =
+    String(
+      lineaBase.ID_Linea ||
+      ""
+    ).trim();
+
+
+  let prefijo =
+    "";
+
+
+  const coincidenciaReferencia =
+    idReferencia.match(
+      /^(.*_)(\d+)$/
+    );
+
+
+  if (
+    coincidenciaReferencia
+  ) {
+
+    prefijo =
+      coincidenciaReferencia[1];
+
+  }
+
+
+  /*
+   * Si la línea base no contiene un ID válido,
+   * buscamos cualquier línea del mismo conduce.
+   */
+  if (!prefijo) {
+
+    for (
+      let i = 0;
+      i < lineas.length;
+      i++
+    ) {
+
+      const idLinea =
+        String(
+          lineas[i].ID_Linea ||
+          ""
+        ).trim();
+
+
+      const coincidencia =
+        idLinea.match(
+          /^(.*_)(\d+)$/
+        );
+
+
+      if (coincidencia) {
+
+        prefijo =
+          coincidencia[1];
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  /*
+   * Respaldo defensivo para conduces antiguos que no
+   * tengan la estructura esperada.
+   */
+  if (!prefijo) {
+
+    const idConduce =
+      String(
+        lineaBase.ID_Conduce ||
+        "CONDUCE"
+      )
+        .trim()
+        .replace(
+          /[^A-Za-z0-9_-]/g,
+          "_"
+        );
+
+
+    prefijo =
+      idConduce +
+      "_";
+
+  }
+
+
+  let mayorSecuencia =
+    0;
+
+
+  lineas.forEach(
+    function(linea) {
+
+      const idLinea =
+        String(
+          linea.ID_Linea ||
+          ""
+        ).trim();
+
+
+      if (
+        idLinea.indexOf(
+          prefijo
+        ) !== 0
+      ) {
+
+        return;
+
+      }
+
+
+      const parteFinal =
+        idLinea.substring(
+          prefijo.length
+        );
+
+
+      if (
+        /^\d+$/.test(
+          parteFinal
+        )
+      ) {
+
+        mayorSecuencia =
+          Math.max(
+            mayorSecuencia,
+            Number(
+              parteFinal
+            )
+          );
+
+      }
+
+    }
+  );
+
+
+  return (
+    prefijo +
+    String(
+      mayorSecuencia + 1
+    ).padStart(
+      3,
+      "0"
+    )
+  );
+
+}
+/**
+ * Agrega unidades al conduce.
+ *
+ * Una cantidad mayor al estándar pallet se divide en:
+ * - una o varias líneas completas;
+ * - una última línea parcial, si aplica.
+ */
+function agregarMaterialConduce_(
+  parametros
+) {
+
+  const detalle =
+    Array.isArray(
+      parametros.detalle
+    )
+      ? parametros.detalle.map(
+          function(linea) {
+
+            return Object.assign(
+              {},
+              linea
+            );
+
+          }
+        )
+      : [];
+
+  const lineaBase =
+    Object.assign(
+      {},
+      parametros.linea || {}
+    );
+
+  const catalogo =
+    parametros.catalogo || {};
+
+  const material =
+    String(
+      lineaBase.Material || ""
+    ).trim();
+
+  const materialCatalogo =
+    catalogo[
+      material
+    ];
+
+  if (!materialCatalogo) {
+
+    throw new Error(
+      "No se encontró el material " +
+      material +
+      " en la hoja Materiales."
+    );
+
+  }
+
+  const base =
+    numeroCorreccionConduce_(
+      lineaBase.Base
+    ) ||
+    numeroCorreccionConduce_(
+      materialCatalogo.base
+    );
+
+  const alturaEstandar =
+    numeroCorreccionConduce_(
+      materialCatalogo.altura
+    );
+
+  const estandarPallet =
+    base *
+    alturaEstandar;
+
+  let cantidadPendiente =
+    numeroCorreccionConduce_(
+      lineaBase.Cantidad
+    );
+
+  if (
+    base <= 0 ||
+    alturaEstandar <= 0 ||
+    estandarPallet <= 0
+  ) {
+
+    throw new Error(
+      "El material " +
+      material +
+      " no tiene un estándar pallet válido."
+    );
+
+  }
+
+  if (
+    cantidadPendiente <= 0
+  ) {
+
+    throw new Error(
+      "La cantidad que será agregada al conduce debe ser mayor que cero."
+    );
+
+  }
+
+  while (
+    cantidadPendiente > 0
+  ) {
+
+    const cantidadLinea =
+      Math.min(
+        cantidadPendiente,
+        estandarPallet
+      );
+
+    const altura =
+      Math.floor(
+        cantidadLinea / base
+      );
+
+    const recorte =
+      cantidadLinea %
+      base;
+
+    detalle.push({
+      
+      ID_Linea:
+        generarSiguienteIdLineaCorreccionConduce_(
+          detalle,
+          lineaBase
+        ),
+
+      Tipo_Linea:
+        "Tarima",
+
+      Posicion:
+        "",
+
+      ID_Conduce:
+        lineaBase.ID_Conduce,
+
+      Destino:
+        lineaBase.Destino,
+
+      No_Conduce:
+        lineaBase.No_Conduce,
+
+      Material:
+        material,
+
+      Descripcion:
+        lineaBase.Descripcion ||
+        materialCatalogo.descripcion,
+
+      Unidad_Medida:
+        lineaBase.Unidad_Medida ||
+        materialCatalogo.unidadMedida,
+
+      Fecha_Produccion:
+        lineaBase.Fecha_Produccion ||
+        "",
+
+      Lote:
+        lineaBase.Lote ||
+        "",
+
+      Fecha_Vencimiento:
+        lineaBase.Fecha_Vencimiento ||
+        "",
+
+      Base:
+        base,
+
+      Altura:
+        altura,
+
+      Recorte:
+        recorte,
+
+      Cantidad:
+        cantidadLinea
+
+    });
+
+    cantidadPendiente -=
+      cantidadLinea;
+
+  }
+
+  return detalle;
+
+}
+
+
+/**
+ * Valida y prepara el material real de un cruce.
+ */
+function prepararMaterialCruceConduce_(
+  parametros
+) {
+
+  const correccion =
+    parametros.correccion || {};
+
+  const materialCruce =
+    correccion.materialCruce || {};
+
+  const material =
+    String(
+      materialCruce.material || ""
+    ).trim();
+
+  if (!material) {
+
+    throw new Error(
+      "Debe indicar el nuevo material identificado en el cruce."
+    );
+
+  }
+
+  const catalogo =
+    parametros.catalogo || {};
+
+  const materialCatalogo =
+    catalogo[
+      material
+    ];
+
+  if (!materialCatalogo) {
+
+    throw new Error(
+      "No se encontró el material " +
+      material +
+      " en la hoja Materiales."
+    );
+
+  }
+
+  const cantidadPrincipal =
+    numeroCorreccionConduce_(
+      materialCruce.cantidadPrincipal
+    );
+
+  const recorte =
+    numeroCorreccionConduce_(
+      materialCruce.recorte
+    );
+
+  if (
+    cantidadPrincipal <= 0
+  ) {
+
+    throw new Error(
+      "La cantidad principal del material cruzado debe ser mayor que cero."
+    );
+
+  }
+
+  if (
+    cantidadPrincipal >
+    materialCatalogo.estandarPallet
+  ) {
+
+    throw new Error(
+      "La cantidad principal del material " +
+      material +
+      " no puede superar su estándar pallet de " +
+      materialCatalogo.estandarPallet +
+      "."
+    );
+
+  }
+
+  if (
+    recorte < 0
+  ) {
+
+    throw new Error(
+      "El recorte del material cruzado no puede ser negativo."
+    );
+
+  }
+
+  if (
+    recorte >=
+    materialCatalogo.estandarPallet
+  ) {
+
+    throw new Error(
+      "El recorte del material cruzado debe ser menor que el estándar pallet de " +
+      materialCatalogo.estandarPallet +
+      "."
+    );
+
+  }
+
+  const fechaProduccion =
+    normalizarFechaCorreccionConduce_(
+      materialCruce.fechaProduccion
+    );
+
+  if (!fechaProduccion) {
+
+    throw new Error(
+      "Debe indicar la fecha de fabricación del material cruzado."
+    );
+
+  }
+
+  const lote =
+    calcularLoteCorreccionConduce_(
+      fechaProduccion
+    );
+
+  const fechaVencimiento =
+    calcularVencimientoCorreccionConduce_(
+      fechaProduccion,
+      materialCatalogo.vidaUtilAnios
+    );
+
+  return {
+
+    ID_Conduce:
+      parametros.idConduce,
+
+    No_Conduce:
+      parametros.noConduce,
+
+    Destino:
+      parametros.destino,
+
+    Material:
+      material,
+
+    Descripcion:
+      materialCatalogo.descripcion,
+
+    Unidad_Medida:
+      materialCatalogo.unidadMedida,
+
+    Fecha_Produccion:
+      fechaProduccion,
+
+    Lote:
+      lote,
+
+    Fecha_Vencimiento:
+      fechaVencimiento,
+
+    Base:
+      materialCatalogo.base,
+
+    Altura:
+      materialCatalogo.altura,
+
+    Recorte:
+      recorte,
+
+    Cantidad_Principal:
+      cantidadPrincipal,
+
+    Recorte_Adicional:
+      recorte,
+
+    Cantidad:
+      cantidadPrincipal +
+      recorte
+
+  };
+
+}
+
+
+/**
+ * Conserva fecha de producción, lote y vencimiento de las
+ * líneas originales al reconstruir Despacho_Detalle.
+ *
+ * Las líneas nuevas de un cruce mantienen sus propios datos.
+ */
+function conservarFechasDetalleOriginalConduce_(
+  parametros
+) {
+
+  const detalleCorregido =
+    Array.isArray(
+      parametros.detalleCorregido
+    )
+      ? parametros.detalleCorregido
+      : [];
+
+
+  const detalleOriginal =
+    Array.isArray(
+      parametros.detalleOriginal
+    )
+      ? parametros.detalleOriginal
+      : [];
+
+
+  const originalesPorId = {};
+
+
+  detalleOriginal.forEach(
+    function(linea) {
+
+      const idLinea =
+        String(
+          linea.ID_Linea ||
+          ""
+        ).trim();
+
+
+      if (idLinea) {
+
+        originalesPorId[
+          idLinea
+        ] = linea;
+
+      }
+
+    }
+  );
+
+
+  return detalleCorregido.map(
+    function(linea) {
+
+      const copia =
+        Object.assign(
+          {},
+          linea
+        );
+
+
+      const idLinea =
+        String(
+          copia.ID_Linea ||
+          ""
+        ).trim();
+
+
+      const original =
+        originalesPorId[
+          idLinea
+        ];
+
+
+      /*
+       * Una línea creada por cruce no existía previamente,
+       * por lo que conserva los valores calculados para ella.
+       */
+      if (!original) {
+
+        return copia;
+
+      }
+
+
+      if (
+        !copia.Fecha_Produccion &&
+        original.Fecha_Produccion
+      ) {
+
+        copia.Fecha_Produccion =
+          original.Fecha_Produccion;
+
+      }
+
+
+      if (
+        !copia.Lote &&
+        original.Lote
+      ) {
+
+        copia.Lote =
+          original.Lote;
+
+      }
+
+
+      if (
+        !copia.Fecha_Vencimiento &&
+        original.Fecha_Vencimiento
+      ) {
+
+        copia.Fecha_Vencimiento =
+          original.Fecha_Vencimiento;
+
+      }
+
+
+      return copia;
+
+    }
+  );
+
+}
+
+
+/**
+ * Reordena las posiciones de todas las líneas.
+ */
+function normalizarPosicionesConduceCorregido_(
+  detalle
+) {
+
+  const lineas =
+    Array.isArray(
+      detalle
+    )
+      ? detalle
+      : [];
+
+
+  return lineas.map(
+    function(linea, indice) {
+
+      const copia =
+        Object.assign(
+          {},
+          linea
+        );
+
+
+      copia.Posicion =
+        indice + 1;
+
+
+      return copia;
+
+    }
+  );
+
+}
+
+
+/**
+ * Sustituye únicamente las líneas del conduce corregido.
+ */
+function reemplazarDetalleConduceCorregido_(
+  parametros
+) {
+
+  const hoja =
+    parametros.hoja;
+
+  const idConduce =
+    String(
+      parametros.idConduce || ""
+    ).trim();
+
+  const detalle =
+    Array.isArray(
+      parametros.detalle
+    )
+      ? parametros.detalle
+      : [];
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getValues();
+
+  if (
+    datos.length === 0
+  ) {
+
+    throw new Error(
+      "La hoja Despacho_Detalle no contiene encabezados."
+    );
+
+  }
+
+  const encabezados =
+    datos[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+  const indiceIdConduce =
+    encabezados.indexOf(
+      "ID_Conduce"
+    );
+
+  if (
+    indiceIdConduce === -1
+  ) {
+
+    throw new Error(
+      'No existe la columna "ID_Conduce" en Despacho_Detalle.'
+    );
+
+  }
+
+  /*
+   * Eliminamos de abajo hacia arriba para no desplazar filas
+   * todavía pendientes de revisión.
+   */
+  for (
+    let fila =
+      datos.length - 1;
+
+    fila >= 1;
+
+    fila--
+  ) {
+
+    if (
+      String(
+        datos[fila][
+          indiceIdConduce
+        ] || ""
+      ).trim() === idConduce
+    ) {
+
+      hoja.deleteRow(
+        fila + 1
+      );
+
+    }
+
+  }
+
+  if (
+    detalle.length === 0
+  ) {
+
+    return;
+
+  }
+
+  const detallePreparado =
+  detalle.map(
+    function(linea) {
+
+      const copia =
+        Object.assign(
+          {},
+          linea
+        );
+
+
+      if (
+        copia.Fecha_Produccion
+      ) {
+
+        copia.Fecha_Produccion =
+          normalizarFechaCorreccionConduce_(
+            copia.Fecha_Produccion
+          );
+
+      }
+
+
+      if (
+        copia.Fecha_Vencimiento
+      ) {
+
+        copia.Fecha_Vencimiento =
+          normalizarFechaCorreccionConduce_(
+            copia.Fecha_Vencimiento
+          );
+
+      }
+
+
+      return copia;
+
+    }
+  );
+
+  const filas =
+  detallePreparado.map(
+      function(linea) {
+
+        return encabezados.map(
+          function(encabezado) {
+
+            return Object.prototype
+              .hasOwnProperty.call(
+                linea,
+                encabezado
+              )
+                ? linea[
+                    encabezado
+                  ]
+                : "";
+
+          }
+        );
+
+      }
+    );
+
+  hoja
+    .getRange(
+      hoja.getLastRow() + 1,
+      1,
+      filas.length,
+      encabezados.length
+    )
+    .setValues(
+      filas
+    );
+
+}
+
+
+/**
+ * Actualiza Total_Lineas y Total_Unidades del encabezado.
+ */
+function actualizarTotalesConduceCorregido_(
+  parametros
+) {
+
+  const hoja =
+    parametros.hoja;
+
+  const idConduce =
+    String(
+      parametros.idConduce || ""
+    ).trim();
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getValues();
+
+  if (
+    datos.length < 2
+  ) {
+
+    throw new Error(
+      "La hoja Despacho no contiene registros."
+    );
+
+  }
+
+  const encabezados =
+    datos[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+  const indiceId =
+    encabezados.indexOf(
+      "ID_Conduce"
+    );
+
+  const indiceTotalLineas =
+    encabezados.indexOf(
+      "Total_Lineas"
+    );
+
+  const indiceTotalUnidades =
+    encabezados.indexOf(
+      "Total_Unidades"
+    );
+
+  if (
+    indiceId === -1 ||
+    indiceTotalLineas === -1 ||
+    indiceTotalUnidades === -1
+  ) {
+
+    throw new Error(
+      "Faltan columnas requeridas en la hoja Despacho."
+    );
+
+  }
+
+  let filaEncontrada =
+    -1;
+
+  for (
+    let fila = 1;
+    fila < datos.length;
+    fila++
+  ) {
+
+    if (
+      String(
+        datos[fila][indiceId] ||
+        ""
+      ).trim() === idConduce
+    ) {
+
+      filaEncontrada =
+        fila + 1;
+
+      break;
+
+    }
+
+  }
+
+  if (
+    filaEncontrada === -1
+  ) {
+
+    throw new Error(
+      "No fue posible localizar el conduce para actualizar sus totales."
+    );
+
+  }
+
+  hoja
+    .getRange(
+      filaEncontrada,
+      indiceTotalLineas + 1
+    )
+    .setValue(
+      numeroCorreccionConduce_(
+        parametros.totalLineas
+      )
+    );
+
+  hoja
+    .getRange(
+      filaEncontrada,
+      indiceTotalUnidades + 1
+    )
+    .setValue(
+      numeroCorreccionConduce_(
+        parametros.totalUnidades
+      )
+    );
+
+}
+
+
+/**
+ * Construye el objeto que consume Conduce.encabezado y
+ * Conduce.detalle en despachos.js.
+ */
+function construirConduceCorregidoParaFrontend_(
+  parametros
+) {
+
+  const encabezado =
+    parametros.encabezado || {};
+
+  const detalle =
+    parametros.detalle || [];
+
+  return {
+
+    encabezado: {
+
+      idConduce:
+        encabezado.ID_Conduce,
+
+      noConduce:
+        encabezado.No_Conduce,
+
+      fechaCreacion:
+        formatearFechaHoraCorreccionConduce_(
+          encabezado.Fecha_Creacion
+        ),
+
+      fechaDespacho:
+        formatearFechaHoraCorreccionConduce_(
+          encabezado.Fecha_Despacho
+        ),
+
+      fechaCompletado:
+        formatearFechaHoraCorreccionConduce_(
+          encabezado.Fecha_Completado
+        ),
+
+      estado:
+        encabezado.Estado,
+
+      usuarioCreador:
+        encabezado.Usuario_Creador,
+
+      supervisor:
+        encabezado.RealizadoPor,
+
+      chofer:
+        encabezado.Chofer,
+
+      unidad:
+        encabezado.Unidad_Carga,
+
+      cantidadDestinos:
+        encabezado.Cantidad_Destinos,
+
+      destino1:
+        encabezado.Destino_1,
+
+      precinto1:
+        encabezado.Precinto_1,
+
+      destino2:
+        encabezado.Destino_2,
+
+      precinto2:
+        encabezado.Precinto_2,
+
+      totalLineas:
+        encabezado.Total_Lineas,
+
+      totalUnidades:
+        encabezado.Total_Unidades,
+
+      pdfUrl:
+        encabezado.PDF_URL,
+
+      observaciones:
+        encabezado.Observaciones,
+
+      asistenteCalidad:
+        encabezado.AsistenteCalidad,
+
+      temperatura:
+        encabezado.Temperatura,
+
+      revisionUrl:
+        encabezado.RevisionURL,
+
+      documentoSAP1:
+        encabezado.Documento_SAP_1,
+
+      documentoSAP2:
+        encabezado.Documento_SAP_2,
+
+      documentoSAP3:
+        encabezado.Documento_SAP_3,
+
+      documentoSAP4:
+        encabezado.Documento_SAP_4
+
+    },
+
+    detalle:
+      detalle.map(
+        function(linea) {
+
+          return {
+
+            idLinea:
+              linea.ID_Linea,
+
+            tipo:
+              linea.Tipo_Linea,
+
+            posicion:
+              linea.Posicion,
+
+            destino:
+              linea.Destino,
+
+            material:
+              linea.Material,
+
+            descripcion:
+              linea.Descripcion,
+
+            unidad:
+              linea.Unidad_Medida,
+
+            fechaProduccion:
+              normalizarFechaCorreccionConduce_(
+                linea.Fecha_Produccion
+              ),
+
+            lote:
+              linea.Lote,
+
+            fechaVencimiento:
+              normalizarFechaCorreccionConduce_(
+                linea.Fecha_Vencimiento
+              ),
+
+            base:
+              linea.Base,
+
+            altura:
+              linea.Altura,
+
+            recorte:
+              linea.Recorte,
+
+            cantidad:
+              linea.Cantidad
+
+          };
+
+        }
+      )
+
+  };
+
+}
+
+
+/**
+ * Busca la última línea del mismo material y destino para
+ * reutilizar fecha de producción, lote y vencimiento.
+ */
+function obtenerReferenciaMaterialConduce_(
+  detalle,
+  material,
+  destino
+) {
+
+  for (
+    let i =
+      detalle.length - 1;
+
+    i >= 0;
+
+    i--
+  ) {
+
+    const linea =
+      detalle[i];
+
+    if (
+      String(
+        linea.Material || ""
+      ).trim() === material &&
+      String(
+        linea.Destino || ""
+      ).trim() === destino
+    ) {
+
+      return linea;
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+/**
+ * Lee una hoja completa como objetos.
+ */
+function leerRegistrosCorreccionConduce_(
+  hoja
+) {
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getValues();
+
+  if (
+    datos.length <= 1
+  ) {
+
+    return [];
+
+  }
+
+  const encabezados =
+    datos[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+  return datos
+    .slice(1)
+    .map(
+      function(fila, indice) {
+
+        const objeto = {
+
+          __fila:
+            indice + 2
+
+        };
+
+        encabezados.forEach(
+          function(encabezado, columna) {
+
+            objeto[
+              encabezado
+            ] = fila[
+              columna
+            ];
+
+          }
+        );
+
+        return objeto;
+
+      }
+    );
+
+}
+
+
+/**
+ * Genera el lote con la misma lógica actual de Despachos:
+ * semana del año + dos últimos dígitos del año.
+ */
+function calcularLoteCorreccionConduce_(
+  fechaProduccion
+) {
+
+  const fecha =
+    new Date(
+      fechaProduccion +
+      "T00:00:00"
+    );
+
+  const inicioAno =
+    new Date(
+      fecha.getFullYear(),
+      0,
+      1
+    );
+
+  const dias =
+    Math.floor(
+      (
+        fecha -
+        inicioAno
+      ) /
+      86400000
+    );
+
+  const semana =
+    Math.ceil(
+      (
+        dias +
+        inicioAno.getDay() +
+        1
+      ) /
+      7
+    );
+
+  return (
+    String(
+      semana
+    ).padStart(
+      2,
+      "0"
+    ) +
+    String(
+      fecha.getFullYear()
+    ).slice(
+      -2
+    )
+  );
+
+}
+
+
+/**
+ * Calcula el vencimiento con Vida_Util_Años.
+ */
+function calcularVencimientoCorreccionConduce_(
+  fechaProduccion,
+  vidaUtilAnios
+) {
+
+  const fecha =
+    new Date(
+      fechaProduccion +
+      "T00:00:00"
+    );
+
+  const meses =
+    numeroCorreccionConduce_(
+      vidaUtilAnios
+    ) *
+    12;
+
+  fecha.setMonth(
+    fecha.getMonth() +
+    meses
+  );
+
+  return Utilities.formatDate(
+    fecha,
+    Session.getScriptTimeZone(),
+    "yyyy-MM-dd"
+  );
+
+}
+
+
+function normalizarFechaCorreccionConduce_(
+  valor
+) {
+
+  if (!valor) {
+
+    return "";
+
+  }
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd"
+    );
+
+  }
+
+  const texto =
+    String(
+      valor
+    ).trim();
+
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(
+      texto
+    )
+  ) {
+
+    return texto;
+
+  }
+
+  const partes =
+    texto.split(
+      "/"
+    );
+
+  if (
+    partes.length === 3
+  ) {
+
+    return (
+      partes[2] +
+      "-" +
+      partes[1].padStart(
+        2,
+        "0"
+      ) +
+      "-" +
+      partes[0].padStart(
+        2,
+        "0"
+      )
+    );
+
+  }
+
+  return "";
+
+}
+
+
+function formatearFechaHoraCorreccionConduce_(
+  valor
+) {
+
+  if (!valor) {
+
+    return "";
+
+  }
+
+  if (
+    valor instanceof Date &&
+    !isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd'T'HH:mm:ss"
+    );
+
+  }
+
+  return String(
+    valor
+  );
+
+}
+
+
+function normalizarTextoCorreccionConduce_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .trim()
+    .toLowerCase()
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    );
+
+}
+
+
+function numeroCorreccionConduce_(
+  valor
+) {
+
+  if (
+    valor === null ||
+    valor === undefined ||
+    valor === ""
+  ) {
+
+    return 0;
+
+  }
+
+  const numero =
+    Number(
+      String(
+        valor
+      )
+        .replace(
+          /,/g,
+          ""
+        )
+        .trim()
+    );
+
+  return isFinite(
+    numero
+  )
+    ? numero
+    : 0;
+
+}
+
+
+/**
+ * Prueba controlada.
+ *
+ * No ejecutar sin reemplazar los IDs.
+ */
+function probarAplicacionCorreccionConduce_() {
+
+  const resultado =
+    aplicarCorreccionesVerificacionAlConduce_({
+
+      idConduce:
+        "REEMPLAZAR_ID_CONDUCE",
+
+      idVerificacion:
+        "REEMPLAZAR_ID_VERIFICACION",
+
+      corregidoPor:
+        "PRUEBA CONTROLADA",
+
+      correcciones: [
+
+        {
+
+          idDetalleVerificacion:
+            "REEMPLAZAR_ID_DETALLE",
+
+          cantidadCorreccion:
+            1,
+
+          tipoCorreccion:
+            "AJUSTE DE CANTIDAD"
+
+        }
+
+      ]
+
+    });
+
+  Logger.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+}

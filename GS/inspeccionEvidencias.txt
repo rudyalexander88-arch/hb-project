@@ -1,0 +1,366 @@
+// ======================================================
+// INSPECCIONEVIDENCIAS.GS
+// Evidencias BASC en Google Drive
+// ======================================================
+
+function subirEvidenciaInspeccion(data) {
+  try {
+    validarDatosEvidencia_(data);
+
+    const contexto = obtenerContextoEvidencia_(data.idInspeccion);
+    const carpetaRaiz = obtenerCarpetaRaizEvidenciasBASC_();
+    const zonaHoraria = Session.getScriptTimeZone();
+    const fechaDespacho = contexto.fechaDespacho;
+
+    const anio = Utilities.formatDate(fechaDespacho, zonaHoraria, "yyyy");
+    const numeroMes = Utilities.formatDate(fechaDespacho, zonaHoraria, "MM");
+    const meses = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+
+    const carpetaAnio = obtenerOCrearCarpeta_(carpetaRaiz, anio);
+    const carpetaMes = obtenerOCrearCarpeta_(
+      carpetaAnio,
+      numeroMes + " - " + meses[Number(numeroMes) - 1]
+    );
+
+    const fechaTexto = Utilities.formatDate(fechaDespacho, zonaHoraria, "yyyy-MM-dd");
+    const carpetaInspeccion = obtenerOCrearCarpeta_(
+      carpetaMes,
+      limpiarNombreArchivo_(fechaTexto + " - Conduce " + contexto.noConduce)
+    );
+
+    const extension = obtenerExtensionMime_(data.tipoArchivo, data.nombreOriginal);
+    const consecutivo = obtenerSiguienteConsecutivoZona_(data.idInspeccion, data.codigoZona);
+    const fechaHora = Utilities.formatDate(new Date(), zonaHoraria, "yyyyMMdd_HHmmss");
+    const nombreArchivo = limpiarNombreArchivo_(
+      data.codigoZona + "_" + fechaHora + "_" + String(consecutivo).padStart(2, "0") + extension
+    );
+
+    const bytes = Utilities.base64Decode(data.archivoBase64);
+    const blob = Utilities.newBlob(
+      bytes,
+      data.tipoArchivo || "application/octet-stream",
+      nombreArchivo
+    );
+
+    const archivo = carpetaInspeccion.createFile(blob);
+    const idEvidencia = "EVI-" + Utilities.getUuid();
+    const fechaSubida = new Date();
+
+    const fila = [
+      idEvidencia,
+      data.idInspeccion,
+      data.codigoZona,
+      data.zonaInspeccion,
+      nombreArchivo,
+      archivo.getId(),
+      archivo.getUrl(),
+      data.tipoArchivo || "",
+      Number(data.tamanoBytes || bytes.length),
+      fechaSubida,
+      data.usuario || "",
+      data.observacion || "",
+      "Activa"
+    ];
+
+    const lock = LockService.getScriptLock();
+
+    if (!lock.tryLock(10000)) {
+      archivo.setTrashed(true);
+      throw new Error("El sistema está ocupado. Intente guardar la evidencia nuevamente.");
+    }
+
+    try {
+      const hoja = obtenerHojaEvidencias_();
+      hoja.getRange(hoja.getLastRow() + 1, 1, 1, fila.length).setValues([fila]);
+    } finally {
+      lock.releaseLock();
+    }
+
+    return respuesta({
+      ok: true,
+      mensaje: "Evidencia guardada correctamente.",
+      data: {
+        idEvidencia: idEvidencia,
+        idInspeccion: data.idInspeccion,
+        codigoZona: data.codigoZona,
+        zonaInspeccion: data.zonaInspeccion,
+        nombreArchivo: nombreArchivo,
+        archivoId: archivo.getId(),
+        archivoUrl: archivo.getUrl(),
+        tipoArchivo: data.tipoArchivo || "",
+        tamanoBytes: Number(data.tamanoBytes || bytes.length),
+        fechaSubida: fechaSubida,
+        usuarioSubida: data.usuario || "",
+        observacion: data.observacion || "",
+        estado: "Activa"
+      }
+    });
+
+  } catch (error) {
+    return respuesta({ ok: false, mensaje: error.toString() });
+  }
+}
+
+
+function listarEvidenciasInspeccion(data) {
+  try {
+    const idInspeccion = String(data.idInspeccion || "").trim();
+    if (!idInspeccion) throw new Error("Debe indicar el ID de la inspección.");
+
+    const hoja = obtenerHojaEvidencias_();
+    if (hoja.getLastRow() < 2) return respuesta({ ok: true, data: [] });
+
+    const valores = hoja.getDataRange().getValues();
+    const encabezados = valores.shift();
+    const indices = crearMapaEncabezados_(encabezados);
+
+    const datos = valores
+      .filter(fila =>
+        String(fila[indices.ID_Inspeccion] || "").trim() === idInspeccion &&
+        String(fila[indices.Estado] || "").trim().toLowerCase() === "activa"
+      )
+      .map(fila => ({
+        idEvidencia: fila[indices.ID_Evidencia],
+        idInspeccion: fila[indices.ID_Inspeccion],
+        codigoZona: fila[indices.Codigo_Zona],
+        zonaInspeccion: fila[indices.Zona_Inspeccion],
+        nombreArchivo: fila[indices.Nombre_Archivo],
+        archivoId: fila[indices.Archivo_ID],
+        archivoUrl: fila[indices.Archivo_URL],
+        tipoArchivo: fila[indices.Tipo_Archivo],
+        tamanoBytes: fila[indices.Tamano_Bytes],
+        fechaSubida: fila[indices.Fecha_Subida],
+        usuarioSubida: fila[indices.Usuario_Subida],
+        observacion: fila[indices.Observacion],
+        estado: fila[indices.Estado]
+      }));
+
+    return respuesta({ ok: true, data: datos });
+
+  } catch (error) {
+    return respuesta({ ok: false, mensaje: error.toString() });
+  }
+}
+
+
+function eliminarEvidenciaInspeccion(data) {
+  try {
+    const idEvidencia = String(data.idEvidencia || "").trim();
+    if (!idEvidencia) throw new Error("Debe indicar el ID de la evidencia.");
+
+    const hoja = obtenerHojaEvidencias_();
+    const valores = hoja.getDataRange().getValues();
+    const indices = crearMapaEncabezados_(valores[0]);
+
+    let filaHoja = 0;
+    let archivoId = "";
+
+    for (let i = 1; i < valores.length; i++) {
+      if (String(valores[i][indices.ID_Evidencia] || "").trim() === idEvidencia) {
+        filaHoja = i + 1;
+        archivoId = String(valores[i][indices.Archivo_ID] || "").trim();
+        break;
+      }
+    }
+
+    if (!filaHoja) throw new Error("No se encontró la evidencia.");
+
+    if (archivoId) {
+      try {
+        DriveApp.getFileById(archivoId).setTrashed(true);
+      } catch (errorArchivo) {
+        console.warn("No fue posible mover el archivo a la papelera:", errorArchivo);
+      }
+    }
+
+    hoja.getRange(filaHoja, indices.Estado + 1).setValue("Eliminada");
+
+    return respuesta({ ok: true, mensaje: "Evidencia eliminada correctamente." });
+
+  } catch (error) {
+    return respuesta({ ok: false, mensaje: error.toString() });
+  }
+}
+
+
+// ======================================================
+// AUXILIARES
+// ======================================================
+
+function validarDatosEvidencia_(data) {
+  ["idInspeccion", "codigoZona", "zonaInspeccion", "archivoBase64"].forEach(campo => {
+    if (!String(data[campo] || "").trim()) {
+      throw new Error("Falta el dato requerido: " + campo);
+    }
+  });
+}
+
+
+function obtenerHojaEvidencias_() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inspeccion_Evidencias");
+  if (!hoja) throw new Error('No existe la hoja "Inspeccion_Evidencias".');
+  return hoja;
+}
+
+
+function obtenerContextoEvidencia_(idInspeccion) {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Inspeccion_Contenedores");
+  if (!hoja) throw new Error('No existe la hoja "Inspeccion_Contenedores".');
+
+  const valores = hoja.getDataRange().getValues();
+  const indices = crearMapaEncabezados_(valores[0]);
+
+  for (let i = 1; i < valores.length; i++) {
+    if (String(valores[i][indices.ID_Inspeccion] || "").trim() === String(idInspeccion).trim()) {
+      const fecha = valores[i][indices.Fecha_Inspeccion];
+      return {
+        noConduce: valores[i][indices.No_Conduce],
+        fechaDespacho: fecha instanceof Date ? fecha : new Date(fecha)
+      };
+    }
+  }
+
+  throw new Error("No se encontró la inspección indicada.");
+}
+
+
+function obtenerCarpetaRaizEvidenciasBASC_() {
+
+  const hoja =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(
+        "Configuracion"
+      );
+
+  if (!hoja) {
+    throw new Error(
+      'No existe la hoja "Configuracion".'
+    );
+  }
+
+  const valores =
+    hoja.getDataRange().getValues();
+
+  let valor = "";
+
+  for (let i = 0; i < valores.length; i++) {
+
+    for (let j = 0; j < valores[i].length; j++) {
+
+      if (
+        String(valores[i][j] || "").trim() ===
+        "EvidenciasBASC"
+      ) {
+
+        valor =
+          String(
+            valores[i][j + 1] || ""
+          ).trim();
+
+        break;
+
+      }
+
+    }
+
+    if (valor) {
+      break;
+    }
+
+  }
+
+  if (!valor) {
+
+    throw new Error(
+      'No se encontró la configuración "EvidenciasBASC".'
+    );
+
+  }
+
+  const coincidencia =
+    valor.match(
+      /[-\w]{20,}/
+    );
+
+  const idCarpeta =
+    coincidencia
+      ? coincidencia[0]
+      : valor;
+
+  return DriveApp.getFolderById(
+    idCarpeta
+  );
+
+}
+
+function obtenerOCrearCarpeta_(carpetaPadre, nombre) {
+  const carpetas = carpetaPadre.getFoldersByName(nombre);
+  return carpetas.hasNext() ? carpetas.next() : carpetaPadre.createFolder(nombre);
+}
+
+
+function obtenerSiguienteConsecutivoZona_(idInspeccion, codigoZona) {
+  const hoja = obtenerHojaEvidencias_();
+  if (hoja.getLastRow() < 2) return 1;
+
+  const valores = hoja.getDataRange().getValues();
+  const indices = crearMapaEncabezados_(valores.shift());
+
+  return valores.filter(fila =>
+    String(fila[indices.ID_Inspeccion] || "").trim() === String(idInspeccion).trim() &&
+    String(fila[indices.Codigo_Zona] || "").trim() === String(codigoZona).trim()
+  ).length + 1;
+}
+
+
+function crearMapaEncabezados_(encabezados) {
+  const mapa = {};
+  encabezados.forEach((encabezado, indice) => {
+    mapa[String(encabezado || "").trim()] = indice;
+  });
+  return mapa;
+}
+
+
+function obtenerExtensionMime_(tipoMime, nombreOriginal) {
+  const extensiones = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/heic": ".heic",
+    "image/heif": ".heif"
+  };
+
+  if (extensiones[tipoMime]) return extensiones[tipoMime];
+
+  const coincidencia = String(nombreOriginal || "").match(/\.[a-zA-Z0-9]+$/);
+  return coincidencia ? coincidencia[0].toLowerCase() : ".jpg";
+}
+
+
+function limpiarNombreArchivo_(texto) {
+  return String(texto || "")
+    .replace(/[\\/:*?"<>|#%{}[\]]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function autorizarDriveEvidencias() {
+
+  const carpeta =
+    obtenerCarpetaRaizEvidenciasBASC_();
+
+  Logger.log(carpeta.getName());
+
+  const prueba =
+    carpeta.createFolder("PRUEBA_BASC");
+
+  Logger.log(prueba.getUrl());
+
+}
+

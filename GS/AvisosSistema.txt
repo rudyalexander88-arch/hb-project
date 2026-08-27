@@ -1,0 +1,377 @@
+/**
+ * AVISOSSISTEMA.GS
+ * Sistema Logístico PT - Helados BON
+ *
+ * Centro único para crear, consultar y consumir avisos informativos.
+ * Al marcar un aviso como leído se elimina de Avisos_Usuarios. La
+ * trazabilidad operativa permanece en la hoja del módulo que lo originó.
+ */
+
+const AVS_HOJA = "Avisos_Usuarios";
+const AVS_ENCABEZADOS = [
+  "ID_Aviso","Empleado_ID","Empleado_Nombre","Rol_Destino","Tipo","Titulo",
+  "Mensaje","Referencia_Tipo","Referencia_ID","Estado","Fecha_Creacion",
+  "Fecha_Lectura","Creado_Por_ID","Creado_Por_Nombre"
+];
+
+function instalarModuloAvisosSistema() {
+  const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+  let hoja = libro.getSheetByName(AVS_HOJA);
+  if (!hoja) hoja = libro.insertSheet(AVS_HOJA);
+  if (hoja.getLastRow() === 0) {
+    hoja.getRange(1,1,1,AVS_ENCABEZADOS.length).setValues([AVS_ENCABEZADOS]);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1,1,1,AVS_ENCABEZADOS.length)
+      .setFontWeight("bold")
+      .setBackground("#e9eef3");
+  } else {
+    const actuales = hoja.getRange(1,1,1,Math.max(1,hoja.getLastColumn()))
+      .getValues()[0].map(String);
+    const faltantes = AVS_ENCABEZADOS.filter(function(c){ return actuales.indexOf(c) < 0; });
+    if (faltantes.length) {
+      hoja.getRange(1,actuales.length+1,1,faltantes.length).setValues([faltantes]);
+    }
+  }
+  return {ok:true,mensaje:"Centro de avisos instalado correctamente."};
+}
+
+function crearAvisoSistema_(datos) {
+  datos = datos || {};
+  const empleadoId = avsTexto_(datos.empleadoId);
+  if (!empleadoId) throw new Error("El aviso requiere un destinatario.");
+  const id = datos.idAviso || avsId_();
+  avsAgregar_({
+    ID_Aviso:id,
+    Empleado_ID:empleadoId,
+    Empleado_Nombre:avsTexto_(datos.empleadoNombre),
+    Rol_Destino:avsTexto_(datos.rolDestino),
+    Tipo:avsTexto_(datos.tipo || "INFORMATIVO"),
+    Titulo:avsTexto_(datos.titulo || "Nuevo aviso"),
+    Mensaje:avsTexto_(datos.mensaje),
+    Referencia_Tipo:avsTexto_(datos.referenciaTipo),
+    Referencia_ID:avsTexto_(datos.referenciaId),
+    Estado:"PENDIENTE",
+    Fecha_Creacion:new Date(),
+    Fecha_Lectura:"",
+    Creado_Por_ID:avsTexto_(datos.creador && datos.creador.id || "SISTEMA"),
+    Creado_Por_Nombre:avsTexto_(datos.creador && datos.creador.nombre || "Sistema Logístico PT")
+  });
+  return id;
+}
+
+function crearAvisosSistemaLote_(destinatarios,datos) {
+  const ids = [];
+  (destinatarios || []).forEach(function(usuario) {
+    ids.push(crearAvisoSistema_(Object.assign({},datos,{
+      empleadoId:usuario.id || usuario.IDEmpleado,
+      empleadoNombre:usuario.nombre || usuario.Nombre,
+      rolDestino:usuario.rol || usuario.Rol
+    })));
+  });
+  return ids;
+}
+
+/**
+ * Conserva los nombres de las acciones antiguas para no romper el frontend.
+ */
+function obtenerAvisosAsistenciaUsuario(data) {
+  return obtenerAvisosSistemaUsuario(data);
+}
+
+function marcarAvisoAsistenciaLeido(data) {
+  return marcarAvisoSistemaLeido(data);
+}
+
+function obtenerCatalogosAvisosSistema(data) {
+  try {
+    avsValidarGestor_(data);
+    const colaboradores = avsUsuariosActivos_().sort(function(a,b) {
+      return a.nombre.localeCompare(b.nombre,"es",{sensitivity:"base"});
+    });
+    const roles = [];
+    const turnos = [];
+    const rolesVistos = {};
+    const turnosVistos = {};
+
+    colaboradores.forEach(function(usuario) {
+      const rol = avsTexto_(usuario.rol);
+      const turno = avsTexto_(usuario.turno);
+      if (rol && !rolesVistos[avsClave_(rol)]) {
+        rolesVistos[avsClave_(rol)] = true;
+        roles.push(rol);
+      }
+      if (turno && !turnosVistos[avsClave_(turno)]) {
+        turnosVistos[avsClave_(turno)] = true;
+        turnos.push(turno);
+      }
+    });
+
+    roles.sort(function(a,b){ return a.localeCompare(b,"es",{sensitivity:"base"}); });
+    turnos.sort(function(a,b){ return a.localeCompare(b,"es",{sensitivity:"base"}); });
+    return respuesta({ok:true,data:{colaboradores:colaboradores,roles:roles,turnos:turnos}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:avsError_(error)});
+  }
+}
+
+function crearAvisoSistemaManual(data) {
+  const bloqueo = LockService.getScriptLock();
+  try {
+    bloqueo.waitLock(30000);
+    const creador = avsValidarGestor_(data);
+    const titulo = avsTexto_(data && data.titulo);
+    const mensaje = avsTexto_(data && data.mensaje);
+    const prioridad = avsClave_(data && data.prioridad || "INFORMATIVO");
+    const alcance = avsClave_(data && data.alcance);
+    if (!titulo) throw new Error("Escriba el título del aviso.");
+    if (!mensaje) throw new Error("Escriba el mensaje del aviso.");
+    if (["INFORMATIVO","IMPORTANTE","URGENTE"].indexOf(prioridad) < 0) {
+      throw new Error("Seleccione una prioridad válida.");
+    }
+    if (["TODOS","ROLES","TURNOS","COLABORADORES"].indexOf(alcance) < 0) {
+      throw new Error("Seleccione a quién desea dirigir el aviso.");
+    }
+
+    const usuarios = avsUsuariosActivos_();
+    const seleccion = alcance === "ROLES" ? data.roles :
+      alcance === "TURNOS" ? data.turnos : data.empleadosIds;
+    const criterios = {};
+    if (alcance !== "TODOS") {
+      if (!Array.isArray(seleccion) || !seleccion.length) {
+        throw new Error("Seleccione al menos un destinatario para el aviso.");
+      }
+      seleccion.forEach(function(valor) {
+        const clave = alcance === "COLABORADORES" ? avsTexto_(valor) : avsClave_(valor);
+        if (clave) criterios[clave] = true;
+      });
+      if (!Object.keys(criterios).length) {
+        throw new Error("Seleccione al menos un destinatario válido.");
+      }
+    }
+
+    const vistos = {};
+    const destinatarios = usuarios.filter(function(usuario) {
+      const coincide = alcance === "TODOS" ||
+        alcance === "ROLES" && criterios[avsClave_(usuario.rol)] ||
+        alcance === "TURNOS" && criterios[avsClave_(usuario.turno)] ||
+        alcance === "COLABORADORES" && criterios[avsTexto_(usuario.id)];
+      if (!coincide || vistos[usuario.id]) return false;
+      vistos[usuario.id] = true;
+      return true;
+    });
+    if (!destinatarios.length) {
+      throw new Error("La selección no contiene colaboradores activos.");
+    }
+
+    const referenciaId = "MAN-" + Utilities.getUuid();
+    const ids = crearAvisosSistemaLote_(destinatarios,{
+      tipo:prioridad,
+      titulo:titulo,
+      mensaje:mensaje,
+      referenciaTipo:"AVISO MANUAL",
+      referenciaId:referenciaId,
+      creador:creador
+    });
+    return respuesta({
+      ok:true,
+      mensaje:"Aviso enviado correctamente a " + ids.length + " colaborador" + (ids.length === 1 ? "" : "es") + ".",
+      data:{totalDestinatarios:ids.length,referenciaId:referenciaId}
+    });
+  } catch (error) {
+    return respuesta({ok:false,mensaje:avsError_(error)});
+  } finally {
+    try { bloqueo.releaseLock(); } catch (ignorar) {}
+  }
+}
+
+function obtenerAvisosSistemaUsuario(data) {
+  try {
+    const id = avsUsuarioPeticion_(data);
+    const pagina = Math.max(1,parseInt(data && data.pagina,10) || 1);
+    const limite = Math.min(50,Math.max(5,parseInt(data && data.limite,10) || 20));
+    const todos = avsLeer_().filter(function(r) {
+      return String(r.Empleado_ID) === id && avsClave_(r.Estado) === "PENDIENTE";
+    }).sort(function(a,b) {
+      return (avsFecha_(b.Fecha_Creacion) || 0) - (avsFecha_(a.Fecha_Creacion) || 0);
+    });
+    const inicio = (pagina - 1) * limite;
+    return respuesta({ok:true,data:{
+      avisos:todos.slice(inicio,inicio+limite).map(avsSerializar_),
+      total:todos.length,
+      pagina:pagina,
+      limite:limite,
+      hayMas:inicio + limite < todos.length
+    }});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:avsError_(error)});
+  }
+}
+
+function marcarAvisoSistemaLeido(data) {
+  const bloqueo = LockService.getScriptLock();
+  try {
+    bloqueo.waitLock(30000);
+    const empleadoId = avsUsuarioPeticion_(data);
+    const idAviso = avsTexto_(data && data.idAviso);
+    if (!idAviso) throw new Error("Aviso no identificado.");
+    const hoja = getSheet(AVS_HOJA);
+    if (!hoja) throw new Error('No existe la hoja "' + AVS_HOJA + '".');
+    const valores = hoja.getDataRange().getValues();
+    const encabezados = valores[0].map(String);
+    const cId = encabezados.indexOf("ID_Aviso");
+    const cEmpleado = encabezados.indexOf("Empleado_ID");
+    for (let i=1;i<valores.length;i++) {
+      if (String(valores[i][cId]) !== idAviso) continue;
+      if (String(valores[i][cEmpleado]) !== empleadoId) {
+        throw new Error("Aviso no disponible para este usuario.");
+      }
+      hoja.deleteRow(i+1);
+      return respuesta({ok:true,mensaje:"Aviso leído."});
+    }
+    throw new Error("El aviso ya no está disponible.");
+  } catch (error) {
+    return respuesta({ok:false,mensaje:avsError_(error)});
+  } finally {
+    try { bloqueo.releaseLock(); } catch (ignorar) {}
+  }
+}
+
+function eliminarAvisosSistemaPorReferencia_(tipo,referenciaId,estadoOpcional) {
+  const hoja = getSheet(AVS_HOJA);
+  if (!hoja || hoja.getLastRow() < 2) return 0;
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores[0].map(String);
+  const cTipo = encabezados.indexOf("Referencia_Tipo");
+  const cReferencia = encabezados.indexOf("Referencia_ID");
+  const cEstado = encabezados.indexOf("Estado");
+  const filas = [];
+  for (let i=1;i<valores.length;i++) {
+    const coincide = avsClave_(valores[i][cTipo]) === avsClave_(tipo) &&
+      String(valores[i][cReferencia]) === String(referenciaId) &&
+      (!estadoOpcional || avsClave_(valores[i][cEstado]) === avsClave_(estadoOpcional));
+    if (coincide) filas.push(i+1);
+  }
+  filas.reverse().forEach(function(fila){ hoja.deleteRow(fila); });
+  return filas.length;
+}
+
+function existeAvisoSistema_(empleadoId,tipo,referenciaId) {
+  return avsLeer_().some(function(r) {
+    return String(r.Empleado_ID) === String(empleadoId) &&
+      avsClave_(r.Tipo) === avsClave_(tipo) &&
+      String(r.Referencia_ID) === String(referenciaId) &&
+      avsClave_(r.Estado) === "PENDIENTE";
+  });
+}
+
+function avsUsuarioPeticion_(data) {
+  const id = avsTexto_(data && data.idEmpleado);
+  if (!id) throw new Error("Usuario no identificado.");
+  const hoja = getSheet("Usuarios");
+  if (!hoja) throw new Error('No existe la hoja "Usuarios".');
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores[0].map(String);
+  const cId = encabezados.indexOf("IDEmpleado");
+  const cEstado = encabezados.indexOf("Estado");
+  const existe = valores.slice(1).some(function(r) {
+    return String(r[cId]) === id &&
+      ["ACTIVO","ACTIVA"].includes(avsClave_(r[cEstado]));
+  });
+  if (!existe) throw new Error("Usuario no disponible.");
+  return id;
+}
+
+function avsUsuariosActivos_() {
+  const hoja = getSheet("Usuarios");
+  if (!hoja) throw new Error('No existe la hoja "Usuarios".');
+  const valores = hoja.getDataRange().getValues();
+  if (!valores.length) return [];
+  const encabezados = valores[0].map(String);
+  const cId = encabezados.indexOf("IDEmpleado");
+  const cNombre = encabezados.indexOf("Nombre");
+  const cRol = encabezados.indexOf("Rol");
+  const cTurno = encabezados.indexOf("Turno");
+  const cEstado = encabezados.indexOf("Estado");
+  if ([cId,cNombre,cRol,cEstado].some(function(indice){ return indice < 0; })) {
+    throw new Error("La hoja Usuarios no contiene los encabezados requeridos.");
+  }
+  return valores.slice(1).filter(function(fila) {
+    return avsTexto_(fila[cId]) && ["ACTIVO","ACTIVA"].includes(avsClave_(fila[cEstado]));
+  }).map(function(fila) {
+    return {
+      id:avsTexto_(fila[cId]),
+      nombre:avsTexto_(fila[cNombre]),
+      rol:avsTexto_(fila[cRol]),
+      turno:cTurno < 0 ? "" : avsTexto_(fila[cTurno])
+    };
+  });
+}
+
+function avsValidarGestor_(data) {
+  const id = avsUsuarioPeticion_(data);
+  const usuario = avsUsuariosActivos_().find(function(item){ return item.id === id; });
+  const rol = avsClave_(usuario && usuario.rol);
+  if (!usuario || !["SUPERVISOR","ENCARGADO","ADMINISTRADOR"].some(function(nombre) {
+    return rol.indexOf(nombre) >= 0;
+  })) {
+    throw new Error("Su rol no puede crear avisos.");
+  }
+  return usuario;
+}
+
+function avsAgregar_(objeto) {
+  const hoja = getSheet(AVS_HOJA);
+  if (!hoja) throw new Error('No existe la hoja "' + AVS_HOJA + '". Ejecute instalarModuloAvisosSistema().');
+  const encabezados = hoja.getRange(1,1,1,hoja.getLastColumn()).getValues()[0].map(String);
+  hoja.appendRow(encabezados.map(function(c){ return objeto[c] === undefined ? "" : objeto[c]; }));
+}
+
+function avsLeer_() {
+  const hoja = getSheet(AVS_HOJA);
+  if (!hoja) throw new Error('No existe la hoja "' + AVS_HOJA + '". Ejecute instalarModuloAvisosSistema().');
+  const valores = hoja.getDataRange().getValues();
+  if (!valores.length) return [];
+  const encabezados = valores[0].map(String);
+  return valores.slice(1).filter(function(fila) {
+    return fila.some(function(v){ return v !== ""; });
+  }).map(function(fila) {
+    const objeto = {};
+    encabezados.forEach(function(c,i){ objeto[c] = fila[i]; });
+    return objeto;
+  });
+}
+
+function avsSerializar_(registro) {
+  const salida = {};
+  Object.keys(registro).forEach(function(c) {
+    salida[c] = registro[c] instanceof Date
+      ? Utilities.formatDate(registro[c],Session.getScriptTimeZone(),"yyyy-MM-dd HH:mm:ss")
+      : registro[c];
+  });
+  return salida;
+}
+
+function avsFecha_(valor) {
+  if (valor instanceof Date && !isNaN(valor)) return valor;
+  const fecha = new Date(valor);
+  return isNaN(fecha) ? null : fecha;
+}
+
+function avsId_() {
+  return "AVI-" +
+    Utilities.formatDate(new Date(),Session.getScriptTimeZone(),"yyyyMMddHHmmss") +
+    "-" + Math.floor(Math.random()*900+100);
+}
+
+function avsTexto_(valor) {
+  return String(valor === null || valor === undefined ? "" : valor).trim();
+}
+
+function avsClave_(valor) {
+  return avsTexto_(valor).normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/_/g," ").replace(/\s+/g," ").toUpperCase();
+}
+
+function avsError_(error) {
+  return error && error.message ? error.message : String(error);
+}

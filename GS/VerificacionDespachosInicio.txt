@@ -1,0 +1,2733 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSINICIO.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Validar que un conduce esté Completado.
+ * - Crear una verificación En proceso.
+ * - Recuperar una verificación existente.
+ * - Consolidar Despacho_Detalle por:
+ *
+ *     Centro_Destino + Material
+ *
+ * - Crear el detalle inicial de verificación.
+ * - Devolver resumen general, por centro y por material.
+ *
+ * No realiza todavía:
+ * - Finalización.
+ * - Correcciones SAP.
+ * - Cálculos monetarios de incidencias.
+ * - Generación de PDF.
+ * ============================================================
+ */
+
+
+/**
+ * Inicia o recupera una verificación de despacho.
+ *
+ * Parámetros esperados:
+ *
+ * {
+ *   idConduce: "...",
+ *   analistaId: "...",
+ *   analistaNombre: "..."
+ * }
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function iniciarVerificacionDespacho(
+  data
+) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+
+  try {
+
+    bloqueo.waitLock(
+      30000
+    );
+
+
+    const parametros =
+      data || {};
+
+
+    const idConduce =
+      String(
+        parametros.idConduce || ""
+      ).trim();
+
+
+    const analistaId =
+      String(
+        parametros.analistaId || ""
+      ).trim();
+
+
+    const analistaNombre =
+      String(
+        parametros.analistaNombre || ""
+      ).trim();
+
+
+    if (!idConduce) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el ID del conduce."
+
+      });
+
+    }
+
+
+    if (!analistaNombre) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No fue posible identificar al analista."
+
+      });
+
+    }
+
+
+    const hojaDespacho =
+      getSheet(
+        SHEETS.DESPACHO
+      );
+
+
+    const hojaDetalleDespacho =
+      getSheet(
+        SHEETS.DESPACHO_DETALLE
+      );
+
+
+    const hojaVerificaciones =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS
+      );
+
+
+    const hojaDetalleVerificacion =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS_DETALLE
+      );
+
+
+    const hojaMateriales =
+      getSheet(
+        SHEETS.MATERIAL
+      );
+
+
+    if (
+      !hojaDespacho ||
+      !hojaDetalleDespacho ||
+      !hojaVerificaciones ||
+      !hojaDetalleVerificacion
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontraron todas las hojas requeridas para la verificación."
+
+      });
+
+    }
+
+
+    const conduce =
+      obtenerConduceParaVerificacion_(
+        hojaDespacho,
+        idConduce
+      );
+
+
+    if (!conduce) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró el conduce solicitado."
+
+      });
+
+    }
+
+
+    if (
+      normalizarTextoInicioVerificacion_(
+        conduce.Estado
+      ) !== "completado"
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Solo pueden verificarse conduces con estado Completado."
+
+      });
+
+    }
+
+
+    const verificacionExistente =
+      obtenerVerificacionActivaPorConduce_(
+        hojaVerificaciones,
+        idConduce
+      );
+
+
+    let idVerificacion = "";
+
+    let verificacionNueva =
+      false;
+
+
+    if (verificacionExistente) {
+
+      idVerificacion =
+        verificacionExistente
+          .ID_Verificacion;
+
+
+    } else {
+
+      idVerificacion =
+        generarIdVerificacionDespacho_();
+
+
+      crearEncabezadoVerificacionDespacho_({
+
+        hoja:
+          hojaVerificaciones,
+
+        idVerificacion:
+          idVerificacion,
+
+        conduce:
+          conduce,
+
+        analistaId:
+          analistaId,
+
+        analistaNombre:
+          analistaNombre
+
+      });
+
+
+      actualizarEstadoVerificacionEnDespacho_({
+
+        hoja:
+          hojaDespacho,
+
+        idConduce:
+          idConduce,
+
+        idVerificacion:
+          idVerificacion,
+
+        estado:
+          "En proceso",
+
+        resultado:
+          "",
+
+        analistaNombre:
+          analistaNombre
+
+      });
+
+
+      verificacionNueva =
+        true;
+
+    }
+
+
+    const catalogoMateriales =
+      obtenerCatalogoMaterialesVerificacion_(
+        hojaMateriales
+      );
+
+
+    const detalleAgrupado =
+      obtenerDetalleAgrupadoConduce_({
+
+        hojaDetalle:
+          hojaDetalleDespacho,
+
+        idConduce:
+          idConduce,
+
+        catalogoMateriales:
+          catalogoMateriales
+
+      });
+
+
+    if (
+      detalleAgrupado.length === 0
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "El conduce no tiene materiales registrados para verificar."
+
+      });
+
+    }
+
+
+    /*
+     * Solo creamos el detalle inicial si todavía
+     * no existen registros para esta verificación.
+     */
+    const detalleExistente =
+      obtenerDetalleVerificacionExistente_(
+        hojaDetalleVerificacion,
+        idVerificacion
+      );
+
+
+    if (
+      detalleExistente.length === 0
+    ) {
+
+      crearDetalleInicialVerificacion_({
+
+        hoja:
+          hojaDetalleVerificacion,
+
+        idVerificacion:
+          idVerificacion,
+
+        conduce:
+          conduce,
+
+        detalleAgrupado:
+          detalleAgrupado,
+
+        analistaNombre:
+          analistaNombre
+
+      });
+
+    }
+
+
+    const paquete =
+      construirPaqueteVerificacionDespacho_({
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        hojaDetalleVerificacion:
+          hojaDetalleVerificacion,
+
+        idVerificacion:
+          idVerificacion,
+
+        conduce:
+          conduce
+
+      });
+
+
+    SpreadsheetApp.flush();
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      mensaje:
+        verificacionNueva
+
+          ? "Verificación iniciada correctamente."
+
+          : "Verificación recuperada correctamente.",
+
+      data: {
+
+        nueva:
+          verificacionNueva,
+
+        verificacion:
+          paquete.verificacion,
+
+        conduce:
+          paquete.conduce,
+
+        resumen:
+          paquete.resumen,
+
+        resumenPorCentro:
+          paquete.resumenPorCentro,
+
+        resumenPorMaterial:
+          paquete.resumenPorMaterial,
+
+        detalle:
+          paquete.detalle,
+
+        documentosSAP:
+          paquete.documentosSAP
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error iniciando verificación de despacho:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+
+          ? error.message
+
+          : String(error)
+
+    });
+
+
+  } finally {
+
+    try {
+
+      bloqueo.releaseLock();
+
+    } catch (errorBloqueo) {
+
+      /*
+       * El bloqueo podría no haberse adquirido.
+       */
+
+    }
+
+  }
+
+}
+
+
+/**
+ * Recupera una verificación ya iniciada.
+ *
+ * Parámetros:
+ * {
+ *   idVerificacion: "..."
+ * }
+ *
+ * @param {Object} data
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function obtenerVerificacionDespacho(
+  data
+) {
+
+  try {
+
+    const parametros =
+      data || {};
+
+
+    const idVerificacion =
+      String(
+        parametros.idVerificacion || ""
+      ).trim();
+
+
+    if (!idVerificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "Debe indicar el ID de la verificación."
+
+      });
+
+    }
+
+
+    const hojaVerificaciones =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS
+      );
+
+
+    const hojaDetalleVerificacion =
+      getSheet(
+        SHEETS
+          .VERIFICACION_DESPACHOS_DETALLE
+      );
+
+
+    const hojaDespacho =
+      getSheet(
+        SHEETS.DESPACHO
+      );
+
+
+    if (
+      !hojaVerificaciones ||
+      !hojaDetalleVerificacion ||
+      !hojaDespacho
+    ) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontraron las hojas requeridas."
+
+      });
+
+    }
+
+
+    const verificacion =
+      obtenerRegistroPorCampoVerificacion_(
+        hojaVerificaciones,
+        "ID_Verificacion",
+        idVerificacion
+      );
+
+
+    if (!verificacion) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró la verificación solicitada."
+
+      });
+
+    }
+
+
+    const conduce =
+      obtenerConduceParaVerificacion_(
+        hojaDespacho,
+        verificacion.ID_Conduce
+      );
+
+
+    if (!conduce) {
+
+      return respuesta({
+
+        ok:
+          false,
+
+        mensaje:
+          "No se encontró el conduce asociado a la verificación."
+
+      });
+
+    }
+
+
+    const paquete =
+      construirPaqueteVerificacionDespacho_({
+
+        hojaVerificaciones:
+          hojaVerificaciones,
+
+        hojaDetalleVerificacion:
+          hojaDetalleVerificacion,
+
+        idVerificacion:
+          idVerificacion,
+
+        conduce:
+          conduce
+
+      });
+
+
+    return respuesta({
+
+      ok:
+        true,
+
+      data: {
+
+        verificacion:
+          paquete.verificacion,
+
+        conduce:
+          paquete.conduce,
+
+        resumen:
+          paquete.resumen,
+
+        resumenPorCentro:
+          paquete.resumenPorCentro,
+
+        resumenPorMaterial:
+          paquete.resumenPorMaterial,
+
+        detalle:
+          paquete.detalle,
+
+        documentosSAP:
+          paquete.documentosSAP
+
+      }
+
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error obteniendo verificación:",
+      error
+    );
+
+
+    return respuesta({
+
+      ok:
+        false,
+
+      mensaje:
+        error &&
+        error.message
+
+          ? error.message
+
+          : String(error)
+
+    });
+
+  }
+
+}
+
+
+/**
+ * Obtiene el conduce completo como objeto.
+ */
+function obtenerConduceParaVerificacion_(
+  hoja,
+  idConduce
+) {
+
+  return obtenerRegistroPorCampoVerificacion_(
+    hoja,
+    "ID_Conduce",
+    idConduce
+  );
+
+}
+
+
+/**
+ * Busca la última verificación no anulada
+ * asociada al conduce.
+ */
+function obtenerVerificacionActivaPorConduce_(
+  hoja,
+  idConduce
+) {
+
+  const registros =
+    leerRegistrosHojaVerificacion_(
+      hoja
+    );
+
+
+  for (
+    let i =
+      registros.length - 1;
+
+    i >= 0;
+
+    i--
+  ) {
+
+    const item =
+      registros[i];
+
+
+    if (
+      String(
+        item.ID_Conduce || ""
+      ).trim() !== idConduce
+    ) {
+      continue;
+    }
+
+
+    const estado =
+      normalizarTextoInicioVerificacion_(
+        item.Estado_Verificacion
+      );
+
+
+    if (
+      estado !== "anulada"
+    ) {
+
+      return item;
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/**
+ * Crea el encabezado inicial.
+ */
+function crearEncabezadoVerificacionDespacho_(
+  parametros
+) {
+
+  const hoja =
+    parametros.hoja;
+
+
+  const conduce =
+    parametros.conduce;
+
+
+  const ahora =
+    new Date();
+
+
+  const centros =
+    [
+      conduce.Destino_1,
+      conduce.Destino_2
+    ]
+      .filter(Boolean)
+      .join(" / ");
+
+
+  const datos = {
+
+    ID_Verificacion:
+      parametros.idVerificacion,
+
+    ID_Conduce:
+      conduce.ID_Conduce,
+
+    No_Conduce:
+      conduce.No_Conduce,
+
+    Fecha_Despacho:
+      conduce.Fecha_Despacho || "",
+
+    Fecha_Verificacion:
+      ahora,
+
+    Hora_Inicio:
+      ahora,
+
+    Hora_Final:
+      "",
+
+    Duracion_Minutos:
+      "",
+
+    Analista_ID:
+      parametros.analistaId,
+
+    Analista_Nombre:
+      parametros.analistaNombre,
+
+    Supervisor_Despacho:
+      conduce.RealizadoPor || "",
+
+    Chofer:
+      conduce.Chofer || "",
+
+    Unidad_Carga:
+      conduce.Unidad_Carga || "",
+
+    Centros_Destino:
+      centros,
+
+    Total_Materiales:
+      0,
+
+    Total_Lineas:
+      numeroInicioVerificacion_(
+        conduce.Total_Lineas
+      ),
+
+    Total_Unidades_Sistema:
+      numeroInicioVerificacion_(
+        conduce.Total_Unidades
+      ),
+
+    Total_Unidades_Verificadas:
+      0,
+
+    Total_Diferencia_Neta:
+      0,
+
+    Total_Faltante:
+      0,
+
+    Total_Sobrante:
+      0,
+
+    Total_Cantidad_Corregida:
+      0,
+
+    Total_Diferencia_Pendiente:
+      0,
+
+    Incidencias_Detectadas:
+      0,
+
+    Incidencias_Resueltas:
+      0,
+
+    Incidencias_Parcialmente_Resueltas:
+      0,
+
+    Incidencias_Pendientes:
+      0,
+
+    Porcentaje_Resolucion_Incidencias:
+      0,
+
+    Materiales_Conformes:
+      0,
+
+    Materiales_Con_Diferencia:
+      0,
+
+    Tarimas_Sistema:
+      0,
+
+    Tarimas_Verificadas:
+      0,
+
+    Diferencia_Tarimas:
+      0,
+
+    Recortes_Sistema:
+      0,
+
+    Recortes_Verificados:
+      0,
+
+    Diferencia_Recortes:
+      0,
+
+    Resultado_Verificacion:
+      "",
+
+    Observaciones_Generales:
+      "",
+
+    Estado_Verificacion:
+      "En proceso",
+
+    Estado_Resolucion_General:
+      "NO APLICA",
+
+    Documento_SAP_Correccion_1:
+      "",
+
+    Posicion_SAP_Correccion_1:
+      "",
+
+    Documento_SAP_Correccion_2:
+      "",
+
+    Posicion_SAP_Correccion_2:
+      "",
+
+    Documento_SAP_Correccion_3:
+      "",
+
+    Posicion_SAP_Correccion_3:
+      "",
+
+    Documento_SAP_Correccion_4:
+      "",
+
+    Posicion_SAP_Correccion_4:
+      "",
+
+    Fecha_Creacion:
+      ahora,
+
+    Fecha_Modificacion:
+      ahora,
+
+    PDF_URL:
+      ""
+
+  };
+
+
+  agregarFilaPorEncabezadosVerificacion_(
+    hoja,
+    datos
+  );
+
+}
+
+
+/**
+ * Consolida el detalle del conduce por:
+ *
+ * Centro + Material
+ */
+function obtenerDetalleAgrupadoConduce_(
+  parametros
+) {
+
+  const hojaDetalle =
+    parametros.hojaDetalle;
+
+
+  const idConduce =
+    parametros.idConduce;
+
+
+  const catalogoMateriales =
+    parametros.catalogoMateriales ||
+    {};
+
+
+  const registros =
+    leerRegistrosHojaVerificacion_(
+      hojaDetalle
+    );
+
+
+  const mapa = {};
+
+
+  registros.forEach(
+    function(item) {
+
+      if (
+        String(
+          item.ID_Conduce || ""
+        ).trim() !== idConduce
+      ) {
+        return;
+      }
+
+
+      const material =
+        String(
+          item.Material || ""
+        ).trim();
+
+
+      const centro =
+        String(
+          item.Destino || ""
+        ).trim();
+
+
+      if (
+        !material ||
+        !centro
+      ) {
+        return;
+      }
+
+
+      const clave =
+        centro +
+        "||" +
+        material;
+
+
+      if (!mapa[clave]) {
+
+        const materialCatalogo =
+          catalogoMateriales[
+            material
+          ] || {};
+
+
+        mapa[clave] = {
+
+          centroDestino:
+            centro,
+
+          material:
+            material,
+
+          descripcion:
+            String(
+              item.Descripcion ||
+              materialCatalogo.descripcion ||
+              ""
+            ).trim(),
+
+          um:
+            String(
+              item.Unidad_Medida ||
+              materialCatalogo.um ||
+              ""
+            ).trim(),
+
+          umb:
+            numeroInicioVerificacion_(
+              materialCatalogo.umb
+            ),
+
+          cantidadSistema:
+            0,
+
+          tarimasSistema:
+            0,
+
+          recortesSistema:
+            0,
+
+          posicionesTarima:
+            {},
+
+          totalLineasOriginales:
+            0
+
+        };
+
+      }
+
+
+      const registro =
+        mapa[clave];
+
+
+      registro.cantidadSistema +=
+        numeroInicioVerificacion_(
+          item.Cantidad
+        );
+
+
+      registro.recortesSistema +=
+        numeroInicioVerificacion_(
+          item.Recorte
+        );
+
+
+      registro.totalLineasOriginales++;
+
+
+      const tipoLinea =
+        normalizarTextoInicioVerificacion_(
+          item.Tipo_Linea
+        );
+
+
+      const posicion =
+        String(
+          item.Posicion || ""
+        ).trim();
+
+
+      if (
+        tipoLinea === "tarima"
+      ) {
+
+        const clavePosicion =
+          posicion ||
+          String(
+            registro
+              .totalLineasOriginales
+          );
+
+
+        registro.posicionesTarima[
+          clavePosicion
+        ] = true;
+
+      }
+
+    }
+  );
+
+
+  return Object
+    .values(
+      mapa
+    )
+    .map(
+      function(item) {
+
+        item.tarimasSistema =
+          Object.keys(
+            item.posicionesTarima
+          ).length;
+
+
+        delete item
+          .posicionesTarima;
+
+
+        item.cantidadSistema =
+          redondearInicioVerificacion_(
+            item.cantidadSistema
+          );
+
+
+        item.recortesSistema =
+          redondearInicioVerificacion_(
+            item.recortesSistema
+          );
+
+
+        return item;
+
+      }
+    )
+    .sort(
+      function(a, b) {
+
+        const centro =
+          String(
+            a.centroDestino
+          ).localeCompare(
+            String(
+              b.centroDestino
+            ),
+            "es"
+          );
+
+
+        if (centro !== 0) {
+          return centro;
+        }
+
+
+        return String(
+          a.descripcion ||
+          a.material
+        ).localeCompare(
+          String(
+            b.descripcion ||
+            b.material
+          ),
+          "es"
+        );
+
+      }
+    );
+
+}
+
+
+/**
+ * Crea una fila inicial por material y centro.
+ */
+function crearDetalleInicialVerificacion_(
+  parametros
+) {
+
+  const hoja =
+    parametros.hoja;
+
+
+  const ahora =
+    new Date();
+
+
+  const filas =
+    parametros.detalleAgrupado.map(
+      function(item) {
+
+        return {
+
+          ID_Detalle_Verificacion:
+            Utilities.getUuid(),
+
+          ID_Verificacion:
+            parametros.idVerificacion,
+
+          ID_Conduce:
+            parametros
+              .conduce
+              .ID_Conduce,
+
+          No_Conduce:
+            parametros
+              .conduce
+              .No_Conduce,
+
+          Centro_Destino:
+            item.centroDestino,
+
+          Material:
+            item.material,
+
+          Descripcion:
+            item.descripcion,
+
+          UM:
+            item.um,
+
+          UMB:
+            item.umb,
+
+          Cantidad_Sistema:
+            item.cantidadSistema,
+
+          Cantidad_Verificada:
+            "",
+
+          Diferencia:
+            "",
+
+          Cantidad_Correccion:
+            0,
+
+          Diferencia_Pendiente:
+            "",
+
+          Valor_Desviacion:
+            0,
+
+          Valor_Corregido:
+            0,
+
+          Valor_Pendiente:
+            0,
+
+          Estado_Resolucion:
+            "PENDIENTE DE VERIFICAR",
+
+          Tipo_Correccion:
+            "",
+
+          Documento_SAP_Correccion:
+            "",
+
+          Posicion_Documento_SAP:
+            "",
+
+          Fecha_Correccion:
+            "",
+
+          Corregido_Por:
+            "",
+
+          Comentario_Correccion:
+            "",
+
+          Tipo_Diferencia:
+            "",
+
+          Resultado_Linea:
+            "PENDIENTE",
+
+          Tarimas_Sistema:
+            item.tarimasSistema,
+
+          Tarimas_Verificadas:
+            "",
+
+          Diferencia_Tarimas:
+            "",
+
+          Recortes_Sistema:
+            item.recortesSistema,
+
+          Recortes_Verificados:
+            "",
+
+          Diferencia_Recortes:
+            "",
+
+          Causa_Diferencia:
+            "",
+
+          Comentario_Diferencia:
+            "",
+
+          Fecha_Registro:
+            ahora,
+
+          Registrado_Por:
+            parametros.analistaNombre,
+
+          Estado:
+            "Activo"
+
+        };
+
+      }
+    );
+
+
+  agregarVariasFilasPorEncabezadosVerificacion_(
+    hoja,
+    filas
+  );
+
+}
+
+
+/**
+ * Obtiene el detalle ya guardado.
+ */
+function obtenerDetalleVerificacionExistente_(
+  hoja,
+  idVerificacion
+) {
+
+  return leerRegistrosHojaVerificacion_(
+    hoja
+  )
+    .filter(
+      function(item) {
+
+        return (
+          String(
+            item.ID_Verificacion || ""
+          ).trim() === idVerificacion &&
+          normalizarTextoInicioVerificacion_(
+            item.Estado
+          ) !== "eliminado"
+        );
+
+      }
+    );
+
+}
+
+
+/**
+ * Construye la respuesta completa del asistente.
+ */
+function construirPaqueteVerificacionDespacho_(
+  parametros
+) {
+
+  const verificacion =
+    obtenerRegistroPorCampoVerificacion_(
+      parametros.hojaVerificaciones,
+      "ID_Verificacion",
+      parametros.idVerificacion
+    );
+
+
+  const detalle =
+    obtenerDetalleVerificacionExistente_(
+      parametros
+        .hojaDetalleVerificacion,
+      parametros.idVerificacion
+    );
+
+
+  const resumen =
+    calcularResumenInicialVerificacion_(
+      detalle
+    );
+
+
+  actualizarResumenEncabezadoVerificacion_({
+
+    hoja:
+      parametros.hojaVerificaciones,
+
+    idVerificacion:
+      parametros.idVerificacion,
+
+    resumen:
+      resumen
+
+  });
+
+
+  const resumenPorCentro =
+    agruparResumenVerificacion_(
+      detalle,
+      "Centro_Destino"
+    );
+
+
+  const resumenPorMaterial =
+    agruparResumenVerificacion_(
+      detalle,
+      "Material"
+    );
+
+
+  const conduce =
+    parametros.conduce;
+
+
+  const documentosSAP = [
+
+    {
+      posicion:
+        "Documento_SAP_1",
+
+      valor:
+        String(
+          conduce.Documento_SAP_1 || ""
+        ).trim()
+    },
+
+    {
+      posicion:
+        "Documento_SAP_2",
+
+      valor:
+        String(
+          conduce.Documento_SAP_2 || ""
+        ).trim()
+    },
+
+    {
+      posicion:
+        "Documento_SAP_3",
+
+      valor:
+        String(
+          conduce.Documento_SAP_3 || ""
+        ).trim()
+    },
+
+    {
+      posicion:
+        "Documento_SAP_4",
+
+      valor:
+        String(
+          conduce.Documento_SAP_4 || ""
+        ).trim()
+    }
+
+  ].map(
+    function(item) {
+
+      item.ocupado =
+        Boolean(
+          item.valor
+        );
+
+
+      item.disponible =
+        !item.ocupado;
+
+
+      return item;
+
+    }
+  );
+
+
+  return {
+
+    verificacion:
+      verificacion,
+
+    conduce: {
+
+      idConduce:
+        conduce.ID_Conduce || "",
+
+      noConduce:
+        conduce.No_Conduce || "",
+
+      fechaDespacho:
+        conduce.Fecha_Despacho || "",
+
+      fechaCompletado:
+        conduce.Fecha_Completado || "",
+
+      supervisor:
+        conduce.RealizadoPor || "",
+
+      chofer:
+        conduce.Chofer || "",
+
+      unidadCarga:
+        conduce.Unidad_Carga || "",
+
+      destino1:
+        conduce.Destino_1 || "",
+
+      destino2:
+        conduce.Destino_2 || "",
+
+      centrosDestino:
+        [
+          conduce.Destino_1,
+          conduce.Destino_2
+        ]
+          .filter(Boolean)
+          .join(" / "),
+
+      totalLineas:
+        numeroInicioVerificacion_(
+          conduce.Total_Lineas
+        ),
+
+      totalUnidades:
+        numeroInicioVerificacion_(
+          conduce.Total_Unidades
+        )
+
+    },
+
+    resumen:
+      resumen,
+
+    resumenPorCentro:
+      resumenPorCentro,
+
+    resumenPorMaterial:
+      resumenPorMaterial,
+
+    detalle:
+      detalle,
+
+    documentosSAP:
+      documentosSAP
+
+  };
+
+}
+
+
+/**
+ * Calcula el resumen actual.
+ */
+function calcularResumenInicialVerificacion_(
+  detalle
+) {
+
+  const resumen = {
+
+    totalMateriales:
+      detalle.length,
+
+    totalUnidadesSistema:
+      0,
+
+    totalUnidadesVerificadas:
+      0,
+
+    totalDiferenciaNeta:
+      0,
+
+    totalFaltante:
+      0,
+
+    totalSobrante:
+      0,
+
+    totalCantidadCorregida:
+      0,
+
+    totalDiferenciaPendiente:
+      0,
+
+    incidenciasDetectadas:
+      0,
+
+    incidenciasResueltas:
+      0,
+
+    incidenciasParcialmenteResueltas:
+      0,
+
+    incidenciasPendientes:
+      0,
+
+    materialesConformes:
+      0,
+
+    materialesConDiferencia:
+      0,
+
+    tarimasSistema:
+      0,
+
+    tarimasVerificadas:
+      0,
+
+    diferenciaTarimas:
+      0,
+
+    recortesSistema:
+      0,
+
+    recortesVerificados:
+      0,
+
+    diferenciaRecortes:
+      0,
+
+    porcentajeResolucion:
+      0
+
+  };
+
+
+  detalle.forEach(
+    function(item) {
+
+      const sistema =
+        numeroInicioVerificacion_(
+          item.Cantidad_Sistema
+        );
+
+
+      const verificada =
+        numeroInicioVerificacion_(
+          item.Cantidad_Verificada
+        );
+
+
+      const diferencia =
+        numeroInicioVerificacion_(
+          item.Diferencia
+        );
+
+
+      const correccion =
+        numeroInicioVerificacion_(
+          item.Cantidad_Correccion
+        );
+
+
+      const pendiente =
+        numeroInicioVerificacion_(
+          item.Diferencia_Pendiente
+        );
+
+
+      resumen.totalUnidadesSistema +=
+        sistema;
+
+
+      if (
+        String(
+          item.Cantidad_Verificada || ""
+        ).trim() !== ""
+      ) {
+
+        resumen.totalUnidadesVerificadas +=
+          verificada;
+
+      }
+
+
+      resumen.totalDiferenciaNeta +=
+        diferencia;
+
+
+      if (diferencia < 0) {
+
+        resumen.totalFaltante +=
+          Math.abs(
+            diferencia
+          );
+
+      }
+
+
+      if (diferencia > 0) {
+
+        resumen.totalSobrante +=
+          diferencia;
+
+      }
+
+
+      resumen.totalCantidadCorregida +=
+        correccion;
+
+
+      resumen.totalDiferenciaPendiente +=
+        Math.abs(
+          pendiente
+        );
+
+
+      if (diferencia !== 0) {
+
+        resumen.incidenciasDetectadas++;
+
+        resumen.materialesConDiferencia++;
+
+      } else if (
+        String(
+          item.Cantidad_Verificada || ""
+        ).trim() !== ""
+      ) {
+
+        resumen.materialesConformes++;
+
+      }
+
+
+      const estadoResolucion =
+        normalizarTextoInicioVerificacion_(
+          item.Estado_Resolucion
+        );
+
+
+      if (
+        estadoResolucion ===
+        "resuelta"
+      ) {
+
+        resumen.incidenciasResueltas++;
+
+      } else if (
+        estadoResolucion ===
+        "parcialmente resuelta"
+      ) {
+
+        resumen
+          .incidenciasParcialmenteResueltas++;
+
+      } else if (
+        diferencia !== 0
+      ) {
+
+        resumen.incidenciasPendientes++;
+
+      }
+
+
+      resumen.tarimasSistema +=
+        numeroInicioVerificacion_(
+          item.Tarimas_Sistema
+        );
+
+
+      resumen.tarimasVerificadas +=
+        numeroInicioVerificacion_(
+          item.Tarimas_Verificadas
+        );
+
+
+      resumen.recortesSistema +=
+        numeroInicioVerificacion_(
+          item.Recortes_Sistema
+        );
+
+
+      resumen.recortesVerificados +=
+        numeroInicioVerificacion_(
+          item.Recortes_Verificados
+        );
+
+    }
+  );
+
+
+  resumen.diferenciaTarimas =
+    resumen.tarimasVerificadas -
+    resumen.tarimasSistema;
+
+
+  resumen.diferenciaRecortes =
+    resumen.recortesVerificados -
+    resumen.recortesSistema;
+
+
+  if (
+    resumen.incidenciasDetectadas > 0
+  ) {
+
+    resumen.porcentajeResolucion =
+      (
+        resumen.incidenciasResueltas /
+        resumen.incidenciasDetectadas
+      ) * 100;
+
+  }
+
+
+  Object.keys(
+    resumen
+  ).forEach(
+    function(clave) {
+
+      if (
+        typeof resumen[clave] ===
+        "number"
+      ) {
+
+        resumen[clave] =
+          redondearInicioVerificacion_(
+            resumen[clave]
+          );
+
+      }
+
+    }
+  );
+
+
+  return resumen;
+
+}
+
+
+/**
+ * Agrupa cantidades para los resúmenes.
+ */
+function agruparResumenVerificacion_(
+  detalle,
+  campo
+) {
+
+  const mapa = {};
+
+
+  detalle.forEach(
+    function(item) {
+
+      const clave =
+        String(
+          item[campo] || ""
+        ).trim();
+
+
+      if (!clave) {
+        return;
+      }
+
+
+      if (!mapa[clave]) {
+
+        mapa[clave] = {
+
+          clave:
+            clave,
+
+          descripcion:
+            campo === "Material"
+
+              ? String(
+                  item.Descripcion || ""
+                ).trim()
+
+              : clave,
+
+          materiales:
+            0,
+
+          cantidadSistema:
+            0,
+
+          cantidadVerificada:
+            0,
+
+          diferencia:
+            0,
+
+          tarimasSistema:
+            0,
+
+          recortesSistema:
+            0
+
+        };
+
+      }
+
+
+      const registro =
+        mapa[clave];
+
+
+      registro.materiales++;
+
+
+      registro.cantidadSistema +=
+        numeroInicioVerificacion_(
+          item.Cantidad_Sistema
+        );
+
+
+      registro.cantidadVerificada +=
+        numeroInicioVerificacion_(
+          item.Cantidad_Verificada
+        );
+
+
+      registro.diferencia +=
+        numeroInicioVerificacion_(
+          item.Diferencia
+        );
+
+
+      registro.tarimasSistema +=
+        numeroInicioVerificacion_(
+          item.Tarimas_Sistema
+        );
+
+
+      registro.recortesSistema +=
+        numeroInicioVerificacion_(
+          item.Recortes_Sistema
+        );
+
+    }
+  );
+
+
+  return Object
+    .values(
+      mapa
+    )
+    .map(
+      function(item) {
+
+        Object.keys(
+          item
+        ).forEach(
+          function(clave) {
+
+            if (
+              typeof item[clave] ===
+              "number"
+            ) {
+
+              item[clave] =
+                redondearInicioVerificacion_(
+                  item[clave]
+                );
+
+            }
+
+          }
+        );
+
+
+        return item;
+
+      }
+    );
+
+}
+
+
+/**
+ * Actualiza los totales iniciales del encabezado.
+ */
+function actualizarResumenEncabezadoVerificacion_(
+  parametros
+) {
+
+  const resumen =
+    parametros.resumen;
+
+
+  actualizarRegistroPorCampoVerificacion_({
+
+    hoja:
+      parametros.hoja,
+
+    campoBusqueda:
+      "ID_Verificacion",
+
+    valorBusqueda:
+      parametros.idVerificacion,
+
+    datos: {
+
+      Total_Materiales:
+        resumen.totalMateriales,
+
+      Total_Unidades_Sistema:
+        resumen.totalUnidadesSistema,
+
+      Total_Unidades_Verificadas:
+        resumen.totalUnidadesVerificadas,
+
+      Total_Diferencia_Neta:
+        resumen.totalDiferenciaNeta,
+
+      Total_Faltante:
+        resumen.totalFaltante,
+
+      Total_Sobrante:
+        resumen.totalSobrante,
+
+      Total_Cantidad_Corregida:
+        resumen.totalCantidadCorregida,
+
+      Total_Diferencia_Pendiente:
+        resumen.totalDiferenciaPendiente,
+
+      Incidencias_Detectadas:
+        resumen.incidenciasDetectadas,
+
+      Incidencias_Resueltas:
+        resumen.incidenciasResueltas,
+
+      Incidencias_Parcialmente_Resueltas:
+        resumen
+          .incidenciasParcialmenteResueltas,
+
+      Incidencias_Pendientes:
+        resumen.incidenciasPendientes,
+
+      Porcentaje_Resolucion_Incidencias:
+        resumen.porcentajeResolucion,
+
+      Materiales_Conformes:
+        resumen.materialesConformes,
+
+      Materiales_Con_Diferencia:
+        resumen.materialesConDiferencia,
+
+      Tarimas_Sistema:
+        resumen.tarimasSistema,
+
+      Tarimas_Verificadas:
+        resumen.tarimasVerificadas,
+
+      Diferencia_Tarimas:
+        resumen.diferenciaTarimas,
+
+      Recortes_Sistema:
+        resumen.recortesSistema,
+
+      Recortes_Verificados:
+        resumen.recortesVerificados,
+
+      Diferencia_Recortes:
+        resumen.diferenciaRecortes,
+
+      Fecha_Modificacion:
+        new Date()
+
+    }
+
+  });
+
+}
+
+
+/**
+ * Actualiza las columnas rápidas de Despacho.
+ */
+function actualizarEstadoVerificacionEnDespacho_(
+  parametros
+) {
+
+  actualizarRegistroPorCampoVerificacion_({
+
+    hoja:
+      parametros.hoja,
+
+    campoBusqueda:
+      "ID_Conduce",
+
+    valorBusqueda:
+      parametros.idConduce,
+
+    datos: {
+
+      Estado_Verificacion:
+        parametros.estado,
+
+      ID_Verificacion:
+        parametros.idVerificacion,
+
+      Resultado_Verificacion:
+        parametros.resultado,
+
+      Fecha_Verificacion:
+        new Date(),
+
+      Verificado_Por:
+        parametros.analistaNombre
+
+    }
+
+  });
+
+}
+
+
+/**
+ * Lee Materiales.
+ */
+function obtenerCatalogoMaterialesVerificacion_(
+  hoja
+) {
+
+  const mapa = {};
+
+
+  if (!hoja) {
+    return mapa;
+  }
+
+
+  const registros =
+    leerRegistrosHojaVerificacion_(
+      hoja
+    );
+
+
+  registros.forEach(
+    function(item) {
+
+      const id =
+        String(
+          item.ID_Material || ""
+        ).trim();
+
+
+      if (!id) {
+        return;
+      }
+
+
+      mapa[id] = {
+
+        descripcion:
+          String(
+            item.Descripcion || ""
+          ).trim(),
+
+        um:
+          String(
+            item.UM ||
+            item.Unidad_Medida ||
+            ""
+          ).trim(),
+
+        umb:
+          numeroInicioVerificacion_(
+            item.UMB
+          ),
+
+        valorUnidad:
+          numeroInicioVerificacion_(
+            item.Valor_Unidad_Venta
+          )
+
+      };
+
+    }
+  );
+
+
+  return mapa;
+
+}
+
+
+/**
+ * Obtiene un registro por una columna.
+ */
+function obtenerRegistroPorCampoVerificacion_(
+  hoja,
+  campo,
+  valor
+) {
+
+  const registros =
+    leerRegistrosHojaVerificacion_(
+      hoja
+    );
+
+
+  for (
+    let i = 0;
+
+    i < registros.length;
+
+    i++
+  ) {
+
+    if (
+      String(
+        registros[i][campo] || ""
+      ).trim() ===
+      String(
+        valor || ""
+      ).trim()
+    ) {
+
+      return registros[i];
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/**
+ * Actualiza una fila usando encabezados.
+ */
+function actualizarRegistroPorCampoVerificacion_(
+  parametros
+) {
+
+  const hoja =
+    parametros.hoja;
+
+
+  const valores =
+    hoja
+      .getDataRange()
+      .getValues();
+
+
+  if (
+    valores.length <= 1
+  ) {
+
+    throw new Error(
+      "No existen registros para actualizar."
+    );
+
+  }
+
+
+  const encabezados =
+    valores[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+
+  const indiceBusqueda =
+    encabezados.indexOf(
+      parametros.campoBusqueda
+    );
+
+
+  if (
+    indiceBusqueda === -1
+  ) {
+
+    throw new Error(
+      "No existe la columna " +
+      parametros.campoBusqueda +
+      "."
+    );
+
+  }
+
+
+  let filaEncontrada =
+    -1;
+
+
+  for (
+    let i = 1;
+
+    i < valores.length;
+
+    i++
+  ) {
+
+    if (
+      String(
+        valores[i][
+          indiceBusqueda
+        ] || ""
+      ).trim() ===
+      String(
+        parametros.valorBusqueda || ""
+      ).trim()
+    ) {
+
+      filaEncontrada =
+        i + 1;
+
+      break;
+
+    }
+
+  }
+
+
+  if (
+    filaEncontrada === -1
+  ) {
+
+    throw new Error(
+      "No se encontró el registro solicitado."
+    );
+
+  }
+
+
+  Object.keys(
+    parametros.datos
+  ).forEach(
+    function(campo) {
+
+      const indiceCampo =
+        encabezados.indexOf(
+          campo
+        );
+
+
+      if (
+        indiceCampo === -1
+      ) {
+
+        throw new Error(
+          "No existe la columna " +
+          campo +
+          " en " +
+          hoja.getName() +
+          "."
+        );
+
+      }
+
+
+      hoja
+        .getRange(
+          filaEncontrada,
+          indiceCampo + 1
+        )
+        .setValue(
+          parametros.datos[campo]
+        );
+
+    }
+  );
+
+}
+
+
+/**
+ * Agrega una fila respetando encabezados.
+ */
+function agregarFilaPorEncabezadosVerificacion_(
+  hoja,
+  datos
+) {
+
+  const encabezados =
+    hoja
+      .getRange(
+        1,
+        1,
+        1,
+        hoja.getLastColumn()
+      )
+      .getDisplayValues()[0]
+      .map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+  const fila =
+    encabezados.map(
+      function(encabezado) {
+
+        return datos[encabezado] !==
+          undefined
+
+          ? datos[encabezado]
+
+          : "";
+
+      }
+    );
+
+
+  hoja.appendRow(
+    fila
+  );
+
+}
+
+
+/**
+ * Agrega varias filas respetando encabezados.
+ */
+function agregarVariasFilasPorEncabezadosVerificacion_(
+  hoja,
+  registros
+) {
+
+  if (
+    !Array.isArray(
+      registros
+    ) ||
+    registros.length === 0
+  ) {
+    return;
+  }
+
+
+  const encabezados =
+    hoja
+      .getRange(
+        1,
+        1,
+        1,
+        hoja.getLastColumn()
+      )
+      .getDisplayValues()[0]
+      .map(
+        function(valor) {
+
+          return String(
+            valor || ""
+          ).trim();
+
+        }
+      );
+
+
+  const filas =
+    registros.map(
+      function(datos) {
+
+        return encabezados.map(
+          function(encabezado) {
+
+            return datos[encabezado] !==
+              undefined
+
+              ? datos[encabezado]
+
+              : "";
+
+          }
+        );
+
+      }
+    );
+
+
+  hoja
+    .getRange(
+      hoja.getLastRow() + 1,
+      1,
+      filas.length,
+      encabezados.length
+    )
+    .setValues(
+      filas
+    );
+
+}
+
+
+/**
+ * Lee una hoja como lista de objetos.
+ */
+function leerRegistrosHojaVerificacion_(
+  hoja
+) {
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+
+  const ultimaColumna =
+    hoja.getLastColumn();
+
+
+  if (
+    ultimaFila <= 1 ||
+    ultimaColumna <= 0
+  ) {
+    return [];
+  }
+
+
+  const valores =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        ultimaColumna
+      )
+      .getValues();
+
+
+  const encabezados =
+    valores[0].map(
+      function(valor) {
+
+        return String(
+          valor || ""
+        ).trim();
+
+      }
+    );
+
+
+  return valores
+    .slice(1)
+    .map(
+      function(fila) {
+
+        const item = {};
+
+
+        encabezados.forEach(
+          function(encabezado, indice) {
+
+            if (encabezado) {
+
+              item[encabezado] =
+                fila[indice];
+
+            }
+
+          }
+        );
+
+
+        return item;
+
+      }
+    );
+
+}
+
+
+/**
+ * Genera ID único de verificación.
+ */
+function generarIdVerificacionDespacho_() {
+
+  const zonaHoraria =
+    SpreadsheetApp
+      .openById(
+        SHEET_ID
+      )
+      .getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    "America/Santo_Domingo";
+
+
+  return (
+    "VER-" +
+    Utilities.formatDate(
+      new Date(),
+      zonaHoraria,
+      "yyyyMMdd-HHmmss"
+    ) +
+    "-" +
+    Utilities.getUuid()
+      .substring(
+        0,
+        6
+      )
+      .toUpperCase()
+  );
+
+}
+
+
+/**
+ * Normaliza textos.
+ */
+function normalizarTextoInicioVerificacion_(
+  valor
+) {
+
+  return String(
+    valor || ""
+  )
+    .trim()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .toLowerCase();
+
+}
+
+
+/**
+ * Convierte números.
+ */
+function numeroInicioVerificacion_(
+  valor
+) {
+
+  if (
+    typeof valor === "number" &&
+    isFinite(valor)
+  ) {
+
+    return valor;
+
+  }
+
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        /,/g,
+        ""
+      );
+
+
+  if (!texto) {
+    return 0;
+  }
+
+
+  const numero =
+    Number(
+      texto
+    );
+
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+
+}
+
+
+/**
+ * Redondea a dos decimales.
+ */
+function redondearInicioVerificacion_(
+  valor
+) {
+
+  return Math.round(
+    numeroInicioVerificacion_(
+      valor
+    ) * 100
+  ) / 100;
+
+}
+
+
+/**
+ * ============================================================
+ * PRUEBA MANUAL
+ * ============================================================
+ *
+ * Cambia el ID por un conduce Completado real.
+ */
+function probarInicioVerificacionDespacho() {
+
+  const resultado =
+    iniciarVerificacionDespacho({
+
+      idConduce:
+        "3485_46216_152323",
+
+      analistaId:
+        "PRUEBA",
+
+      analistaNombre:
+        "Analista de prueba"
+
+    });
+
+
+  console.log(
+    resultado.getContent()
+  );
+
+
+  return resultado;
+
+}

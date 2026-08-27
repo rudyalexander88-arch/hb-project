@@ -1,0 +1,114 @@
+/**
+ * GOOGLECHATRECEPCIONPTPRODUCCION.GS
+ * Extension aislada de GoogleChat.gs.
+ * Archivo ASCII para evitar problemas de codificacion.
+ */
+
+function enviarMensajeChatRecepcionPTProduccion(mensaje) {
+  const webhook = obtenerValorConfiguracionChat_(
+    "Webhook_Chat_RecepcionPT-Produccion"
+  );
+
+  return enviarMensajeGoogleChat_(
+    webhook,
+    mensaje,
+    "RECEPCION PT - PRODUCCION"
+  );
+}
+
+function notificarDesviacionRecepcionChat_(registro, diagnostico) {
+  registro = registro || {};
+  diagnostico = diagnostico || {};
+
+  const mensaje =
+    "\uD83D\uDEA8 *DESVIACI\u00D3N VALORIZADA - RECEPCI\u00D3N PT / PRODUCCI\u00D3N*\n\n" +
+    "*Recepci\u00F3n:* " + (registro.ID_Recepcion || "-") + "\n" +
+    "*Material:* " + (registro.Material || "-") +
+      " - " + (registro.Descripcion || "-") + "\n" +
+    "*Responsable Producci\u00F3n:* " +
+      (registro.Responsable_Produccion_Nombre || "Sin identificar") + "\n" +
+    "*Supervisor PT:* " +
+      (registro.Supervisor_PT_Nombre || "Sin identificar") + "\n" +
+    "*Analista:* " + (registro.Analista_Nombre || "-") + "\n\n" +
+    "*Libro Producci\u00F3n:* " +
+      chatVrNumero_(registro.Cantidad_Libro_Produccion) + "\n" +
+    "*Recibido PT:* " + chatVrNumero_(registro.Cantidad_PT) + "\n" +
+    "*Registrado SAP:* " + chatVrNumero_(registro.Cantidad_SAP) + "\n" +
+    "*Conteo f\u00EDsico:* " +
+      chatVrNumero_(registro.Cantidad_Verificada) + "\n\n" +
+    "*Incidencia:* " + (registro.Tipo_Incidencia || "-") + "\n" +
+    "*Desviaci\u00F3n:* " +
+      chatVrNumeroConSigno_(registro.Desviacion_Original) + "\n" +
+    "*Correcci\u00F3n registrada:* " +
+      chatVrNumero_(registro.Cantidad_Corregida) + "\n" +
+    "*Pendiente:* " +
+      chatVrNumeroConSigno_(registro.Desviacion_Pendiente) + "\n" +
+    "*Valor original:* " +
+      chatVrMoneda_(registro.Valor_Desviacion_Original) + "\n" +
+    "*Valor pendiente:* " +
+      chatVrMoneda_(registro.Valor_Pendiente) + "\n\n" +
+    "_" +
+      (
+        diagnostico.mensaje ||
+        "Requiere seguimiento de correcci\u00F3n."
+      ) +
+    "_";
+
+  const resultado =
+    enviarMensajeChatRecepcionPTProduccion(
+      mensaje
+    );
+
+  return {
+    enviada: true,
+    resultado: resultado
+  };
+}
+
+function probarChatRecepcionPTProduccion() {
+  return enviarMensajeChatRecepcionPTProduccion(
+    "\u2705 *Prueba de conexi\u00F3n*\n\n" +
+    "El webhook de Recepci\u00F3n PT - Producci\u00F3n " +
+    "funciona correctamente."
+  );
+}
+
+function chatVrNumero_(valor) {
+  const numero = Number(valor || 0);
+
+  return isFinite(numero)
+    ? numero.toLocaleString(
+        "es-DO",
+        {
+          maximumFractionDigits: 2
+        }
+      )
+    : "0";
+}
+
+function chatVrNumeroConSigno_(valor) {
+  const numero = Number(valor || 0);
+
+  return (
+    (numero > 0 ? "+" : "") +
+    chatVrNumero_(numero)
+  );
+}
+
+function chatVrMoneda_(valor) {
+  const numero = Number(valor || 0);
+  const seguro = isFinite(numero)
+    ? numero
+    : 0;
+
+  return (
+    "RD$" +
+    seguro.toLocaleString(
+      "es-DO",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }
+    )
+  );
+}

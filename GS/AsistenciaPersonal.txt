@@ -1,0 +1,907 @@
+/**
+ * ASISTENCIAPERSONAL.GS · versión corregida
+ * Sistema Logístico PT - Helados BON
+ * Gestión de asistencia, vacaciones y amonestaciones.
+ * Los avisos privados viven en AvisosSistema.gs.
+ */
+
+const AP_HOJAS = {
+  ASISTENCIA:"Asistencia_Personal",
+  AMONESTACIONES:"Amonestaciones",
+  VACACIONES:"Vacaciones_Personal",
+  HORAS_EXTRAS:"Horas_Extras",
+  CALENDARIO:"Calendario_Laboral",
+  CALENDARIO_DETALLE:"Calendario_Laboral_Detalle",
+  JORNADA_PERSONAL:"Jornada_Laboral_Personal",
+  BONO_FELICIDAD:"Bono_Felicidad",
+  JUSTIFICACIONES:"Justificaciones_Ausencia"
+};
+
+const AP_ENCABEZADOS = {};
+AP_ENCABEZADOS[AP_HOJAS.ASISTENCIA] = [
+  "ID_Asistencia","Fecha","Turno","Empleado_ID","Empleado_Nombre","Turno_Origen",
+  "Estado_Asistencia","Tipo_Inasistencia","Detalle_Justificacion","Es_Cobertura",
+  "Motivo_Cobertura","Empleado_Cubierto_ID","Empleado_Cubierto_Nombre","Linea_Trabajo",
+  "Genera_Horas_Extras","ID_Hora_Extra","Descuenta_Dia","Comentario","Responsable_ID",
+  "Responsable_Nombre","Fecha_Registro","Fecha_Modificacion","Correo_Enviado",
+  "Gmail_Thread_ID","Estado_Seguimiento","Hora_Inicio_Programada","Hora_Final_Programada",
+  "Hora_Entrada_Real","Hora_Salida_Real","Horas_Trabajadas","Minutos_Tardanza",
+  "Minutos_Penalizacion","Incidencia_Sin_Cierre","Origen_Marcacion_Entrada",
+  "Origen_Marcacion_Salida","Latitud_Entrada","Longitud_Entrada","Precision_Entrada_Metros",
+  "Distancia_Entrada_Metros","Latitud_Salida","Longitud_Salida","Precision_Salida_Metros",
+  "Distancia_Salida_Metros","Fecha_Cierre_Automatico"
+];
+AP_ENCABEZADOS[AP_HOJAS.AMONESTACIONES] = [
+  "ID_Amonestacion","ID_Asistencia","Empleado_ID","Empleado_Nombre","Fecha_Incidencia",
+  "Tipo_Amonestacion","Causa","Comentario","Fecha_Limite","Estado","Archivo_ID","Archivo_URL",
+  "Gmail_Thread_ID","Correo_Enviado","Registrado_Por_ID","Registrado_Por_Nombre","Fecha_Registro",
+  "Fecha_Modificacion","Fecha_Carga","Fecha_Envio_RRHH","Anulada_Por_ID","Anulada_Por_Nombre",
+  "Fecha_Anulacion","Motivo_Anulacion"
+];
+AP_ENCABEZADOS[AP_HOJAS.VACACIONES] = [
+  "ID_Vacacion","Empleado_ID","Empleado_Nombre","Turno","Fecha_Inicio","Fecha_Final",
+  "Cantidad_Dias","Estado","Comentario","Registrado_Por_ID","Registrado_Por_Nombre",
+  "Fecha_Registro","Fecha_Modificacion","Fecha_Reactivacion"
+];
+AP_ENCABEZADOS[AP_HOJAS.HORAS_EXTRAS] = [
+  "ID_Hora_Extra","ID_Jornada","ID_Asignacion","ID_Asistencia","Fecha","Empleado_ID",
+  "Empleado_Nombre","Rol","Turno_Origen","Turno_Trabajado","Linea_Trabajo","Tipo_Registro",
+  "Motivo","Tipo_Hora_Extra","Porcentaje_Adicional","Hora_Inicio_Programada","Hora_Final_Programada",
+  "Horas_Programadas","Hora_Entrada_Real","Hora_Salida_Real","Horas_Trabajadas","Costo_Hora",
+  "Valor_Hora_Extra","Monto_Total","Estado","Origen_Registro","Validado_Por_ID","Validado_Por_Nombre",
+  "Fecha_Validacion","Registrado_Por_ID","Registrado_Por_Nombre","Fecha_Registro","Fecha_Modificacion","Observaciones",
+  "Origen_Marcacion_Entrada","Origen_Marcacion_Salida","Latitud_Entrada","Longitud_Entrada",
+  "Precision_Entrada_Metros","Distancia_Entrada_Metros","Latitud_Salida","Longitud_Salida",
+  "Precision_Salida_Metros","Distancia_Salida_Metros","Minutos_Penalizacion",
+  "Incidencia_Sin_Cierre","Fecha_Cierre_Automatico","Motivo_Cobertura",
+  "Empleado_Cubierto_ID","Empleado_Cubierto_Nombre"
+];
+AP_ENCABEZADOS[AP_HOJAS.CALENDARIO] = [
+  "ID_Jornada","Fecha_Trabajo","Tipo_Jornada","Descripcion","Habra_Despacho",
+  "Fecha_Limite_Asignacion","Grupo_Carga_Regular","Estado","Creado_Por_ID","Creado_Por_Nombre",
+  "Fecha_Creacion","Fecha_Modificacion","Publicado_Por_ID","Publicado_Por_Nombre",
+  "Fecha_Publicacion","Finalizado_Por_ID","Finalizado_Por_Nombre","Fecha_Finalizacion","Motivo_Cancelacion",
+  "Habra_Inventario","Analista_Inventario_ID","Analista_Inventario_Nombre",
+  "Cantidad_Auxiliares_Inventario","Correo_Listado_Enviado","Fecha_Envio_Listado",
+  "Enviado_Por_ID","Enviado_Por_Nombre"
+];
+AP_ENCABEZADOS[AP_HOJAS.BONO_FELICIDAD] = [
+  "ID_Bono","Empleado_ID","Empleado_Nombre","Turno","Fecha_Bono","Estado","Comentario",
+  "Registrado_Por_ID","Registrado_Por_Nombre","Fecha_Registro","Fecha_Modificacion",
+  "Fecha_Cancelacion","Cancelado_Por_ID","Cancelado_Por_Nombre"
+];
+AP_ENCABEZADOS[AP_HOJAS.JUSTIFICACIONES] = [
+  "ID_Justificacion","ID_Asistencia","Empleado_ID","Empleado_Nombre","Fecha_Ausencia",
+  "Tipo_Justificacion","Detalle","Fecha_Limite_Documento","Estado","Archivo_ID","Archivo_URL",
+  "Fecha_Carga","Revisado_Por_ID","Revisado_Por_Nombre","Fecha_Revision","Comentario_Revision","Fecha_Registro"
+];
+AP_ENCABEZADOS[AP_HOJAS.CALENDARIO_DETALLE] = [
+  "ID_Detalle_Jornada","ID_Jornada","Turno","Turno_Nombre","Hora_Inicio","Hora_Final",
+  "Supervisor_ID","Supervisor_Nombre","Linea_Trabajo","Cantidad_Requerida","Cantidad_Asignada",
+  "Estado","Fecha_Registro","Fecha_Modificacion"
+];
+AP_ENCABEZADOS[AP_HOJAS.JORNADA_PERSONAL] = [
+  "ID_Asignacion","ID_Jornada","ID_Detalle_Jornada","Fecha_Trabajo","Empleado_ID","Empleado_Nombre",
+  "Rol","Turno_Origen","Turno_Trabajado","Linea_Trabajo","Tipo_Asignacion","Grupo_Carga_Regular",
+  "Es_Grupo_Carga_Regular","Es_Trabajo_Corrido","Genera_Horas_Extras","Tipo_Hora_Extra",
+  "Porcentaje_Adicional","ID_Hora_Extra","Estado_Asignacion","Asistio","Hora_Entrada_Real",
+  "Hora_Salida_Real","Horas_Trabajadas","Observaciones","Asignado_Por_ID","Asignado_Por_Nombre",
+  "Fecha_Asignacion","Fecha_Modificacion","Autorizado_Por_ID","Autorizado_Por_Nombre","Fecha_Autorizacion",
+  "Origen_Marcacion_Entrada","Origen_Marcacion_Salida","Latitud_Entrada","Longitud_Entrada",
+  "Precision_Entrada_Metros","Distancia_Entrada_Metros","Latitud_Salida","Longitud_Salida",
+  "Precision_Salida_Metros","Distancia_Salida_Metros","Minutos_Penalizacion",
+  "Incidencia_Sin_Cierre","Fecha_Cierre_Automatico","Motivo_Cobertura",
+  "Empleado_Cubierto_ID","Empleado_Cubierto_Nombre"
+];
+
+function instalarModuloAsistenciaPersonal() {
+  const ss = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+  Object.keys(AP_ENCABEZADOS).forEach(function(nombre) {
+    let hoja = ss.getSheetByName(nombre);
+    if (!hoja) hoja = ss.insertSheet(nombre);
+    const encabezados = AP_ENCABEZADOS[nombre];
+    if (hoja.getLastRow() === 0) {
+      hoja.getRange(1,1,1,encabezados.length).setValues([encabezados]);
+      hoja.setFrozenRows(1);
+      hoja.getRange(1,1,1,encabezados.length).setFontWeight("bold").setBackground("#e9eef3");
+    } else {
+      const actuales = hoja.getRange(1,1,1,Math.max(1,hoja.getLastColumn())).getValues()[0].map(String);
+      const faltantes = encabezados.filter(function(e){ return actuales.indexOf(e) < 0; });
+      if (faltantes.length) hoja.getRange(1,actuales.length+1,1,faltantes.length).setValues([faltantes]);
+    }
+  });
+  if (typeof instalarModuloAvisosSistema === "function") {
+    instalarModuloAvisosSistema();
+  }
+  crearTemporizadoresAsistenciaPersonal();
+  return {ok:true,mensaje:"Módulo de asistencia instalado correctamente."};
+}
+
+function obtenerResumenAsistenciaPersonal(data) {
+  try {
+    const acceso = apValidarResponsable_(data);
+    const fecha = apFecha_(data && data.fecha) || new Date();
+    const turno = String(data && data.turno || "4-3 A").trim();
+    const claveFecha = apFechaTexto_(fecha);
+    const usuarios = apUsuariosActivos_(turno,fecha);
+    const asistencia = apLeer_(AP_HOJAS.ASISTENCIA).filter(function(r) {
+      return apFechaTexto_(apFecha_(r.Fecha)) === claveFecha && apClave_(r.Turno) === apClave_(turno);
+    });
+    const porEmpleado = {};
+    asistencia.forEach(function(r) { porEmpleado[String(r.Empleado_ID)] = r; });
+    return respuesta({ok:true,data:{
+      fecha:claveFecha,
+      turno:turno,
+      colaboradores:usuarios.map(function(u) {
+        return {idEmpleado:u.id,nombre:u.nombre,rol:u.rol,usuario:u.usuario,registro:porEmpleado[u.id] || null};
+      }),
+      coberturas:asistencia.filter(r=>apClave_(r.Es_Cobertura)==="SI").map(apSerializarRegistro_),
+      disponiblesCobertura:apOrdenarUsuariosTurnoNombre_(Object.values(apUsuariosMapa_()).filter(function(u){
+        return ["ACTIVO","ACTIVA"].includes(apClave_(u.estado)) && apEsColaboradorAsistencia_(u) &&
+          apClave_(u.turno)!==apClave_(turno) && !apNoDisponibleEnFecha_(u.id,fecha);
+      })).map(function(u){return {idEmpleado:u.id,nombre:u.nombre,rol:u.rol,turno:u.turno};}),
+      noRequeridos:apNovedadesProgramadasTurno_(turno,fecha),
+      lineasTrabajo:apListaConfig_("Linea_trabajo"),
+      resumen:{registrados:asistencia.length,asistieron:asistencia.filter(r=>["ASISTIO","TARDANZA"].includes(apClave_(r.Estado_Asistencia))).length,
+        faltaron:asistencia.filter(r=>apClave_(r.Estado_Asistencia)==="FALTO").length,
+        vacaciones:apNovedadesProgramadasTurno_(turno,fecha).filter(x=>x.tipo==="VACACIONES").length,
+        bonoFelicidad:apNovedadesProgramadasTurno_(turno,fecha).filter(x=>x.tipo==="BONO FELICIDAD").length},
+      responsable:acceso
+    }});
+  } catch (error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+}
+
+function guardarAsistenciaPersonal(data) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+    const responsable = apValidarResponsable_(data);
+    const fecha = apFecha_(data.fecha);
+    const turno = String(data.turno || "").trim();
+    const registros = Array.isArray(data.registros) ? data.registros : [];
+    if (!fecha || !turno || !registros.length) throw new Error("Debe indicar fecha, turno y colaboradores.");
+    const usuarios = apUsuariosMapa_();
+    const existentes = apLeer_(AP_HOJAS.ASISTENCIA);
+    const hoja = getSheet(AP_HOJAS.ASISTENCIA);
+    const encabezados = hoja.getRange(1,1,1,hoja.getLastColumn()).getValues()[0].map(String);
+    let guardados = 0;
+
+    registros.forEach(function(item) {
+      const id = String(item.empleadoId || "").trim();
+      const usuario = usuarios[id];
+      if (!usuario) throw new Error("No existe el colaborador " + id + ".");
+      const esCobertura = apClave_(item.esCobertura) === "SI";
+      if (!apEsColaboradorAsistencia_(usuario) || (!esCobertura && apClave_(usuario.turno) !== apClave_(turno))) {
+        throw new Error(usuario.nombre + " no pertenece al turno seleccionado o su rol no aplica para asistencia.");
+      }
+      const estado = apClave_(item.estadoAsistencia);
+      if (["ASISTIO","FALTO","TARDANZA"].indexOf(estado) < 0) return;
+      if (esCobertura && estado !== "ASISTIO") throw new Error("El personal agregado como cobertura debe figurar como asistió.");
+      if (estado === "TARDANZA" && !String(item.horaLlegada || "").trim()) throw new Error("Indique la hora de llegada de " + usuario.nombre + ".");
+      const tipo = estado === "FALTO" ? apClave_(item.tipoInasistencia) : "NO APLICA";
+      if (estado === "FALTO" && ["INJUSTIFICADA","MEDICA","OTRA JUSTIFICADA"].indexOf(tipo) < 0) {
+        throw new Error("Debe clasificar la falta de " + usuario.nombre + ".");
+      }
+      const detalle=String(item.detalleJustificacion||item.comentario||"").trim();
+      if(estado==="FALTO"&&tipo==="OTRA JUSTIFICADA"&&!detalle)throw new Error("Debe detallar la justificación de "+usuario.nombre+".");
+      const idExistente = existentes.find(function(r) {
+        return String(r.Empleado_ID) === id && apFechaTexto_(apFecha_(r.Fecha)) === apFechaTexto_(fecha) && String(r.Turno) === turno;
+      });
+      const idAsistencia = idExistente ? String(idExistente.ID_Asistencia) : apId_("ASI");
+      const descuenta = estado === "FALTO" && tipo === "INJUSTIFICADA" ? "SI" : "NO";
+      let threadId = idExistente ? String(idExistente.Gmail_Thread_ID || "") : "";
+      let correo = idExistente ? String(idExistente.Correo_Enviado || "NO") : "NO";
+
+      if (estado === "FALTO" && tipo === "INJUSTIFICADA" && !threadId && apConfigSi_("Enviar_Correos_Asistencia")) {
+        const envio = apEnviarCorreoFalta_(usuario, fecha, turno, tipo, item.comentario, responsable);
+        threadId = envio.threadId;
+        correo = "SI";
+      }
+
+      const fila = {
+        ID_Asistencia:idAsistencia,Fecha:fecha,Turno:turno,Empleado_ID:id,Empleado_Nombre:usuario.nombre,
+        Estado_Asistencia:estado,Tipo_Inasistencia:tipo,Detalle_Justificacion:detalle,Descuenta_Dia:descuenta,Comentario:String(item.comentario||""),
+        Responsable_ID:responsable.id,Responsable_Nombre:responsable.nombre,Fecha_Registro:idExistente?idExistente.Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),
+        Correo_Enviado:correo,Gmail_Thread_ID:threadId,Estado_Seguimiento:estado === "FALTO" ? (tipo==="INJUSTIFICADA"?"PENDIENTE AMONESTACION":"PENDIENTE REVISION") : "CERRADO",
+        Turno_Origen:usuario.turno,Es_Cobertura:esCobertura?"SI":"NO",
+        Motivo_Cobertura:String(item.motivoCobertura||""),Linea_Trabajo:String(item.lineaTrabajo||""),
+        Empleado_Cubierto_ID:String(item.empleadoCubiertoId||""),Empleado_Cubierto_Nombre:String(item.empleadoCubiertoNombre||""),
+        Genera_Horas_Extras:"NO",ID_Hora_Extra:idExistente?String(idExistente.ID_Hora_Extra||""):"",
+        Hora_Inicio_Programada:apHorarioPersonal_(turno).inicio,
+        Hora_Final_Programada:apHorarioPersonal_(turno).fin,
+        Hora_Entrada_Real:estado === "TARDANZA" ? String(item.horaLlegada).trim() : (idExistente ? idExistente.Hora_Entrada_Real || "" : ""),
+        Horas_Trabajadas:estado === "TARDANZA" ? apHorasEntre_(String(item.horaLlegada).trim(),apHorarioPersonal_(turno).fin) : (idExistente ? idExistente.Horas_Trabajadas || "" : ""),
+        Minutos_Tardanza:estado === "TARDANZA" ? apMinutosDiferencia_(apHorarioPersonal_(turno).inicio,String(item.horaLlegada).trim()) : 0,
+        Origen_Marcacion_Entrada:estado === "TARDANZA" ? "MANUAL" : (idExistente ? idExistente.Origen_Marcacion_Entrada || "" : "")
+      };
+      apUpsert_(hoja,encabezados,"ID_Asistencia",idAsistencia,fila);
+
+      if (estado === "FALTO" && tipo === "INJUSTIFICADA") {
+        apCrearAmonestacionPendiente_(fila,usuario,responsable);
+      }
+      if (estado === "FALTO" && tipo !== "INJUSTIFICADA") {
+        apCrearJustificacionAusencia_(fila,usuario,tipo,detalle);
+      }
+      if (estado === "ASISTIO" || estado === "TARDANZA") {
+        const he = apGenerarHoraExtraAsistencia_(fila,usuario,responsable,item);
+        if (he) {
+          apActualizar_(AP_HOJAS.ASISTENCIA,"ID_Asistencia",idAsistencia,{Genera_Horas_Extras:"SI",ID_Hora_Extra:he});
+        }
+      }
+      guardados++;
+    });
+    SpreadsheetApp.flush();
+    return respuesta({ok:true,mensaje:"Asistencia guardada correctamente.",data:{guardados:guardados}});
+  } catch (error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+  finally { try { lock.releaseLock(); } catch(e) {} }
+}
+
+function obtenerPersonalLaborandoPorFecha(data) {
+  try {
+    apValidarResponsable_(data);
+    const fecha=apFecha_(data&&data.fecha)||new Date(), clave=apFechaTexto_(fecha);
+    const registros=apLeer_(AP_HOJAS.ASISTENCIA).filter(r=>apFechaTexto_(apFecha_(r.Fecha))===clave);
+    return respuesta({ok:true,data:{fecha:clave,registros:registros.map(apSerializarRegistro_),resumen:{
+      trabajando:registros.filter(r=>apClave_(r.Estado_Asistencia)==="ASISTIO").length,
+      coberturas:registros.filter(r=>apClave_(r.Es_Cobertura)==="SI").length,
+      ausentes:registros.filter(r=>["FALTO","VACACIONES","BONO FELICIDAD"].includes(apClave_(r.Estado_Asistencia))).length
+    }}});
+  } catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function programarHoraExtraPersonal(data) {
+  try {
+    const responsable=apValidarResponsable_(data), usuario=apUsuarioPorId_(data.empleadoId);
+    if(!usuario||!apEsColaboradorAsistencia_(usuario))throw new Error("Seleccione un auxiliar o montacarguista válido.");
+    const fecha=apFecha_(data.fecha);if(!fecha)throw new Error("Debe indicar la fecha.");
+    const inicio=String(data.horaInicio||""),fin=String(data.horaFinal||"");
+    const horas=apHorasEntre_(inicio,fin);if(horas<=0)throw new Error("Indique un horario válido.");
+    const roja=apClave_(data.tipoHoraExtra)==="ROJA";
+    const id=apId_("HEX"), porcentaje=apPorcentajeExtra_(roja?"ROJA":"NORMAL");
+    apAgregar_(AP_HOJAS.HORAS_EXTRAS,{
+      ID_Hora_Extra:id,ID_Asistencia:"",Fecha:fecha,Empleado_ID:usuario.id,Empleado_Nombre:usuario.nombre,Rol:usuario.rol,
+      Turno_Origen:usuario.turno,Turno_Trabajado:String(data.turnoTrabajado||usuario.turno),Tipo_Registro:"PROGRAMADA",
+      Motivo:apClave_(data.motivo||"OTRO"),Es_Cobertura:apClave_(data.esCobertura)==="SI"?"SI":"NO",
+      Empleado_Cubierto_ID:String(data.empleadoCubiertoId||""),Empleado_Cubierto_Nombre:String(data.empleadoCubiertoNombre||""),
+      Es_Dia_Descanso:roja?"SI":"NO",Es_Feriado:apEsFeriado_(fecha)?"SI":"NO",Es_Fin_De_Semana:apEsFinSemana_(fecha)?"SI":"NO",
+      Tipo_Hora_Extra:roja?"ROJA":"NORMAL",Porcentaje_Adicional:porcentaje,Hora_Inicio_Programada:inicio,
+      Hora_Final_Programada:fin,Horas_Programadas:horas,Hora_Entrada_Real:"",Hora_Salida_Real:"",Horas_Trabajadas:"",
+      Costo_Hora:"",Valor_Hora_Extra:"",Monto_Total:"",Estado:"PROGRAMADA",Origen_Registro:"PROGRAMACION",
+      Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),
+      Observaciones:String(data.observaciones||"")
+    });
+    return respuesta({ok:true,mensaje:"Horas extras programadas correctamente.",data:{idHoraExtra:id}});
+  }catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function obtenerCatalogosJornadaExtraordinaria(data){
+  try{apValidarResponsable_(data);const usuarios=Object.values(apUsuariosMapa_());return respuesta({ok:true,data:{
+    turnos:["A","B","C"].map(apTurnoConfig_),lineas:apListaConfig_("Linea_trabajo"),
+    supervisores:apOrdenarUsuariosTurnoNombre_(usuarios.filter(u=>apClave_(u.rol).includes("SUPERVISOR")&&["ACTIVO","ACTIVA"].includes(apClave_(u.estado)))).map(u=>({id:u.id,nombre:u.nombre})),
+    colaboradores:apOrdenarUsuariosTurnoNombre_(usuarios.filter(u=>apEsColaboradorAsistencia_(u)&&["ACTIVO","ACTIVA"].includes(apClave_(u.estado)))).map(u=>({id:u.id,nombre:u.nombre,rol:u.rol,turno:u.turno})),
+    analistas:apOrdenarUsuariosTurnoNombre_(usuarios.filter(u=>apClave_(u.rol).includes("ANALISTA")&&["ACTIVO","ACTIVA"].includes(apClave_(u.estado)))).map(u=>({id:u.id,nombre:u.nombre,rol:u.rol,turno:u.turno}))
+  }});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function crearJornadaExtraordinaria(data){
+  const lock=LockService.getScriptLock();try{lock.waitLock(30000);const responsable=apValidarEncargado_(data),fecha=apFecha_(data.fechaTrabajo),tipo=apClave_(data.tipoJornada),turnos=Array.isArray(data.turnos)?data.turnos:[];if(!fecha||!["FERIADO","FIN DE SEMANA","NORMAL"].includes(tipo))throw new Error("Complete fecha y tipo de jornada.");if(!turnos.length)throw new Error("Seleccione al menos un turno A, B o C.");const id=apId_("JOR"),publicar=apClave_(data.publicar)==="SI";apAgregar_(AP_HOJAS.CALENDARIO,{ID_Jornada:id,Fecha_Trabajo:fecha,Tipo_Jornada:tipo,Descripcion:String(data.descripcion||""),Habra_Despacho:apClave_(data.habraDespacho)==="SI"?"SI":"NO",Fecha_Limite_Asignacion:apFecha_(data.fechaLimiteAsignacion)||"",Grupo_Carga_Regular:"",Estado:publicar?"PUBLICADA":"BORRADOR",Creado_Por_ID:responsable.id,Creado_Por_Nombre:responsable.nombre,Fecha_Creacion:new Date(),Fecha_Modificacion:new Date(),Publicado_Por_ID:publicar?responsable.id:"",Publicado_Por_Nombre:publicar?responsable.nombre:"",Fecha_Publicacion:publicar?new Date():""});
+    turnos.forEach(t=>{const codigo=apClave_(t.codigo);if(!["A","B","C"].includes(codigo))throw new Error("Turno no permitido: "+codigo);const cfg=apTurnoConfig_(codigo),sup=apUsuarioPorId_(t.supervisorId);if(!sup||!apClave_(sup.rol).includes("SUPERVISOR"))throw new Error("Seleccione el supervisor del turno "+codigo+".");const lineas=Array.isArray(t.lineas)?t.lineas:[];if(!lineas.length)throw new Error("Agregue líneas al turno "+codigo+".");lineas.forEach(l=>{const linea=String(l.linea||"").trim(),cantidad=Math.max(0,parseInt(l.cantidad,10)||0);if(!linea||!cantidad)throw new Error("Complete línea y cantidad del turno "+codigo+".");apAgregar_(AP_HOJAS.CALENDARIO_DETALLE,{ID_Detalle_Jornada:apId_("JDE"),ID_Jornada:id,Turno:codigo,Turno_Nombre:cfg.nombre,Hora_Inicio:cfg.horaInicio,Hora_Final:cfg.horaFinal,Supervisor_ID:sup.id,Supervisor_Nombre:sup.nombre,Linea_Trabajo:linea,Cantidad_Requerida:cantidad,Cantidad_Asignada:0,Estado:"PENDIENTE",Fecha_Registro:new Date(),Fecha_Modificacion:new Date()});});});
+    if(apClave_(data.habraInventario)==="SI"){
+      const analista=apUsuarioPorId_(data.analistaInventarioId),cantidadInventario=Math.max(0,parseInt(data.cantidadAuxiliaresInventario,10)||0);
+      if(!analista||!apClave_(analista.rol).includes("ANALISTA"))throw new Error("Seleccione el analista responsable del inventario.");
+      apActualizar_(AP_HOJAS.CALENDARIO,"ID_Jornada",id,{Habra_Inventario:"SI",Analista_Inventario_ID:analista.id,Analista_Inventario_Nombre:analista.nombre,Cantidad_Auxiliares_Inventario:cantidadInventario});
+      apAgregarAsignacionJornada_(apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",id),null,analista,{turnoTrabajado:String(turnos[0].codigo),lineaTrabajo:"INVENTARIO",tipoAsignacion:"ANALISTA INVENTARIO",generaHorasExtras:"SI"},responsable);
+    }else{apActualizar_(AP_HOJAS.CALENDARIO,"ID_Jornada",id,{Habra_Inventario:"NO",Cantidad_Auxiliares_Inventario:0});}
+    if(publicar)apCrearAvisosJornada_(id,fecha,tipo,responsable);return respuesta({ok:true,mensaje:publicar?"Jornada publicada correctamente.":"Borrador guardado correctamente.",data:{idJornada:id}});
+  }catch(error){return respuesta({ok:false,mensaje:apError_(error)});}finally{try{lock.releaseLock();}catch(e){}}
+}
+
+function listarJornadasExtraordinarias(data){try{apValidarResponsable_(data);const jornadas=apLeer_(AP_HOJAS.CALENDARIO),detalles=apLeer_(AP_HOJAS.CALENDARIO_DETALLE),asignados=apLeer_(AP_HOJAS.JORNADA_PERSONAL);return respuesta({ok:true,data:{jornadas:jornadas.sort((a,b)=>(apFecha_(b.Fecha_Trabajo)||0)-(apFecha_(a.Fecha_Trabajo)||0)).map(j=>{const o=apSerializarRegistro_(j);o.detalles=detalles.filter(d=>String(d.ID_Jornada)===String(j.ID_Jornada)).map(apSerializarRegistro_);o.personal=asignados.filter(a=>String(a.ID_Jornada)===String(j.ID_Jornada)).map(apSerializarRegistro_);return o;})}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+
+function definirGrupoCargaJornada(data){
+  try{const responsable=apValidarResponsable_(data),id=String(data.idJornada||""),grupo=apClave_(data.grupoCarga);if(!["4-3 A","4-3 B"].includes(grupo))throw new Error("Seleccione 4-3 A o 4-3 B.");const jornada=apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",id);if(!jornada||apClave_(jornada.Habra_Despacho)!=="SI")throw new Error("La jornada no está configurada para despacho.");const grupoAnterior=apClave_(jornada.Grupo_Carga_Regular);if(grupoAnterior&&grupoAnterior!==grupo&&apClave_(data.reemplazarGrupo)!=="SI")throw new Error("La jornada ya tiene un grupo de carga. Utilice Editar para sustituirlo.");if(grupoAnterior&&grupoAnterior!==grupo){apLeer_(AP_HOJAS.JORNADA_PERSONAL).filter(x=>String(x.ID_Jornada)===id&&apClave_(x.Tipo_Asignacion)==="CARGA REGULAR"&&apClave_(x.Estado_Asignacion)!=="CANCELADA").forEach(x=>apActualizar_(AP_HOJAS.JORNADA_PERSONAL,"ID_Asignacion",x.ID_Asignacion,{Estado_Asignacion:"CANCELADA",Fecha_Modificacion:new Date()}));}apActualizar_(AP_HOJAS.CALENDARIO,"ID_Jornada",id,{Grupo_Carga_Regular:grupo,Fecha_Modificacion:new Date()});jornada.Grupo_Carga_Regular=grupo;const existentes=apLeer_(AP_HOJAS.JORNADA_PERSONAL);Object.values(apUsuariosMapa_()).filter(u=>apEsColaboradorAsistencia_(u)&&apClave_(u.turno)===grupo&&["ACTIVO","ACTIVA"].includes(apClave_(u.estado))).forEach(u=>{if(existentes.some(x=>String(x.ID_Jornada)===id&&String(x.Empleado_ID)===u.id&&apClave_(x.Tipo_Asignacion)==="CARGA REGULAR"&&apClave_(x.Estado_Asignacion)!=="CANCELADA"))return;apAgregarAsignacionJornada_(jornada,null,u,{turnoTrabajado:grupo,lineaTrabajo:"CARGA",tipoAsignacion:"CARGA REGULAR",grupoCargaRegular:grupo,generaHorasExtras:"NO"},responsable);});return respuesta({ok:true,mensaje:grupoAnterior&&grupoAnterior!==grupo?"Grupo de carga actualizado correctamente.":"Grupo de carga agregado automáticamente."});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function asignarPersonalJornadaLote(data) {
+  try {
+    const asignaciones = Array.isArray(data.asignaciones) ? data.asignaciones : [];
+    if (!asignaciones.length) throw new Error("Seleccione al menos un colaborador para guardar el turno.");
+    let guardadas = 0;
+    for (let i=0;i<asignaciones.length;i++) {
+      const parametros = Object.assign({}, data, asignaciones[i]);
+      delete parametros.asignaciones;
+      const respuestaIndividual = JSON.parse(asignarPersonalJornada(parametros).getContent());
+      if (!respuestaIndividual.ok) throw new Error((guardadas ? guardadas + " asignaciones fueron guardadas. " : "") + respuestaIndividual.mensaje);
+      guardadas++;
+    }
+    return respuesta({ok:true,mensaje:guardadas + " colaboradores asignados correctamente.",data:{guardadas:guardadas}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:apError_(error)});
+  }
+}
+
+function asignarPersonalJornada(data){
+  const bloqueo = LockService.getScriptLock();
+
+  try {
+    bloqueo.waitLock(30000);
+
+    const responsable = apValidarResponsable_(data);
+    const jornada = apBuscar_(
+      AP_HOJAS.CALENDARIO,
+      "ID_Jornada",
+      String(data.idJornada || "")
+    );
+    const colaborador = apUsuarioPorId_(data.empleadoId);
+
+    if (!jornada || !colaborador || !apEsColaboradorAsistencia_(colaborador)) {
+      throw new Error("Jornada o colaborador no válido.");
+    }
+
+    const detalle = data.idDetalleJornada
+      ? apBuscar_(
+          AP_HOJAS.CALENDARIO_DETALLE,
+          "ID_Detalle_Jornada",
+          data.idDetalleJornada
+        )
+      : null;
+    const trabajoCorrido = apClave_(data.trabajoCorrido) === "SI";
+
+    if (data.idDetalleJornada && !detalle) {
+      throw new Error("No se encontró el turno y la línea seleccionados.");
+    }
+
+    if (detalle && String(detalle.ID_Jornada) !== String(jornada.ID_Jornada)) {
+      throw new Error("La línea seleccionada no corresponde a esta jornada.");
+    }
+
+    if (trabajoCorrido && !detalle) {
+      throw new Error("Seleccione una línea para registrar trabajo corrido.");
+    }
+
+    let detalleSiguiente = null;
+
+    if (trabajoCorrido) {
+      const turnosOrdenados = ["A", "B", "C"].map(function(codigo) {
+        return apClave_(apTurnoConfig_(codigo).codigo);
+      });
+      const indiceTurno = turnosOrdenados.indexOf(apClave_(detalle.Turno));
+
+      if (indiceTurno < 0 || indiceTurno >= turnosOrdenados.length - 1) {
+        throw new Error(
+          "El turno " + detalle.Turno + " no tiene un turno siguiente disponible para trabajo corrido."
+        );
+      }
+
+      const turnoSiguiente = turnosOrdenados[indiceTurno + 1];
+
+      detalleSiguiente = apLeer_(AP_HOJAS.CALENDARIO_DETALLE).find(function(item) {
+        return String(item.ID_Jornada) === String(jornada.ID_Jornada) &&
+          apClave_(item.Turno) === turnoSiguiente &&
+          apClave_(item.Linea_Trabajo) === apClave_(detalle.Linea_Trabajo);
+      }) || null;
+
+      if (!detalleSiguiente) {
+        throw new Error(
+          'La línea "' + detalle.Linea_Trabajo + '" no está programada en el turno siguiente ' +
+          turnoSiguiente + "."
+        );
+      }
+    }
+
+    const asignacionesExistentes = apLeer_(AP_HOJAS.JORNADA_PERSONAL);
+    const detallesAsignar = [detalle].concat(detalleSiguiente ? [detalleSiguiente] : []);
+
+    detallesAsignar.filter(Boolean).forEach(function(detalleAsignacion) {
+      const asignados = asignacionesExistentes.filter(function(item) {
+        return String(item.ID_Detalle_Jornada) === String(detalleAsignacion.ID_Detalle_Jornada) &&
+          apClave_(item.Estado_Asignacion) !== "CANCELADA";
+      }).length;
+      const requeridos = Number(detalleAsignacion.Cantidad_Requerida || 0);
+
+      if (asignados >= requeridos) {
+        throw new Error(
+          'La línea "' + detalleAsignacion.Linea_Trabajo + '" del turno ' +
+          detalleAsignacion.Turno + " no tiene cupos disponibles."
+        );
+      }
+
+      const duplicado = asignacionesExistentes.some(function(item) {
+        return String(item.ID_Jornada) === String(jornada.ID_Jornada) &&
+          String(item.Empleado_ID) === String(colaborador.id) &&
+          apClave_(item.Turno_Trabajado) === apClave_(detalleAsignacion.Turno) &&
+          apClave_(item.Linea_Trabajo) === apClave_(detalleAsignacion.Linea_Trabajo) &&
+          apClave_(item.Estado_Asignacion) !== "CANCELADA";
+      });
+
+      if (duplicado) {
+        throw new Error(
+          colaborador.nombre + " ya está asignado en el turno " +
+          detalleAsignacion.Turno + " y la línea " + detalleAsignacion.Linea_Trabajo + "."
+        );
+      }
+    });
+
+    const grupo = apClave_(jornada.Grupo_Carga_Regular);
+    const es43 = ["4-3 A", "4-3 B"].includes(apClave_(colaborador.turno));
+    const regular = es43 && apClave_(colaborador.turno) === grupo;
+    const tipo = regular
+      ? "CARGA REGULAR"
+      : es43
+        ? "CARGA ADICIONAL"
+        : "TURNO EXTRAORDINARIO";
+    const genera = regular ? "NO" : "SI";
+    const opciones = {
+      tipoAsignacion: tipo,
+      grupoCargaRegular: grupo,
+      generaHorasExtras: genera,
+      trabajoCorrido: trabajoCorrido ? "SI" : "NO",
+      observaciones: String(data.observaciones || "")
+    };
+
+    const idAsignacion = apAgregarAsignacionJornada_(
+      jornada,
+      detalle,
+      colaborador,
+      Object.assign({}, opciones, {
+        turnoTrabajado: detalle ? detalle.Turno : String(data.turnoTrabajado || ""),
+        lineaTrabajo: detalle ? detalle.Linea_Trabajo : String(data.lineaTrabajo || "")
+      }),
+      responsable
+    );
+
+    let idAsignacionSiguiente = "";
+
+    if (detalleSiguiente) {
+      idAsignacionSiguiente = apAgregarAsignacionJornada_(
+        jornada,
+        detalleSiguiente,
+        colaborador,
+        Object.assign({}, opciones, {
+          turnoTrabajado: detalleSiguiente.Turno,
+          lineaTrabajo: detalleSiguiente.Linea_Trabajo
+        }),
+        responsable
+      );
+    }
+
+    if (genera === "SI") {
+      apAsegurarHoraExtraAsignacion_(idAsignacion, responsable);
+      if (idAsignacionSiguiente) apAsegurarHoraExtraAsignacion_(idAsignacionSiguiente, responsable);
+    }
+
+    detallesAsignar.filter(Boolean).forEach(function(detalleAsignacion) {
+      apRecontarDetalleJornada_(detalleAsignacion.ID_Detalle_Jornada);
+    });
+
+    return respuesta({
+      ok: true,
+      mensaje: trabajoCorrido
+        ? "Colaborador asignado correctamente en ambos turnos consecutivos."
+        : "Colaborador asignado correctamente.",
+      data: {
+        idAsignacion: idAsignacion,
+        idAsignacionSiguiente: idAsignacionSiguiente,
+        generaHorasExtras: genera,
+        trabajoCorrido: trabajoCorrido ? "SI" : "NO"
+      }
+    });
+  } catch (error) {
+    return respuesta({ok:false,mensaje:apError_(error)});
+  } finally {
+    try {
+      bloqueo.releaseLock();
+    } catch (errorBloqueo) {}
+  }
+}
+
+function revisarRecepcionesVaciasPendientes(data) {
+  try {
+    const encabezado = getSheet("Recepciones_Encabezado");
+    const detalle = getSheet("Recepciones_Detalle");
+    if (!encabezado || !detalle) throw new Error("No se encontraron las hojas de recepciones.");
+    const horasMinimas = Number(apConfig_("Horas_Limpieza_Recepciones_Vacias") || 24);
+    const registros = apLeer_("Recepciones_Encabezado");
+    const detalles = apLeer_("Recepciones_Detalle");
+    const responsables = Object.values(apUsuariosMapa_()).filter(usuario => /ENCARGADO|ADMINISTRADOR/.test(apClave_(usuario.rol)) && ["ACTIVO","ACTIVA"].includes(apClave_(usuario.estado)));
+    let avisosCreados = 0;
+    registros.filter(registro => {
+      const creada = apFechaHoraRecepcionVacia_(registro.Fecha_Creacion);
+      return ["ABIERTA","EN PROCESO","PAUSADA"].includes(apClave_(registro.Estado)) && creada && Date.now() - creada.getTime() >= horasMinimas * 3600000 && Number(registro.Total_Tarimas || 0) === 0 && Number(registro.Total_Unidades || 0) === 0 && !detalles.some(item => String(item.ID_Recepcion) === String(registro.ID_Recepcion));
+    }).forEach(registro => responsables.forEach(usuario => {
+      if (existeAvisoSistema_(usuario.id,"RECEPCION VACIA",registro.ID_Recepcion)) return;
+      crearAvisoSistema_({empleadoId:usuario.id,empleadoNombre:usuario.nombre,rolDestino:usuario.rol,tipo:"RECEPCION VACIA",titulo:"Recepción vacía pendiente de revisión",mensaje:"La recepción " + registro.ID_Recepcion + " no tiene líneas, tarimas ni unidades y supera " + horasMinimas + " horas. Revise y apruebe su eliminación.",referenciaTipo:"RECEPCION VACIA",referenciaId:registro.ID_Recepcion,creador:{id:"SISTEMA",nombre:"Sistema Logístico PT"}});
+      avisosCreados++;
+    }));
+    return respuesta({ok:true,mensaje:avisosCreados + " avisos de revisión generados.",data:{avisosCreados:avisosCreados}});
+  } catch(error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+}
+
+function aprobarEliminacionRecepcionVacia(data) {
+  try {
+    const responsable = apValidarEncargado_(data);
+    const id = String(data.idRecepcion || "").trim();
+    const registro = apBuscar_("Recepciones_Encabezado","ID_Recepcion",id);
+    if (!registro || !["ABIERTA","EN PROCESO","PAUSADA"].includes(apClave_(registro.Estado)) || Number(registro.Total_Tarimas || 0) > 0 || Number(registro.Total_Unidades || 0) > 0 || apLeer_("Recepciones_Detalle").some(item => String(item.ID_Recepcion) === id)) throw new Error("La recepción ya no cumple las condiciones para ser eliminada.");
+    const horasMinimas = Number(apConfig_("Horas_Limpieza_Recepciones_Vacias") || 24);
+    const creada = apFechaHoraRecepcionVacia_(registro.Fecha_Creacion);
+    if (!creada || Date.now() - creada.getTime() < horasMinimas * 3600000) throw new Error("La recepción todavía no alcanza el tiempo mínimo configurado.");
+    const hoja = getSheet("Recepciones_Encabezado"), valores = hoja.getDataRange().getValues(), columna = valores[0].indexOf("ID_Recepcion");
+    const indice = valores.findIndex((fila,numero) => numero > 0 && String(fila[columna]) === id);
+    if (indice < 1) throw new Error("No se encontró la fila de recepción.");
+    hoja.deleteRow(indice + 1);
+    eliminarAvisosSistemaPorReferencia_("RECEPCION VACIA",id);
+    return respuesta({ok:true,mensaje:"Recepción vacía eliminada con autorización de " + responsable.nombre + "."});
+  } catch(error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+}
+
+function apFechaHoraRecepcionVacia_(valor) {
+  if (valor instanceof Date && !isNaN(valor)) return valor;
+  const fecha = new Date(valor);
+  return isNaN(fecha) ? apFecha_(valor) : fecha;
+}
+
+function instalarTemporizadorLimpiezaRecepcionesVacias() {
+  const funcion = "temporizadorRevisarRecepcionesVacias";
+  ScriptApp.getProjectTriggers().filter(trigger => trigger.getHandlerFunction() === funcion).forEach(trigger => ScriptApp.deleteTrigger(trigger));
+  ScriptApp.newTrigger(funcion).timeBased().everyHours(6).create();
+  return {ok:true,mensaje:"Revisión automática de recepciones vacías instalada cada seis horas."};
+}
+
+function temporizadorRevisarRecepcionesVacias() {
+  return revisarRecepcionesVaciasPendientes({});
+}
+
+function listarColaboradoresGestionPersonal(data){
+  try{apValidarResponsable_(data);const colaboradores=apOrdenarUsuariosTurnoNombre_(Object.values(apUsuariosMapa_()).filter(u=>["ACTIVO","ACTIVA","VACACIONES"].includes(apClave_(u.estado))&&apEsColaboradorAsistencia_(u))).map(u=>({idEmpleado:u.id,nombre:u.nombre,rol:u.rol,turno:u.turno}));return respuesta({ok:true,data:{colaboradores:colaboradores}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function registrarVacacionesPersonal(data){
+  try{const responsable=apValidarResponsable_(data),u=apUsuarioPorId_(data.empleadoId),inicio=apFecha_(data.fechaInicio),fin=apFecha_(data.fechaFinal);if(!u||!apEsColaboradorAsistencia_(u))throw new Error("Seleccione un colaborador válido.");if(!inicio||!fin||fin<inicio)throw new Error("El período de vacaciones no es válido.");if(apExisteNovedadSolapada_(u.id,inicio,fin))throw new Error("El colaborador tiene otra vacación o bono dentro del período.");const hoy=apInicioDia_(new Date()),activa=inicio<=hoy&&fin>=hoy,id=apId_("VAC");apAgregar_(AP_HOJAS.VACACIONES,{ID_Vacacion:id,Empleado_ID:u.id,Empleado_Nombre:u.nombre,Turno:u.turno,Fecha_Inicio:inicio,Fecha_Final:fin,Cantidad_Dias:apDiasInclusivos_(inicio,fin),Estado:activa?"ACTIVA":"PROGRAMADA",Comentario:String(data.comentario||""),Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),Fecha_Reactivacion:""});if(activa)apCambiarEstadoUsuario_(u.id,"Vacaciones");return respuesta({ok:true,mensaje:"Vacaciones registradas correctamente.",data:{idVacacion:id}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function listarVacacionesPersonal(data){try{apValidarResponsable_(data);return respuesta({ok:true,data:{registros:apLeer_(AP_HOJAS.VACACIONES).sort((a,b)=>(apFecha_(b.Fecha_Inicio)||0)-(apFecha_(a.Fecha_Inicio)||0)).map(apSerializarRegistro_)}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+
+function registrarBonoFelicidad(data){
+  try{const responsable=apValidarResponsable_(data),u=apUsuarioPorId_(data.empleadoId),fecha=apFecha_(data.fechaBono);if(!u||!apEsColaboradorAsistencia_(u))throw new Error("Seleccione un colaborador válido.");if(!fecha)throw new Error("Indique la fecha del bono.");if(apNoDisponibleEnFecha_(u.id,fecha))throw new Error("El colaborador ya tiene vacaciones o Bono Felicidad para esta fecha.");const id=apId_("BON");apAgregar_(AP_HOJAS.BONO_FELICIDAD,{ID_Bono:id,Empleado_ID:u.id,Empleado_Nombre:u.nombre,Turno:u.turno,Fecha_Bono:fecha,Estado:"PROGRAMADO",Comentario:String(data.comentario||""),Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),Fecha_Cancelacion:"",Cancelado_Por_ID:"",Cancelado_Por_Nombre:""});return respuesta({ok:true,mensaje:"Bono Felicidad registrado correctamente.",data:{idBono:id}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}
+}
+
+function listarBonosFelicidad(data){try{apValidarResponsable_(data);return respuesta({ok:true,data:{registros:apLeer_(AP_HOJAS.BONO_FELICIDAD).sort((a,b)=>(apFecha_(b.Fecha_Bono)||0)-(apFecha_(a.Fecha_Bono)||0)).map(apSerializarRegistro_)}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+
+function registrarAmonestacionPersonal(data) {
+  try {
+    const responsable = apValidarResponsable_(data);
+    const usuario = apUsuariosMapa_()[String(data.empleadoId || "")];
+    if (!usuario) throw new Error("No se encontró el colaborador.");
+    const fecha = apFecha_(data.fechaIncidencia) || new Date();
+    const id = apId_("AMO");
+    const registro = {
+      ID_Amonestacion:id,ID_Asistencia:"",Empleado_ID:usuario.id,Empleado_Nombre:usuario.nombre,
+      Fecha_Incidencia:fecha,Tipo_Amonestacion:"OTRA",Causa:String(data.causa||""),Comentario:String(data.comentario||""),
+      Fecha_Limite:apSumarDias_(fecha,1),Estado:"PENDIENTE DOCUMENTO",Archivo_ID:"",Archivo_URL:"",
+      Gmail_Thread_ID:"",Correo_Enviado:"NO",Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,
+      Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),Fecha_Carga:"",Fecha_Envio_RRHH:""
+    };
+    apAgregar_(AP_HOJAS.AMONESTACIONES,registro);
+    return respuesta({ok:true,mensaje:"Amonestación registrada.",data:{idAmonestacion:id}});
+  } catch(error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+}
+
+function listarAmonestacionesPendientes(data) {
+  try {
+    apValidarResponsable_(data);
+    const lista = apLeer_(AP_HOJAS.AMONESTACIONES).filter(function(r) {
+      return ["PENDIENTE DOCUMENTO","VENCIDA"].indexOf(apClave_(r.Estado)) >= 0;
+    }).sort(function(a,b){ return (apFecha_(a.Fecha_Limite)||0) - (apFecha_(b.Fecha_Limite)||0); });
+    return respuesta({ok:true,data:{registros:lista.map(apSerializarRegistro_)}});
+  } catch(error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+}
+
+function subirDocumentoAmonestacion(data) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+    const responsable = apValidarResponsable_(data);
+    const id = String(data.idAmonestacion || "").trim();
+    const amonestacion = apBuscar_(AP_HOJAS.AMONESTACIONES,"ID_Amonestacion",id);
+    if (!amonestacion) throw new Error("No se encontró la amonestación.");
+    if (["PENDIENTE DOCUMENTO","VENCIDA"].indexOf(apClave_(amonestacion.Estado)) < 0) {
+      throw new Error("Esta amonestación ya fue documentada o no se encuentra disponible.");
+    }
+    const causa = String(data.causa === undefined ? amonestacion.Causa || "" : data.causa).trim();
+    const comentario = String(data.comentario === undefined ? amonestacion.Comentario || "" : data.comentario).trim();
+    if (!causa) throw new Error("Indique la causa de la amonestación.");
+    amonestacion.Causa = causa;
+    amonestacion.Comentario = comentario;
+    const base64 = String(data.archivoBase64 || "").replace(/^data:[^;]+;base64,/,"");
+    if (!base64) throw new Error("Debe seleccionar el documento PDF.");
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64),"application/pdf");
+    const nombre = apNombreArchivoAmonestacion_(amonestacion.Empleado_Nombre,apFecha_(amonestacion.Fecha_Incidencia));
+    blob.setName(nombre);
+    const carpeta = apCarpetaColaborador_(amonestacion.Empleado_ID,amonestacion.Empleado_Nombre);
+    const archivo = carpeta.createFile(blob);
+    let threadId = String(amonestacion.Gmail_Thread_ID || "");
+    if (threadId && apConfigSi_("Enviar_Correos_Asistencia")) {
+      const thread = GmailApp.getThreadById(threadId);
+      if (thread) thread.reply("Adjuntamos la amonestación correspondiente a " + amonestacion.Empleado_Nombre + ".\nCausa: " + causa + (comentario ? "\nComentario: " + comentario : ""),{attachments:[archivo.getBlob()]});
+    } else if (apConfigSi_("Enviar_Correos_Asistencia")) {
+      const para=apConfig_("Correos_GGHH_Asistencia");if(!para)throw new Error("Falta Correos_GGHH_Asistencia en Configuracion.");
+      const enviado=GmailApp.createDraft(para,"Amonestación · "+amonestacion.Empleado_Nombre+" · "+apFechaTexto_(apFecha_(amonestacion.Fecha_Incidencia)),"Se adjunta el formulario firmado.",{htmlBody:"<p>Se remite la amonestación firmada de <b>"+apHtml_(amonestacion.Empleado_Nombre)+"</b>.</p><p>Causa: "+apHtml_(causa)+"</p>"+(comentario?"<p>Comentario: "+apHtml_(comentario)+"</p>":"")+"<p>Registrado por: "+apHtml_(responsable.nombre)+"</p>",attachments:[archivo.getBlob()]}).send();threadId=enviado.getThread().getId();
+    }
+    apActualizar_(AP_HOJAS.AMONESTACIONES,"ID_Amonestacion",id,{
+      Causa:causa,Comentario:comentario,Estado:"ENVIADA RRHH",Archivo_ID:archivo.getId(),Archivo_URL:archivo.getUrl(),Fecha_Carga:new Date(),
+      Fecha_Envio_RRHH:new Date(),Gmail_Thread_ID:threadId,Correo_Enviado:"SI",Fecha_Modificacion:new Date(),Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre
+    });
+    if (amonestacion.ID_Asistencia) apActualizar_(AP_HOJAS.ASISTENCIA,"ID_Asistencia",amonestacion.ID_Asistencia,{Estado_Seguimiento:"CERRADO"});
+    return respuesta({ok:true,mensaje:"Documento guardado y enviado en el mismo hilo.",data:{archivoUrl:archivo.getUrl()}});
+  } catch(error) { return respuesta({ok:false,mensaje:apError_(error)}); }
+  finally { try { lock.releaseLock(); } catch(e) {} }
+}
+
+
+function procesarSeguimientoAsistenciaDiario() {
+  const hoy = new Date();
+  apLeer_(AP_HOJAS.AMONESTACIONES).forEach(function(r) {
+    if (apClave_(r.Estado) !== "PENDIENTE DOCUMENTO") return;
+    const limite = apFecha_(r.Fecha_Limite);
+    if (!limite || limite > hoy) return;
+    const responsable = apUsuarioPorId_(r.Registrado_Por_ID);
+    if (responsable && responsable.correo) {
+      MailApp.sendEmail({to:responsable.correo,subject:"Amonestación pendiente · " + r.Empleado_Nombre,
+        htmlBody:"<p>Debe cargar la amonestación pendiente de <b>" + apHtml_(r.Empleado_Nombre) + "</b>.</p>"});
+    }
+    apActualizar_(AP_HOJAS.AMONESTACIONES,"ID_Amonestacion",r.ID_Amonestacion,{Estado:"VENCIDA"});
+  });
+  reactivarUsuariosFinVacaciones();
+  enviarReporteQuincenalAsistenciaSiCorresponde();
+}
+
+function reactivarUsuariosFinVacaciones() {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  apLeer_(AP_HOJAS.VACACIONES).forEach(function(r) {
+    const estado = apClave_(r.Estado);
+    const inicio = apFecha_(r.Fecha_Inicio);
+    const fin = apFecha_(r.Fecha_Final);
+    if (estado === "PROGRAMADA" && inicio && inicio <= hoy && fin && fin >= hoy) {
+      apCambiarEstadoUsuario_(r.Empleado_ID,"Vacaciones");
+      apActualizar_(AP_HOJAS.VACACIONES,"ID_Vacacion",r.ID_Vacacion,{Estado:"ACTIVA"});
+      return;
+    }
+    if (estado === "ACTIVA" && fin && fin < hoy) {
+      apCambiarEstadoUsuario_(r.Empleado_ID,"Activo");
+      apActualizar_(AP_HOJAS.VACACIONES,"ID_Vacacion",r.ID_Vacacion,{Estado:"FINALIZADA",Fecha_Reactivacion:new Date()});
+    }
+  });
+}
+
+function enviarReporteQuincenalAsistenciaSiCorresponde() {
+  const hoy = new Date();
+  const rango = apRangoQuincena_(hoy);
+  if (apFechaTexto_(hoy) !== apFechaTexto_(rango.hasta)) return {ok:true,enviado:false};
+  const clave = "AP_REPORTE_" + apFechaTexto_(rango.desde) + "_" + apFechaTexto_(rango.hasta);
+  const propiedades = PropertiesService.getScriptProperties();
+  if (propiedades.getProperty(clave) === "ENVIADO") return {ok:true,enviado:false,duplicado:true};
+  const resultado = enviarReporteQuincenalAsistencia({fecha:hoy});
+  if (resultado && resultado.ok) propiedades.setProperty(clave,"ENVIADO");
+  return resultado;
+}
+
+function enviarReporteQuincenalAsistencia(data) {
+  const fecha = apFecha_(data && data.fecha) || new Date();
+  const rango = apRangoQuincena_(fecha);
+  const registros = apLeer_(AP_HOJAS.ASISTENCIA).filter(function(r) {
+    const f = apFecha_(r.Fecha);
+    return f && f >= rango.desde && f <= rango.hasta && apClave_(r.Descuenta_Dia) === "SI";
+  });
+  const mapa = {};
+  registros.forEach(function(r) {
+    const id = String(r.Empleado_ID); if (!mapa[id]) mapa[id]={nombre:r.Empleado_Nombre,dias:0,fechas:[]};
+    mapa[id].dias++; mapa[id].fechas.push(apFechaTexto_(apFecha_(r.Fecha)));
+  });
+  const filas = Object.keys(mapa).map(id=>"<tr><td>"+apHtml_(mapa[id].nombre)+"</td><td>"+mapa[id].dias+"</td><td>"+mapa[id].fechas.join(", ")+"</td></tr>").join("");
+  const destinatarios = apConfig_("Correos_GGHH_Asistencia");
+  if (!destinatarios) throw new Error("Falta Correos_GGHH_Asistencia en Configuracion.");
+  MailApp.sendEmail({to:destinatarios,subject:"Reporte quincenal de asistencia · "+apFechaTexto_(rango.desde)+" a "+apFechaTexto_(rango.hasta),
+    htmlBody:"<h2>Reporte quincenal de asistencia</h2><table border='1' cellpadding='6' cellspacing='0'><tr><th>Colaborador</th><th>Días a descontar</th><th>Fechas</th></tr>"+(filas||"<tr><td colspan='3'>Sin descuentos</td></tr>")+"</table>"});
+  return {ok:true,enviado:true,total:registros.length};
+}
+
+function crearTemporizadoresAsistenciaPersonal() {
+  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==="procesarSeguimientoAsistenciaDiario").forEach(t=>ScriptApp.deleteTrigger(t));
+  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==="procesarMarcacionesSinCierre").forEach(t=>ScriptApp.deleteTrigger(t));
+  const hora = Math.max(0,Math.min(23,parseInt(apConfig_("Hora_Recordatorio_Amonestacion") || "8",10)));
+  ScriptApp.newTrigger("procesarSeguimientoAsistenciaDiario").timeBased().everyDays(1).atHour(hora).create();
+  ScriptApp.newTrigger("procesarMarcacionesSinCierre").timeBased().everyHours(1).create();
+  return {ok:true,hora:hora};
+}
+
+function apCrearAmonestacionPendiente_(asistencia,usuario,responsable) {
+  const existente = apLeer_(AP_HOJAS.AMONESTACIONES).find(r=>String(r.ID_Asistencia)===String(asistencia.ID_Asistencia));
+  if (existente) return;
+  apAgregar_(AP_HOJAS.AMONESTACIONES,{
+    ID_Amonestacion:apId_("AMO"),ID_Asistencia:asistencia.ID_Asistencia,Empleado_ID:usuario.id,Empleado_Nombre:usuario.nombre,
+    Fecha_Incidencia:asistencia.Fecha,Tipo_Amonestacion:asistencia.Tipo_Inasistencia,Causa:"INASISTENCIA",Comentario:asistencia.Comentario,
+    Fecha_Limite:apSumarDias_(asistencia.Fecha,1),Estado:"PENDIENTE DOCUMENTO",Archivo_ID:"",Archivo_URL:"",
+    Gmail_Thread_ID:asistencia.Gmail_Thread_ID,Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,
+    Fecha_Registro:new Date(),Fecha_Carga:"",Fecha_Envio_GGHH:""
+  });
+}
+
+function apCrearAvisoLicencia_(asistencia,usuario,responsable) {
+  if (existeAvisoSistema_(usuario.id,"LICENCIA",asistencia.ID_Asistencia)) return;
+  crearAvisoSistema_({empleadoId:usuario.id,empleadoNombre:usuario.nombre,rolDestino:usuario.rol,tipo:"LICENCIA",
+    titulo:"Licencia pendiente de cargar",mensaje:"Por favor, cargue su licencia en la plataforma de Gestión Humana.",
+    referenciaTipo:"ASISTENCIA",referenciaId:asistencia.ID_Asistencia,creador:responsable});
+}
+
+function apRegistrarVacaciones_(usuario,inicio,fin,responsable) {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const activa = inicio <= hoy && fin >= hoy;
+  apAgregar_(AP_HOJAS.VACACIONES,{ID_Vacacion:apId_("VAC"),Empleado_ID:usuario.id,Empleado_Nombre:usuario.nombre,
+    Fecha_Inicio:inicio,Fecha_Final:fin,Estado:activa?"ACTIVA":"PROGRAMADA",Registrado_Por_ID:responsable.id,
+    Registrado_Por_Nombre:responsable.nombre,Fecha_Registro:new Date(),Fecha_Reactivacion:""});
+  if (activa) apCambiarEstadoUsuario_(usuario.id,"Vacaciones");
+}
+
+function apCambiarEstadoUsuario_(id,estado) { apActualizar_("Usuarios","IDEmpleado",id,{Estado:estado}); }
+
+function apEnviarCorreoFalta_(usuario,fecha,turno,tipo,comentario,responsable) {
+  return apEnviarCorreoInicial_("Inasistencia · "+usuario.nombre+" · "+apFechaTexto_(fecha),
+    "<p>Se reporta la inasistencia de <b>"+apHtml_(usuario.nombre)+"</b>.</p><p>Fecha: "+apFechaTexto_(fecha)+"<br>Turno: "+apHtml_(turno)+"<br>Clasificación: "+apHtml_(tipo)+"</p><p>"+apHtml_(comentario||"")+"</p><p>Reportado por: "+apHtml_(responsable.nombre)+"</p>");
+}
+function apEnviarCorreoAmonestacion_(usuario,fecha,causa,comentario,responsable) {
+  return apEnviarCorreoInicial_("Amonestación · "+usuario.nombre+" · "+apFechaTexto_(fecha),
+    "<p>Se registra una amonestación para <b>"+apHtml_(usuario.nombre)+"</b>.</p><p>Causa: "+apHtml_(causa)+"</p><p>"+apHtml_(comentario||"")+"</p><p>Reportado por: "+apHtml_(responsable.nombre)+"</p>");
+}
+function apEnviarCorreoInicial_(asunto,html) {
+  const para = apConfig_("Correos_GGHH_Asistencia");
+  if (!para) throw new Error("Falta Correos_GGHH_Asistencia en Configuracion.");
+  const mensaje = GmailApp.createDraft(para,asunto,"Consulte la versión HTML.",{htmlBody:html}).send();
+  return {threadId:mensaje.getThread().getId(),messageId:mensaje.getId()};
+}
+
+function apGenerarHoraExtraAsistencia_(asistencia,usuario,responsable,item) {
+  const fecha=apFecha_(asistencia.Fecha), cobertura=apClave_(asistencia.Es_Cobertura)==="SI";
+  const feriado=apEsFeriado_(fecha),finSemana=apEsFinSemana_(fecha);
+  if(!cobertura)return "";
+  const existente=String(asistencia.ID_Hora_Extra||"")||apLeer_(AP_HOJAS.HORAS_EXTRAS).find(r=>String(r.ID_Asistencia)===String(asistencia.ID_Asistencia))?.ID_Hora_Extra;
+  if(existente)return String(existente);
+  const id=apId_("HEX"),horas=Number(apConfig_("Horas_Jornada_Normal")||8),porcentaje=apPorcentajeExtra_("ROJA");
+  const motivo="COBERTURA";
+  apAgregar_(AP_HOJAS.HORAS_EXTRAS,{
+    ID_Hora_Extra:id,ID_Asistencia:asistencia.ID_Asistencia,Fecha:fecha,Empleado_ID:usuario.id,Empleado_Nombre:usuario.nombre,Rol:usuario.rol,
+    Turno_Origen:usuario.turno,Turno_Trabajado:asistencia.Turno,Tipo_Registro:"AUTOMATICA",Motivo:motivo,Es_Cobertura:cobertura?"SI":"NO",
+    Empleado_Cubierto_ID:asistencia.Empleado_Cubierto_ID,Empleado_Cubierto_Nombre:asistencia.Empleado_Cubierto_Nombre,
+    Es_Dia_Descanso:cobertura?"SI":"NO",Es_Feriado:feriado?"SI":"NO",Es_Fin_De_Semana:finSemana?"SI":"NO",
+    Tipo_Hora_Extra:"ROJA",Porcentaje_Adicional:porcentaje,Hora_Inicio_Programada:String(item.horaInicio||""),
+    Hora_Final_Programada:String(item.horaFinal||""),Horas_Programadas:apHorasEntre_(item.horaInicio,item.horaFinal)||horas,
+    Hora_Entrada_Real:"",Hora_Salida_Real:"",Horas_Trabajadas:"",Costo_Hora:"",Valor_Hora_Extra:"",Monto_Total:"",
+    Estado:"PROGRAMADA",Origen_Registro:"ASISTENCIA",Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,
+    Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),Observaciones:String(item.comentario||"")
+  });
+  return id;
+}
+
+function apCrearJustificacionAusencia_(asistencia,usuario,tipo,detalle){const existe=apLeer_(AP_HOJAS.JUSTIFICACIONES).some(r=>String(r.ID_Asistencia)===String(asistencia.ID_Asistencia));if(existe)return;apAgregar_(AP_HOJAS.JUSTIFICACIONES,{ID_Justificacion:apId_("JUS"),ID_Asistencia:asistencia.ID_Asistencia,Empleado_ID:usuario.id,Empleado_Nombre:usuario.nombre,Fecha_Ausencia:asistencia.Fecha,Tipo_Justificacion:tipo,Detalle:detalle,Fecha_Limite_Documento:tipo==="MEDICA"?apSumarDias_(asistencia.Fecha,1):"",Estado:tipo==="MEDICA"?"PENDIENTE DOCUMENTO":"PENDIENTE REVISION",Archivo_ID:"",Archivo_URL:"",Fecha_Carga:"",Revisado_Por_ID:"",Revisado_Por_Nombre:"",Fecha_Revision:"",Comentario_Revision:"",Fecha_Registro:new Date()});}
+function apNoDisponibleEnFecha_(id,fecha){const f=apInicioDia_(fecha);return apLeerOpcional_(AP_HOJAS.VACACIONES).some(r=>String(r.Empleado_ID)===String(id)&&!["CANCELADA","FINALIZADA"].includes(apClave_(r.Estado))&&f>=apInicioDia_(apFecha_(r.Fecha_Inicio))&&f<=apInicioDia_(apFecha_(r.Fecha_Final)))||apLeerOpcional_(AP_HOJAS.BONO_FELICIDAD).some(r=>String(r.Empleado_ID)===String(id)&&apClave_(r.Estado)!=="CANCELADO"&&apFechaTexto_(apFecha_(r.Fecha_Bono))===apFechaTexto_(f));}
+function apNovedadesProgramadasTurno_(turno,fecha){const usuarios=apUsuariosMapa_(),f=apInicioDia_(fecha),r=[];apLeerOpcional_(AP_HOJAS.VACACIONES).forEach(x=>{const u=usuarios[String(x.Empleado_ID)];if(u&&apClave_(u.turno)===apClave_(turno)&&!["CANCELADA","FINALIZADA"].includes(apClave_(x.Estado))&&f>=apInicioDia_(apFecha_(x.Fecha_Inicio))&&f<=apInicioDia_(apFecha_(x.Fecha_Final)))r.push({empleadoId:u.id,nombre:u.nombre,tipo:"VACACIONES"});});apLeerOpcional_(AP_HOJAS.BONO_FELICIDAD).forEach(x=>{const u=usuarios[String(x.Empleado_ID)];if(u&&apClave_(u.turno)===apClave_(turno)&&apClave_(x.Estado)!=="CANCELADO"&&apFechaTexto_(apFecha_(x.Fecha_Bono))===apFechaTexto_(f))r.push({empleadoId:u.id,nombre:u.nombre,tipo:"BONO FELICIDAD"});});return r;}
+function apExisteNovedadSolapada_(id,inicio,fin){for(let d=apInicioDia_(inicio);d<=apInicioDia_(fin);d=apSumarDias_(d,1))if(apNoDisponibleEnFecha_(id,d))return true;return false;}
+function apDiasInclusivos_(a,b){return Math.floor((apInicioDia_(b)-apInicioDia_(a))/86400000)+1;}
+function apInicioDia_(d){const x=apFecha_(d);if(!x)return null;x.setHours(0,0,0,0);return x;}
+function apListaConfig_(clave){return String(apConfig_(clave)||"").split(/[;,\n\r]+/).map(x=>x.trim()).filter((x,i,a)=>x&&a.indexOf(x)===i);}
+function apTurnoConfig_(codigo){const c=apClave_(codigo);return {codigo:String(apConfig_("Turno_"+c+"_Codigo")||c),nombre:String(apConfig_("Turno_"+c+"_Nombre")||c),horaInicio:String(apConfig_("Turno_"+c+"_Hora_Inicio")||""),horaFinal:String(apConfig_("Turno_"+c+"_Hora_Final")||"")};}
+function apValidarEncargado_(data){const u=apUsuarioPorId_(data&&data.idEmpleado);if(!u)throw new Error("Usuario no identificado.");const rol=apClave_(u.rol);if(!rol.includes("ENCARGADO")&&!rol.includes("ADMINISTRADOR"))throw new Error("Solo encargado o administrador puede crear jornadas extraordinarias.");return u;}
+function apCrearAvisosJornada_(id,fecha,tipo,responsable){
+  const destinatarios=Object.values(apUsuariosMapa_()).filter(function(u){
+    return (apEsColaboradorAsistencia_(u)||apClave_(u.rol).includes("SUPERVISOR")||apClave_(u.rol).includes("ANALISTA")) &&
+      ["ACTIVO","ACTIVA"].includes(apClave_(u.estado));
+  });
+  crearAvisosSistemaLote_(destinatarios,{
+    tipo:"JORNADA EXTRAORDINARIA",
+    titulo:"Jornada extraordinaria disponible",
+    mensaje:"Se ha publicado una jornada para "+apFechaTexto_(fecha)+" ("+tipo+").",
+    referenciaTipo:"JORNADA EXTRAORDINARIA",
+    referenciaId:id,
+    creador:responsable
+  });
+}
+function apAgregarAsignacionJornada_(j,detalle,u,op,responsable){const duplicada=apLeer_(AP_HOJAS.JORNADA_PERSONAL).some(x=>String(x.ID_Jornada)===String(j.ID_Jornada)&&String(x.Empleado_ID)===u.id&&String(x.Turno_Trabajado)===String(op.turnoTrabajado)&&String(x.Linea_Trabajo)===String(op.lineaTrabajo)&&apClave_(x.Estado_Asignacion)!=="CANCELADA");if(duplicada)throw new Error(u.nombre+" ya está asignado en ese turno y línea.");const id=apId_("ASIEX"),genera=apClave_(op.generaHorasExtras)==="SI",roja=genera&&(apClave_(j.Tipo_Jornada)!=="NORMAL"||["4-3 A","4-3 B"].includes(apClave_(u.turno))),tipoHora=genera?(roja?"ROJA":"NORMAL"):"",porcentaje=genera?apPorcentajeExtra_(tipoHora):0;apAgregar_(AP_HOJAS.JORNADA_PERSONAL,{ID_Asignacion:id,ID_Jornada:j.ID_Jornada,ID_Detalle_Jornada:detalle?detalle.ID_Detalle_Jornada:"",Fecha_Trabajo:j.Fecha_Trabajo,Empleado_ID:u.id,Empleado_Nombre:u.nombre,Rol:u.rol,Turno_Origen:u.turno,Turno_Trabajado:op.turnoTrabajado,Linea_Trabajo:op.lineaTrabajo,Tipo_Asignacion:op.tipoAsignacion,Grupo_Carga_Regular:op.grupoCargaRegular||"",Es_Grupo_Carga_Regular:apClave_(op.tipoAsignacion)==="CARGA REGULAR"?"SI":"NO",Es_Trabajo_Corrido:op.trabajoCorrido||"NO",Genera_Horas_Extras:genera?"SI":"NO",Tipo_Hora_Extra:tipoHora,Porcentaje_Adicional:porcentaje,ID_Hora_Extra:"",Estado_Asignacion:"ASIGNADA",Asistio:"PENDIENTE",Hora_Entrada_Real:"",Hora_Salida_Real:"",Horas_Trabajadas:"",Observaciones:op.observaciones||"",Asignado_Por_ID:responsable.id,Asignado_Por_Nombre:responsable.nombre,Fecha_Asignacion:new Date(),Fecha_Modificacion:new Date(),Autorizado_Por_ID:op.trabajoCorrido==="SI"?responsable.id:"",Autorizado_Por_Nombre:op.trabajoCorrido==="SI"?responsable.nombre:"",Fecha_Autorizacion:op.trabajoCorrido==="SI"?new Date():""});return id;}
+function apRecontarDetalleJornada_(id){const total=apLeer_(AP_HOJAS.JORNADA_PERSONAL).filter(x=>String(x.ID_Detalle_Jornada)===String(id)&&apClave_(x.Estado_Asignacion)!=="CANCELADA").length,det=apBuscar_(AP_HOJAS.CALENDARIO_DETALLE,"ID_Detalle_Jornada",id);apActualizar_(AP_HOJAS.CALENDARIO_DETALLE,"ID_Detalle_Jornada",id,{Cantidad_Asignada:total,Estado:det&&total>=Number(det.Cantidad_Requerida||0)?"COMPLETO":"PENDIENTE",Fecha_Modificacion:new Date()});}
+
+function apEsFeriado_(fecha){
+  const clave=apFechaTexto_(fecha);
+  return apLeerOpcional_(AP_HOJAS.CALENDARIO).some(r=>apFechaTexto_(apFecha_(r.Fecha_Trabajo))===clave&&apClave_(r.Tipo_Jornada)==="FERIADO"&&apClave_(r.Estado)!=="CANCELADA");
+}
+function apEsFinSemana_(fecha){return fecha&&[0,6].includes(fecha.getDay());}
+function apPorcentajeExtra_(tipo){return Number(apConfig_(apClave_(tipo)==="ROJA"?"Porcentaje_Hora_Extra_Roja":"Porcentaje_Hora_Extra_Normal")||(apClave_(tipo)==="ROJA"?100:35));}
+function apHorasEntre_(inicio,fin){
+  const a=String(inicio||"").match(/^(\d{1,2}):(\d{2})/),b=String(fin||"").match(/^(\d{1,2}):(\d{2})/);if(!a||!b)return 0;
+  let minutos=(+b[1]*60 + +b[2])-(+a[1]*60 + +a[2]);if(minutos<=0)minutos+=1440;return Math.round(minutos/6)/10;
+}
+
+function apCarpetaColaborador_(id,nombre) {
+  const valor = apConfig_("Carpeta_Drive_Expedientes");
+  if (!valor) throw new Error("Falta Carpeta_Drive_Expedientes en Configuracion.");
+  const match = String(valor).match(/[-\w]{20,}/); if (!match) throw new Error("La carpeta de expedientes no es válida.");
+  const raiz = DriveApp.getFolderById(match[0]);
+  const nombreCarpeta = apNombreSeguro_(id+" - "+nombre);
+  const carpetas = raiz.getFoldersByName(nombreCarpeta);
+  return carpetas.hasNext() ? carpetas.next() : raiz.createFolder(nombreCarpeta);
+}
+function apNombreArchivoAmonestacion_(nombre,fecha) {
+  return "amonestacion-"+apSlug_(nombre)+"-"+Utilities.formatDate(fecha||new Date(),Session.getScriptTimeZone(),"dd-MM-yyyy")+".pdf";
+}
+
+function apRangoQuincena_(fecha) {
+  const y=fecha.getFullYear(),m=fecha.getMonth(),dia=fecha.getDate();
+  const i1=apDiaConfig_("Dia_Inicio_Quincena_1",y,m),f1=apDiaConfig_("Dia_Fin_Quincena_1",y,m);
+  const i2=apDiaConfig_("Dia_Inicio_Quincena_2",y,m),f2=apDiaConfig_("Dia_Fin_Quincena_2",y,m);
+  const primera=dia>=i1&&dia<=f1; const desdeDia=primera?i1:i2,hastaDia=primera?f1:f2;
+  return {desde:new Date(y,m,desdeDia),hasta:new Date(y,m,hastaDia,23,59,59,999)};
+}
+function apDiaConfig_(clave,y,m) {
+  const valor=String(apConfig_(clave)||"").trim().toUpperCase();
+  if (!valor) throw new Error("Falta "+clave+" en Configuracion.");
+  if (valor==="ULTIMO_DIA_MES") return new Date(y,m+1,0).getDate();
+  const n=parseInt(valor,10),max=new Date(y,m+1,0).getDate();
+  if (!n||n<1||n>max) throw new Error("Valor inválido para "+clave+"."); return n;
+}
+
+function apValidarResponsable_(data) {
+  const usuario=apUsuarioPorId_(data&&data.idEmpleado); if(!usuario) throw new Error("Usuario no identificado.");
+  const rol=apClave_(usuario.rol); if(!rol.includes("SUPERVISOR")&&!rol.includes("ENCARGADO")&&!rol.includes("ADMINISTRADOR")) throw new Error("Su rol no puede gestionar asistencia.");
+  return usuario;
+}
+function apUsuariosActivos_(turno,fecha){return apOrdenarUsuariosTurnoNombre_(Object.values(apUsuariosMapa_()).filter(u=>["ACTIVO","ACTIVA"].includes(apClave_(u.estado))&&apEsColaboradorAsistencia_(u)&&apClave_(u.turno)===apClave_(turno)&&!apNoDisponibleEnFecha_(u.id,fecha)));}
+function apOrdenarUsuariosTurnoNombre_(lista){const orden={"4-3 A":0,"4-3 B":1,"A":2,"B":3,"C":4};return (lista||[]).slice().sort(function(a,b){const ta=apClave_(a&&a.turno),tb=apClave_(b&&b.turno),oa=Object.prototype.hasOwnProperty.call(orden,ta)?orden[ta]:99,ob=Object.prototype.hasOwnProperty.call(orden,tb)?orden[tb]:99;if(oa!==ob)return oa-ob;if(ta!==tb)return ta.localeCompare(tb,"es",{sensitivity:"base"});return String(a&&a.nombre||"").localeCompare(String(b&&b.nombre||""),"es",{sensitivity:"base"});});}
+function apEsColaboradorAsistencia_(u){const rol=apClave_(u&&u.rol);return rol==="AUXILIAR"||rol==="MONTACARGUISTA";}
+function apUsuariosMapa_(){const mapa={};apLeer_("Usuarios").forEach(r=>{const id=String(r.IDEmpleado||"").trim();if(id)mapa[id]={id:id,nombre:String(r.Nombre||""),usuario:String(r.Usuario||""),rol:String(r.Rol||""),turno:String(r.Turno||""),correo:String(r.Correo||""),estado:String(r.Estado||"")};});return mapa;}
+function apUsuarioPorId_(id){return apUsuariosMapa_()[String(id||"").trim()]||null;}
+function apConfig_(clave){const h=getSheet("Configuracion");if(!h)return"";const v=h.getDataRange().getValues(),objetivo=apClave_(clave);for(let i=0;i<v.length;i++){if(apClave_(v[i][0])===objetivo)return v[i][1];}return"";}
+function apConfigSi_(clave){return ["SI","SÍ","TRUE","1"].includes(apClave_(apConfig_(clave)));}
+function apLeer_(nombre){const h=getSheet(nombre);if(!h)throw new Error("No existe la hoja \""+nombre+"\". Ejecute instalarModuloAsistenciaPersonal() para crearla sin borrar sus datos.");const v=h.getDataRange().getValues();if(!v.length)return[];const e=v[0].map(String);return v.slice(1).filter(r=>r.some(x=>x!=="")).map(r=>{const o={};e.forEach((k,i)=>o[k]=r[i]);return o;});}
+function apLeerOpcional_(nombre){const h=getSheet(nombre);return h?apLeer_(nombre):[];}
+function apAgregar_(nombre,obj){const h=getSheet(nombre);if(!h)throw new Error("No existe la hoja \""+nombre+"\". Ejecute instalarModuloAsistenciaPersonal().");const e=h.getRange(1,1,1,h.getLastColumn()).getValues()[0].map(String);h.appendRow(e.map(k=>obj[k]===undefined?"":obj[k]));}
+function apBuscar_(nombre,campo,valor){return apLeer_(nombre).find(r=>String(r[campo])===String(valor))||null;}
+function apActualizar_(nombre,campo,valor,datos){const h=getSheet(nombre),v=h.getDataRange().getValues(),e=v[0];const ci=e.indexOf(campo);for(let i=1;i<v.length;i++){if(String(v[i][ci])===String(valor)){Object.keys(datos).forEach(k=>{const c=e.indexOf(k);if(c>=0)v[i][c]=datos[k];});h.getRange(i+1,1,1,e.length).setValues([v[i]]);return true;}}return false;}
+function apUpsert_(h,e,campo,valor,obj){const v=h.getDataRange().getValues(),ci=e.indexOf(campo);for(let i=1;i<v.length;i++){if(String(v[i][ci])===String(valor)){h.getRange(i+1,1,1,e.length).setValues([e.map(k=>obj[k]===undefined?v[i][e.indexOf(k)]:obj[k])]);return;}}h.appendRow(e.map(k=>obj[k]===undefined?"":obj[k]));}
+function apSerializarRegistro_(r){const o={};Object.keys(r).forEach(k=>o[k]=r[k] instanceof Date?apFechaTexto_(r[k]):r[k]);return o;}
+function apFecha_(v){if(v instanceof Date&&!isNaN(v))return new Date(v);const s=String(v||"").trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);const d=new Date(s);return isNaN(d)?null:d;}
+function apFechaTexto_(d){return d?Utilities.formatDate(d,Session.getScriptTimeZone(),"yyyy-MM-dd"):"";}
+function apSumarDias_(d,n){const x=apFecha_(d);x.setDate(x.getDate()+n);return x;}
+function apId_(p){return p+"-"+Utilities.formatDate(new Date(),Session.getScriptTimeZone(),"yyyyMMddHHmmss")+"-"+Math.floor(Math.random()*900+100);}
+function apClave_(v){return String(v||"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();}
+function apSlug_(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");}
+function apNombreSeguro_(v){return String(v||"").replace(/[\\/:*?"<>|]/g,"-").trim();}
+function apHtml_(v){return String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function apError_(e){return e&&e.message?e.message:String(e);}
+
+/* Gestión avanzada de jornadas extraordinarias y marcaciones auditables. */
+function apConfiguracionObligatoria_(clave){const valor=apConfig_(clave);if(valor==null||String(valor).trim()==="")throw new Error('Falta la clave "'+clave+'" en Configuracion.');return valor;}
+function apHorarioPersonal_(turno){const codigo=apClave_(turno);if(["A","B","C"].includes(codigo)){const t=apTurnoConfig_(codigo);return{inicio:t.horaInicio,fin:t.horaFinal,horas:apHorasEntre_(t.horaInicio,t.horaFinal)};}const horas=Number(apConfig_("Horas_Jornada_Carga")||0),inicio=String(apConfig_("Turno_Carga_Hora_Inicio")||apConfig_("Turno_A_Hora_Inicio")||""),partes=inicio.split(":"),minutos=(Number(partes[0]||0)*60+Number(partes[1]||0)+horas*60)%1440,finCalculado=inicio&&horas?String(Math.floor(minutos/60)).padStart(2,"0")+":"+String(minutos%60).padStart(2,"0"):"";return{inicio:inicio,fin:String(apConfig_("Turno_Carga_Hora_Final")||finCalculado),horas:horas};}
+function apMinutosDiferencia_(inicio,fin){if(!inicio||!fin)return 0;const a=String(inicio).split(":"),b=String(fin).split(":");let n=(Number(b[0])*60+Number(b[1]||0))-(Number(a[0])*60+Number(a[1]||0));if(n<0)n+=1440;return Math.max(0,n);}
+function apZonaHoraria_(){return String(apConfiguracionObligatoria_("Zona_Horaria_Sistema"));}
+function apHoraServidor_(){return Utilities.formatDate(new Date(),apZonaHoraria_(),"HH:mm:ss");}
+function apFechaServidor_(){return Utilities.formatDate(new Date(),apZonaHoraria_(),"yyyy-MM-dd");}
+function apUsuarioMarcacion_(data){const usuario=apUsuarioPorId_(data&&data.idEmpleado);if(!usuario)throw new Error("Usuario no identificado para registrar su jornada.");if(!["ACTIVO","ACTIVA"].includes(apClave_(usuario.estado)))throw new Error("Su usuario no está habilitado.");return usuario;}
+function apDistanciaMetros_(lat1,lon1,lat2,lon2){const rad=Math.PI/180,dlat=(lat2-lat1)*rad,dlon=(lon2-lon1)*rad,a=Math.sin(dlat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dlon/2)**2;return Math.round(6371000*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));}
+function apValidarUbicacion_(data){if(!apConfigSi_("GPS_Marcacion_Activa"))throw new Error("La marcación GPS no está habilitada en Configuracion.");const lat=Number(data.latitud),lon=Number(data.longitud),precision=Number(data.precision),centroLat=Number(apConfiguracionObligatoria_("GPS_Latitud_Centro_Trabajo")),centroLon=Number(apConfiguracionObligatoria_("GPS_Longitud_Centro_Trabajo")),radio=Number(apConfiguracionObligatoria_("GPS_Radio_Permitido_Metros")),precisionMax=Number(apConfiguracionObligatoria_("GPS_Precision_Maxima_Metros"));if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(precision)||precision<=0)throw new Error("No fue posible validar la ubicación del dispositivo.");if(precision>precisionMax)throw new Error("La precisión del GPS es insuficiente ("+Math.round(precision)+" m). Intente nuevamente cerca de un espacio abierto.");const distancia=apDistanciaMetros_(lat,lon,centroLat,centroLon);if(distancia>radio)throw new Error("Está fuera del área autorizada de marcación ("+distancia+" m).");return{latitud:lat,longitud:lon,precision:Math.round(precision),distancia:distancia};}
+
+function asignarCoberturaCargaJornada(data){const lock=LockService.getScriptLock();try{lock.waitLock(30000);const responsable=apValidarResponsable_(data),jornada=apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",data.idJornada),usuario=apUsuarioPorId_(data.empleadoId),motivo=apClave_(data.motivoCobertura);if(!jornada||apClave_(jornada.Habra_Despacho)!=="SI")throw new Error("La jornada no tiene despacho habilitado.");if(!jornada.Grupo_Carga_Regular)throw new Error("Primero seleccione el grupo regular de carga.");if(!usuario||!apEsColaboradorAsistencia_(usuario))throw new Error("Seleccione un colaborador válido.");if(!["VACACIONES","BONO","LICENCIA MEDICA","AUSENTISMO"].includes(motivo))throw new Error("Seleccione la razón de la cobertura.");const cubierto=apUsuarioPorId_(data.empleadoCubiertoId);const id=apAgregarAsignacionJornada_(jornada,null,usuario,{turnoTrabajado:String(jornada.Grupo_Carga_Regular),lineaTrabajo:"CARGA",tipoAsignacion:"COBERTURA CARGA",grupoCargaRegular:String(jornada.Grupo_Carga_Regular),generaHorasExtras:"SI",observaciones:motivo+(cubierto?" · Cubre a "+cubierto.nombre:"")},responsable);apActualizar_(AP_HOJAS.JORNADA_PERSONAL,"ID_Asignacion",id,{Motivo_Cobertura:motivo,Empleado_Cubierto_ID:cubierto?cubierto.id:"",Empleado_Cubierto_Nombre:cubierto?cubierto.nombre:""});apAsegurarHoraExtraAsignacion_(id,responsable);return respuesta({ok:true,mensaje:"Cobertura de carga asignada por "+apConfiguracionObligatoria_("Horas_Jornada_Carga")+" horas.",data:{idAsignacion:id}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}finally{try{lock.releaseLock();}catch(e){}}}
+
+function asignarPersonalInventarioJornada(data){const lock=LockService.getScriptLock();try{lock.waitLock(30000);const responsable=apValidarResponsable_(data),jornada=apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",data.idJornada),ids=Array.isArray(data.empleadosIds)?data.empleadosIds.filter(Boolean):[];if(!jornada||apClave_(jornada.Habra_Inventario)!=="SI")throw new Error("Esta jornada no incluye inventario.");const actuales=apLeer_(AP_HOJAS.JORNADA_PERSONAL).filter(x=>String(x.ID_Jornada)===String(jornada.ID_Jornada)&&apClave_(x.Tipo_Asignacion)==="AUXILIAR INVENTARIO"&&apClave_(x.Estado_Asignacion)!=="CANCELADA"),max=Number(jornada.Cantidad_Auxiliares_Inventario||0);if(actuales.length+ids.length>max)throw new Error("La cantidad supera los cupos autorizados para inventario.");if(new Set(ids.map(String)).size!==ids.length)throw new Error("No puede repetir colaboradores en inventario.");const detalle=apLeer_(AP_HOJAS.CALENDARIO_DETALLE).find(x=>String(x.ID_Jornada)===String(jornada.ID_Jornada));ids.forEach(id=>{const u=apUsuarioPorId_(id);if(!u||!apEsColaboradorAsistencia_(u))throw new Error("Seleccione un colaborador válido para inventario.");const asignacion=apAgregarAsignacionJornada_(jornada,null,u,{turnoTrabajado:detalle?detalle.Turno:"A",lineaTrabajo:"INVENTARIO",tipoAsignacion:"AUXILIAR INVENTARIO",generaHorasExtras:"SI"},responsable);apAsegurarHoraExtraAsignacion_(asignacion,responsable);});return respuesta({ok:true,mensaje:"Personal de inventario asignado correctamente."});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}finally{try{lock.releaseLock();}catch(e){}}}
+
+function apAsegurarHoraExtraAsignacion_(idAsignacion,responsable){const a=apBuscar_(AP_HOJAS.JORNADA_PERSONAL,"ID_Asignacion",idAsignacion);if(!a||apClave_(a.Genera_Horas_Extras)!=="SI")return"";if(a.ID_Hora_Extra)return String(a.ID_Hora_Extra);const j=apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",a.ID_Jornada),detalle=a.ID_Detalle_Jornada?apBuscar_(AP_HOJAS.CALENDARIO_DETALLE,"ID_Detalle_Jornada",a.ID_Detalle_Jornada):null,carga=apClave_(a.Linea_Trabajo)==="CARGA",horario=detalle?{inicio:detalle.Hora_Inicio,fin:detalle.Hora_Final,horas:apHorasEntre_(detalle.Hora_Inicio,detalle.Hora_Final)}:apHorarioPersonal_(a.Turno_Trabajado),horas=carga?Number(apConfiguracionObligatoria_("Horas_Jornada_Carga")):Number(horario.horas||0),id=apId_("HEX");apAgregar_(AP_HOJAS.HORAS_EXTRAS,{ID_Hora_Extra:id,ID_Jornada:a.ID_Jornada,ID_Asignacion:a.ID_Asignacion,Fecha:j.Fecha_Trabajo,Empleado_ID:a.Empleado_ID,Empleado_Nombre:a.Empleado_Nombre,Rol:a.Rol,Turno_Origen:a.Turno_Origen,Turno_Trabajado:a.Turno_Trabajado,Linea_Trabajo:a.Linea_Trabajo,Tipo_Registro:"JORNADA EXTRAORDINARIA",Motivo:a.Tipo_Asignacion,Tipo_Hora_Extra:a.Tipo_Hora_Extra,Porcentaje_Adicional:a.Porcentaje_Adicional,Hora_Inicio_Programada:horario.inicio||"",Hora_Final_Programada:horario.fin||"",Horas_Programadas:horas,Estado:"PROGRAMADA",Origen_Registro:"ASIGNACION JORNADA",Registrado_Por_ID:responsable.id,Registrado_Por_Nombre:responsable.nombre,Fecha_Registro:new Date(),Fecha_Modificacion:new Date(),Motivo_Cobertura:a.Motivo_Cobertura||"",Empleado_Cubierto_ID:a.Empleado_Cubierto_ID||"",Empleado_Cubierto_Nombre:a.Empleado_Cubierto_Nombre||""});apActualizar_(AP_HOJAS.JORNADA_PERSONAL,"ID_Asignacion",idAsignacion,{ID_Hora_Extra:id,Fecha_Modificacion:new Date()});return id;}
+
+function apDetalleJornada_(id){const j=apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",id);if(!j)throw new Error("No se encontró la jornada seleccionada.");const detalles=apLeer_(AP_HOJAS.CALENDARIO_DETALLE).filter(x=>String(x.ID_Jornada)===String(id)),personal=apLeer_(AP_HOJAS.JORNADA_PERSONAL).filter(x=>String(x.ID_Jornada)===String(id)&&apClave_(x.Estado_Asignacion)!=="CANCELADA"),supervisores=[];detalles.forEach(d=>{if(d.Supervisor_ID&&!supervisores.some(x=>String(x.id)===String(d.Supervisor_ID)))supervisores.push({id:String(d.Supervisor_ID),nombre:String(d.Supervisor_Nombre),turno:String(d.Turno)});});const identificadores=new Set(personal.map(p=>String(p.Empleado_ID)));supervisores.forEach(s=>identificadores.add(s.id));return{jornada:apSerializarRegistro_(j),detalles:detalles.map(apSerializarRegistro_),personal:personal.map(apSerializarRegistro_),supervisores:supervisores,totalColaboradores:identificadores.size};}
+function obtenerDetalleJornadaExtraordinaria(data){try{apValidarResponsable_(data);return respuesta({ok:true,data:apDetalleJornada_(data.idJornada)});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+function apHtmlListadoJornada_(d){const grupos={};d.personal.forEach(p=>{const clave=String(p.Linea_Trabajo||"GENERAL")+" · "+String(p.Turno_Trabajado||"");(grupos[clave]=grupos[clave]||[]).push(p);});let html='<div style="font-family:Arial,sans-serif;color:#222"><h2 style="color:#cf173d">Jornada extraordinaria · '+apHtml_(d.jornada.Fecha_Trabajo)+'</h2><p><b>Tipo:</b> '+apHtml_(d.jornada.Tipo_Jornada)+'<br><b>Total de participantes:</b> '+d.totalColaboradores+'</p><h3>Supervisores</h3><ul>'+d.supervisores.map(x=>'<li>'+apHtml_(x.nombre)+' · Turno '+apHtml_(x.turno)+'</li>').join('')+'</ul>';Object.keys(grupos).sort().forEach(k=>{html+='<h3 style="border-bottom:1px solid #e5e7eb;padding-bottom:6px">'+apHtml_(k)+'</h3><ul>'+grupos[k].map(p=>'<li>'+apHtml_(p.Empleado_Nombre)+' · '+apHtml_(p.Tipo_Asignacion)+(p.Motivo_Cobertura?' · '+apHtml_(p.Motivo_Cobertura):'')+'</li>').join('')+'</ul>';});return html+'</div>';}
+function enviarListadoJornadaExtraordinaria(data){try{const responsable=apValidarResponsable_(data),destinatarios=String(apConfiguracionObligatoria_("Correos_Listado_Horas_Extras")),detalle=apDetalleJornada_(data.idJornada);if(!detalle.personal.length)throw new Error("La jornada aún no tiene colaboradores asignados.");MailApp.sendEmail({to:destinatarios,subject:"Listado de horas extras · "+detalle.jornada.Fecha_Trabajo,htmlBody:apHtmlListadoJornada_(detalle)});apActualizar_(AP_HOJAS.CALENDARIO,"ID_Jornada",data.idJornada,{Correo_Listado_Enviado:"SI",Fecha_Envio_Listado:new Date(),Enviado_Por_ID:responsable.id,Enviado_Por_Nombre:responsable.nombre});return respuesta({ok:true,mensaje:"Listado enviado correctamente a los correos configurados."});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+function completarJornadaExtraordinaria(data){try{const responsable=apValidarResponsable_(data),j=apBuscar_(AP_HOJAS.CALENDARIO,"ID_Jornada",data.idJornada);if(!j)throw new Error("No se encontró la jornada.");if(apClave_(j.Estado)==="FINALIZADA")throw new Error("La jornada ya está completada.");apActualizar_(AP_HOJAS.CALENDARIO,"ID_Jornada",data.idJornada,{Estado:"FINALIZADA",Finalizado_Por_ID:responsable.id,Finalizado_Por_Nombre:responsable.nombre,Fecha_Finalizacion:new Date(),Fecha_Modificacion:new Date()});return respuesta({ok:true,mensaje:"Jornada marcada como completada."});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+
+function obtenerMarcacionPersonalActual(data){try{const u=apUsuarioMarcacion_(data),fecha=apFechaServidor_(),asignaciones=apLeer_(AP_HOJAS.JORNADA_PERSONAL).filter(a=>String(a.Empleado_ID)===u.id&&apFechaTexto_(apFecha_(a.Fecha_Trabajo))===fecha&&apClave_(a.Estado_Asignacion)!=="CANCELADA"),asistencia=apLeer_(AP_HOJAS.ASISTENCIA).find(a=>String(a.Empleado_ID)===u.id&&apFechaTexto_(apFecha_(a.Fecha))===fecha),abierta=asignaciones.find(a=>a.Hora_Entrada_Real&&!a.Hora_Salida_Real),tipo=asignaciones.length?"HORAS_EXTRAS":"ASISTENCIA",iniciada=tipo==="HORAS_EXTRAS"?!!abierta:!!(asistencia&&asistencia.Hora_Entrada_Real&&!asistencia.Hora_Salida_Real),finalizada=tipo==="HORAS_EXTRAS"?asignaciones.length>0&&asignaciones.every(a=>a.Hora_Salida_Real):!!(asistencia&&asistencia.Hora_Salida_Real);return respuesta({ok:true,data:{fecha:fecha,tipo:tipo,iniciada:iniciada,finalizada:finalizada,idAsignacion:abierta?abierta.ID_Asignacion:(asignaciones[0]?asignaciones[0].ID_Asignacion:""),asignaciones:asignaciones.map(apSerializarRegistro_),turno:u.turno,gpsActivo:apConfigSi_("GPS_Marcacion_Activa")}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}}
+
+function registrarMarcacionPersonal(data){const lock=LockService.getScriptLock();try{lock.waitLock(30000);const u=apUsuarioMarcacion_(data),gps=apValidarUbicacion_(data),fecha=apFechaServidor_(),hora=apHoraServidor_(),tipo=apClave_(data.tipoMarcacion),accion=apClave_(data.movimiento);if(!["ENTRADA","SALIDA"].includes(accion))throw new Error("Movimiento de marcación inválido.");const sufijo=accion==="ENTRADA"?"Entrada":"Salida",gpsDatos={};gpsDatos["Hora_"+sufijo+"_Real"]=hora;gpsDatos["Origen_Marcacion_"+sufijo]="GPS";gpsDatos["Latitud_"+sufijo]=gps.latitud;gpsDatos["Longitud_"+sufijo]=gps.longitud;gpsDatos["Precision_"+sufijo+"_Metros"]=gps.precision;gpsDatos["Distancia_"+sufijo+"_Metros"]=gps.distancia;gpsDatos.Fecha_Modificacion=new Date();if(tipo==="HORAS_EXTRAS"){const asignacion=apBuscar_(AP_HOJAS.JORNADA_PERSONAL,"ID_Asignacion",data.idAsignacion);if(!asignacion||String(asignacion.Empleado_ID)!==u.id||apFechaTexto_(apFecha_(asignacion.Fecha_Trabajo))!==fecha)throw new Error("No tiene una jornada extraordinaria asignada para hoy.");if(accion==="ENTRADA"&&asignacion.Hora_Entrada_Real)throw new Error("La entrada de esta jornada ya fue registrada.");if(accion==="SALIDA"&&!asignacion.Hora_Entrada_Real)throw new Error("Primero debe registrar la entrada.");if(accion==="SALIDA"&&asignacion.Hora_Salida_Real)throw new Error("La salida de esta jornada ya fue registrada.");gpsDatos.Asistio="SI";if(accion==="SALIDA")gpsDatos.Horas_Trabajadas=apHorasEntre_(String(asignacion.Hora_Entrada_Real),hora);apActualizar_(AP_HOJAS.JORNADA_PERSONAL,"ID_Asignacion",asignacion.ID_Asignacion,gpsDatos);let idHora=String(asignacion.ID_Hora_Extra||"");if(!idHora&&apClave_(asignacion.Genera_Horas_Extras)==="SI")idHora=apAsegurarHoraExtraAsignacion_(asignacion.ID_Asignacion,u);if(idHora){const extra=Object.assign({},gpsDatos,{Estado:accion==="ENTRADA"?"EN PROCESO":"COMPLETADA"});delete extra.Asistio;apActualizar_(AP_HOJAS.HORAS_EXTRAS,"ID_Hora_Extra",idHora,extra);}}else{let asistencia=apLeer_(AP_HOJAS.ASISTENCIA).find(a=>String(a.Empleado_ID)===u.id&&apFechaTexto_(apFecha_(a.Fecha))===fecha&&apClave_(a.Turno)===apClave_(u.turno));if(accion==="SALIDA"&&(!asistencia||!asistencia.Hora_Entrada_Real))throw new Error("Primero debe registrar la entrada.");if(asistencia&&accion==="ENTRADA"&&asistencia.Hora_Entrada_Real)throw new Error("La entrada ya fue registrada.");if(asistencia&&accion==="SALIDA"&&asistencia.Hora_Salida_Real)throw new Error("La salida ya fue registrada.");const horario=apHorarioPersonal_(u.turno);if(accion==="ENTRADA"){const minutos=horario.inicio?apMinutosDiferencia_(horario.inicio,hora):0,estado=horario.inicio&&hora.slice(0,5)>String(horario.inicio).slice(0,5)?"TARDANZA":"ASISTIO",fila=Object.assign({ID_Asistencia:asistencia?asistencia.ID_Asistencia:apId_("ASI"),Fecha:apFecha_(fecha),Turno:u.turno,Empleado_ID:u.id,Empleado_Nombre:u.nombre,Turno_Origen:u.turno,Estado_Asistencia:estado,Tipo_Inasistencia:"NO APLICA",Es_Cobertura:"NO",Genera_Horas_Extras:"NO",Descuenta_Dia:"NO",Responsable_ID:u.id,Responsable_Nombre:u.nombre,Fecha_Registro:asistencia?asistencia.Fecha_Registro:new Date(),Estado_Seguimiento:"CERRADO",Hora_Inicio_Programada:horario.inicio,Hora_Final_Programada:horario.fin,Minutos_Tardanza:estado==="TARDANZA"?minutos:0},gpsDatos);if(asistencia)apActualizar_(AP_HOJAS.ASISTENCIA,"ID_Asistencia",asistencia.ID_Asistencia,fila);else apAgregar_(AP_HOJAS.ASISTENCIA,fila);}else{gpsDatos.Horas_Trabajadas=apHorasEntre_(String(asistencia.Hora_Entrada_Real),hora);apActualizar_(AP_HOJAS.ASISTENCIA,"ID_Asistencia",asistencia.ID_Asistencia,gpsDatos);}}return respuesta({ok:true,mensaje:accion==="ENTRADA"?"Entrada registrada correctamente.":"Jornada finalizada correctamente.",data:{hora:hora,distanciaMetros:gps.distancia}});}catch(error){return respuesta({ok:false,mensaje:apError_(error)});}finally{try{lock.releaseLock();}catch(e){}}}
+
+function apPenalizacionSemanal_(id,fecha){const dia=apFecha_(fecha),numero=dia.getDay()||7,inicio=apSumarDias_(dia,1-numero),fin=apSumarDias_(inicio,7),previas=[AP_HOJAS.ASISTENCIA,AP_HOJAS.JORNADA_PERSONAL].reduce((total,nombre)=>total+apLeer_(nombre).filter(r=>String(r.Empleado_ID)===String(id)&&apClave_(r.Incidencia_Sin_Cierre)==="SI"&&apFecha_(r.Fecha||r.Fecha_Trabajo)>=inicio&&apFecha_(r.Fecha||r.Fecha_Trabajo)<fin).length,0),indice=Math.min(3,previas+1);return Number(apConfiguracionObligatoria_("Penalizacion_Sin_Cierre_"+indice+"_Minutos"));}
+function procesarMarcacionesSinCierre(){try{const zona=apZonaHoraria_(),ahora=new Date(),fechaHoy=Utilities.formatDate(ahora,zona,"yyyy-MM-dd"),horaAhora=Utilities.formatDate(ahora,zona,"HH:mm"),gracia=Number(apConfiguracionObligatoria_("Minutos_Gracia_Cierre_Jornada"));let procesadas=0;[{nombre:AP_HOJAS.ASISTENCIA,id:"ID_Asistencia",fecha:"Fecha"},{nombre:AP_HOJAS.JORNADA_PERSONAL,id:"ID_Asignacion",fecha:"Fecha_Trabajo"}].forEach(tipo=>{apLeer_(tipo.nombre).filter(r=>r.Hora_Entrada_Real&&!r.Hora_Salida_Real&&apClave_(r.Incidencia_Sin_Cierre)!=="SI").forEach(r=>{const fecha=apFechaTexto_(apFecha_(r[tipo.fecha])),horario=apHorarioPersonal_(r.Turno||r.Turno_Trabajado),fin=String(r.Hora_Final_Programada||horario.fin||"");if(!fin)return;const vencida=fecha<fechaHoy||(fecha===fechaHoy&&apMinutosDiferencia_(fin,horaAhora)>=gracia&&horaAhora>=fin.slice(0,5));if(!vencida)return;const penalizacion=apPenalizacionSemanal_(r.Empleado_ID,fecha),horas=Math.max(0,Number(apHorasEntre_(String(r.Hora_Entrada_Real),fin))-penalizacion/60),cambios={Hora_Salida_Real:fin,Horas_Trabajadas:Math.round(horas*100)/100,Minutos_Penalizacion:penalizacion,Incidencia_Sin_Cierre:"SI",Origen_Marcacion_Salida:"CIERRE AUTOMATICO",Fecha_Cierre_Automatico:ahora,Fecha_Modificacion:ahora};apActualizar_(tipo.nombre,tipo.id,r[tipo.id],cambios);if(tipo.nombre===AP_HOJAS.JORNADA_PERSONAL&&r.ID_Hora_Extra)apActualizar_(AP_HOJAS.HORAS_EXTRAS,"ID_Hora_Extra",r.ID_Hora_Extra,Object.assign({Estado:"COMPLETADA CON INCIDENCIA"},cambios));procesadas++;});});return{ok:true,procesadas:procesadas};}catch(error){console.error("Error procesando marcaciones sin cierre: "+apError_(error));return{ok:false,mensaje:apError_(error)};}}

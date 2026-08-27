@@ -1,0 +1,1025 @@
+/**
+ * GESTIONEPP.GS
+ * Sistema Logístico PT - Helados BON
+ * Solicitudes, inventario, compras y trazabilidad de EPP.
+ *
+ * Requiere:
+ * - Codigo.gs con getSheet(), respuesta() y validación central de sesión.
+ * - AvisosSistema.gs.
+ * - Configuracion (columna A = clave, B = valor).
+ * - Catalogos (Tipo, Valor).
+ */
+
+const EPP_HOJAS = Object.freeze({
+  INVENTARIO: "Inventario_EPP",
+  MOVIMIENTOS: "Inventario_EPP_Movimiento",
+  SOLICITUDES: "Solicitudes_EPP",
+  USUARIOS: "Usuarios",
+  CONFIGURACION: "Configuracion",
+  CATALOGOS: "Catalogos"
+});
+
+const EPP_ENCABEZADOS_INVENTARIO = [
+  "ID_EPP","Tipo_EPP","Descripcion","Talla","Unidad_Medida","Stock_Actual",
+  "Stock_Minimo","Stock_Objetivo","Valor_Unitario","Ubicacion","Estado",
+  "Fecha_Creacion","Fecha_Modificacion","Modificado_Por_ID","Modificado_Por_Nombre"
+];
+
+const EPP_ENCABEZADOS_MOVIMIENTOS = [
+  "ID_Movimiento","Fecha_Movimiento","Hora_Movimiento","Tipo_Movimiento","ID_EPP",
+  "Tipo_EPP","Descripcion","Talla","Unidad_Medida","Cantidad","Stock_Anterior",
+  "Stock_Resultante","Valor_Unitario_Movimiento","Valor_Total_Movimiento",
+  "ID_Solicitud","Colaborador_ID","Colaborador_Nombre","Responsable_ID",
+  "Responsable_Nombre","Motivo","Comentario","Fecha_Registro","Numero_Factura"
+];
+
+const EPP_ENCABEZADOS_SOLICITUDES = [
+  "ID_Solicitud","Fecha_Solicitud","Hora_Solicitud","Colaborador_ID",
+  "Colaborador_Nombre","Colaborador_Rol","Colaborador_Turno","Tipo_EPP","Talla",
+  "Unidad_Medida","Cantidad_Solicitada","Motivo_Solicitud","Comentario_Solicitud",
+  "Evidencia_URL","Evidencia_Nombre","Estado_Solicitud","Plazo_Atencion_Dias",
+  "Fecha_Limite_Original","Fecha_Compromiso","Motivo_Compromiso",
+  "Compromiso_Registrado_Por_ID","Compromiso_Registrado_Por_Nombre",
+  "Fecha_Registro_Compromiso","Fecha_Ultima_Entrega","Requiere_Autorizacion",
+  "Justificacion_Autorizacion","Autorizado_Por_ID","Autorizado_Por_Nombre",
+  "Fecha_Autorizacion","Motivo_Rechazo","Rechazado_Por_ID","Rechazado_Por_Nombre",
+  "Fecha_Rechazo","Cantidad_Entregada","ID_EPP_Entregado","ID_Movimiento_Entrega",
+  "Valor_Unitario_Entrega","Valor_Total_Entrega","Entregado_Por_ID",
+  "Entregado_Por_Nombre","Fecha_Entrega","Hora_Entrega","Fecha_Creacion",
+  "Fecha_Modificacion"
+];
+
+function instalarModuloEPP() {
+  const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+  eppAsegurarHoja_(libro,EPP_HOJAS.INVENTARIO,EPP_ENCABEZADOS_INVENTARIO);
+  eppAsegurarHoja_(libro,EPP_HOJAS.MOVIMIENTOS,EPP_ENCABEZADOS_MOVIMIENTOS);
+  eppAsegurarHoja_(libro,EPP_HOJAS.SOLICITUDES,EPP_ENCABEZADOS_SOLICITUDES);
+  if (typeof instalarModuloAvisosSistema === "function") instalarModuloAvisosSistema();
+  return {
+    ok:true,
+    mensaje:"Módulo EPP instalado sin eliminar ni reordenar datos existentes."
+  };
+}
+
+function obtenerInicioGestionEPP(data) {
+  try {
+    const usuario = eppUsuarioSolicitante_(data);
+    const permisos = eppPermisos_(usuario);
+    const inventario = eppLeer_(EPP_HOJAS.INVENTARIO)
+      .filter(function(r){ return eppClave_(r.Estado || "ACTIVO") !== "INACTIVO"; })
+      .map(eppSerializar_);
+    const solicitudes = eppLeer_(EPP_HOJAS.SOLICITUDES);
+    const propias = solicitudes.filter(function(r) {
+      return String(r.Colaborador_ID) === String(usuario.id);
+    });
+    const pendientes = permisos.gestionar
+      ? solicitudes.filter(function(r){ return eppSolicitudActiva_(r.Estado_Solicitud); }).length
+      : propias.filter(function(r){ return eppSolicitudActiva_(r.Estado_Solicitud); }).length;
+
+    return respuesta({ok:true,data:{
+      usuario:usuario,
+      permisos:permisos,
+      catalogos:{
+        tipos:eppCatalogo_("EPP_Frio"),
+        motivosSolicitud:eppCatalogo_("Motivo_Solicitud_EPP"),
+        motivosCompra:eppCatalogo_("Motivo_Compra_EPP"),
+        motivosAjuste:eppCatalogo_("Motivo_Ajuste_EPP"),
+        motivosEntrada:eppCatalogo_("Motivo_Entrada_EPP")
+      },
+      reglas:eppReglasPublicas_(),
+      inventario:inventario,
+      resumen:{pendientes:pendientes,solicitudesPropias:propias.length}
+    }});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  }
+}
+
+function listarSolicitudesEPP(data) {
+  try {
+    const usuario = eppUsuarioSolicitante_(data);
+    const permisos = eppPermisos_(usuario);
+    const pagina = Math.max(1,parseInt(data.pagina,10) || 1);
+    const limite = Math.min(50,Math.max(6,parseInt(data.limite,10) || 12));
+    const estado = eppClave_(data.estado);
+    const buscar = eppClave_(data.buscar);
+    let filas = eppLeer_(EPP_HOJAS.SOLICITUDES);
+
+    if (!permisos.gestionar) {
+      filas = filas.filter(function(r){ return String(r.Colaborador_ID) === String(usuario.id); });
+    }
+    if (estado && estado !== "TODAS") {
+      filas = filas.filter(function(r){ return eppClave_(r.Estado_Solicitud) === estado; });
+    }
+    if (buscar) {
+      filas = filas.filter(function(r){
+        return eppClave_([
+          r.ID_Solicitud,r.Colaborador_Nombre,r.Tipo_EPP,r.Talla,r.Estado_Solicitud
+        ].join(" ")).indexOf(buscar) >= 0;
+      });
+    }
+
+    filas.sort(function(a,b){
+      const aa = eppSolicitudActiva_(a.Estado_Solicitud) ? 0 : 1;
+      const bb = eppSolicitudActiva_(b.Estado_Solicitud) ? 0 : 1;
+      if (aa !== bb) return aa - bb;
+      return (eppFecha_(b.Fecha_Creacion) || 0) - (eppFecha_(a.Fecha_Creacion) || 0);
+    });
+
+    const total = filas.length;
+    const inicio = (pagina - 1) * limite;
+    return respuesta({ok:true,data:{
+      registros:filas.slice(inicio,inicio + limite).map(function(r){
+        const salida = eppSerializar_(r);
+        salida.semaforo = eppSemaforoSolicitud_(r);
+        return salida;
+      }),
+      pagina:pagina,
+      limite:limite,
+      total:total,
+      hayMas:inicio + limite < total
+    }});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  }
+}
+
+function crearSolicitudEPP(data) {
+  const bloqueo = LockService.getScriptLock();
+  try {
+    bloqueo.waitLock(30000);
+    const usuario = eppUsuarioSolicitante_(data);
+    const permisos = eppPermisos_(usuario);
+    if (!permisos.solicitar) throw new Error("Su rol no puede crear solicitudes de EPP.");
+
+    const tipo = eppTexto_(data.tipoEPP);
+    const talla = eppTexto_(data.talla || "UNICA");
+    const motivo = eppTexto_(data.motivoSolicitud);
+    const comentario = eppTexto_(data.comentario);
+    if (!tipo || !motivo) throw new Error("Seleccione el EPP y el motivo de la solicitud.");
+
+    const inventario = eppBuscarInventario_(tipo,talla);
+    if (!inventario) throw new Error("No existe una presentación activa para ese EPP y talla.");
+
+    const solicitudes = eppLeer_(EPP_HOJAS.SOLICITUDES);
+    const duplicada = solicitudes.some(function(r){
+      return String(r.Colaborador_ID) === String(usuario.id) &&
+        eppClave_(r.Tipo_EPP) === eppClave_(tipo) &&
+        eppSolicitudActiva_(r.Estado_Solicitud);
+    });
+    if (duplicada) {
+      throw new Error("Ya tiene una solicitud abierta para " + tipo + ". Debe esperar su cierre.");
+    }
+
+    const reglas = eppReglas_();
+    const cantidad = eppClave_(tipo) === eppClave_(reglas.tipoGuantesVerdes)
+      ? reglas.guantesVerdesPorEntrega
+      : reglas.cantidadPorDefecto;
+    const requiereFoto = eppIncluye_(reglas.evidenciaObligatoria,tipo);
+    let evidencia = {url:"",nombre:""};
+    if (requiereFoto) {
+      evidencia = eppGuardarEvidencia_(data,usuario,tipo);
+    }
+
+    const ultimaEntrega = eppUltimaEntrega_(usuario.id,tipo);
+    const diasDesdeEntrega = ultimaEntrega
+      ? eppDiasEntre_(ultimaEntrega.Fecha_Entrega,new Date())
+      : null;
+    const exento = eppIncluye_(reglas.exentosRepeticion,tipo);
+    const requiereAutorizacion = !exento && diasDesdeEntrega !== null &&
+      diasDesdeEntrega < reglas.diasMinimosEntreEntregas;
+    const justificacion = eppTexto_(data.justificacionAutorizacion);
+
+    if (requiereAutorizacion && !justificacion) {
+      throw new Error(
+        "Su última entrega de " + tipo + " fue el " +
+        eppFechaTexto_(eppFecha_(ultimaEntrega.Fecha_Entrega)) +
+        ". Escriba la justificación para solicitar autorización."
+      );
+    }
+
+    const ahora = new Date();
+    const plazo = eppIncluye_(reglas.plazoExtendidoTipos,tipo)
+      ? reglas.plazoExtendidoDias
+      : reglas.plazoRegularDias;
+    const id = eppId_("SOL-EPP");
+    const registro = {
+      ID_Solicitud:id,
+      Fecha_Solicitud:eppFechaTexto_(ahora),
+      Hora_Solicitud:eppHoraTexto_(ahora),
+      Colaborador_ID:usuario.id,
+      Colaborador_Nombre:usuario.nombre,
+      Colaborador_Rol:usuario.rol,
+      Colaborador_Turno:usuario.turno,
+      Tipo_EPP:tipo,
+      Talla:talla,
+      Unidad_Medida:inventario.Unidad_Medida,
+      Cantidad_Solicitada:cantidad,
+      Motivo_Solicitud:motivo,
+      Comentario_Solicitud:comentario,
+      Evidencia_URL:evidencia.url,
+      Evidencia_Nombre:evidencia.nombre,
+      Estado_Solicitud:requiereAutorizacion ? "PENDIENTE_AUTORIZACION" : "PENDIENTE",
+      Plazo_Atencion_Dias:plazo,
+      Fecha_Limite_Original:eppFechaTexto_(eppSumarDias_(ahora,plazo)),
+      Fecha_Ultima_Entrega:ultimaEntrega ? ultimaEntrega.Fecha_Entrega : "",
+      Requiere_Autorizacion:requiereAutorizacion ? "SI" : "NO",
+      Justificacion_Autorizacion:justificacion,
+      Fecha_Creacion:ahora,
+      Fecha_Modificacion:ahora
+    };
+    eppAgregar_(EPP_HOJAS.SOLICITUDES,registro);
+    eppAvisarGestores_(
+      requiereAutorizacion ? "EPP AUTORIZACION" : "EPP SOLICITUD",
+      requiereAutorizacion ? "Solicitud de EPP requiere autorización" : "Nueva solicitud de EPP",
+      usuario.nombre + " solicitó " + cantidad + " " +
+        eppUnidadPlural_(inventario.Unidad_Medida,cantidad) + " de " +
+        tipo + (talla && talla !== "UNICA" ? " talla " + talla : "") + ".",
+      "SOLICITUD EPP",id,usuario
+    );
+    return respuesta({ok:true,mensaje:"Solicitud registrada correctamente.",data:{idSolicitud:id}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  } finally {
+    try { bloqueo.releaseLock(); } catch (ignorar) {}
+  }
+}
+
+function establecerCompromisoEPP(data) {
+  return eppActualizarSolicitudGestion_(
+    data,
+    "COMPROMISO",
+    function(solicitud,responsable) {
+      const fecha = eppFecha_(data.fechaCompromiso);
+      const motivo = eppTexto_(data.motivoCompromiso);
+      if (!fecha || !motivo) throw new Error("Indique fecha y motivo del compromiso.");
+      if (fecha < eppInicioDia_(new Date())) throw new Error("La fecha de compromiso no puede estar vencida.");
+      return {
+        Estado_Solicitud:"COMPROMETIDA",
+        Fecha_Compromiso:eppFechaTexto_(fecha),
+        Motivo_Compromiso:motivo,
+        Compromiso_Registrado_Por_ID:responsable.id,
+        Compromiso_Registrado_Por_Nombre:responsable.nombre,
+        Fecha_Registro_Compromiso:new Date(),
+        Fecha_Modificacion:new Date()
+      };
+    },
+    "Fecha de compromiso registrada"
+  );
+}
+
+function autorizarSolicitudEPP(data) {
+  return eppActualizarSolicitudGestion_(
+    data,
+    "AUTORIZAR",
+    function(solicitud,responsable) {
+      eppExigirEncargado_(responsable);
+      if (eppClave_(solicitud.Estado_Solicitud) !== "PENDIENTE AUTORIZACION") {
+        throw new Error("La solicitud no está pendiente de autorización.");
+      }
+      return {
+        Estado_Solicitud:"AUTORIZADA",
+        Autorizado_Por_ID:responsable.id,
+        Autorizado_Por_Nombre:responsable.nombre,
+        Fecha_Autorizacion:new Date(),
+        Fecha_Modificacion:new Date()
+      };
+    },
+    "Solicitud autorizada"
+  );
+}
+
+function rechazarSolicitudEPP(data) {
+  return eppActualizarSolicitudGestion_(
+    data,
+    "RECHAZAR",
+    function(solicitud,responsable) {
+      const motivo = eppTexto_(data.motivoRechazo);
+      if (!motivo) throw new Error("Debe justificar el rechazo.");
+      return {
+        Estado_Solicitud:"RECHAZADA",
+        Motivo_Rechazo:motivo,
+        Rechazado_Por_ID:responsable.id,
+        Rechazado_Por_Nombre:responsable.nombre,
+        Fecha_Rechazo:new Date(),
+        Fecha_Modificacion:new Date()
+      };
+    },
+    "Solicitud rechazada"
+  );
+}
+
+function entregarSolicitudEPP(data) {
+  const bloqueo = LockService.getScriptLock();
+  try {
+    bloqueo.waitLock(30000);
+    const responsable = eppUsuarioSolicitante_(data);
+    eppExigirGestor_(responsable);
+    const solicitud = eppBuscar_(EPP_HOJAS.SOLICITUDES,"ID_Solicitud",data.idSolicitud);
+    if (!solicitud) throw new Error("Solicitud no encontrada.");
+    if (!["PENDIENTE","COMPROMETIDA","AUTORIZADA"].includes(eppClave_(solicitud.Estado_Solicitud))) {
+      throw new Error("La solicitud no está disponible para entrega.");
+    }
+    if (eppClave_(solicitud.Requiere_Autorizacion) === "SI" &&
+        eppClave_(solicitud.Estado_Solicitud) !== "AUTORIZADA") {
+      throw new Error("La solicitud requiere autorización del Encargado o Administrador.");
+    }
+
+    const inventario = eppBuscarInventario_(solicitud.Tipo_EPP,solicitud.Talla);
+    if (!inventario) throw new Error("No se encontró el EPP en inventario.");
+    const cantidad = Number(solicitud.Cantidad_Solicitada || 0);
+    const anterior = Number(inventario.Stock_Actual || 0);
+    if (cantidad <= 0) throw new Error("La solicitud no tiene una cantidad válida.");
+    if (anterior < cantidad) throw new Error("Inventario insuficiente. Disponible: " + anterior + ".");
+
+    const resultante = anterior - cantidad;
+    const valor = Number(inventario.Valor_Unitario || 0);
+    const idMovimiento = eppId_("MOV-EPP");
+    eppActualizar_(EPP_HOJAS.INVENTARIO,"ID_EPP",inventario.ID_EPP,{
+      Stock_Actual:resultante,
+      Fecha_Modificacion:new Date(),
+      Modificado_Por_ID:responsable.id,
+      Modificado_Por_Nombre:responsable.nombre
+    });
+    eppAgregar_(EPP_HOJAS.MOVIMIENTOS,{
+      ID_Movimiento:idMovimiento,
+      Fecha_Movimiento:eppFechaTexto_(new Date()),
+      Hora_Movimiento:eppHoraTexto_(new Date()),
+      Tipo_Movimiento:"SALIDA_ENTREGA",
+      ID_EPP:inventario.ID_EPP,
+      Tipo_EPP:inventario.Tipo_EPP,
+      Descripcion:inventario.Descripcion,
+      Talla:inventario.Talla,
+      Unidad_Medida:inventario.Unidad_Medida,
+      Cantidad:cantidad,
+      Stock_Anterior:anterior,
+      Stock_Resultante:resultante,
+      Valor_Unitario_Movimiento:valor,
+      Valor_Total_Movimiento:valor * cantidad,
+      ID_Solicitud:solicitud.ID_Solicitud,
+      Colaborador_ID:solicitud.Colaborador_ID,
+      Colaborador_Nombre:solicitud.Colaborador_Nombre,
+      Responsable_ID:responsable.id,
+      Responsable_Nombre:responsable.nombre,
+      Motivo:solicitud.Motivo_Solicitud,
+      Comentario:eppTexto_(data.comentarioEntrega),
+      Fecha_Registro:new Date()
+    });
+    eppActualizar_(EPP_HOJAS.SOLICITUDES,"ID_Solicitud",solicitud.ID_Solicitud,{
+      Estado_Solicitud:"ENTREGADA",
+      Cantidad_Entregada:cantidad,
+      ID_EPP_Entregado:inventario.ID_EPP,
+      ID_Movimiento_Entrega:idMovimiento,
+      Valor_Unitario_Entrega:valor,
+      Valor_Total_Entrega:valor * cantidad,
+      Entregado_Por_ID:responsable.id,
+      Entregado_Por_Nombre:responsable.nombre,
+      Fecha_Entrega:eppFechaTexto_(new Date()),
+      Hora_Entrega:eppHoraTexto_(new Date()),
+      Fecha_Modificacion:new Date()
+    });
+    eppCrearAviso_({
+      empleadoId:solicitud.Colaborador_ID,
+      empleadoNombre:solicitud.Colaborador_Nombre,
+      tipo:"EPP ENTREGADO",
+      titulo:"Has recibido tu EPP",
+      mensaje:"Se registró la entrega de " + cantidad + " " +
+        eppUnidadPlural_(solicitud.Unidad_Medida,cantidad) + " de " +
+        solicitud.Tipo_EPP + ".",
+      referenciaTipo:"SOLICITUD EPP",
+      referenciaId:solicitud.ID_Solicitud,
+      creador:responsable
+    });
+    return respuesta({ok:true,mensaje:"Entrega registrada y notificada.",data:{idMovimiento:idMovimiento,stockResultante:resultante}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  } finally {
+    try { bloqueo.releaseLock(); } catch (ignorar) {}
+  }
+}
+
+function registrarEntradaInventarioEPP(data) {
+  return eppRegistrarMovimientoInventario_(data,"ENTRADA",false);
+}
+
+function ajustarInventarioEPP(data) {
+  return eppRegistrarMovimientoInventario_(data,"AJUSTE",true);
+}
+
+function enviarSolicitudCompraEPP(data) {
+  try {
+    const responsable = eppUsuarioSolicitante_(data);
+    eppExigirGestor_(responsable);
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (!items.length) throw new Error("Seleccione al menos un EPP para comprar.");
+    const destinatarios = eppConfig_("Correo_Solicitud_Compra_EPP");
+    if (!destinatarios) throw new Error('Falta "Correo_Solicitud_Compra_EPP" en Configuracion.');
+
+    const inventario = eppLeer_(EPP_HOJAS.INVENTARIO);
+    const filas = items.map(function(item) {
+      const registro = inventario.find(function(r){ return String(r.ID_EPP) === String(item.idEPP); });
+      if (!registro) throw new Error("No se encontró un EPP seleccionado.");
+      const cantidad = Number(item.cantidad || 0);
+      const motivo = eppTexto_(item.motivo);
+      if (cantidad <= 0 || !motivo) throw new Error("Cada compra requiere cantidad y motivo.");
+      return {
+        registro:registro,
+        cantidad:cantidad,
+        motivo:motivo
+      };
+    });
+
+    const cuerpo = [
+      "<p>Se solicita gestionar la compra de los siguientes EPP:</p>",
+      "<table style='border-collapse:collapse;width:100%'>",
+      "<tr><th style='border:1px solid #ddd;padding:8px'>EPP</th>",
+      "<th style='border:1px solid #ddd;padding:8px'>Cantidad</th>",
+      "<th style='border:1px solid #ddd;padding:8px'>Motivo</th>",
+      "<th style='border:1px solid #ddd;padding:8px'>Stock</th></tr>"
+    ];
+    filas.forEach(function(item) {
+      cuerpo.push(
+        "<tr><td style='border:1px solid #ddd;padding:8px'>" +
+        eppHtml_(item.registro.Tipo_EPP) +
+        (item.registro.Talla && item.registro.Talla !== "UNICA" ? " · talla " + eppHtml_(item.registro.Talla) : "") +
+        "</td><td style='border:1px solid #ddd;padding:8px'>" +
+        item.cantidad + " " + eppHtml_(eppUnidadPlural_(item.registro.Unidad_Medida,item.cantidad)) +
+        "</td><td style='border:1px solid #ddd;padding:8px'>" + eppHtml_(item.motivo) +
+        "</td><td style='border:1px solid #ddd;padding:8px'>" +
+        Number(item.registro.Stock_Actual || 0) + " / objetivo " +
+        Number(item.registro.Stock_Objetivo || 0) + "</td></tr>"
+      );
+    });
+    cuerpo.push("</table><p>Solicitado por: <b>" + eppHtml_(responsable.nombre) + "</b>.</p>");
+    MailApp.sendEmail({
+      to:String(destinatarios),
+      subject:"Solicitud de compra de EPP · " + eppFechaTexto_(new Date()),
+      htmlBody:cuerpo.join("")
+    });
+    return respuesta({ok:true,mensaje:"Solicitud de compra enviada correctamente."});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  }
+}
+
+function obtenerReporteEntregasEPP(data) {
+  try {
+    const responsable = eppUsuarioSolicitante_(data);
+    eppExigirGestor_(responsable);
+    const rango = eppRangoReporte_(data.periodo || "MES",data.desde,data.hasta);
+    let filas = eppLeer_(EPP_HOJAS.MOVIMIENTOS).filter(function(r) {
+      const fecha = eppFecha_(r.Fecha_Movimiento);
+      return eppClave_(r.Tipo_Movimiento) === "SALIDA ENTREGA" &&
+        fecha && fecha >= rango.desde && fecha <= rango.hasta;
+    });
+    if (data.colaboradorId) filas = filas.filter(function(r){ return String(r.Colaborador_ID) === String(data.colaboradorId); });
+    if (data.tipoEPP) filas = filas.filter(function(r){ return eppClave_(r.Tipo_EPP) === eppClave_(data.tipoEPP); });
+
+    const totalCantidad = filas.reduce(function(t,r){ return t + Number(r.Cantidad || 0); },0);
+    const totalValor = filas.reduce(function(t,r){ return t + Number(r.Valor_Total_Movimiento || 0); },0);
+    const porTipo = {};
+    filas.forEach(function(r) {
+      const clave = eppTexto_(r.Tipo_EPP) || "Sin identificar";
+      if (!porTipo[clave]) porTipo[clave] = {tipoEPP:clave,cantidad:0,valor:0};
+      porTipo[clave].cantidad += Number(r.Cantidad || 0);
+      porTipo[clave].valor += Number(r.Valor_Total_Movimiento || 0);
+    });
+
+    return respuesta({ok:true,data:{
+      desde:eppFechaTexto_(rango.desde),
+      hasta:eppFechaTexto_(rango.hasta),
+      totalEntregas:filas.length,
+      totalCantidad:totalCantidad,
+      totalValor:Math.round(totalValor * 100) / 100,
+      porTipo:Object.keys(porTipo).map(function(k){ return porTipo[k]; }),
+      registros:filas.map(eppSerializar_)
+    }});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  }
+}
+
+function listarHistorialEPPColaborador(data) {
+  try {
+    const usuario = eppUsuarioSolicitante_(data);
+    const permisos = eppPermisos_(usuario);
+    const id = permisos.gestionar && data.colaboradorId ? String(data.colaboradorId) : String(usuario.id);
+    const registros = eppLeer_(EPP_HOJAS.MOVIMIENTOS)
+      .filter(function(r){ return String(r.Colaborador_ID) === id && eppClave_(r.Tipo_Movimiento) === "SALIDA ENTREGA"; })
+      .sort(function(a,b){ return (eppFecha_(b.Fecha_Movimiento)||0) - (eppFecha_(a.Fecha_Movimiento)||0); })
+      .map(eppSerializar_);
+    return respuesta({ok:true,data:{registros:registros,total:registros.length}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  }
+}
+
+function eppRegistrarMovimientoInventario_(data,tipo,requiereEncargado) {
+  const bloqueo = LockService.getScriptLock();
+  try {
+    bloqueo.waitLock(30000);
+    const responsable = eppUsuarioSolicitante_(data);
+    eppExigirGestor_(responsable);
+    if (requiereEncargado) eppExigirEncargado_(responsable);
+    const inventario = eppBuscar_(EPP_HOJAS.INVENTARIO,"ID_EPP",data.idEPP);
+    if (!inventario) throw new Error("EPP no encontrado.");
+    const cantidad = Number(data.cantidad || 0);
+    const motivo = eppTexto_(data.motivo);
+    const numeroFactura = eppTexto_(data.numeroFactura);
+    if (!cantidad || !motivo) throw new Error("Indique cantidad y motivo.");
+    if (tipo === "ENTRADA" && !numeroFactura) {
+      throw new Error("Indique el número de factura de la entrada.");
+    }
+
+    const anterior = Number(inventario.Stock_Actual || 0);
+    let resultante;
+    let tipoMovimiento;
+    if (tipo === "ENTRADA") {
+      if (cantidad <= 0) throw new Error("La entrada debe ser mayor que cero.");
+      resultante = anterior + cantidad;
+      tipoMovimiento = "ENTRADA";
+    } else {
+      resultante = anterior + cantidad;
+      if (resultante < 0) throw new Error("El ajuste dejaría el inventario negativo.");
+      tipoMovimiento = cantidad > 0 ? "AJUSTE_POSITIVO" : "AJUSTE_NEGATIVO";
+    }
+    const valor = data.valorUnitario === undefined || data.valorUnitario === ""
+      ? Number(inventario.Valor_Unitario || 0)
+      : Number(data.valorUnitario);
+    if (valor < 0) throw new Error("El valor unitario no puede ser negativo.");
+
+    const idMovimiento = eppId_("MOV-EPP");
+    eppActualizar_(EPP_HOJAS.INVENTARIO,"ID_EPP",inventario.ID_EPP,{
+      Stock_Actual:resultante,
+      Valor_Unitario:valor,
+      Fecha_Modificacion:new Date(),
+      Modificado_Por_ID:responsable.id,
+      Modificado_Por_Nombre:responsable.nombre
+    });
+    eppAgregar_(EPP_HOJAS.MOVIMIENTOS,{
+      ID_Movimiento:idMovimiento,
+      Fecha_Movimiento:eppFechaTexto_(new Date()),
+      Hora_Movimiento:eppHoraTexto_(new Date()),
+      Tipo_Movimiento:tipoMovimiento,
+      ID_EPP:inventario.ID_EPP,
+      Tipo_EPP:inventario.Tipo_EPP,
+      Descripcion:inventario.Descripcion,
+      Talla:inventario.Talla,
+      Unidad_Medida:inventario.Unidad_Medida,
+      Cantidad:cantidad,
+      Stock_Anterior:anterior,
+      Stock_Resultante:resultante,
+      Valor_Unitario_Movimiento:valor,
+      Valor_Total_Movimiento:Math.abs(cantidad) * valor,
+      Responsable_ID:responsable.id,
+      Responsable_Nombre:responsable.nombre,
+      Motivo:motivo,
+      Comentario:eppTexto_(data.comentario),
+      Fecha_Registro:new Date(),
+      Numero_Factura:tipo === "ENTRADA" ? numeroFactura : ""
+    });
+    return respuesta({ok:true,mensaje:"Movimiento registrado correctamente.",data:{idMovimiento:idMovimiento,stockResultante:resultante}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  } finally {
+    try { bloqueo.releaseLock(); } catch (ignorar) {}
+  }
+}
+
+function eppActualizarSolicitudGestion_(data,accion,crearCambios,mensaje) {
+  const bloqueo = LockService.getScriptLock();
+  try {
+    bloqueo.waitLock(30000);
+    const responsable = eppUsuarioSolicitante_(data);
+    eppExigirGestor_(responsable);
+    const solicitud = eppBuscar_(EPP_HOJAS.SOLICITUDES,"ID_Solicitud",data.idSolicitud);
+    if (!solicitud) throw new Error("Solicitud no encontrada.");
+    if (!eppSolicitudActiva_(solicitud.Estado_Solicitud)) throw new Error("La solicitud ya fue cerrada.");
+    const cambios = crearCambios(solicitud,responsable);
+    eppActualizar_(EPP_HOJAS.SOLICITUDES,"ID_Solicitud",solicitud.ID_Solicitud,cambios);
+    const esRechazo = accion === "RECHAZAR";
+    eppCrearAviso_({
+      empleadoId:solicitud.Colaborador_ID,
+      empleadoNombre:solicitud.Colaborador_Nombre,
+      tipo:"EPP " + accion,
+      titulo:mensaje,
+      mensaje:esRechazo
+        ? "Su solicitud de " + solicitud.Tipo_EPP + " fue rechazada. Motivo: " + cambios.Motivo_Rechazo
+        : accion === "COMPROMISO"
+          ? "Su solicitud de " + solicitud.Tipo_EPP + " tiene compromiso para el " + cambios.Fecha_Compromiso + "."
+          : "Su solicitud de " + solicitud.Tipo_EPP + " fue autorizada.",
+      referenciaTipo:"SOLICITUD EPP",
+      referenciaId:solicitud.ID_Solicitud,
+      creador:responsable
+    });
+    return respuesta({ok:true,mensaje:mensaje + "."});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:eppError_(error)});
+  } finally {
+    try { bloqueo.releaseLock(); } catch (ignorar) {}
+  }
+}
+
+function eppGuardarEvidencia_(data,usuario,tipo) {
+  const base64 = eppTexto_(data.evidenciaBase64).replace(/^data:[^;]+;base64,/,"");
+  if (!base64) throw new Error("Este EPP requiere una fotografía tomada en el momento.");
+  const mime = eppTexto_(data.evidenciaMime || "image/jpeg");
+  if (mime.indexOf("image/") !== 0) throw new Error("La evidencia debe ser una imagen.");
+  const carpetaId = eppConfigObligatoria_("Carpeta_Drive_Evidencias_EPP");
+  const raiz = DriveApp.getFolderById(String(carpetaId).trim());
+  const nombreCarpeta = eppNombreSeguro_(usuario.id + " - " + usuario.nombre);
+  const iterador = raiz.getFoldersByName(nombreCarpeta);
+  const carpeta = iterador.hasNext() ? iterador.next() : raiz.createFolder(nombreCarpeta);
+  const baseNombre = eppFechaNombre_(new Date()) + "-" +
+    eppNombreSeguro_(usuario.nombre) + "-" + eppNombreSeguro_(tipo);
+  const nombre = baseNombre + "-" + Utilities.getUuid().slice(0,8) + ".jpg";
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64),mime,nombre);
+  const archivo = carpeta.createFile(blob);
+  return {url:archivo.getUrl(),nombre:nombre};
+}
+
+function eppAvisarGestores_(tipo,titulo,mensaje,referenciaTipo,referenciaId,creador) {
+  const usuarios = eppUsuarios_().filter(function(u) {
+    const rol = eppClave_(u.rol);
+    return ["ACTIVO","ACTIVA"].includes(eppClave_(u.estado)) &&
+      ["ANALISTA","SUPERVISOR","ENCARGADO","ADMINISTRADOR"].some(function(rolPermitido) {
+        return rol.indexOf(rolPermitido) >= 0;
+      });
+  });
+  usuarios.forEach(function(u) {
+    eppCrearAviso_({
+      empleadoId:u.id,empleadoNombre:u.nombre,rolDestino:u.rol,tipo:tipo,
+      titulo:titulo,mensaje:mensaje,referenciaTipo:referenciaTipo,
+      referenciaId:referenciaId,creador:creador
+    });
+  });
+}
+
+/**
+ * Elimina avisos antiguos de solicitudes EPP enviados a colaboradores
+ * que no pertenecen a los roles responsables de revisar solicitudes.
+ * No elimina entregas, rechazos, compromisos ni autorizaciones propias.
+ * Ejecutar manualmente solo si ya existen avisos mal dirigidos.
+ */
+function limpiarAvisosSolicitudesEPPNoAutorizados() {
+  const hoja = getSheet("Avisos_Usuarios");
+  if (!hoja || hoja.getLastRow() < 2) {
+    return {ok:true,eliminados:0,mensaje:"No existen avisos para revisar."};
+  }
+
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores[0].map(function(campo) { return String(campo); });
+  const cEmpleado = encabezados.indexOf("Empleado_ID");
+  const cTipo = encabezados.indexOf("Tipo");
+  const cEstado = encabezados.indexOf("Estado");
+
+  if (cEmpleado < 0 || cTipo < 0 || cEstado < 0) {
+    throw new Error("La hoja Avisos_Usuarios no contiene los encabezados requeridos.");
+  }
+
+  const roles = {};
+  eppUsuarios_().forEach(function(usuario) {
+    roles[String(usuario.id)] = eppClave_(usuario.rol);
+  });
+
+  const filas = [];
+  for (let indice = 1; indice < valores.length; indice++) {
+    const fila = valores[indice];
+    const tipo = eppClave_(fila[cTipo]);
+    const rol = roles[String(fila[cEmpleado])] || "";
+    const solicitud = tipo === "EPP SOLICITUD" || tipo === "EPP AUTORIZACION";
+    const autorizado = ["ANALISTA","SUPERVISOR","ENCARGADO","ADMINISTRADOR"].some(function(nombre) {
+      return rol.indexOf(nombre) >= 0;
+    });
+
+    if (solicitud && eppClave_(fila[cEstado]) === "PENDIENTE" && !autorizado) {
+      filas.push(indice + 1);
+    }
+  }
+
+  filas.reverse().forEach(function(numero) { hoja.deleteRow(numero); });
+  return {ok:true,eliminados:filas.length,mensaje:"Avisos EPP no autorizados eliminados: " + filas.length};
+}
+
+function eppCrearAviso_(datos) {
+  if (typeof crearAvisoSistema_ !== "function") {
+    throw new Error("Falta AvisosSistema.gs en el proyecto.");
+  }
+  return crearAvisoSistema_(datos);
+}
+
+function eppSemaforoSolicitud_(r) {
+  if (!eppSolicitudActiva_(r.Estado_Solicitud)) {
+    return {nivel:"CERRADA",porcentaje:100,diasPendientes:0,fechaObjetivo:""};
+  }
+  const inicio = eppFecha_(r.Fecha_Solicitud) || new Date();
+  const compromiso = eppFecha_(r.Fecha_Compromiso);
+  const limite = compromiso || eppFecha_(r.Fecha_Limite_Original) || inicio;
+  const hoy = eppInicioDia_(new Date());
+  const total = Math.max(1,eppDiasEntre_(inicio,limite));
+  const transcurridos = Math.max(0,eppDiasEntre_(inicio,hoy));
+  const porcentaje = Math.max(0,Math.round((transcurridos / total) * 100));
+  let nivel = porcentaje <= 50 ? "VERDE" : porcentaje <= 75 ? "AMARILLO" : porcentaje < 100 ? "NARANJA" : "ROJO";
+  if (hoy > limite) nivel = "ROJO";
+  return {
+    nivel:nivel,
+    porcentaje:porcentaje,
+    diasPendientes:Math.max(0,eppDiasEntre_(hoy,limite)),
+    diasAtraso:hoy > limite ? eppDiasEntre_(limite,hoy) : 0,
+    fechaObjetivo:eppFechaTexto_(limite),
+    usaCompromiso:!!compromiso
+  };
+}
+
+function eppReglasPublicas_() {
+  const r = eppReglas_();
+  return {
+    evidenciaObligatoria:r.evidenciaObligatoria,
+    requiereTalla:r.requiereTalla,
+    tipoGuantesVerdes:r.tipoGuantesVerdes,
+    guantesVerdesPorEntrega:r.guantesVerdesPorEntrega,
+    diasMinimosEntreEntregas:r.diasMinimosEntreEntregas,
+    exentosRepeticion:r.exentosRepeticion
+  };
+}
+
+function eppReglas_() {
+  return {
+    plazoExtendidoDias:Number(eppConfig_("EPP_Plazo_Extendido_Dias") || 30),
+    plazoRegularDias:Number(eppConfig_("EPP_Plazo_Regular_Dias") || 5),
+    plazoExtendidoTipos:eppLista_(eppConfig_("EPP_Tipos_Plazo_Extendido") || "Abrigo,Botas"),
+    evidenciaObligatoria:eppLista_(eppConfig_("EPP_Tipos_Evidencia_Obligatoria") || "Abrigo,Botas,Guantes Leader"),
+    unidadPar:eppLista_(eppConfig_("EPP_Tipos_Unidad_Par") || "Botas,Guantes nitrilo (Verdes),Guantes Leader,Medias p. Bajas Temp."),
+    requiereTalla:eppLista_(eppConfig_("EPP_Tipos_Requieren_Talla") || "Abrigo,Botas,Guantes Leader"),
+    cantidadPorDefecto:Math.max(1,Number(eppConfig_("EPP_Cantidad_Por_Defecto") || 1)),
+    tipoGuantesVerdes:eppTexto_(eppConfig_("EPP_Tipo_Guantes_Verdes") || "Guantes nitrilo (Verdes)"),
+    guantesVerdesPorEntrega:Math.max(1,Number(eppConfig_("Guantes_Verdes_PorEntrega") || 2)),
+    diasMinimosEntreEntregas:Math.max(0,Number(eppConfig_("EPP_Dias_Minimos_Entre_Entregas") || 15)),
+    exentosRepeticion:eppLista_(eppConfig_("EPP_Exentos_Control_Repeticion") || "Guantes nitrilo (Verdes)")
+  };
+}
+
+function eppUsuarioSolicitante_(data) {
+  const id = String(data && data.idEmpleado || "").trim();
+  const usuario = eppUsuarios_().find(function(u){ return String(u.id) === id; });
+  if (!usuario) throw new Error("Usuario no identificado.");
+  if (!["ACTIVO","ACTIVA"].includes(eppClave_(usuario.estado))) throw new Error("Su usuario no está activo.");
+  return usuario;
+}
+
+function eppUsuarios_() {
+  return eppLeer_(EPP_HOJAS.USUARIOS).map(function(r) {
+    return {
+      id:eppTexto_(r.IDEmpleado),
+      nombre:eppTexto_(r.Nombre),
+      usuario:eppTexto_(r.Usuario),
+      rol:eppTexto_(r.Rol),
+      turno:eppTexto_(r.Turno),
+      correo:eppTexto_(r.Correo),
+      estado:eppTexto_(r.Estado)
+    };
+  });
+}
+
+function eppPermisos_(usuario) {
+  const rol = eppClave_(usuario.rol);
+  const encargado = rol.indexOf("ENCARGADO") >= 0 || rol.indexOf("ADMINISTRADOR") >= 0;
+  const supervisor = rol.indexOf("SUPERVISOR") >= 0;
+  const colaborador = rol === "AUXILIAR" || rol === "MONTACARGUISTA";
+  return {
+    solicitar:colaborador,
+    gestionar:supervisor || encargado,
+    autorizar:encargado,
+    ajustar:encargado,
+    inventario:supervisor || encargado,
+    compras:supervisor || encargado,
+    reportes:supervisor || encargado
+  };
+}
+
+function eppExigirGestor_(usuario) {
+  if (!eppPermisos_(usuario).gestionar) throw new Error("Su rol no puede gestionar EPP.");
+}
+
+function eppExigirEncargado_(usuario) {
+  if (!eppPermisos_(usuario).autorizar) throw new Error("Solo Encargado o Administrador puede realizar esta acción.");
+}
+
+function eppBuscarInventario_(tipo,talla) {
+  const claveTipo = eppClave_(tipo);
+  const claveTalla = eppClave_(talla || "UNICA");
+  return eppLeer_(EPP_HOJAS.INVENTARIO).find(function(r){
+    return eppClave_(r.Tipo_EPP) === claveTipo &&
+      eppClave_(r.Talla || "UNICA") === claveTalla &&
+      eppClave_(r.Estado || "ACTIVO") !== "INACTIVO";
+  }) || null;
+}
+
+function eppUltimaEntrega_(colaboradorId,tipo) {
+  return eppLeer_(EPP_HOJAS.SOLICITUDES)
+    .filter(function(r){
+      return String(r.Colaborador_ID) === String(colaboradorId) &&
+        eppClave_(r.Tipo_EPP) === eppClave_(tipo) &&
+        eppClave_(r.Estado_Solicitud) === "ENTREGADA" &&
+        eppFecha_(r.Fecha_Entrega);
+    })
+    .sort(function(a,b){ return eppFecha_(b.Fecha_Entrega) - eppFecha_(a.Fecha_Entrega); })[0] || null;
+}
+
+function eppRangoReporte_(periodo,desde,hasta) {
+  const hoy = eppInicioDia_(new Date());
+  const clave = eppClave_(periodo);
+  let inicio;
+  if (clave === "PERSONALIZADO") {
+    inicio = eppFecha_(desde);
+    const finPersonalizado = eppFecha_(hasta);
+    if (!inicio || !finPersonalizado) throw new Error("Indique el rango del reporte.");
+    finPersonalizado.setHours(23,59,59,999);
+    return {desde:inicio,hasta:finPersonalizado};
+  }
+  if (clave === "TRIMESTRE") inicio = new Date(hoy.getFullYear(),Math.floor(hoy.getMonth()/3)*3,1);
+  else if (clave === "SEMESTRE") inicio = new Date(hoy.getFullYear(),hoy.getMonth()<6?0:6,1);
+  else if (clave === "ANO" || clave === "AÑO") inicio = new Date(hoy.getFullYear(),0,1);
+  else inicio = new Date(hoy.getFullYear(),hoy.getMonth(),1);
+  const fin = new Date(hoy); fin.setHours(23,59,59,999);
+  return {desde:inicio,hasta:fin};
+}
+
+function eppCatalogo_(tipo) {
+  const hoja = getSheet(EPP_HOJAS.CATALOGOS);
+  if (!hoja) return [];
+  const datos = hoja.getDataRange().getValues();
+  if (datos.length < 2) return [];
+  const encabezados = datos[0].map(eppClave_);
+  const cTipo = encabezados.indexOf("TIPO");
+  const cValor = encabezados.indexOf("VALOR");
+  if (cTipo < 0 || cValor < 0) return [];
+  const objetivo = eppClave_(tipo);
+  return datos.slice(1)
+    .filter(function(r){ return eppClave_(r[cTipo]) === objetivo && eppTexto_(r[cValor]); })
+    .map(function(r){ return eppTexto_(r[cValor]); });
+}
+
+function eppConfig_(clave) {
+  const hoja = getSheet(EPP_HOJAS.CONFIGURACION);
+  if (!hoja) return "";
+  const datos = hoja.getDataRange().getValues();
+  const objetivo = eppClave_(clave);
+  for (let i=0;i<datos.length;i++) {
+    if (eppClave_(datos[i][0]) === objetivo) return datos[i][1];
+  }
+  return "";
+}
+
+function eppConfigObligatoria_(clave) {
+  const valor = eppConfig_(clave);
+  if (valor === "" || valor === null || valor === undefined) {
+    throw new Error('Falta la clave "' + clave + '" en Configuracion.');
+  }
+  return valor;
+}
+
+function eppAsegurarHoja_(libro,nombre,encabezados) {
+  let hoja = libro.getSheetByName(nombre);
+  if (!hoja) hoja = libro.insertSheet(nombre);
+  if (hoja.getLastRow() === 0) {
+    hoja.getRange(1,1,1,encabezados.length).setValues([encabezados]);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1,1,1,encabezados.length).setFontWeight("bold").setBackground("#e9eef3");
+    return;
+  }
+  const actuales = hoja.getRange(1,1,1,Math.max(1,hoja.getLastColumn())).getValues()[0].map(String);
+  const faltantes = encabezados.filter(function(e){ return actuales.indexOf(e) < 0; });
+  if (faltantes.length) hoja.getRange(1,actuales.length + 1,1,faltantes.length).setValues([faltantes]);
+}
+
+function eppLeer_(nombre) {
+  const hoja = getSheet(nombre);
+  if (!hoja) throw new Error('No existe la hoja "' + nombre + '". Ejecute instalarModuloEPP().');
+  const valores = hoja.getDataRange().getValues();
+  if (!valores.length) return [];
+  const encabezados = valores[0].map(String);
+  return valores.slice(1).filter(function(fila){ return fila.some(function(v){ return v !== ""; }); }).map(function(fila) {
+    const objeto = {};
+    encabezados.forEach(function(c,i){ objeto[c] = fila[i]; });
+    return objeto;
+  });
+}
+
+function eppAgregar_(nombre,objeto) {
+  const hoja = getSheet(nombre);
+  if (!hoja) throw new Error('No existe la hoja "' + nombre + '".');
+  const encabezados = hoja.getRange(1,1,1,hoja.getLastColumn()).getValues()[0].map(String);
+  hoja.appendRow(encabezados.map(function(c){ return objeto[c] === undefined ? "" : objeto[c]; }));
+}
+
+function eppBuscar_(nombre,campo,valor) {
+  return eppLeer_(nombre).find(function(r){ return String(r[campo]) === String(valor); }) || null;
+}
+
+function eppActualizar_(nombre,campo,valor,cambios) {
+  const hoja = getSheet(nombre);
+  if (!hoja) throw new Error('No existe la hoja "' + nombre + '".');
+  const valores = hoja.getDataRange().getValues();
+  const encabezados = valores[0].map(String);
+  const indiceCampo = encabezados.indexOf(campo);
+  if (indiceCampo < 0) throw new Error("Falta la columna " + campo + " en " + nombre + ".");
+  for (let i=1;i<valores.length;i++) {
+    if (String(valores[i][indiceCampo]) !== String(valor)) continue;
+    Object.keys(cambios).forEach(function(clave) {
+      const columna = encabezados.indexOf(clave);
+      if (columna >= 0) valores[i][columna] = cambios[clave];
+    });
+    hoja.getRange(i+1,1,1,encabezados.length).setValues([valores[i]]);
+    return true;
+  }
+  return false;
+}
+
+function eppSolicitudActiva_(estado) {
+  return ["PENDIENTE","COMPROMETIDA","PENDIENTE AUTORIZACION","AUTORIZADA"].includes(eppClave_(estado));
+}
+
+function eppIncluye_(lista,valor) {
+  const objetivo = eppClave_(valor);
+  return (lista || []).some(function(item){ return eppClave_(item) === objetivo; });
+}
+
+function eppLista_(valor) {
+  return String(valor || "").split(",").map(function(v){ return v.trim(); }).filter(Boolean);
+}
+
+function eppUnidadPlural_(unidad,cantidad) {
+  return eppClave_(unidad) === "PAR" ? (Number(cantidad) === 1 ? "par" : "pares") : (Number(cantidad) === 1 ? "unidad" : "unidades");
+}
+
+function eppSerializar_(registro) {
+  const salida = {};
+  Object.keys(registro).forEach(function(k) {
+    salida[k] = registro[k] instanceof Date
+      ? Utilities.formatDate(registro[k],Session.getScriptTimeZone(),"yyyy-MM-dd HH:mm:ss")
+      : registro[k];
+  });
+  return salida;
+}
+
+function eppFecha_(valor) {
+  if (valor instanceof Date && !isNaN(valor)) return new Date(valor);
+  const texto = String(valor || "").trim();
+  let m = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
+  m = texto.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (m) return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]));
+  const fecha = new Date(texto);
+  return isNaN(fecha) ? null : fecha;
+}
+
+function eppInicioDia_(fecha) {
+  const salida = new Date(fecha); salida.setHours(0,0,0,0); return salida;
+}
+
+function eppSumarDias_(fecha,dias) {
+  const salida = eppInicioDia_(fecha); salida.setDate(salida.getDate() + Number(dias || 0)); return salida;
+}
+
+function eppDiasEntre_(a,b) {
+  const inicio = eppInicioDia_(eppFecha_(a) || a);
+  const fin = eppInicioDia_(eppFecha_(b) || b);
+  return Math.round((fin - inicio) / 86400000);
+}
+
+function eppFechaTexto_(fecha) {
+  return Utilities.formatDate(fecha,Session.getScriptTimeZone(),"yyyy-MM-dd");
+}
+
+function eppFechaNombre_(fecha) {
+  return Utilities.formatDate(fecha,Session.getScriptTimeZone(),"dd-MM-yyyy");
+}
+
+function eppHoraTexto_(fecha) {
+  return Utilities.formatDate(fecha,Session.getScriptTimeZone(),"HH:mm:ss");
+}
+
+function eppId_(prefijo) {
+  return prefijo + "-" + Utilities.formatDate(new Date(),Session.getScriptTimeZone(),"yyyyMMddHHmmss") + "-" + Math.floor(Math.random()*900+100);
+}
+
+function eppTexto_(valor) {
+  return String(valor === null || valor === undefined ? "" : valor).trim();
+}
+
+function eppClave_(valor) {
+  return eppTexto_(valor).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/_/g," ").replace(/\s+/g," ").toUpperCase();
+}
+
+function eppNombreSeguro_(valor) {
+  return eppTexto_(valor).replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g," ").trim();
+}
+
+function eppHtml_(valor) {
+  return eppTexto_(valor).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function eppError_(error) {
+  return error && error.message ? error.message : String(error);
+}

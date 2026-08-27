@@ -1,0 +1,1811 @@
+/**************************************************************
+ * SISTEMA LOGÍSTICO PT - HELADOS BON
+ * Archivo: Correos.gs
+ *
+ * Responsable de:
+ * - Leer configuración de correos automáticos
+ * - Localizar PDF del conduce en hoja Despacho
+ * - Localizar PDF BASC en Inspeccion_Contenedores
+ * - Obtener ambos archivos desde Google Drive
+ * - Enviar documentación completa por correo
+ * - Registrar resultado en Envios_Correo
+ **************************************************************/
+
+
+/* ============================================================
+   CONFIGURACIÓN GENERAL
+   ============================================================ */
+
+const CORREOS_HOJA_DESPACHO =
+  "Despacho";
+
+const CORREOS_HOJA_INSPECCIONES =
+  "Inspeccion_Contenedores";
+
+const CORREOS_HOJA_LOG =
+  "Envios_Correo";
+
+
+/* ============================================================
+   FUNCIÓN PRINCIPAL
+   ============================================================ */
+
+function enviarDocumentacionDespacho(data) {
+
+  const datos =
+    data || {};
+
+  const noConduce =
+    String(
+      datos.noConduce || ""
+    ).trim();
+
+  const idConduce =
+    String(
+      datos.idConduce || ""
+    ).trim();
+
+  const usuario =
+    String(
+      datos.usuario || ""
+    ).trim();
+
+
+  if (!noConduce) {
+
+    return respuesta({
+
+      ok: false,
+
+      estado:
+        "Error",
+
+      mensaje:
+        "No se recibió el número de conduce."
+
+    });
+
+  }
+
+
+  let idEnvio = "";
+
+
+  try {
+
+
+    /* ========================================================
+       CONFIGURACIÓN
+       ======================================================== */
+
+    const configuracion =
+      obtenerConfiguracionCorreos_();
+
+
+    if (!configuracion.activo) {
+
+      return respuesta({
+
+        ok: true,
+
+        estado:
+          "Pendiente",
+
+        mensaje:
+          "Los correos automáticos están desactivados."
+
+      });
+
+    }
+
+
+    if (!configuracion.destinatarios) {
+
+      throw new Error(
+        "No existen destinatarios configurados para los correos automáticos."
+      );
+
+    }
+
+
+    /* ========================================================
+       BUSCAR CONDUCE
+       ======================================================== */
+
+    const conduce =
+      buscarPDFConduceCorreo_(
+        idConduce,
+        noConduce
+      );
+
+
+    if (!conduce) {
+
+      throw new Error(
+        "No fue posible localizar el conduce " +
+        noConduce +
+        " en la hoja Despacho."
+      );
+
+    }
+
+
+    /* ========================================================
+       VALIDAR PDF DEL CONDUCE
+       ======================================================== */
+
+    let archivoConduce =
+      null;
+
+
+    if (
+      configuracion.adjuntarConduce
+    ) {
+
+      if (!conduce.pdfUrl) {
+
+        throw new Error(
+          "El conduce " +
+          noConduce +
+          " todavía no posee PDF_URL."
+        );
+
+      }
+
+
+      archivoConduce =
+        obtenerArchivoDriveDesdeURLCorreo_(
+          conduce.pdfUrl
+        );
+
+    }
+
+
+    /* ========================================================
+       BUSCAR INSPECCIÓN BASC
+       ======================================================== */
+
+    let inspeccion =
+      null;
+
+    let archivoInspeccion =
+      null;
+
+
+    if (
+      configuracion.adjuntarInspeccion ||
+      configuracion.requerirInspeccion
+    ) {
+
+      inspeccion =
+        buscarInspeccionCorreoPorConduce_(
+          noConduce
+        );
+
+
+      if (!inspeccion) {
+
+        if (
+          configuracion.requerirInspeccion
+        ) {
+
+          idEnvio =
+            registrarEnvioCorreo_({
+
+              tipoEnvio:
+                "Despacho",
+
+              idConduce:
+                conduce.idConduce ||
+                idConduce,
+
+              noConduce:
+                noConduce,
+
+              idInspeccion:
+                "",
+
+              destinatarios:
+                configuracion.destinatarios,
+
+              cc:
+                configuracion.cc,
+
+              cco:
+                configuracion.cco,
+
+              nombrePdfConduce:
+                archivoConduce
+                  ? archivoConduce.getName()
+                  : "",
+
+              archivoIdConduce:
+                archivoConduce
+                  ? archivoConduce.getId()
+                  : "",
+
+              archivoUrlConduce:
+                conduce.pdfUrl || "",
+
+              nombrePdfInspeccion:
+                "",
+
+              archivoIdInspeccion:
+                "",
+
+              archivoUrlInspeccion:
+                "",
+
+              cantidadAdjuntos:
+                archivoConduce
+                  ? 1
+                  : 0,
+
+              estado:
+                "Pendiente",
+
+              intentos:
+                0,
+
+              mensajeError:
+                "Inspección BASC no disponible.",
+
+              enviadoPor:
+                usuario
+
+            });
+
+
+          return respuesta({
+
+            ok: false,
+
+            estado:
+              "Pendiente",
+
+            idEnvio:
+              idEnvio,
+
+            mensaje:
+              "El conduce " +
+              noConduce +
+              " todavía no posee una inspección BASC disponible."
+
+          });
+
+        }
+
+      } else {
+
+
+        if (
+          inspeccion.pdfUrl
+        ) {
+
+          archivoInspeccion =
+            obtenerArchivoDriveDesdeURLCorreo_(
+              inspeccion.pdfUrl
+            );
+
+        }
+
+
+        if (
+          !archivoInspeccion &&
+          configuracion.requerirInspeccion
+        ) {
+
+          idEnvio =
+            registrarEnvioCorreo_({
+
+              tipoEnvio:
+                "Despacho",
+
+              idConduce:
+                conduce.idConduce ||
+                idConduce,
+
+              noConduce:
+                noConduce,
+
+              idInspeccion:
+                inspeccion.idInspeccion ||
+                "",
+
+              destinatarios:
+                configuracion.destinatarios,
+
+              cc:
+                configuracion.cc,
+
+              cco:
+                configuracion.cco,
+
+              nombrePdfConduce:
+                archivoConduce
+                  ? archivoConduce.getName()
+                  : "",
+
+              archivoIdConduce:
+                archivoConduce
+                  ? archivoConduce.getId()
+                  : "",
+
+              archivoUrlConduce:
+                conduce.pdfUrl || "",
+
+              nombrePdfInspeccion:
+                "",
+
+              archivoIdInspeccion:
+                "",
+
+              archivoUrlInspeccion:
+                inspeccion.pdfUrl || "",
+
+              cantidadAdjuntos:
+                archivoConduce
+                  ? 1
+                  : 0,
+
+              estado:
+                "Pendiente",
+
+              intentos:
+                0,
+
+              mensajeError:
+                "PDF de inspección BASC no disponible.",
+
+              enviadoPor:
+                usuario
+
+            });
+
+
+          return respuesta({
+
+            ok: false,
+
+            estado:
+              "Pendiente",
+
+            idEnvio:
+              idEnvio,
+
+            mensaje:
+              "La inspección BASC existe, pero todavía no posee un PDF disponible."
+
+          });
+
+        }
+
+      }
+
+    }
+
+
+    /* ========================================================
+       PREPARAR ADJUNTOS
+       ======================================================== */
+
+    const adjuntos = [];
+
+
+    if (
+      archivoConduce &&
+      configuracion.adjuntarConduce
+    ) {
+
+      adjuntos.push(
+        archivoConduce
+          .getBlob()
+          .copyBlob()
+          .setName(
+            archivoConduce.getName()
+          )
+      );
+
+    }
+
+
+    if (
+      archivoInspeccion &&
+      configuracion.adjuntarInspeccion
+    ) {
+
+      adjuntos.push(
+        archivoInspeccion
+          .getBlob()
+          .copyBlob()
+          .setName(
+            archivoInspeccion.getName()
+          )
+      );
+
+    }
+
+
+    /* ========================================================
+       VALIDACIÓN FINAL
+       ======================================================== */
+
+    if (
+      configuracion.adjuntarConduce &&
+      !archivoConduce
+    ) {
+
+      throw new Error(
+        "No fue posible preparar el PDF del conduce."
+      );
+
+    }
+
+
+    if (
+      configuracion.requerirInspeccion &&
+      !archivoInspeccion
+    ) {
+
+      throw new Error(
+        "No fue posible preparar el PDF de la inspección BASC."
+      );
+
+    }
+
+
+    /* ========================================================
+       ASUNTO
+       ======================================================== */
+
+    const asunto =
+      String(
+        configuracion.asunto || ""
+      )
+        .replace(
+          /\{\{NO_CONDUCE\}\}/g,
+          noConduce
+        );
+
+
+    /* ========================================================
+       CUERPO DEL CORREO
+       ======================================================== */
+
+    const cuerpoHtml =
+      construirCuerpoCorreoDespacho_({
+
+        noConduce:
+          noConduce,
+
+        idInspeccion:
+          inspeccion
+            ? inspeccion.idInspeccion
+            : "",
+
+        cantidadAdjuntos:
+          adjuntos.length
+
+      });
+
+
+    /* ========================================================
+       REGISTRAR ENVÍO
+       ======================================================== */
+
+    idEnvio =
+      registrarEnvioCorreo_({
+
+        tipoEnvio:
+          "Despacho",
+
+        idConduce:
+          conduce.idConduce ||
+          idConduce,
+
+        noConduce:
+          noConduce,
+
+        idInspeccion:
+          inspeccion
+            ? inspeccion.idInspeccion
+            : "",
+
+        destinatarios:
+          configuracion.destinatarios,
+
+        cc:
+          configuracion.cc,
+
+        cco:
+          configuracion.cco,
+
+        nombrePdfConduce:
+          archivoConduce
+            ? archivoConduce.getName()
+            : "",
+
+        archivoIdConduce:
+          archivoConduce
+            ? archivoConduce.getId()
+            : "",
+
+        archivoUrlConduce:
+          conduce.pdfUrl || "",
+
+        nombrePdfInspeccion:
+          archivoInspeccion
+            ? archivoInspeccion.getName()
+            : "",
+
+        archivoIdInspeccion:
+          archivoInspeccion
+            ? archivoInspeccion.getId()
+            : "",
+
+        archivoUrlInspeccion:
+          inspeccion
+            ? inspeccion.pdfUrl
+            : "",
+
+        cantidadAdjuntos:
+          adjuntos.length,
+
+        estado:
+          "Enviando",
+
+        intentos:
+          1,
+
+        mensajeError:
+          "",
+
+        enviadoPor:
+          usuario
+
+      });
+
+
+    /* ========================================================
+       OPCIONES DEL CORREO
+       ======================================================== */
+
+    const opciones = {
+
+      htmlBody:
+        cuerpoHtml,
+
+      name:
+        configuracion.nombreRemitente ||
+        "Sistema Logístico PT",
+
+      attachments:
+        adjuntos
+
+    };
+
+
+    if (
+      configuracion.cc
+    ) {
+
+      opciones.cc =
+        configuracion.cc;
+
+    }
+
+
+    if (
+      configuracion.cco
+    ) {
+
+      opciones.bcc =
+        configuracion.cco;
+
+    }
+
+
+    /* ========================================================
+       ENVIAR
+       ======================================================== */
+
+    GmailApp.sendEmail(
+
+      configuracion.destinatarios,
+
+      asunto,
+
+      construirCuerpoCorreoTexto_(
+        noConduce
+      ),
+
+      opciones
+
+    );
+
+
+    /* ========================================================
+       ACTUALIZAR ESTADO
+       ======================================================== */
+
+    actualizarEstadoEnvioCorreo_(
+
+      idEnvio,
+
+      "Enviado",
+
+      ""
+
+    );
+
+
+    return respuesta({
+
+      ok: true,
+
+      estado:
+        "Enviado",
+
+      idEnvio:
+        idEnvio,
+
+      mensaje:
+        "La documentación del despacho " +
+        noConduce +
+        " fue enviada correctamente."
+
+    });
+
+
+  } catch (error) {
+
+
+    const mensajeError =
+      error &&
+      error.message
+        ? error.message
+        : String(error);
+
+
+    console.error(
+      "Error enviarDocumentacionDespacho:",
+      error
+    );
+
+
+    if (
+      idEnvio
+    ) {
+
+      actualizarEstadoEnvioCorreo_(
+
+        idEnvio,
+
+        "Error",
+
+        mensajeError
+
+      );
+
+    }
+
+
+    return respuesta({
+
+      ok: false,
+
+      estado:
+        "Error",
+
+      idEnvio:
+        idEnvio,
+
+      mensaje:
+        mensajeError
+
+    });
+
+  }
+
+}
+
+
+/* ============================================================
+   CONFIGURACIÓN DE CORREOS
+   ============================================================ */
+
+function obtenerConfiguracionCorreos_() {
+
+  const ss =
+    SpreadsheetApp
+      .getActiveSpreadsheet();
+
+
+  /*
+   * Compatibilidad con ambos nombres.
+   */
+  const hoja =
+    ss.getSheetByName(
+      "Configuracion"
+    ) ||
+    ss.getSheetByName(
+      "Configuración"
+    );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      'No existe la hoja "Configuracion" o "Configuración".'
+    );
+
+  }
+
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  const mapa = {};
+
+
+  datos.forEach(
+    fila => {
+
+      const clave =
+        String(
+          fila[0] || ""
+        ).trim();
+
+      const valor =
+        String(
+          fila[1] || ""
+        ).trim();
+
+
+      if (
+        clave
+      ) {
+
+        mapa[clave] =
+          valor;
+
+      }
+
+    }
+  );
+
+
+  return {
+
+    nombreRemitente:
+      mapa[
+        "Correo_Despachos_Nombre_Remitente"
+      ] ||
+      "Sistema Logístico PT",
+
+
+    activo:
+      correoEsSi_(
+        mapa[
+          "Correo_Despachos_Activo"
+        ]
+      ),
+
+
+    destinatarios:
+      limpiarListaCorreos_(
+        mapa[
+          "Correo_Despachos_Destinatarios"
+        ] || ""
+      ),
+
+
+    cc:
+      limpiarListaCorreos_(
+        mapa[
+          "Correo_Despachos_CC"
+        ] || ""
+      ),
+
+
+    cco:
+      limpiarListaCorreos_(
+        mapa[
+          "Correo_Despachos_CCO"
+        ] || ""
+      ),
+
+
+    adjuntarConduce:
+      correoEsSi_(
+        mapa[
+          "Correo_Despachos_Adjuntar_Conduce"
+        ]
+      ),
+
+
+    adjuntarInspeccion:
+      correoEsSi_(
+        mapa[
+          "Correo_Despachos_Adjuntar_Inspeccion"
+        ]
+      ),
+
+
+    requerirInspeccion:
+      correoEsSi_(
+        mapa[
+          "Correo_Despachos_Requerir_Inspeccion"
+        ]
+      ),
+
+
+    asunto:
+      mapa[
+        "Correo_Despachos_Asunto"
+      ] ||
+      "Despacho {{NO_CONDUCE}} - Documentación completa"
+
+  };
+
+}
+
+
+/* ============================================================
+   BUSCAR PDF DEL CONDUCE
+   ============================================================ */
+
+function buscarPDFConduceCorreo_(
+  idConduce,
+  noConduce
+) {
+
+  const ss =
+    SpreadsheetApp
+      .getActiveSpreadsheet();
+
+
+  const hoja =
+    ss.getSheetByName(
+      CORREOS_HOJA_DESPACHO
+    );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      'No existe la hoja "' +
+      CORREOS_HOJA_DESPACHO +
+      '".'
+    );
+
+  }
+
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (
+    datos.length < 2
+  ) {
+
+    return null;
+
+  }
+
+
+  const encabezados =
+    datos[0]
+      .map(
+        valor =>
+          String(
+            valor || ""
+          ).trim()
+      );
+
+
+  const idxId =
+    encabezados.indexOf(
+      "ID_Conduce"
+    );
+
+  const idxNumero =
+    encabezados.indexOf(
+      "No_Conduce"
+    );
+
+  const idxPdf =
+    encabezados.indexOf(
+      "PDF_URL"
+    );
+
+
+  if (
+    idxPdf === -1
+  ) {
+
+    throw new Error(
+      'No existe la columna "PDF_URL" en Despacho.'
+    );
+
+  }
+
+
+  for (
+    let i =
+      datos.length - 1;
+
+    i >= 1;
+
+    i--
+  ) {
+
+
+    const coincideId =
+      idxId !== -1 &&
+      idConduce &&
+      String(
+        datos[i][idxId] || ""
+      ).trim() ===
+        idConduce;
+
+
+    const coincideNumero =
+      idxNumero !== -1 &&
+      noConduce &&
+      String(
+        datos[i][idxNumero] || ""
+      ).trim() ===
+        noConduce;
+
+
+    if (
+      coincideId ||
+      coincideNumero
+    ) {
+
+      return {
+
+        idConduce:
+          idxId !== -1
+            ? String(
+                datos[i][idxId] ||
+                ""
+              ).trim()
+            : "",
+
+        noConduce:
+          idxNumero !== -1
+            ? String(
+                datos[i][idxNumero] ||
+                ""
+              ).trim()
+            : "",
+
+        pdfUrl:
+          String(
+            datos[i][idxPdf] ||
+            ""
+          ).trim()
+
+      };
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/* ============================================================
+   BUSCAR INSPECCIÓN BASC
+   ============================================================ */
+
+function buscarInspeccionCorreoPorConduce_(
+  noConduce
+) {
+
+  const ss =
+    SpreadsheetApp
+      .getActiveSpreadsheet();
+
+
+  const hoja =
+    ss.getSheetByName(
+      CORREOS_HOJA_INSPECCIONES
+    );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      'No existe la hoja "' +
+      CORREOS_HOJA_INSPECCIONES +
+      '".'
+    );
+
+  }
+
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getDisplayValues();
+
+
+  if (
+    datos.length < 2
+  ) {
+
+    return null;
+
+  }
+
+
+  const encabezados =
+    datos[0]
+      .map(
+        valor =>
+          String(
+            valor || ""
+          ).trim()
+      );
+
+
+  const idxIdInspeccion =
+    encabezados.indexOf(
+      "ID_Inspeccion"
+    );
+
+  const idxNoConduce =
+    encabezados.indexOf(
+      "No_Conduce"
+    );
+
+  const idxPdf =
+    encabezados.indexOf(
+      "PDF_URL"
+    );
+
+  const idxEstado =
+    encabezados.indexOf(
+      "Estado"
+    );
+
+
+  if (
+    idxNoConduce === -1
+  ) {
+
+    throw new Error(
+      'No existe la columna "No_Conduce" en Inspeccion_Contenedores.'
+    );
+
+  }
+
+
+  if (
+    idxPdf === -1
+  ) {
+
+    throw new Error(
+      'No existe la columna "PDF_URL" en Inspeccion_Contenedores.'
+    );
+
+  }
+
+
+  const buscado =
+    String(
+      noConduce
+    )
+      .trim()
+      .toUpperCase();
+
+
+  for (
+    let i =
+      datos.length - 1;
+
+    i >= 1;
+
+    i--
+  ) {
+
+
+    const numeroFila =
+      String(
+        datos[i][idxNoConduce] ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
+
+
+    if (
+      numeroFila ===
+      buscado
+    ) {
+
+      return {
+
+        idInspeccion:
+          idxIdInspeccion !== -1
+            ? String(
+                datos[i][idxIdInspeccion] ||
+                ""
+              ).trim()
+            : "",
+
+        noConduce:
+          String(
+            datos[i][idxNoConduce] ||
+            ""
+          ).trim(),
+
+        pdfUrl:
+          String(
+            datos[i][idxPdf] ||
+            ""
+          ).trim(),
+
+        estado:
+          idxEstado !== -1
+            ? String(
+                datos[i][idxEstado] ||
+                ""
+              ).trim()
+            : ""
+
+      };
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/* ============================================================
+   OBTENER ARCHIVO DRIVE DESDE URL
+   ============================================================ */
+
+function obtenerArchivoDriveDesdeURLCorreo_(
+  url
+) {
+
+  const texto =
+    String(
+      url || ""
+    ).trim();
+
+
+  if (!texto) {
+
+    return null;
+
+  }
+
+
+  const coincidencia =
+    texto.match(
+      /[-\w]{20,}/
+    );
+
+
+  if (
+    !coincidencia
+  ) {
+
+    throw new Error(
+      "No fue posible obtener el ID de Drive desde la URL."
+    );
+
+  }
+
+
+  return DriveApp
+    .getFileById(
+      coincidencia[0]
+    );
+
+}
+
+
+/* ============================================================
+   REGISTRO ENVÍO
+   ============================================================ */
+
+function registrarEnvioCorreo_(
+  datos
+) {
+
+  const ss =
+    SpreadsheetApp
+      .getActiveSpreadsheet();
+
+
+  const hoja =
+    ss.getSheetByName(
+      CORREOS_HOJA_LOG
+    );
+
+
+  if (!hoja) {
+
+    throw new Error(
+      'No existe la hoja "' +
+      CORREOS_HOJA_LOG +
+      '".'
+    );
+
+  }
+
+
+  const ahora =
+    new Date();
+
+
+  const idEnvio =
+    generarIdEnvioCorreo_();
+
+
+  hoja.appendRow([
+
+    idEnvio,
+
+    Utilities.formatDate(
+      ahora,
+      Session.getScriptTimeZone(),
+      "dd/MM/yyyy"
+    ),
+
+    Utilities.formatDate(
+      ahora,
+      Session.getScriptTimeZone(),
+      "HH:mm:ss"
+    ),
+
+    datos.tipoEnvio ||
+      "Despacho",
+
+    datos.idConduce ||
+      "",
+
+    datos.noConduce ||
+      "",
+
+    datos.idInspeccion ||
+      "",
+
+    datos.destinatarios ||
+      "",
+
+    datos.cc ||
+      "",
+
+    datos.cco ||
+      "",
+
+    datos.nombrePdfConduce ||
+      "",
+
+    datos.archivoIdConduce ||
+      "",
+
+    datos.archivoUrlConduce ||
+      "",
+
+    datos.nombrePdfInspeccion ||
+      "",
+
+    datos.archivoIdInspeccion ||
+      "",
+
+    datos.archivoUrlInspeccion ||
+      "",
+
+    datos.cantidadAdjuntos ||
+      0,
+
+    datos.estado ||
+      "Pendiente",
+
+    datos.intentos ||
+      0,
+
+    datos.mensajeError ||
+      "",
+
+    datos.enviadoPor ||
+      "",
+
+    ahora,
+
+    ahora
+
+  ]);
+
+
+  return idEnvio;
+
+}
+
+
+/* ============================================================
+   ACTUALIZAR ENVÍO
+   ============================================================ */
+
+function actualizarEstadoEnvioCorreo_(
+  idEnvio,
+  estado,
+  mensajeError
+) {
+
+  const ss =
+    SpreadsheetApp
+      .getActiveSpreadsheet();
+
+
+  const hoja =
+    ss.getSheetByName(
+      CORREOS_HOJA_LOG
+    );
+
+
+  if (
+    !hoja ||
+    !idEnvio
+  ) {
+
+    return;
+
+  }
+
+
+  const datos =
+    hoja
+      .getDataRange()
+      .getValues();
+
+
+  if (
+    datos.length < 2
+  ) {
+
+    return;
+
+  }
+
+
+  const encabezados =
+    datos[0]
+      .map(
+        valor =>
+          String(
+            valor || ""
+          ).trim()
+      );
+
+
+  const idxId =
+    encabezados.indexOf(
+      "ID_Envio"
+    );
+
+  const idxEstado =
+    encabezados.indexOf(
+      "Estado"
+    );
+
+  const idxMensaje =
+    encabezados.indexOf(
+      "Mensaje_Error"
+    );
+
+  const idxModificacion =
+    encabezados.indexOf(
+      "Fecha_Modificacion"
+    );
+
+
+  for (
+    let i =
+      datos.length - 1;
+
+    i >= 1;
+
+    i--
+  ) {
+
+    if (
+      String(
+        datos[i][idxId] ||
+        ""
+      ).trim() ===
+      String(
+        idEnvio
+      ).trim()
+    ) {
+
+
+      if (
+        idxEstado !== -1
+      ) {
+
+        hoja
+          .getRange(
+            i + 1,
+            idxEstado + 1
+          )
+          .setValue(
+            estado || ""
+          );
+
+      }
+
+
+      if (
+        idxMensaje !== -1
+      ) {
+
+        hoja
+          .getRange(
+            i + 1,
+            idxMensaje + 1
+          )
+          .setValue(
+            mensajeError || ""
+          );
+
+      }
+
+
+      if (
+        idxModificacion !== -1
+      ) {
+
+        hoja
+          .getRange(
+            i + 1,
+            idxModificacion + 1
+          )
+          .setValue(
+            new Date()
+          );
+
+      }
+
+
+      return;
+
+    }
+
+  }
+
+}
+
+
+/* ============================================================
+   CUERPO HTML
+   ============================================================ */
+
+function construirCuerpoCorreoDespacho_(
+  datos
+) {
+
+  const noConduce =
+    escaparHtmlCorreo_(
+      datos.noConduce ||
+      ""
+    );
+
+
+  const idInspeccion =
+    escaparHtmlCorreo_(
+      datos.idInspeccion ||
+      ""
+    );
+
+
+  return `
+
+    <div style="
+      font-family:Arial,Helvetica,sans-serif;
+      max-width:680px;
+      margin:0 auto;
+      color:#333333;
+      line-height:1.5;
+    ">
+
+      <div style="
+        border-top:6px solid #D71920;
+        padding:22px 24px;
+        border:1px solid #E5E5E5;
+        border-top-width:6px;
+      ">
+
+        <h2 style="
+          margin:0 0 4px;
+          color:#D71920;
+        ">
+          Sistema Logístico PT
+        </h2>
+
+        <div style="
+          margin-bottom:20px;
+          color:#666666;
+          font-size:14px;
+        ">
+          Helados BON
+        </div>
+
+        <p>
+          Se ha completado la documentación correspondiente
+          al siguiente despacho:
+        </p>
+
+        <table style="
+          width:100%;
+          border-collapse:collapse;
+          margin:18px 0;
+        ">
+
+          <tr>
+
+            <td style="
+              width:38%;
+              padding:10px;
+              background:#F5F5F5;
+              font-weight:bold;
+            ">
+              No. Conduce
+            </td>
+
+            <td style="
+              padding:10px;
+              border-bottom:1px solid #EEEEEE;
+            ">
+              ${noConduce}
+            </td>
+
+          </tr>
+
+          <tr>
+
+            <td style="
+              padding:10px;
+              background:#F5F5F5;
+              font-weight:bold;
+            ">
+              ID Inspección BASC
+            </td>
+
+            <td style="
+              padding:10px;
+              border-bottom:1px solid #EEEEEE;
+            ">
+              ${idInspeccion || "N/D"}
+            </td>
+
+          </tr>
+
+          <tr>
+
+            <td style="
+              padding:10px;
+              background:#F5F5F5;
+              font-weight:bold;
+            ">
+              Documentos adjuntos
+            </td>
+
+            <td style="
+              padding:10px;
+              border-bottom:1px solid #EEEEEE;
+            ">
+              ${Number(
+                datos.cantidadAdjuntos || 0
+              )}
+            </td>
+
+          </tr>
+
+        </table>
+
+        <p>
+          <strong>
+            Documentación incluida:
+          </strong>
+        </p>
+
+        <ul>
+          <li>
+            Conduce de despacho
+          </li>
+          <li>
+            Inspección BASC del contenedor
+          </li>
+        </ul>
+
+        <p style="
+          margin-top:28px;
+          font-size:12px;
+          color:#777777;
+        ">
+          Este mensaje fue generado automáticamente por
+          el Sistema Logístico PT.
+        </p>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* ============================================================
+   CUERPO TEXTO
+   ============================================================ */
+
+function construirCuerpoCorreoTexto_(
+  noConduce
+) {
+
+  return (
+
+    "Sistema Logístico PT - Helados BON\n\n" +
+
+    "Se ha completado la documentación del despacho " +
+    noConduce +
+    ".\n\n" +
+
+    "Documentos adjuntos:\n" +
+
+    "- Conduce de despacho\n" +
+
+    "- Inspección BASC del contenedor\n\n" +
+
+    "Este mensaje fue generado automáticamente por " +
+    "el Sistema Logístico PT."
+
+  );
+
+}
+
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+
+function generarIdEnvioCorreo_() {
+
+  const ahora =
+    Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      "yyyyMMddHHmmss"
+    );
+
+
+  const aleatorio =
+    Math.floor(
+      1000 +
+      Math.random() * 9000
+    );
+
+
+  return (
+    "MAIL-" +
+    ahora +
+    "-" +
+    aleatorio
+  );
+
+}
+
+
+function limpiarListaCorreos_(
+  texto
+) {
+
+  return String(
+    texto || ""
+  )
+    .split(",")
+    .map(
+      correo =>
+        correo.trim()
+    )
+    .filter(Boolean)
+    .join(",");
+
+}
+
+
+function correoEsSi_(
+  valor
+) {
+
+  return (
+    String(
+      valor || ""
+    )
+      .trim()
+      .toUpperCase() ===
+    "SI"
+  );
+
+}
+
+
+function escaparHtmlCorreo_(
+  texto
+) {
+
+  return String(
+    texto || ""
+  )
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+function probarEnvioDocumentacionDespacho() {
+
+  const datosPrueba = {
+
+    idConduce:
+      "",
+
+    noConduce:
+      "CON-3489",
+
+    usuario:
+      Session.getActiveUser().getEmail() ||
+      "Prueba manual"
+
+  };
+
+  const resultado =
+    enviarDocumentacionDespacho(
+      datosPrueba
+    );
+
+  Logger.log(
+    resultado
+  );
+
+}

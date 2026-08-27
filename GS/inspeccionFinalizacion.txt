@@ -1,0 +1,3514 @@
+// ======================================================
+// INSPECCION_FINALIZACION.GS
+// PDF BASC CARTA VERTICAL - DOCUMENTO CONTROLADO
+// Reemplaza completamente la versión anterior.
+// ======================================================
+
+function finalizarInspeccionContenedor(data) {
+
+  try {
+
+    const idInspeccion =
+      String(
+        data.idInspeccion || ""
+      ).trim();
+
+    if (!idInspeccion) {
+
+      throw new Error(
+        "Debe indicar el ID de la inspección."
+      );
+
+    }
+
+    const selloLlegada =
+      String(
+        data.selloLlegada || ""
+      ).trim();
+
+    if (!selloLlegada) {
+
+      throw new Error(
+        "Debe registrar el sello de llegada."
+      );
+
+    }
+
+    const hojaInspecciones =
+      getSheet(
+        SHEETS.INSPECCION_CONTENEDORES
+      );
+
+    const hojaDetalle =
+      getSheet(
+        SHEETS.INSPECCION_CONTENEDORES_DETALLE
+      );
+
+    const hojaEvidencias =
+      getSheet(
+        SHEETS.INSPECCION_EVIDENCIAS
+      );
+
+    const hojaCatalogo =
+      getSheet(
+        SHEETS.CATALOGO_INSPECCION
+      );
+
+    if (
+      !hojaInspecciones ||
+      !hojaDetalle ||
+      !hojaEvidencias ||
+      !hojaCatalogo
+    ) {
+
+      throw new Error(
+        "Faltan hojas requeridas para finalizar la inspección."
+      );
+
+    }
+
+    const inspeccion =
+      obtenerRegistroPorIdFinalizacion_(
+        hojaInspecciones,
+        "ID_Inspeccion",
+        idInspeccion
+      );
+
+    if (!inspeccion) {
+
+      throw new Error(
+        "No se encontró la inspección indicada."
+      );
+
+    }
+
+    const estadoActual =
+      String(
+        inspeccion.objeto.Estado || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (
+      estadoActual === "completada" ||
+      estadoActual === "completado"
+    ) {
+
+      return respuesta({
+        ok: true,
+        mensaje:
+          "La inspección ya estaba completada.",
+        data: {
+          idInspeccion:
+            idInspeccion,
+          resultado:
+            inspeccion.objeto
+              .Resultado_Inspeccion ||
+            "",
+          totalEvidencias:
+            Number(
+              inspeccion.objeto
+                .Total_Evidencias || 0
+            ),
+          pdfUrl:
+            inspeccion.objeto.PDF_URL ||
+            ""
+        }
+      });
+
+    }
+
+    const detallesGuardados =
+      obtenerFilasRelacionadasFinalizacion_(
+        hojaDetalle,
+        "ID_Inspeccion",
+        idInspeccion
+      );
+
+    const evidencias =
+      obtenerFilasRelacionadasFinalizacion_(
+        hojaEvidencias,
+        "ID_Inspeccion",
+        idInspeccion
+      ).filter(item =>
+        String(
+          item.Estado || ""
+        )
+          .trim()
+          .toLowerCase() === "activa"
+      );
+
+    const puntosActivos =
+      obtenerPuntosActivosFinalizacion_(
+        hojaCatalogo
+      );
+
+    const detalles =
+      combinarDetalleConCatalogo_(
+        detallesGuardados,
+        puntosActivos
+      );
+
+    validarCierreInspeccion_(
+      detalles,
+      evidencias,
+      puntosActivos
+    );
+
+    let cumple = 0;
+    let noCumple = 0;
+    let noAplica = 0;
+
+    detalles.forEach(item => {
+
+      const resultado =
+        String(
+          item.Resultado || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      if (resultado === "cumple") {
+        cumple++;
+      }
+
+      if (resultado === "no cumple") {
+        noCumple++;
+      }
+
+      if (resultado === "no aplica") {
+        noAplica++;
+      }
+
+    });
+
+    const resultadoInspeccion =
+      noCumple > 0
+        ? "Con hallazgos"
+        : "Conforme";
+
+    const ahora =
+      new Date();
+
+    const horaFinal =
+      Utilities.formatDate(
+        ahora,
+        Session.getScriptTimeZone(),
+        "HH:mm:ss"
+      );
+
+    const duracionMinutos =
+      calcularDuracionFinalizacion_(
+        inspeccion.objeto,
+        ahora
+      );
+
+    /*
+     * Incorporamos los valores calculados al objeto
+     * utilizado para construir el PDF. La hoja se
+     * actualiza después de crear correctamente el archivo.
+     */
+    inspeccion.objeto.Hora_Final =
+      horaFinal;
+
+    inspeccion.objeto.Duracion_Minutos =
+      duracionMinutos;
+
+    inspeccion.objeto.Sello_Entrada =
+      selloLlegada;
+
+    const carpeta =
+      obtenerCarpetaPDFInspeccion_(
+        evidencias
+      );
+
+    const configuracion =
+      obtenerConfiguracionDocumentoInspeccion_();
+
+    /*
+     * Prioridad del logo BON:
+     * 1. Logo visible del dashboard enviado por el frontend.
+     * 2. LogoURL / LogoEmpresa de Configuración.
+     */
+/*
+     * Respaldo oficial del logo BASC Dominicana.
+     * Se utiliza solo cuando LogoBASC de Configuración
+     * está vacío o no devuelve una imagen válida.
+     */
+    configuracion.logoBASCOficial =
+      "https://basc.org.do/wp-content/media/2018/03/logo.png";
+
+    const pdf =
+      generarPDFInspeccionCarta_(
+        inspeccion.objeto,
+        detalles,
+        evidencias,
+        {
+          cumple: cumple,
+          noCumple: noCumple,
+          noAplica: noAplica,
+          resultado:
+            resultadoInspeccion,
+          observaciones:
+            String(
+              data
+                .observacionesGenerales ||
+              ""
+            ).trim(),
+          fechaCierre:
+            ahora,
+          duracionMinutos:
+            duracionMinutos
+        },
+        carpeta,
+        configuracion
+      );
+
+    actualizarFilaPorEncabezadosFinalizacion_(
+      hojaInspecciones,
+      inspeccion.numeroFila,
+      {
+        Hora_Final:
+          horaFinal,
+        Duracion_Minutos:
+          duracionMinutos,
+        Estado:
+          "Completada",
+        Resultado_Inspeccion:
+          resultadoInspeccion,
+        Cantidad_No_Conformidades:
+          noCumple,
+        Observaciones_Generales:
+          String(
+            data.observacionesGenerales ||
+            ""
+          ).trim(),
+        Sello_Entrada:
+          selloLlegada,
+        Total_Evidencias:
+          evidencias.length,
+        Carpeta_Evidencias_ID:
+          carpeta.getId(),
+        Carpeta_Evidencias_URL:
+          carpeta.getUrl(),
+        PDF_URL:
+          pdf.getUrl(),
+        Fecha_Modificacion:
+          ahora
+      }
+    );
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Inspección finalizada correctamente.",
+      data: {
+        idInspeccion:
+          idInspeccion,
+        resultado:
+          resultadoInspeccion,
+        totalPuntos:
+          detalles.length,
+        puntosCumple:
+          cumple,
+        puntosNoCumple:
+          noCumple,
+        puntosNoAplica:
+          noAplica,
+        totalEvidencias:
+          evidencias.length,
+        pdfUrl:
+          pdf.getUrl(),
+        carpetaUrl:
+          carpeta.getUrl()
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje:
+        error.toString()
+    });
+
+  }
+
+}
+
+
+// ======================================================
+// REGENERAR PDF DE UNA INSPECCIÓN COMPLETADA
+// Uso administrativo. No modifica detalles ni evidencias.
+// ======================================================
+function regenerarPDFInspeccionContenedor(data) {
+
+  const bloqueo =
+    LockService.getScriptLock();
+
+  bloqueo.waitLock(30000);
+
+  try {
+
+    validarAdministradorRegeneracionInspeccion_(
+      data || {}
+    );
+
+    const idInspeccion =
+      String(
+        (data || {}).idInspeccion || ""
+      ).trim();
+
+    if (!idInspeccion) {
+      throw new Error(
+        "Debe indicar el ID de la inspección."
+      );
+    }
+
+    const hojaInspecciones =
+      getSheet(
+        SHEETS.INSPECCION_CONTENEDORES
+      );
+
+    const hojaDetalle =
+      getSheet(
+        SHEETS.INSPECCION_CONTENEDORES_DETALLE
+      );
+
+    const hojaEvidencias =
+      getSheet(
+        SHEETS.INSPECCION_EVIDENCIAS
+      );
+
+    const hojaCatalogo =
+      getSheet(
+        SHEETS.CATALOGO_INSPECCION
+      );
+
+    if (
+      !hojaInspecciones ||
+      !hojaDetalle ||
+      !hojaEvidencias ||
+      !hojaCatalogo
+    ) {
+      throw new Error(
+        "Faltan hojas requeridas para regenerar el PDF."
+      );
+    }
+
+    const inspeccion =
+      obtenerRegistroPorIdFinalizacion_(
+        hojaInspecciones,
+        "ID_Inspeccion",
+        idInspeccion
+      );
+
+    if (!inspeccion) {
+      throw new Error(
+        "No se encontró la inspección indicada."
+      );
+    }
+
+    const estado =
+      String(
+        inspeccion.objeto.Estado || ""
+      ).trim().toLowerCase();
+
+    if (
+      estado !== "completada" &&
+      estado !== "completado"
+    ) {
+      throw new Error(
+        "Solo se puede regenerar el PDF de una inspección completada."
+      );
+    }
+
+    const detallesGuardados =
+      obtenerFilasRelacionadasFinalizacion_(
+        hojaDetalle,
+        "ID_Inspeccion",
+        idInspeccion
+      );
+
+    const evidencias =
+      obtenerFilasRelacionadasFinalizacion_(
+        hojaEvidencias,
+        "ID_Inspeccion",
+        idInspeccion
+      ).filter(item =>
+        String(item.Estado || "")
+          .trim()
+          .toLowerCase() === "activa"
+      );
+
+    const puntosActivos =
+      obtenerPuntosActivosFinalizacion_(
+        hojaCatalogo
+      );
+
+    const detalles =
+      combinarDetalleConCatalogo_(
+        detallesGuardados,
+        puntosActivos
+      );
+
+    let cumple = 0;
+    let noCumple = 0;
+    let noAplica = 0;
+
+    detalles.forEach(item => {
+      const resultado =
+        String(item.Resultado || "")
+          .trim()
+          .toLowerCase();
+
+      if (resultado === "cumple") cumple++;
+      if (resultado === "no cumple") noCumple++;
+      if (resultado === "no aplica") noAplica++;
+    });
+
+    const resultadoInspeccion =
+      noCumple > 0
+        ? "Con hallazgos"
+        : "Conforme";
+
+    const carpeta =
+      obtenerCarpetaPDFInspeccion_(
+        evidencias
+      );
+
+    const configuracion =
+      obtenerConfiguracionDocumentoInspeccion_();
+
+    configuracion.logoBASCOficial =
+      "https://basc.org.do/wp-content/media/2018/03/logo.png";
+
+    const pdfAnteriorUrl =
+      String(
+        inspeccion.objeto.PDF_URL || ""
+      ).trim();
+
+    const ahora = new Date();
+
+    const pdf =
+      generarPDFInspeccionCarta_(
+        inspeccion.objeto,
+        detalles,
+        evidencias,
+        {
+          cumple: cumple,
+          noCumple: noCumple,
+          noAplica: noAplica,
+          resultado: resultadoInspeccion,
+          observaciones:
+            String(
+              inspeccion.objeto
+                .Observaciones_Generales || ""
+            ).trim(),
+          fechaCierre:
+            inspeccion.objeto.Hora_Final ||
+            inspeccion.objeto.Fecha_Modificacion ||
+            ahora,
+          duracionMinutos:
+            inspeccion.objeto.Duracion_Minutos || ""
+        },
+        carpeta,
+        configuracion
+      );
+
+    const marcaCorreccion =
+      Utilities.formatDate(
+        ahora,
+        Session.getScriptTimeZone(),
+        "yyyyMMdd_HHmmss"
+      );
+
+    const nombreActual =
+      String(pdf.getName() || "Inspeccion_BASC.pdf")
+        .replace(/\.pdf$/i, "");
+
+    pdf.setName(
+      nombreActual +
+      "_Correccion_" +
+      marcaCorreccion +
+      ".pdf"
+    );
+
+    actualizarFilaPorEncabezadosFinalizacion_(
+      hojaInspecciones,
+      inspeccion.numeroFila,
+      {
+        Resultado_Inspeccion:
+          resultadoInspeccion,
+        Cantidad_No_Conformidades:
+          noCumple,
+        Total_Evidencias:
+          evidencias.length,
+        PDF_URL:
+          pdf.getUrl(),
+        Fecha_Modificacion:
+          ahora
+      }
+    );
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "PDF de la inspección regenerado correctamente.",
+      data: {
+        idInspeccion: idInspeccion,
+        pdfUrl: pdf.getUrl(),
+        pdfAnteriorUrl: pdfAnteriorUrl,
+        nombreArchivo: pdf.getName()
+      }
+    });
+
+  } catch (error) {
+
+    return respuesta({
+      ok: false,
+      mensaje: error.toString()
+    });
+
+  } finally {
+    bloqueo.releaseLock();
+  }
+
+}
+
+
+function validarAdministradorRegeneracionInspeccion_(data) {
+
+  const validacion =
+    data.__sesionValidada || {};
+
+  const candidatosRol = [
+    validacion.rol,
+    validacion.Rol,
+    validacion.data && validacion.data.rol,
+    validacion.usuario && validacion.usuario.rol,
+    data.rol,
+    data.Rol
+  ];
+
+  const rol =
+    candidatosRol
+      .map(valor =>
+        String(valor || "")
+          .trim()
+          .toLowerCase()
+      )
+      .find(Boolean) || "";
+
+  if (rol !== "administrador") {
+    throw new Error(
+      "Solo un administrador puede regenerar el PDF de una inspección."
+    );
+  }
+
+}
+
+
+// ======================================================
+// PDF CARTA VERTICAL
+// ======================================================
+
+function generarPDFInspeccionCarta_(
+  inspeccion,
+  detalles,
+  evidencias,
+  resumen,
+  carpeta,
+  configuracion
+) {
+
+  const nombreDocumento =
+    Documentos.limpiarNombreArchivo(
+      "Inspeccion_BASC_" +
+      (inspeccion.No_Conduce || "") +
+      "_" +
+      (inspeccion.ID_Inspeccion || "")
+    );
+
+  const html =
+    construirHTMLInspeccionCarta_(
+      inspeccion,
+      detalles,
+      evidencias,
+      resumen,
+      carpeta,
+      configuracion
+    );
+
+  return Documentos.crearPDFDesdeHTML({
+    nombreArchivo: nombreDocumento,
+    html: html,
+    carpeta: carpeta
+  });
+
+}
+
+
+function construirHTMLInspeccionCarta_(
+  inspeccion,
+  detalles,
+  evidencias,
+  resumen,
+  carpeta,
+  configuracion
+) {
+
+  const logoEmpresa =
+    Documentos.obtenerImagenDataUri(
+      configuracion.logoEmpresa
+    );
+
+  const logoBASC =
+    Documentos.obtenerImagenDataUri(
+      configuracion.logoBASC
+    ) ||
+    Documentos.obtenerImagenDataUri(
+      configuracion.logoBASCOficial
+    );
+
+  const destinos = [
+    inspeccion.Cliente_Destino,
+    inspeccion.Destino_1,
+    inspeccion.Destino_2
+  ]
+    .map(valor =>
+      String(valor || "").trim()
+    )
+    .filter(Boolean)
+    .filter(
+      (valor, indice, arreglo) =>
+        arreglo.indexOf(valor) === indice
+    )
+    .join(" | ");
+
+  const empresa =
+    configuracion.empresa ||
+    "Helados Bon SRL";
+
+  const ubicacion = [
+    configuracion.ubicacion,
+    configuracion.telefono
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const nombreFormulario =
+    configuracion.nombreFormulario ||
+    "INSPECCIÓN DE CONTENEDORES";
+
+  const referenciaDocumento =
+    configuracion.codigoFormulario ||
+    (
+      "Versión " +
+      (
+        configuracion.versionFormulario ||
+        inspeccion.Version_Formulario ||
+        "-"
+      )
+    );
+
+  const versionBASCTexto =
+    String(
+      inspeccion.Version_BASC ||
+      configuracion.versionBASC ||
+      "V6 - 2022"
+    ).trim();
+
+  const versionBASCVisible =
+    /^BASC\s/i.test(versionBASCTexto)
+      ? versionBASCTexto
+      : "BASC " + versionBASCTexto;
+
+  const referenciaBASC =
+    versionBASCVisible +
+    " | " +
+    (
+      inspeccion.Estandar_BASC ||
+      configuracion.estandarBASC ||
+      "Estándar 6.0.1"
+    );
+
+  const encabezado =
+    Documentos.crearEncabezado({
+      empresa: empresa,
+      direccion: ubicacion,
+      titulo: nombreFormulario,
+      version: referenciaDocumento,
+      referencia: referenciaBASC,
+      numeroDocumento:
+        inspeccion.ID_Inspeccion || "-",
+      etiquetaNumero: "No. Inspección",
+      logoPrincipal: logoEmpresa,
+      textoLogoPrincipal: "BON",
+      logoSecundario: logoBASC,
+      textoLogoSecundario: "BASC"
+    });
+
+  const tarjetaInspeccion =
+    Documentos.crearTarjeta(
+      "Información de la inspección",
+      Documentos.crearDato(
+        "Inspeccionado por",
+        inspeccion.Inspector_Nombre ||
+        inspeccion.Inspector ||
+        "-"
+      ) +
+      Documentos.crearDato(
+        "Chofer",
+        inspeccion.Chofer || "-"
+      ) +
+      Documentos.crearDato(
+        "Contenedor",
+        inspeccion.Unidad_Carga ||
+        inspeccion.Contenedor ||
+        "-"
+      ) +
+      Documentos.crearDato(
+        "Chasis",
+        inspeccion.No_Chasis ||
+        inspeccion.Chasis ||
+        "-"
+      ) +
+      Documentos.crearDato(
+        "Hora de inicio",
+        formatearFechaHoraInspeccion_(
+          inspeccion.Fecha_Inspeccion,
+          inspeccion.Hora_Inicio
+        )
+      ) +
+      Documentos.crearDato(
+        "Hora de cierre",
+        formatearFechaHoraInspeccion_(
+          inspeccion.Fecha_Inspeccion,
+          inspeccion.Hora_Final
+        )
+      ),
+      "basc-tarjeta-superior"
+    );
+
+  const tarjetaDespacho =
+    Documentos.crearTarjeta(
+      "Datos del despacho",
+      Documentos.crearDato(
+        "Conduce",
+        inspeccion.No_Conduce || "-"
+      ) +
+      Documentos.crearDato(
+        "Fecha",
+        formatearFechaDocumento_(
+          inspeccion.Fecha_Inspeccion
+        )
+      ) +
+      Documentos.crearDato(
+        "Destino(s)",
+        destinos || "-"
+      ) +
+      Documentos.crearDato(
+        "Sello de entrada",
+        inspeccion.Sello_Entrada || "-"
+      ) +
+      Documentos.crearDato(
+        "Sello de salida",
+        inspeccion.Sello_Salida || "-"
+      ) +
+      `
+        <div class="doc-dato">
+          <span class="doc-dato-etiqueta">Resultado</span>
+          <strong class="doc-dato-valor">
+            ${Documentos.crearResultado(resumen.resultado)}
+          </strong>
+        </div>
+      `,
+      "basc-tarjeta-superior"
+    );
+
+  const tarjetasSuperiores =
+    Documentos.crearGrid(
+      tarjetaInspeccion + tarjetaDespacho,
+      2,
+      "basc-grid-superior"
+    );
+
+  const resumenHTML =
+    Documentos.crearTarjeta(
+      "Resumen general",
+      Documentos.crearTabla(
+        [
+          "Puntos",
+          "Cumple",
+          "No cumple",
+          "No aplica",
+          "Evidencias",
+          "Resultado"
+        ],
+        [[
+          detalles.length,
+          resumen.cumple,
+          resumen.noCumple,
+          resumen.noAplica,
+          evidencias.length,
+          Documentos.crearResultado(
+            resumen.resultado
+          )
+        ]],
+        {
+          permitirHTML: true,
+          claseAdicional: "basc-tabla-resumen"
+        }
+      ),
+      "basc-resumen"
+    );
+
+  const grupos = {};
+
+  detalles.forEach(item => {
+
+    const categoria =
+      String(
+        item.Categoria ||
+        "Sin categoría"
+      ).trim();
+
+    if (!grupos[categoria]) {
+      grupos[categoria] = [];
+    }
+
+    grupos[categoria].push(item);
+
+  });
+
+  const categoriasHTML =
+    Object.keys(grupos)
+      .map((categoria, indice) => {
+
+        const puntos =
+          grupos[categoria];
+
+        const filas =
+          puntos.map(item => {
+
+            const observacion =
+              String(
+                item.Observacion || ""
+              ).trim();
+
+            const descripcion =
+              Documentos.escaparHTML(
+                item.Descripcion ||
+                item.Descripcion_Punto ||
+                ""
+              ) +
+              (
+                observacion
+                  ? `<div class="basc-observacion-punto">Obs.: ${Documentos.escaparHTML(observacion)}</div>`
+                  : ""
+              );
+
+            return [
+              Documentos.escaparHTML(
+                item.Codigo_Punto || ""
+              ),
+              descripcion,
+              Documentos.crearResultado(
+                item.Resultado || ""
+              )
+            ];
+
+          });
+
+        const claseSalto =
+          indice === 4
+            ? "doc-salto-pagina"
+            : "";
+
+        return `
+          <section class="basc-categoria ${claseSalto}">
+            <div class="basc-categoria-cabecera">
+              <strong>${Documentos.escaparHTML(categoria)}</strong>
+              <span>${Documentos.escaparHTML(resumenCategoriaTexto_(puntos))}</span>
+            </div>
+            ${Documentos.crearTabla(
+              [
+                "Código",
+                "Descripción del punto inspeccionado",
+                "Estado"
+              ],
+              filas,
+              {
+                permitirHTML: true,
+                claseAdicional: "basc-tabla-detalle"
+              }
+            )}
+          </section>
+        `;
+
+      })
+      .join("");
+
+  const detalleHTML = `
+    <h2 class="basc-detalle-titulo">
+      Detalle de la inspección
+    </h2>
+    ${categoriasHTML}
+  `;
+
+  const observacionesHTML =
+    Documentos.crearTarjeta(
+      "Comentarios u observaciones",
+      `
+        <p class="basc-observaciones-texto">
+          ${Documentos.escaparHTML(
+            resumen.observaciones ||
+            "Sin observaciones generales."
+          )}
+        </p>
+        <p class="basc-cierre">
+          Cierre: ${Documentos.escaparHTML(
+            Utilities.formatDate(
+              resumen.fechaCierre,
+              Session.getScriptTimeZone(),
+              "dd/MM/yyyy HH:mm"
+            )
+          )}
+        </p>
+      `,
+      "basc-observaciones"
+    );
+
+  const evidenciasHTML =
+    Documentos.crearTarjeta(
+      "Evidencias",
+      Documentos.crearQR(
+        carpeta.getUrl(),
+        "Ver evidencias (" +
+        evidencias.length +
+        ")"
+      ),
+      "basc-evidencias"
+    );
+
+  const pieContenido =
+    Documentos.crearGrid(
+      observacionesHTML + evidenciasHTML,
+      2,
+      "basc-grid-pie"
+    );
+
+  const pie =
+    Documentos.crearPie({
+      empresa: empresa,
+      sistema: "Sistema Logístico PT",
+      textoAdicional:
+        "Documento generado automáticamente"
+    });
+
+  const contenido =
+    encabezado +
+    tarjetasSuperiores +
+    resumenHTML +
+    detalleHTML +
+    pieContenido +
+    pie;
+
+  return Documentos.crearDocumentoHTML({
+    tamano: "Letter",
+    orientacion: "vertical",
+    contenido: contenido,
+    estilosAdicionales: `
+      .basc-grid-superior {
+        margin-top: 9px;
+      }
+
+      .basc-tarjeta-superior {
+        min-height: 145px;
+      }
+
+      .basc-tarjeta-superior .doc-dato {
+        grid-template-columns: 86px 1fr;
+      }
+
+      .basc-resumen {
+        margin-top: 8px;
+        padding: 7px 9px;
+      }
+
+      .basc-tabla-resumen th,
+      .basc-tabla-resumen td {
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      .basc-tabla-resumen th {
+        font-size: 6px;
+      }
+
+      .basc-tabla-resumen td {
+        font-size: 7px;
+        font-weight: 700;
+      }
+
+      .basc-detalle-titulo {
+        margin: 8px 0 4px;
+        color: #333333;
+        font-size: 7.5px;
+        font-weight: 700;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .basc-categoria {
+        margin-top: 5px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .basc-categoria-cabecera {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 6px;
+        background: #F2F2F2;
+        border: 1px solid #BDBDBD;
+        border-bottom: none;
+        font-size: 6.2px;
+      }
+
+      .basc-categoria-cabecera strong {
+        font-size: 6.5px;
+      }
+
+      .basc-tabla-detalle th,
+      .basc-tabla-detalle td {
+        line-height: 1.25;
+      }
+
+      .basc-tabla-detalle th {
+        padding: 4px 5px;
+        background: #CFCFCF;
+        border-color: #929292;
+        font-size: 8px;
+      }
+
+      .basc-tabla-detalle td {
+        padding: 4px 5px;
+        font-size: 6.3px;
+      }
+
+      .basc-tabla-detalle th:first-child,
+      .basc-tabla-detalle td:first-child {
+        width: 68px;
+        white-space: nowrap;
+      }
+
+      .basc-tabla-detalle th:last-child,
+      .basc-tabla-detalle td:last-child {
+        width: 76px;
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      .basc-tabla-detalle .doc-resultado {
+        padding: 2px 6px;
+        font-size: 6.2px;
+      }
+
+      .basc-observacion-punto {
+        margin-top: 3px;
+        color: #B5121B;
+        font-size: 7px;
+        font-style: italic;
+      }
+
+      .basc-grid-pie {
+        grid-template-columns: 1fr 150px;
+        margin-top: 7px;
+      }
+
+      .basc-observaciones {
+        min-height: 95px;
+      }
+
+      .basc-observaciones-texto {
+        margin: 0;
+        font-size: 6px;
+      }
+
+      .basc-cierre {
+        margin: 14px 0 0;
+        color: #777777;
+        font-size: 5.5px;
+      }
+
+      .basc-evidencias {
+        text-align: center;
+      }
+
+      .basc-evidencias .doc-qr img {
+        width: 76px;
+        height: 76px;
+      }
+
+      .basc-evidencias .doc-qr a {
+        color: #B5121B;
+      }
+    `
+  });
+
+}
+
+
+function formatearFechaHoraInspeccion_(
+  fecha,
+  hora
+) {
+
+  const zonaHoraria =
+    Session.getScriptTimeZone();
+
+  let fechaBase =
+    fecha instanceof Date
+      ? new Date(fecha)
+      : new Date(fecha);
+
+  if (
+    !fechaBase ||
+    isNaN(
+      fechaBase.getTime()
+    )
+  ) {
+    return "-";
+  }
+
+  const textoHora =
+    String(
+      hora || ""
+    ).trim();
+
+  if (textoHora) {
+
+    const coincidencia =
+      textoHora.match(
+        /(\d{1,2}):(\d{2})(?::(\d{2}))?/
+      );
+
+    if (coincidencia) {
+
+      fechaBase.setHours(
+        Number(coincidencia[1]),
+        Number(coincidencia[2]),
+        Number(coincidencia[3] || 0),
+        0
+      );
+
+    } else if (
+      hora instanceof Date &&
+      !isNaN(hora.getTime())
+    ) {
+
+      fechaBase.setHours(
+        hora.getHours(),
+        hora.getMinutes(),
+        hora.getSeconds(),
+        0
+      );
+
+    }
+
+  }
+
+  return Utilities.formatDate(
+    fechaBase,
+    zonaHoraria,
+    "dd/MM/yyyy HH:mm"
+  );
+
+}
+
+
+function crearDatoHTML_(
+  etiqueta,
+  valor
+) {
+
+  return `
+    <div class="dato">
+      <span>${escaparHTML_(etiqueta)}</span>
+      <strong>${escaparHTML_(valor)}</strong>
+    </div>
+  `;
+
+}
+
+
+function crearDatoResultadoHTML_(
+  etiqueta,
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+  const claseResultado =
+    texto.toLowerCase() === "conforme"
+      ? "conforme"
+      : "con-hallazgos";
+
+  return `
+    <div class="dato">
+      <span>${escaparHTML_(etiqueta)}</span>
+      <strong class="resultado-general ${claseResultado}">
+        ${escaparHTML_(texto || "-")}
+      </strong>
+    </div>
+  `;
+
+}
+
+
+function escaparHTML_(
+  valor
+) {
+
+  return String(
+    valor === null ||
+    valor === undefined
+      ? ""
+      : valor
+  )
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+
+function obtenerImagenDataUri_(
+  url
+) {
+
+  const texto =
+    String(
+      url || ""
+    ).trim();
+
+  /*
+   * El logo del dashboard llega como Data URI.
+   * Ya está listo para insertarse en el HTML.
+   */
+  if (
+    texto.startsWith(
+      "data:image/"
+    )
+  ) {
+    return texto;
+  }
+
+  const blob =
+    obtenerImagenPublicaBlob_(
+      texto
+    );
+
+  if (!blob) {
+    return "";
+  }
+
+  return (
+    "data:" +
+    blob.getContentType() +
+    ";base64," +
+    Utilities.base64Encode(
+      blob.getBytes()
+    )
+  );
+
+}
+
+
+function obtenerQRDataUri_(
+  url
+) {
+
+  const blob =
+    obtenerQRBlob_(
+      url
+    );
+
+  if (!blob) {
+    return "";
+  }
+
+  return (
+    "data:" +
+    blob.getContentType() +
+    ";base64," +
+    Utilities.base64Encode(
+      blob.getBytes()
+    )
+  );
+
+}
+
+
+function configurarPaginaCartaVertical_(
+  cuerpo
+) {
+
+  // Carta vertical 8.5 x 11 pulgadas.
+  // 612 x 792 puntos.
+
+  cuerpo
+    .setPageWidth(
+      612
+    )
+    .setPageHeight(
+      792
+    )
+    .setMarginTop(
+      18
+    )
+    .setMarginBottom(
+      18
+    )
+    .setMarginLeft(
+      20
+    )
+    .setMarginRight(
+      20
+    );
+
+}
+
+
+function crearEncabezadoCorporativoCarta_(
+  cuerpo,
+  configuracion,
+  inspeccion
+) {
+
+  const tabla =
+    cuerpo.appendTable([
+      ["", "", ""]
+    ]);
+
+  tabla.setBorderColor(
+    "#D9D9D9"
+  );
+
+  tabla.setBorderWidth(
+    0.6
+  );
+
+  const fila =
+    tabla.getRow(0);
+
+  const celdaLogoEmpresa =
+    fila.getCell(0);
+
+  const celdaTitulo =
+    fila.getCell(1);
+
+  const celdaDocumento =
+    fila.getCell(2);
+
+  insertarImagenConfiguracion_(
+    celdaLogoEmpresa,
+    configuracion.logoEmpresa,
+    58,
+    58,
+    "BON"
+  );
+
+  celdaLogoEmpresa
+    .setVerticalAlignment(
+      DocumentApp.VerticalAlignment.CENTER
+    );
+
+  insertarImagenConfiguracion_(
+    celdaDocumento,
+    configuracion.logoBASC,
+    54,
+    42,
+    "BASC"
+  );
+
+  const empresa =
+    celdaTitulo.appendParagraph(
+      configuracion.empresa ||
+      "Helados Bon SRL"
+    );
+
+  empresa.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  empresa.editAsText()
+    .setBold(true)
+    .setFontSize(12)
+    .setForegroundColor(
+      "#D71920"
+    );
+
+  const ubicacion =
+    celdaTitulo.appendParagraph(
+      [
+        configuracion.ubicacion,
+        configuracion.telefono
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    );
+
+  ubicacion.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  ubicacion.editAsText()
+    .setFontSize(5.8)
+    .setForegroundColor(
+      "#555555"
+    );
+
+  const titulo =
+    celdaTitulo.appendParagraph(
+      configuracion.nombreFormulario ||
+      "INSPECCIÓN DE CONTENEDORES"
+    );
+
+  titulo.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  titulo.editAsText()
+    .setBold(true)
+    .setFontSize(10.5)
+    .setForegroundColor(
+      "#111111"
+    );
+
+  const version =
+    celdaTitulo.appendParagraph(
+      configuracion.codigoFormulario ||
+      (
+        "Versión " +
+        (
+          configuracion.versionFormulario ||
+          inspeccion.Version_Formulario ||
+          "-"
+        )
+      )
+    );
+
+  version.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  version.editAsText()
+    .setBold(true)
+    .setFontSize(6.2)
+    .setForegroundColor(
+      "#444444"
+    );
+
+  const numero =
+    celdaDocumento.appendParagraph(
+      "No. Inspección"
+    );
+
+  numero.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  numero.editAsText()
+    .setFontSize(5.5)
+    .setForegroundColor(
+      "#777777"
+    );
+
+  const valorNumero =
+    celdaDocumento.appendParagraph(
+      inspeccion.ID_Inspeccion ||
+      "-"
+    );
+
+  valorNumero.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  valorNumero.editAsText()
+    .setBold(true)
+    .setFontSize(8)
+    .setForegroundColor(
+      "#222222"
+    );
+
+  cuerpo
+    .appendParagraph("")
+    .setSpacingBefore(0)
+    .setSpacingAfter(2);
+
+}
+
+
+function crearInformacionGeneralCarta_(
+  cuerpo,
+  inspeccion,
+  resumen,
+  configuracion
+) {
+
+  const destinos =
+    [
+      inspeccion.Cliente_Destino,
+      inspeccion.Destino_1,
+      inspeccion.Destino_2
+    ]
+      .map(valor =>
+        String(valor || "").trim()
+      )
+      .filter(Boolean)
+      .filter(
+        (valor, indice, arreglo) =>
+          arreglo.indexOf(valor) === indice
+      )
+      .join(" | ");
+
+  const tabla =
+    cuerpo.appendTable([
+      ["", ""]
+    ]);
+
+  tabla.setBorderWidth(
+    0
+  );
+
+  const izquierda =
+    tabla.getCell(0, 0);
+
+  const derecha =
+    tabla.getCell(0, 1);
+
+  agregarTituloCelda_(
+    izquierda,
+    "INFORMACIÓN DE LA INSPECCIÓN"
+  );
+
+  agregarFilasDatosCompactas_(
+    izquierda,
+    [
+      [
+        "Inspeccionado por",
+        inspeccion.Inspector_Nombre ||
+        inspeccion.Inspector ||
+        "-"
+      ],
+      [
+        "Chofer",
+        inspeccion.Chofer ||
+        "-"
+      ],
+      [
+        "Contenedor",
+        inspeccion.Unidad_Carga ||
+        inspeccion.Contenedor ||
+        "-"
+      ],
+      [
+        "Chasis",
+        inspeccion.No_Chasis ||
+        inspeccion.Chasis ||
+        "-"
+      ]
+    ]
+  );
+
+  agregarTituloCelda_(
+    derecha,
+    "DATOS DEL DESPACHO"
+  );
+
+  agregarFilasDatosCompactas_(
+    derecha,
+    [
+      [
+        "Conduce",
+        inspeccion.No_Conduce ||
+        "-"
+      ],
+      [
+        "Fecha",
+        formatearFechaDocumento_(
+          inspeccion.Fecha_Inspeccion
+        )
+      ],
+      [
+        "Destino(s)",
+        destinos ||
+        "-"
+      ],
+      [
+        "Sello entrada",
+        inspeccion.Sello_Entrada ||
+        "-"
+      ],
+      [
+        "Sello salida",
+        inspeccion.Sello_Salida ||
+        "-"
+      ],
+      [
+        "Resultado",
+        resumen.resultado
+      ]
+    ]
+  );
+
+}
+
+
+function agregarFilasDatosCompactas_(
+  celda,
+  filas
+) {
+
+  const tabla =
+    celda.appendTable(
+      filas
+    );
+
+  tabla.setBorderColor(
+    "#E0E0E0"
+  );
+
+  tabla.setBorderWidth(
+    0.35
+  );
+
+  for (
+    let f = 0;
+    f < tabla.getNumRows();
+    f++
+  ) {
+
+    const fila =
+      tabla.getRow(f);
+
+    fila.getCell(0)
+      .setBackgroundColor(
+        "#F7F7F7"
+      )
+      .editAsText()
+      .setBold(true)
+      .setFontSize(6)
+      .setForegroundColor(
+        "#555555"
+      );
+
+    fila.getCell(1)
+      .editAsText()
+      .setBold(true)
+      .setFontSize(6.2)
+      .setForegroundColor(
+        "#222222"
+      );
+
+  }
+
+}
+
+
+function crearResumenCarta_(
+  cuerpo,
+  detalles,
+  evidencias,
+  resumen
+) {
+
+  const titulo =
+    cuerpo.appendParagraph(
+      "RESUMEN GENERAL"
+    );
+
+  titulo.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  titulo.editAsText()
+    .setBold(true)
+    .setFontSize(7)
+    .setForegroundColor(
+      "#333333"
+    );
+
+  const tabla =
+    cuerpo.appendTable([
+      [
+        "Puntos",
+        "Cumple",
+        "No cumple",
+        "No aplica",
+        "Evidencias",
+        "Resultado"
+      ],
+      [
+        String(detalles.length),
+        String(resumen.cumple),
+        String(resumen.noCumple),
+        String(resumen.noAplica),
+        String(evidencias.length),
+        String(resumen.resultado)
+      ]
+    ]);
+
+  tabla.setBorderColor(
+    "#AFAFAF"
+  );
+
+  tabla.setBorderWidth(
+    0.5
+  );
+
+  for (
+    let c = 0;
+    c < 6;
+    c++
+  ) {
+
+    tabla.getCell(0, c)
+      .setBackgroundColor(
+        "#E9E9E9"
+      )
+      .editAsText()
+      .setBold(true)
+      .setFontSize(6)
+      .setForegroundColor(
+        "#333333"
+      );
+
+    tabla.getCell(1, c)
+      .editAsText()
+      .setBold(true)
+      .setFontSize(7)
+      .setForegroundColor(
+        c === 2 &&
+        resumen.noCumple > 0
+          ? "#B5121B"
+          : "#222222"
+      );
+
+    tabla.getCell(1, c)
+      .getChild(0)
+      .asParagraph()
+      .setAlignment(
+        DocumentApp.HorizontalAlignment.CENTER
+      );
+
+  }
+
+  cuerpo
+    .appendParagraph("")
+    .setSpacingBefore(0)
+    .setSpacingAfter(2);
+
+}
+
+
+function crearDetallePorCategoriasCarta_(
+  cuerpo,
+  detalles
+) {
+
+  const titulo =
+    cuerpo.appendParagraph(
+      "DETALLE DE LA INSPECCIÓN"
+    );
+
+  titulo.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  titulo.editAsText()
+    .setBold(true)
+    .setFontSize(7.5)
+    .setForegroundColor(
+      "#333333"
+    );
+
+  const grupos = {};
+
+  detalles.forEach(item => {
+
+    const categoria =
+      String(
+        item.Categoria ||
+        "Sin categoría"
+      ).trim();
+
+    if (!grupos[categoria]) {
+      grupos[categoria] = [];
+    }
+
+    grupos[categoria].push(
+      item
+    );
+
+  });
+
+  const categorias =
+    Object.keys(grupos);
+
+  categorias.forEach(
+    (categoria, indice) => {
+
+      // Distribución controlada:
+      // primera página: 4 categorías;
+      // segunda página: las restantes.
+      if (indice === 4) {
+
+        cuerpo.appendPageBreak();
+
+        const subtitulo =
+          cuerpo.appendParagraph(
+            "DETALLE DE LA INSPECCIÓN — CONTINUACIÓN"
+          );
+
+        subtitulo.setAlignment(
+          DocumentApp.HorizontalAlignment.CENTER
+        );
+
+        subtitulo.editAsText()
+          .setBold(true)
+          .setFontSize(7.5)
+          .setForegroundColor(
+            "#333333"
+          );
+
+      }
+
+      agregarTarjetaCategoriaCarta_(
+        cuerpo,
+        categoria,
+        grupos[categoria]
+      );
+
+    }
+  );
+
+}
+
+
+function agregarTarjetaCategoriaCarta_(
+  contenedor,
+  categoria,
+  puntos
+) {
+
+  const encabezado =
+    contenedor.appendTable([
+      [
+        categoria,
+        resumenCategoriaTexto_(
+          puntos
+        )
+      ]
+    ]);
+
+  encabezado.setBorderColor(
+    "#BEBEBE"
+  );
+
+  encabezado.setBorderWidth(
+    0.45
+  );
+
+  encabezado
+    .getCell(0, 0)
+    .setBackgroundColor(
+      "#F2F2F2"
+    )
+    .editAsText()
+    .setBold(true)
+    .setFontSize(6.5)
+    .setForegroundColor(
+      "#222222"
+    );
+
+  encabezado
+    .getCell(0, 1)
+    .setBackgroundColor(
+      "#F2F2F2"
+    )
+    .editAsText()
+    .setBold(true)
+    .setFontSize(5.8)
+    .setForegroundColor(
+      "#555555"
+    );
+
+  const filas = [[
+    "Código",
+    "Descripción del punto inspeccionado",
+    "Estado"
+  ]];
+
+  puntos.forEach(item => {
+
+    const observacion =
+      String(
+        item.Observacion || ""
+      ).trim();
+
+    filas.push([
+      String(
+        item.Codigo_Punto || ""
+      ),
+      String(
+        item.Descripcion ||
+        item.Descripcion_Punto ||
+        ""
+      ) +
+      (
+        observacion
+          ? " · Obs.: " +
+            observacion
+          : ""
+      ),
+      String(
+        item.Resultado || ""
+      )
+    ]);
+
+  });
+
+  const tabla =
+    contenedor.appendTable(
+      filas
+    );
+
+  tabla.setBorderColor(
+    "#BEBEBE"
+  );
+
+  tabla.setBorderWidth(
+    0.4
+  );
+
+  for (
+    let f = 0;
+    f < tabla.getNumRows();
+    f++
+  ) {
+
+    const fila =
+      tabla.getRow(f);
+
+    for (
+      let c = 0;
+      c < fila.getNumCells();
+      c++
+    ) {
+
+      const celda =
+        fila.getCell(c);
+
+      const texto =
+        celda.editAsText();
+
+      texto.setFontSize(
+        f === 0
+          ? 5.7
+          : 5.4
+      );
+
+      if (f === 0) {
+
+        celda.setBackgroundColor(
+          "#E9E9E9"
+        );
+
+        texto
+          .setBold(true)
+          .setForegroundColor(
+            "#333333"
+          );
+
+      } else if (c === 2) {
+
+        const estado =
+          String(
+            puntos[f - 1]
+              .Resultado ||
+            ""
+          ).toLowerCase();
+
+        celda.setBackgroundColor(
+          estado === "cumple"
+            ? "#EAF6EE"
+            : estado === "no cumple"
+              ? "#FCE8E8"
+              : "#FFF5D6"
+        );
+
+        texto
+          .setBold(true)
+          .setForegroundColor(
+            estado === "no cumple"
+              ? "#B5121B"
+              : "#333333"
+          );
+
+      }
+
+    }
+
+  }
+
+  contenedor
+    .appendParagraph("")
+    .setSpacingBefore(0)
+    .setSpacingAfter(1);
+
+}
+
+
+function crearPieVisualCarta_(
+  cuerpo,
+  carpeta,
+  evidencias,
+  resumen,
+  configuracion
+) {
+
+  const tabla =
+    cuerpo.appendTable([
+      ["", ""]
+    ]);
+
+  tabla.setBorderColor(
+    "#D0D0D0"
+  );
+
+  tabla.setBorderWidth(
+    0.5
+  );
+
+  const observaciones =
+    tabla.getCell(0, 0);
+
+  const evidenciasCelda =
+    tabla.getCell(0, 1);
+
+  agregarTituloCelda_(
+    observaciones,
+    "COMENTARIOS U OBSERVACIONES"
+  );
+
+  const textoObservaciones =
+    observaciones.appendParagraph(
+      resumen.observaciones ||
+      "Sin observaciones generales."
+    );
+
+  textoObservaciones.editAsText()
+    .setFontSize(6.2)
+    .setForegroundColor(
+      "#333333"
+    );
+
+  observaciones.appendParagraph(
+    "Cierre: " +
+    Utilities.formatDate(
+      resumen.fechaCierre,
+      Session.getScriptTimeZone(),
+      "dd/MM/yyyy HH:mm"
+    )
+  )
+    .editAsText()
+    .setFontSize(5.5)
+    .setForegroundColor(
+      "#777777"
+    );
+
+  agregarTituloCelda_(
+    evidenciasCelda,
+    "EVIDENCIAS"
+  );
+
+  const qrBlob =
+    obtenerQRBlob_(
+      carpeta.getUrl()
+    );
+
+  if (qrBlob) {
+
+    const qr =
+      evidenciasCelda.appendImage(
+        qrBlob
+      );
+
+    qr.setWidth(72);
+    qr.setHeight(72);
+
+  }
+
+  const enlace =
+    evidenciasCelda.appendParagraph(
+      "Ver evidencias (" +
+      evidencias.length +
+      ")"
+    );
+
+  enlace.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  enlace.editAsText()
+    .setBold(true)
+    .setFontSize(6)
+    .setForegroundColor(
+      "#B5121B"
+    )
+    .setLinkUrl(
+      carpeta.getUrl()
+    );
+
+  const pie =
+    cuerpo.appendParagraph(
+      (
+        configuracion.empresa ||
+        "Helados Bon SRL"
+      ) +
+      " · Documento generado por el Sistema Logístico PT"
+    );
+
+  pie.setAlignment(
+    DocumentApp.HorizontalAlignment.CENTER
+  );
+
+  pie.editAsText()
+    .setFontSize(5.2)
+    .setForegroundColor(
+      "#777777"
+    );
+
+}
+
+
+// ======================================================
+// CONFIGURACIÓN Y RECURSOS VISUALES
+// ======================================================
+
+function obtenerConfiguracionDocumentoInspeccion_() {
+
+  const hoja =
+    getSheet(
+      SHEETS.CONFIGURACION
+    );
+
+  if (!hoja) {
+
+    throw new Error(
+      "No existe la hoja Configuracion."
+    );
+
+  }
+
+  const valores =
+    hoja.getDataRange()
+      .getDisplayValues();
+
+  const configuracion = {};
+
+  valores.forEach(fila => {
+
+    const clave =
+      String(
+        fila[0] || ""
+      ).trim();
+
+    const valor =
+      String(
+        fila[1] || ""
+      ).trim();
+
+    if (clave) {
+      configuracion[clave] = valor;
+    }
+
+  });
+
+  return {
+    empresa:
+      configuracion.Empresa ||
+      configuracion.NombreEmpresa ||
+      "",
+    rnc:
+      configuracion.RNC ||
+      "",
+    direccion:
+      configuracion.Direccion ||
+      "",
+    ubicacion:
+      configuracion.Ubicacion ||
+      configuracion.Direccion ||
+      "",
+    telefono:
+      configuracion.Telefono ||
+      "",
+    nombreFormulario:
+      configuracion
+        .Nombre_Formulario_Inspeccion ||
+      configuracion
+        .NombreFormularioInspeccion ||
+      configuracion
+        .Formulario_Inspeccion ||
+      "INSPECCIÓN DE CONTENEDORES",
+    codigoFormulario:
+      configuracion
+        .Codigo_Formulario_Inspeccion ||
+      configuracion
+        .CodigoFormularioInspeccion ||
+      "",
+    versionFormulario:
+      configuracion
+        .Version_Formulario_Inspeccion ||
+      "",
+    versionBASC:
+      configuracion.Version_BASC ||
+      "",
+    estandarBASC:
+      configuracion.Estandar_BASC ||
+      "",
+    logoEmpresa:
+      configuracion.LogoURL ||
+      configuracion.LogoEmpresa ||
+      "",
+    logoBASC:
+      configuracion.LogoBASC ||
+      "",
+    esquemaLaterales:
+      configuracion
+        .Esquema_Contenedor_Laterales ||
+      "",
+    esquemaInterior:
+      configuracion
+        .Esquema_Contenedor_Interior ||
+      "",
+    esquemaRefrigeracion:
+      configuracion
+        .Esquema_Unidad_Refrigeracion ||
+      ""
+  };
+
+}
+
+
+function insertarImagenConfiguracion_(
+  celda,
+  url,
+  ancho,
+  alto,
+  textoAlterno
+) {
+
+  const blob =
+    obtenerImagenPublicaBlob_(
+      url
+    );
+
+  if (blob) {
+
+    try {
+
+      const imagen =
+        celda.appendImage(
+          blob
+        );
+
+      imagen.setWidth(
+        ancho
+      );
+
+      imagen.setHeight(
+        alto
+      );
+
+      return;
+
+    } catch (error) {
+
+      console.warn(
+        "No fue posible insertar imagen:",
+        error
+      );
+
+    }
+
+  }
+
+  const texto =
+    celda.appendParagraph(
+      textoAlterno || ""
+    );
+
+  texto.setAlignment(
+    DocumentApp.HorizontalAlignment
+      .CENTER
+  );
+
+  texto.editAsText()
+    .setBold(true)
+    .setFontSize(6)
+    .setForegroundColor(
+      "#999999"
+    );
+
+}
+
+
+function obtenerImagenPublicaBlob_(
+  url
+) {
+
+  const texto =
+    String(
+      url || ""
+    ).trim();
+
+  if (!texto) {
+    return null;
+  }
+
+  try {
+
+    const idDrive =
+      extraerIdDrive_(
+        texto
+      );
+
+    /*
+     * Para imágenes almacenadas en Drive es más seguro
+     * obtener el archivo directamente mediante DriveApp.
+     * Así evitamos descargar páginas HTML en lugar
+     * del contenido real de la imagen.
+     */
+    if (idDrive) {
+
+      const archivo =
+        DriveApp.getFileById(
+          idDrive
+        );
+
+      const blobDrive =
+        archivo.getBlob();
+
+      return validarBlobImagen_(
+        blobDrive,
+        archivo.getName()
+      );
+
+    }
+
+    const respuestaHttp =
+      UrlFetchApp.fetch(
+        texto,
+        {
+          muteHttpExceptions:
+            true,
+          followRedirects:
+            true
+        }
+      );
+
+    const codigo =
+      respuestaHttp.getResponseCode();
+
+    if (
+      codigo < 200 ||
+      codigo >= 300
+    ) {
+
+      console.warn(
+        "La imagen respondió con código HTTP " +
+        codigo +
+        ": " +
+        texto
+      );
+
+      return null;
+
+    }
+
+    return validarBlobImagen_(
+      respuestaHttp.getBlob(),
+      "imagen_remota"
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "No fue posible obtener la imagen:",
+      error
+    );
+
+  }
+
+  return null;
+
+}
+
+
+function validarBlobImagen_(
+  blob,
+  nombreReferencia
+) {
+
+  if (!blob) {
+    return null;
+  }
+
+  const tipo =
+    String(
+      blob.getContentType() || ""
+    ).toLowerCase();
+
+  const tiposPermitidos = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/gif",
+    "image/bmp"
+  ];
+
+  if (
+    !tiposPermitidos.includes(
+      tipo
+    )
+  ) {
+
+    console.warn(
+      "El recurso no es una imagen compatible. " +
+      "Tipo recibido: " +
+      tipo +
+      " | Recurso: " +
+      nombreReferencia
+    );
+
+    return null;
+
+  }
+
+  const extension =
+    tipo === "image/png"
+      ? ".png"
+      : tipo === "image/gif"
+        ? ".gif"
+        : tipo === "image/bmp"
+          ? ".bmp"
+          : ".jpg";
+
+  return blob
+    .copyBlob()
+    .setName(
+      limpiarNombreFinalizacion_(
+        nombreReferencia ||
+        "imagen"
+      ) +
+      extension
+    );
+
+}
+
+
+function extraerIdDrive_(
+  valor
+) {
+
+  const texto =
+    String(
+      valor || ""
+    ).trim();
+
+  if (!texto) {
+    return "";
+  }
+
+  const esEnlaceDrive =
+    texto.includes(
+      "drive.google.com"
+    ) ||
+    texto.includes(
+      "docs.google.com"
+    );
+
+  if (!esEnlaceDrive) {
+    return "";
+  }
+
+  const coincidencia =
+    texto.match(
+      /[-\w]{20,}/
+    );
+
+  return coincidencia
+    ? coincidencia[0]
+    : "";
+
+}
+
+
+function normalizarUrlImagenDrive_(
+  url
+) {
+
+  const idDrive =
+    extraerIdDrive_(
+      url
+    );
+
+  if (idDrive) {
+
+    return (
+      "https://drive.google.com/uc?export=download&id=" +
+      idDrive
+    );
+
+  }
+
+  return String(
+    url || ""
+  ).trim();
+
+}
+
+
+function obtenerQRBlob_(
+  url
+) {
+
+  try {
+
+    const endpoint =
+      "https://quickchart.io/qr" +
+      "?size=180" +
+      "&margin=1" +
+      "&text=" +
+      encodeURIComponent(
+        url
+      );
+
+    const respuestaHttp =
+      UrlFetchApp.fetch(
+        endpoint,
+        {
+          muteHttpExceptions:
+            true
+        }
+      );
+
+    if (
+      respuestaHttp.getResponseCode() >= 200 &&
+      respuestaHttp.getResponseCode() < 300
+    ) {
+
+      return respuestaHttp.getBlob();
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      "No fue posible generar el QR:",
+      error
+    );
+
+  }
+
+  return null;
+
+}
+
+
+// ======================================================
+// VALIDACIONES Y COMBINACIÓN DE DATOS
+// ======================================================
+
+function combinarDetalleConCatalogo_(
+  detallesGuardados,
+  puntosActivos
+) {
+
+  const mapaCatalogo = {};
+
+  puntosActivos.forEach(item => {
+
+    mapaCatalogo[
+      String(
+        item.Codigo_Punto || ""
+      ).trim()
+    ] = item;
+
+  });
+
+  return detallesGuardados
+    .map(item => {
+
+      const codigo =
+        String(
+          item.Codigo_Punto || ""
+        ).trim();
+
+      const catalogo =
+        mapaCatalogo[codigo] ||
+        {};
+
+      return Object.assign(
+        {},
+        catalogo,
+        item,
+        {
+          Descripcion:
+            catalogo.Descripcion ||
+            item.Descripcion ||
+            item.Descripcion_Punto ||
+            ""
+        }
+      );
+
+    })
+    .sort(
+      (a, b) =>
+        Number(a.Orden || 0) -
+        Number(b.Orden || 0)
+    );
+
+}
+
+
+function validarCierreInspeccion_(
+  detalles,
+  evidencias,
+  puntosActivos
+) {
+
+  const codigosGuardados =
+    new Set(
+      detalles.map(item =>
+        String(
+          item.Codigo_Punto || ""
+        ).trim()
+      )
+    );
+
+  const puntosPendientes =
+    puntosActivos.filter(item =>
+      !codigosGuardados.has(
+        String(
+          item.Codigo_Punto || ""
+        ).trim()
+      )
+    );
+
+  if (puntosPendientes.length > 0) {
+
+    throw new Error(
+      "Faltan " +
+      puntosPendientes.length +
+      " puntos BASC por registrar."
+    );
+
+  }
+
+  const zonasObligatorias =
+    Array.from(
+      new Set(
+        puntosActivos
+          .filter(item =>
+            String(
+              item.Requiere_Foto || ""
+            )
+              .trim()
+              .toLowerCase() === "si"
+          )
+          .map(item =>
+            String(
+              item
+                .Codigo_Zona_Evidencia ||
+              ""
+            ).trim()
+          )
+          .filter(Boolean)
+      )
+    );
+
+  const zonasConEvidencia =
+    new Set(
+      evidencias.map(item =>
+        String(
+          item.Codigo_Zona || ""
+        ).trim()
+      )
+    );
+
+  const zonasPendientes =
+    zonasObligatorias.filter(zona =>
+      !zonasConEvidencia.has(zona)
+    );
+
+  if (zonasPendientes.length > 0) {
+
+    throw new Error(
+      "Faltan evidencias activas para: " +
+      zonasPendientes.join(", ")
+    );
+
+  }
+
+}
+
+
+// ======================================================
+// AUXILIARES VISUALES
+// ======================================================
+
+function resumenCategoriaTexto_(
+  puntos
+) {
+
+  let cumple = 0;
+  let noCumple = 0;
+  let noAplica = 0;
+
+  puntos.forEach(item => {
+
+    const estado =
+      String(
+        item.Resultado || ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (estado === "cumple") {
+      cumple++;
+    }
+
+    if (estado === "no cumple") {
+      noCumple++;
+    }
+
+    if (estado === "no aplica") {
+      noAplica++;
+    }
+
+  });
+
+  return (
+    "C " +
+    cumple +
+    " · NC " +
+    noCumple +
+    " · NA " +
+    noAplica
+  );
+
+}
+
+
+function agregarTituloCelda_(
+  celda,
+  texto
+) {
+
+  const titulo =
+    celda.appendParagraph(
+      texto
+    );
+
+  titulo
+    .setSpacingBefore(0)
+    .setSpacingAfter(1);
+
+  titulo.editAsText()
+    .setBold(true)
+    .setFontSize(6.5)
+    .setForegroundColor(
+      "#B5121B"
+    );
+
+}
+
+
+function formatearFechaDocumento_(
+  valor
+) {
+
+  if (!valor) {
+    return "-";
+  }
+
+  const fecha =
+    valor instanceof Date
+      ? valor
+      : new Date(valor);
+
+  if (
+    isNaN(
+      fecha.getTime()
+    )
+  ) {
+
+    return String(
+      valor
+    );
+
+  }
+
+  return Utilities.formatDate(
+    fecha,
+    Session.getScriptTimeZone(),
+    "dd/MM/yyyy"
+  );
+
+}
+
+
+// ======================================================
+// AUXILIARES DE DATOS
+// ======================================================
+
+function obtenerRegistroPorIdFinalizacion_(
+  hoja,
+  encabezadoId,
+  valorId
+) {
+
+  const valores =
+    hoja.getDataRange()
+      .getValues();
+
+  if (valores.length < 2) {
+    return null;
+  }
+
+  const mapa =
+    crearMapaFinalizacion_(
+      valores[0]
+    );
+
+  const indiceId =
+    mapa[encabezadoId];
+
+  if (indiceId === undefined) {
+
+    throw new Error(
+      "No existe la columna " +
+      encabezadoId +
+      "."
+    );
+
+  }
+
+  for (
+    let i = 1;
+    i < valores.length;
+    i++
+  ) {
+
+    if (
+      String(
+        valores[i][indiceId] || ""
+      ).trim() ===
+      String(valorId).trim()
+    ) {
+
+      return {
+        numeroFila:
+          i + 1,
+        objeto:
+          convertirFilaFinalizacion_(
+            valores[0],
+            valores[i]
+          )
+      };
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+function obtenerFilasRelacionadasFinalizacion_(
+  hoja,
+  encabezadoId,
+  valorId
+) {
+
+  const valores =
+    hoja.getDataRange()
+      .getValues();
+
+  if (valores.length < 2) {
+    return [];
+  }
+
+  const mapa =
+    crearMapaFinalizacion_(
+      valores[0]
+    );
+
+  const indiceId =
+    mapa[encabezadoId];
+
+  if (indiceId === undefined) {
+
+    throw new Error(
+      "No existe la columna " +
+      encabezadoId +
+      "."
+    );
+
+  }
+
+  return valores
+    .slice(1)
+    .filter(fila =>
+      String(
+        fila[indiceId] || ""
+      ).trim() ===
+      String(valorId).trim()
+    )
+    .map(fila =>
+      convertirFilaFinalizacion_(
+        valores[0],
+        fila
+      )
+    );
+
+}
+
+
+function obtenerPuntosActivosFinalizacion_(
+  hojaCatalogo
+) {
+
+  const valores =
+    hojaCatalogo
+      .getDataRange()
+      .getDisplayValues();
+
+  if (valores.length < 2) {
+    return [];
+  }
+
+  return valores
+    .slice(1)
+    .map(fila =>
+      convertirFilaFinalizacion_(
+        valores[0],
+        fila
+      )
+    )
+    .filter(item =>
+      String(
+        item.Estado || ""
+      )
+        .trim()
+        .toLowerCase() === "activo"
+    );
+
+}
+
+
+function obtenerCarpetaPDFInspeccion_(
+  evidencias
+) {
+
+  const evidenciaConArchivo =
+    evidencias.find(item =>
+      String(
+        item.Archivo_ID || ""
+      ).trim()
+    );
+
+  if (!evidenciaConArchivo) {
+
+    throw new Error(
+      "No se encontró una evidencia para localizar la carpeta del PDF."
+    );
+
+  }
+
+  const archivo =
+    DriveApp.getFileById(
+      evidenciaConArchivo.Archivo_ID
+    );
+
+  const padres =
+    archivo.getParents();
+
+  if (!padres.hasNext()) {
+
+    throw new Error(
+      "No fue posible localizar la carpeta de evidencias."
+    );
+
+  }
+
+  return padres.next();
+
+}
+
+
+function actualizarFilaPorEncabezadosFinalizacion_(
+  hoja,
+  numeroFila,
+  datos
+) {
+
+  const encabezados =
+    hoja
+      .getRange(
+        1,
+        1,
+        1,
+        hoja.getLastColumn()
+      )
+      .getValues()[0];
+
+  const mapa =
+    crearMapaFinalizacion_(
+      encabezados
+    );
+
+  Object.keys(datos)
+    .forEach(encabezado => {
+
+      const indice =
+        mapa[encabezado];
+
+      if (
+        indice !== undefined
+      ) {
+
+        hoja
+          .getRange(
+            numeroFila,
+            indice + 1
+          )
+          .setValue(
+            datos[encabezado]
+          );
+
+      }
+
+    });
+
+}
+
+
+function calcularDuracionFinalizacion_(
+  inspeccion,
+  fechaFinal
+) {
+
+  const fecha =
+    inspeccion.Fecha_Inspeccion;
+
+  const hora =
+    inspeccion.Hora_Inicio;
+
+  if (!fecha || !hora) {
+    return "";
+  }
+
+  const zonaHoraria =
+    Session.getScriptTimeZone();
+
+  let textoFecha = "";
+
+  if (
+    fecha instanceof Date &&
+    !isNaN(fecha.getTime())
+  ) {
+
+    textoFecha =
+      Utilities.formatDate(
+        fecha,
+        zonaHoraria,
+        "yyyy-MM-dd"
+      );
+
+  } else {
+
+    const fechaTexto =
+      String(
+        fecha || ""
+      ).trim();
+
+    /*
+     * Formato ISO:
+     * yyyy-MM-dd
+     */
+    let coincidencia =
+      fechaTexto.match(
+        /^(\d{4})-(\d{1,2})-(\d{1,2})/
+      );
+
+    if (coincidencia) {
+
+      textoFecha =
+        coincidencia[1] +
+        "-" +
+        String(
+          coincidencia[2]
+        ).padStart(2, "0") +
+        "-" +
+        String(
+          coincidencia[3]
+        ).padStart(2, "0");
+
+    } else {
+
+      /*
+       * Formato mostrado por Google Sheets:
+       * dd/MM/yyyy
+       * dd-MM-yyyy
+       */
+      coincidencia =
+        fechaTexto.match(
+          /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/
+        );
+
+      if (coincidencia) {
+
+        textoFecha =
+          coincidencia[3] +
+          "-" +
+          String(
+            coincidencia[2]
+          ).padStart(2, "0") +
+          "-" +
+          String(
+            coincidencia[1]
+          ).padStart(2, "0");
+
+      }
+
+    }
+
+  }
+
+  const horaTexto =
+    String(
+      hora || ""
+    ).trim();
+
+  const coincidenciaHora =
+    horaTexto.match(
+      /(\d{1,2}):(\d{2})(?::(\d{2}))?/
+    );
+
+  if (
+    !textoFecha ||
+    !coincidenciaHora
+  ) {
+    return "";
+  }
+
+  const inicio =
+    new Date(
+      textoFecha +
+      "T" +
+      String(
+        coincidenciaHora[1]
+      ).padStart(2, "0") +
+      ":" +
+      coincidenciaHora[2] +
+      ":" +
+      String(
+        coincidenciaHora[3] || "00"
+      ).padStart(2, "0")
+    );
+
+  if (
+    isNaN(inicio.getTime()) ||
+    !(fechaFinal instanceof Date) ||
+    isNaN(fechaFinal.getTime())
+  ) {
+    return "";
+  }
+
+  return Math.max(
+    0,
+    Math.round(
+      (
+        fechaFinal.getTime() -
+        inicio.getTime()
+      ) /
+      60000
+    )
+  );
+
+}
+
+
+function formatearDuracionInspeccion_(
+  minutos
+) {
+
+  const total =
+    Number(minutos);
+
+  if (
+    !Number.isFinite(total) ||
+    total < 0
+  ) {
+    return "-";
+  }
+
+  const horas =
+    Math.floor(
+      total / 60
+    );
+
+  const minutosRestantes =
+    Math.round(
+      total % 60
+    );
+
+  if (horas <= 0) {
+
+    return (
+      minutosRestantes +
+      " min"
+    );
+
+  }
+
+  return (
+    horas +
+    " h " +
+    minutosRestantes +
+    " min"
+  );
+
+}
+
+function crearMapaFinalizacion_(
+  encabezados
+) {
+
+  const mapa = {};
+
+  encabezados.forEach(
+    (encabezado, indice) => {
+
+      mapa[
+        String(
+          encabezado || ""
+        ).trim()
+      ] = indice;
+
+    }
+  );
+
+  return mapa;
+
+}
+
+function convertirFilaFinalizacion_(
+  encabezados,
+  fila
+) {
+
+  const objeto = {};
+
+  encabezados.forEach(
+    (encabezado, indice) => {
+
+      objeto[
+        String(
+          encabezado || ""
+        ).trim()
+      ] = fila[indice];
+
+    }
+  );
+
+  return objeto;
+
+}
+
+
+function limpiarNombreFinalizacion_(
+  texto
+) {
+
+  return String(
+    texto || ""
+  )
+    .replace(
+      /[\\/:*?"<>|#%{}[\]]/g,
+      "-"
+    )
+    .replace(
+      /\s+/g,
+      "_"
+    )
+    .trim();
+
+}
+
+
+function abrirDocumentoConReintentos_(
+  documentoId
+) {
+
+  let ultimoError = null;
+
+  for (
+    let intento = 1;
+    intento <= 4;
+    intento++
+  ) {
+
+    try {
+
+      return DocumentApp.openById(
+        documentoId
+      );
+
+    } catch (error) {
+
+      ultimoError = error;
+
+      console.warn(
+        "Intento " +
+        intento +
+        " de apertura del documento falló:",
+        error
+      );
+
+      Utilities.sleep(
+        intento * 900
+      );
+
+    }
+
+  }
+
+  throw new Error(
+    "No fue posible abrir el documento recién creado. " +
+    (
+      ultimoError
+        ? ultimoError.toString()
+        : ""
+    )
+  );
+
+}
+
+
+function obtenerArchivoDriveConReintentos_(
+  archivoId
+) {
+
+  let ultimoError = null;
+
+  for (
+    let intento = 1;
+    intento <= 4;
+    intento++
+  ) {
+
+    try {
+
+      return DriveApp.getFileById(
+        archivoId
+      );
+
+    } catch (error) {
+
+      ultimoError = error;
+
+      console.warn(
+        "Intento " +
+        intento +
+        " de acceso al archivo falló:",
+        error
+      );
+
+      Utilities.sleep(
+        intento * 900
+      );
+
+    }
+
+  }
+
+  throw new Error(
+    "No fue posible acceder al archivo del documento. " +
+    (
+      ultimoError
+        ? ultimoError.toString()
+        : ""
+    )
+  );
+
+}
+
+
+// ======================================================
+// AUTORIZACIÓN INICIAL
+// Ejecutar manualmente una vez después de reemplazar
+// el backend. Autoriza DocumentApp y UrlFetchApp.
+// ======================================================
+
+function autorizarPDFInspeccionCarta() {
+
+  const pruebaQR =
+    UrlFetchApp.fetch(
+      "https://quickchart.io/qr?size=100&text=AUTORIZADO",
+      {
+        muteHttpExceptions:
+          true
+      }
+    );
+
+  Logger.log(
+    "Respuesta QR: " +
+    pruebaQR.getResponseCode()
+  );
+
+  const blobPrueba =
+    Utilities.newBlob(
+      "<html><body>PDF autorizado</body></html>",
+      "text/html",
+      "prueba.html"
+    );
+
+  const pdfPrueba =
+    blobPrueba.getAs(
+      MimeType.PDF
+    );
+
+  Logger.log(
+    "Conversión HTML a PDF autorizada: " +
+    pdfPrueba.getBytes().length +
+    " bytes"
+  );
+
+}
+

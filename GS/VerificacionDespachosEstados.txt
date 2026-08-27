@@ -1,0 +1,467 @@
+/**
+ * ============================================================
+ * VERIFICACIONDESPACHOSESTADOS.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Única responsabilidad:
+ * - Determinar el Estado_Verificacion real.
+ * - Mantener separadas las tres dimensiones:
+ *
+ *   1. Estado_Verificacion
+ *   2. Resultado_Verificacion
+ *   3. Estado_Resolucion_General
+ *
+ * Estado_Verificacion permitido:
+ *
+ * - En proceso
+ * - Verificado
+ * - Resuelto
+ * - Anulada
+ *
+ * "Sin iniciar" no se escribe en Verificacion_Despachos,
+ * porque todavía no existe una verificación. El listado lo
+ * devuelve virtualmente cuando no encuentra ID_Verificacion.
+ * ============================================================
+ */
+
+
+/**
+ * Determina el estado operativo persistente de una verificación.
+ *
+ * Reglas:
+ *
+ * 1. Si quedan materiales sin verificar:
+ *    En proceso
+ *
+ * 2. Si todos fueron verificados y nunca hubo incidencia:
+ *    Verificado
+ *
+ * 3. Si hubo incidencia y queda diferencia pendiente:
+ *    En proceso
+ *
+ * 4. Si hubo incidencia y ya no queda diferencia pendiente:
+ *    Resuelto
+ *
+ * @param {Object} resumen
+ * @return {string}
+ */
+function determinarEstadoOperativoVerificacion_(
+  resumen
+) {
+
+  const datos =
+    resumen || {};
+
+
+  const totalMateriales =
+    numeroInicioVerificacion_(
+      datos.totalMateriales
+    );
+
+
+  const materialesConformes =
+    numeroInicioVerificacion_(
+      datos.materialesConformes
+    );
+
+
+  const materialesConDiferencia =
+    numeroInicioVerificacion_(
+      datos.materialesConDiferencia
+    );
+
+
+  const materialesVerificados =
+    materialesConformes +
+    materialesConDiferencia;
+
+
+  const materialesPendientes =
+    Object.prototype.hasOwnProperty.call(
+      datos,
+      "materialesPendientesVerificar"
+    )
+
+      ? numeroInicioVerificacion_(
+          datos.materialesPendientesVerificar
+        )
+
+      : Math.max(
+          0,
+          totalMateriales -
+          materialesVerificados
+        );
+
+
+  const incidenciasDetectadas =
+    numeroInicioVerificacion_(
+      datos.incidenciasDetectadas
+    );
+
+
+  const diferenciaPendiente =
+    Math.abs(
+      numeroInicioVerificacion_(
+        datos.totalDiferenciaPendiente
+      )
+    );
+
+
+  if (
+    materialesPendientes > 0
+  ) {
+
+    return "En proceso";
+
+  }
+
+
+  if (
+    incidenciasDetectadas <= 0
+  ) {
+
+    return "Verificado";
+
+  }
+
+
+  if (
+    diferenciaPendiente <= 0
+  ) {
+
+    return "Resuelto";
+
+  }
+
+
+  return "En proceso";
+
+}
+
+
+/**
+ * Devuelve la presentación que consumirá el frontend.
+ *
+ * El frontend no debe deducir estados.
+ *
+ * @param {Object|null} verificacion
+ * @return {Object}
+ */
+function obtenerPresentacionEstadoVerificacion_(
+  verificacion
+) {
+
+  if (!verificacion) {
+
+    return {
+
+      estadoVerificacion:
+        "Sin iniciar",
+
+      accion:
+        "INICIAR",
+
+      textoBoton:
+        "Iniciar",
+
+      claseVisual:
+        "iniciar",
+
+      colorVisual:
+        "rojo",
+
+      modoApertura:
+        "edicion"
+
+    };
+
+  }
+
+
+  const estado =
+    String(
+      verificacion.Estado_Verificacion ||
+      "En proceso"
+    ).trim();
+
+
+  const estadoNormalizado =
+    normalizarTextoInicioVerificacion_(
+      estado
+    );
+
+
+  if (
+    estadoNormalizado === "verificado"
+  ) {
+
+    return {
+
+      estadoVerificacion:
+        "Verificado",
+
+      accion:
+        "VER",
+
+      textoBoton:
+        "Ver",
+
+      claseVisual:
+        "verificado",
+
+      colorVisual:
+        "verde",
+
+      modoApertura:
+        "consulta"
+
+    };
+
+  }
+
+
+  if (
+    estadoNormalizado === "resuelto"
+  ) {
+
+    return {
+
+      estadoVerificacion:
+        "Resuelto",
+
+      accion:
+        "CONSULTAR",
+
+      textoBoton:
+        "Consultar",
+
+      claseVisual:
+        "resuelto",
+
+      colorVisual:
+        "azul",
+
+      modoApertura:
+        "consulta"
+
+    };
+
+  }
+
+
+  if (
+    estadoNormalizado === "anulada"
+  ) {
+
+    return {
+
+      estadoVerificacion:
+        "Anulada",
+
+      accion:
+        "VER",
+
+      textoBoton:
+        "Ver",
+
+      claseVisual:
+        "anulada",
+
+      colorVisual:
+        "gris",
+
+      modoApertura:
+        "consulta"
+
+    };
+
+  }
+
+
+  return {
+
+    estadoVerificacion:
+      "En proceso",
+
+    accion:
+      "CONTINUAR",
+
+    textoBoton:
+      "Continuar",
+
+    claseVisual:
+      "en-proceso",
+
+    colorVisual:
+      "naranja",
+
+    modoApertura:
+      "edicion"
+
+  };
+
+}
+
+
+/**
+ * Sincroniza las columnas reales en:
+ *
+ * - Verificacion_Despachos
+ * - Despacho
+ *
+ * No crea nombres visuales alternos.
+ *
+ * @param {Object} parametros
+ * @return {Object}
+ */
+function sincronizarEstadoOperativoVerificacion_(
+  parametros
+) {
+
+  const datos =
+    parametros || {};
+
+
+  const hojaVerificaciones =
+    datos.hojaVerificaciones;
+
+
+  const hojaDespacho =
+    datos.hojaDespacho ||
+    getSheet(
+      SHEETS.DESPACHO
+    );
+
+
+  const estadoVerificacion =
+    determinarEstadoOperativoVerificacion_(
+      datos.resumen || {}
+    );
+
+
+  const resultadoVerificacion =
+    String(
+      datos.estadoGeneral &&
+      datos.estadoGeneral.resultadoVerificacion
+        ? datos.estadoGeneral.resultadoVerificacion
+        : ""
+    ).trim();
+
+
+  const estadoResolucionGeneral =
+    String(
+      datos.estadoGeneral &&
+      datos.estadoGeneral.estadoResolucionGeneral
+        ? datos.estadoGeneral.estadoResolucionGeneral
+        : "NO APLICA"
+    ).trim();
+
+
+  actualizarRegistroPorCampoVerificacion_({
+
+    hoja:
+      hojaVerificaciones,
+
+    campoBusqueda:
+      "ID_Verificacion",
+
+    valorBusqueda:
+      datos.idVerificacion,
+
+    datos: {
+
+      Estado_Verificacion:
+        estadoVerificacion,
+
+      Resultado_Verificacion:
+        resultadoVerificacion,
+
+      Estado_Resolucion_General:
+        estadoResolucionGeneral,
+
+      Fecha_Modificacion:
+        new Date()
+
+    }
+
+  });
+
+
+  if (
+    hojaDespacho
+  ) {
+
+    actualizarRegistroPorCampoVerificacion_({
+
+      hoja:
+        hojaDespacho,
+
+      campoBusqueda:
+        "ID_Conduce",
+
+      valorBusqueda:
+        datos.idConduce,
+
+      datos: {
+
+        Estado_Verificacion:
+          estadoVerificacion,
+
+        ID_Verificacion:
+          datos.idVerificacion,
+
+        Resultado_Verificacion:
+          resultadoVerificacion,
+
+        Fecha_Verificacion:
+          new Date(),
+
+        Verificado_Por:
+          datos.usuario || ""
+
+      }
+
+    });
+
+  }
+
+
+  const presentacion =
+    obtenerPresentacionEstadoVerificacion_({
+
+      Estado_Verificacion:
+        estadoVerificacion
+
+    });
+
+
+  return {
+
+    estadoVerificacion:
+      estadoVerificacion,
+
+    resultadoVerificacion:
+      resultadoVerificacion,
+
+    estadoResolucionGeneral:
+      estadoResolucionGeneral,
+
+    accion:
+      presentacion.accion,
+
+    textoBoton:
+      presentacion.textoBoton,
+
+    claseVisual:
+      presentacion.claseVisual,
+
+    colorVisual:
+      presentacion.colorVisual,
+
+    modoApertura:
+      presentacion.modoApertura
+
+  };
+
+}

@@ -1,0 +1,1778 @@
+/**
+ * ============================================================
+ * REPORTEMATERIALESFB.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Reporte:
+ * "REPORTE DE MATERIALES DESPACHADOS A FRIOBOX"
+ *
+ * Lógica:
+ * - Busca los conduces de hoy en estado Despachado o Completado.
+ * - Toma únicamente las líneas cuyo destino sea FB / Friobox.
+ * - Agrupa la cantidad enviada por material.
+ * - Calcula los días de stock ACTUALES en Inventario_FB:
+ *
+ *     Días_Stock_FB =
+ *       Libre_utilización actual en FB
+ *       ÷ Promedio_Ventas
+ *
+ * - El despacho del día NO se suma al inventario de FB.
+ * - El semáforo refleja la situación actual registrada en FB.
+ * - No genera una sección adicional de prioridades.
+ *
+ * Configuraciones opcionales:
+ * - Dias_Stock_Critico_FB = 3
+ * - Dias_Stock_Riesgo_FB  = 7
+ *
+ * Semáforo:
+ * - 🔴 Menos de Dias_Stock_Critico_FB
+ * - 🟠 Desde crítico hasta menos de riesgo
+ * - 🟢 Igual o superior a riesgo
+ * - ⚪ Sin promedio de ventas
+ * ============================================================
+ */
+
+
+/**
+ * Prueba manual.
+ *
+ * Fuerza el envío aunque el reporte ya haya sido enviado hoy.
+ */
+function probarReporteMaterialesFBHoy() {
+
+  return ejecutarReporteMaterialesFBHoy(
+    true
+  );
+
+}
+
+
+/**
+ * Genera y envía el reporte del día.
+ *
+ * @param {boolean} forzarEnvio
+ * @return {Object}
+ */
+function ejecutarReporteMaterialesFBHoy(
+  forzarEnvio
+) {
+
+  if (!reportesChatHabilitados_()) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        "Los reportes de Google Chat están deshabilitados."
+    };
+
+  }
+
+  const control =
+    validarEnvioReporteUnico_(
+      "MATERIALES_FB_1700",
+      forzarEnvio === true
+    );
+
+  if (!control.permitido) {
+    return control;
+  }
+
+  const datos =
+    obtenerReporteMaterialesFBHoy_();
+
+  if (
+    !Array.isArray(datos.materiales) ||
+    datos.materiales.length === 0
+  ) {
+
+    return {
+      exito: true,
+      omitido: true,
+      motivo:
+        "No se encontraron materiales despachados hoy a Friobox.",
+      datos:
+        datos
+    };
+
+  }
+
+  const mensaje =
+    construirMensajeReporteMaterialesFB_(
+      datos
+    );
+
+  const envio =
+    enviarMensajeReporteMaterialesFB_(
+      mensaje
+    );
+
+  marcarReporteEnviado_(
+    "MATERIALES_FB_1700"
+  );
+
+  return {
+    exito: true,
+    omitido: false,
+    datos:
+      datos,
+    envioChat:
+      envio
+  };
+
+}
+
+
+/**
+ * Obtiene los datos del reporte.
+ *
+ * @return {Object}
+ */
+function obtenerReporteMaterialesFBHoy_() {
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const zonaHoraria =
+    obtenerZonaHorariaReportes_();
+
+  const ahora =
+    new Date();
+
+  const fechaHoyISO =
+    Utilities.formatDate(
+      ahora,
+      zonaHoraria,
+      "yyyy-MM-dd"
+    );
+
+  const fechaHoyVisual =
+    Utilities.formatDate(
+      ahora,
+      zonaHoraria,
+      "dd/MM/yyyy"
+    );
+
+  const horaCorte =
+    Utilities.formatDate(
+      ahora,
+      zonaHoraria,
+      "HH:mm"
+    );
+
+  const hojaDespacho =
+    ss.getSheetByName(
+      "Despacho"
+    );
+
+  if (!hojaDespacho) {
+
+    throw new Error(
+      'No existe la hoja "Despacho".'
+    );
+
+  }
+
+  const conduces =
+    obtenerConducesFBDelDia_(
+      hojaDespacho,
+      fechaHoyISO,
+      zonaHoraria
+    );
+
+  const idsConduce =
+    conduces.map(function(item) {
+
+      return item.idConduce;
+
+    });
+
+  if (idsConduce.length === 0) {
+
+    return {
+      fecha:
+        fechaHoyVisual,
+
+      horaCorte:
+        horaCorte,
+
+      supervisor:
+        "Sin supervisor identificado",
+
+      materialesDistintos:
+        0,
+
+      totalBultos:
+        0,
+
+      materiales:
+        []
+    };
+
+  }
+
+  const hojaDetalle =
+    obtenerHojaDetalleDespacho_(
+      ss
+    );
+
+  const lineas =
+    obtenerLineasFBDeConduces_(
+      hojaDetalle,
+      idsConduce
+    );
+
+  const materialesAgrupados =
+    agruparLineasMaterialesFB_(
+      lineas
+    );
+
+  const catalogoMateriales =
+    obtenerCatalogoMaterialesReporteFB_(
+      ss
+    );
+
+  const inventarioFB =
+    obtenerInventarioFBReporte_(
+      ss
+    );
+
+  const limiteCritico =
+    obtenerNumeroConfiguracionReporteFB_(
+      "Dias_Stock_Critico_FB",
+      3
+    );
+
+  const limiteRiesgo =
+    obtenerNumeroConfiguracionReporteFB_(
+      "Dias_Stock_Riesgo_FB",
+      7
+    );
+
+  const materiales =
+    materialesAgrupados.map(function(item) {
+
+      const codigo =
+        String(
+          item.material || ""
+        ).trim();
+
+      const catalogo =
+        catalogoMateriales[codigo] || {};
+
+      const inventario =
+        inventarioFB[codigo] || {};
+
+      /*
+       * Ambos valores deben estar en la misma unidad base.
+       *
+       * Inventario_FB.Libre_utilización
+       * Materiales.Promedio_Ventas
+       *
+       * Por tanto:
+       * Días stock = inventario actual ÷ promedio de ventas.
+       */
+      const stockActualFB =
+        convertirNumeroReporteFB_(
+          inventario.libreUtilizacion
+        );
+
+      const promedioVentas =
+        convertirNumeroReporteFB_(
+          catalogo.promedioVentas
+        );
+
+      const diasStockFB =
+        promedioVentas > 0
+          ? stockActualFB /
+            promedioVentas
+          : null;
+
+      const semaforo =
+        clasificarDiasStockFB_(
+          diasStockFB,
+          limiteCritico,
+          limiteRiesgo
+        );
+
+      return {
+        material:
+          codigo,
+
+        descripcion:
+          String(
+            item.descripcion ||
+            catalogo.descripcion ||
+            inventario.descripcion ||
+            ""
+          ).trim(),
+
+        unidadMedida:
+          String(
+            item.unidadMedida ||
+            catalogo.um ||
+            ""
+          ).trim(),
+
+        cantidadBultos:
+          redondearReporteFB_(
+            item.cantidad,
+            2
+          ),
+
+        diasStockFB:
+          diasStockFB === null
+            ? null
+            : redondearReporteFB_(
+                diasStockFB,
+                2
+              ),
+
+        estadoStock:
+          semaforo.estado,
+
+        iconoStock:
+          semaforo.icono,
+
+        ordenStock:
+          semaforo.orden
+      };
+
+    });
+
+  /*
+   * Primero aparecen los materiales con menor cobertura.
+   * Los materiales sin promedio quedan al final.
+   */
+  materiales.sort(function(a, b) {
+
+    if (
+      a.diasStockFB === null &&
+      b.diasStockFB !== null
+    ) {
+      return 1;
+    }
+
+    if (
+      a.diasStockFB !== null &&
+      b.diasStockFB === null
+    ) {
+      return -1;
+    }
+
+    if (
+      a.diasStockFB !==
+      b.diasStockFB
+    ) {
+
+      return (
+        Number(a.diasStockFB || 0) -
+        Number(b.diasStockFB || 0)
+      );
+
+    }
+
+    return String(
+      a.descripcion || ""
+    ).localeCompare(
+      String(
+        b.descripcion || ""
+      ),
+      "es",
+      {
+        sensitivity: "base"
+      }
+    );
+
+  });
+
+  const totalBultos =
+    materiales.reduce(
+      function(total, item) {
+
+        return (
+          total +
+          convertirNumeroReporteFB_(
+            item.cantidadBultos
+          )
+        );
+
+      },
+      0
+    );
+
+  return {
+    fecha:
+      fechaHoyVisual,
+
+    horaCorte:
+      horaCorte,
+
+    supervisor:
+      obtenerSupervisorReporteFB_(
+        conduces
+      ),
+
+    materialesDistintos:
+      materiales.length,
+
+    totalBultos:
+      redondearReporteFB_(
+        totalBultos,
+        2
+      ),
+
+    materiales:
+      materiales
+  };
+
+}
+
+
+/**
+ * Obtiene conduces válidos del día que incluyen FB.
+ */
+function obtenerConducesFBDelDia_(
+  hoja,
+  fechaHoyISO,
+  zonaHoraria
+) {
+
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (datos.length < 2) {
+    return [];
+  }
+
+  const encabezados =
+    datos[0].map(
+      normalizarEncabezadoReporteFB_
+    );
+
+  const indices = {
+    idConduce:
+      encabezados.indexOf(
+        "ID_CONDUCE"
+      ),
+
+    estado:
+      encabezados.indexOf(
+        "ESTADO"
+      ),
+
+    fechaDespacho:
+      encabezados.indexOf(
+        "FECHA_DESPACHO"
+      ),
+
+    fechaCompletado:
+      encabezados.indexOf(
+        "FECHA_COMPLETADO"
+      ),
+
+    destino1:
+      encabezados.indexOf(
+        "DESTINO_1"
+      ),
+
+    destino2:
+      encabezados.indexOf(
+        "DESTINO_2"
+      ),
+
+    realizadoPor:
+      encabezados.indexOf(
+        "REALIZADOPOR"
+      )
+  };
+
+  if (
+    indices.idConduce === -1 ||
+    indices.estado === -1
+  ) {
+
+    throw new Error(
+      'La hoja "Despacho" no contiene ID_Conduce o Estado.'
+    );
+
+  }
+
+  const resultado = [];
+
+  for (
+    let filaIndex = 1;
+    filaIndex < datos.length;
+    filaIndex++
+  ) {
+
+    const fila =
+      datos[filaIndex];
+
+    const estado =
+      normalizarTextoReporteFB_(
+        fila[indices.estado]
+      );
+
+    if (
+      estado !== "DESPACHADO" &&
+      estado !== "COMPLETADO"
+    ) {
+      continue;
+    }
+
+    const fechaOperacion =
+      indices.fechaDespacho !== -1 &&
+      fila[indices.fechaDespacho]
+
+        ? fila[indices.fechaDespacho]
+
+        : (
+            indices.fechaCompletado !== -1
+              ? fila[indices.fechaCompletado]
+              : ""
+          );
+
+    const fechaOperacionISO =
+      formatearFechaISOReporteFB_(
+        fechaOperacion,
+        zonaHoraria
+      );
+
+    if (
+      fechaOperacionISO !==
+      fechaHoyISO
+    ) {
+      continue;
+    }
+
+    const destino1 =
+      indices.destino1 !== -1
+        ? fila[indices.destino1]
+        : "";
+
+    const destino2 =
+      indices.destino2 !== -1
+        ? fila[indices.destino2]
+        : "";
+
+    if (
+      !esDestinoFrioboxReporteFB_(
+        destino1
+      ) &&
+      !esDestinoFrioboxReporteFB_(
+        destino2
+      )
+    ) {
+      continue;
+    }
+
+    const idConduce =
+      String(
+        fila[indices.idConduce] || ""
+      ).trim();
+
+    if (!idConduce) {
+      continue;
+    }
+
+    resultado.push({
+      idConduce:
+        idConduce,
+
+      realizadoPor:
+        indices.realizadoPor !== -1
+          ? String(
+              fila[
+                indices.realizadoPor
+              ] || ""
+            ).trim()
+          : ""
+    });
+
+  }
+
+  return resultado;
+
+}
+
+
+/**
+ * Detecta la hoja de detalle mediante sus encabezados.
+ */
+function obtenerHojaDetalleDespacho_(
+  ss
+) {
+
+  const requeridos = [
+    "ID_LINEA",
+    "ID_CONDUCE",
+    "DESTINO",
+    "MATERIAL",
+    "DESCRIPCION",
+    "UNIDAD_MEDIDA",
+    "CANTIDAD"
+  ];
+
+  const hojas =
+    ss.getSheets();
+
+  for (
+    let i = 0;
+    i < hojas.length;
+    i++
+  ) {
+
+    const hoja =
+      hojas[i];
+
+    if (
+      hoja.getLastRow() < 1 ||
+      hoja.getLastColumn() < 1
+    ) {
+      continue;
+    }
+
+    const encabezados =
+      hoja
+        .getRange(
+          1,
+          1,
+          1,
+          hoja.getLastColumn()
+        )
+        .getValues()[0]
+        .map(
+          normalizarEncabezadoReporteFB_
+        );
+
+    const contieneTodos =
+      requeridos.every(
+        function(encabezado) {
+
+          return (
+            encabezados.indexOf(
+              encabezado
+            ) !== -1
+          );
+
+        }
+      );
+
+    if (contieneTodos) {
+      return hoja;
+    }
+
+  }
+
+  throw new Error(
+    "No se encontró la hoja de detalle de despachos."
+  );
+
+}
+
+
+/**
+ * Obtiene líneas de los conduces seleccionados con destino FB.
+ */
+function obtenerLineasFBDeConduces_(
+  hoja,
+  idsConduce
+) {
+
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (datos.length < 2) {
+    return [];
+  }
+
+  const encabezados =
+    datos[0].map(
+      normalizarEncabezadoReporteFB_
+    );
+
+  const indices = {
+    idConduce:
+      encabezados.indexOf(
+        "ID_CONDUCE"
+      ),
+
+    destino:
+      encabezados.indexOf(
+        "DESTINO"
+      ),
+
+    material:
+      encabezados.indexOf(
+        "MATERIAL"
+      ),
+
+    descripcion:
+      encabezados.indexOf(
+        "DESCRIPCION"
+      ),
+
+    unidadMedida:
+      encabezados.indexOf(
+        "UNIDAD_MEDIDA"
+      ),
+
+    cantidad:
+      encabezados.indexOf(
+        "CANTIDAD"
+      )
+  };
+
+  const conducesPermitidos = {};
+
+  idsConduce.forEach(function(id) {
+
+    conducesPermitidos[
+      String(id)
+    ] = true;
+
+  });
+
+  const lineas = [];
+
+  for (
+    let filaIndex = 1;
+    filaIndex < datos.length;
+    filaIndex++
+  ) {
+
+    const fila =
+      datos[filaIndex];
+
+    const idConduce =
+      String(
+        fila[
+          indices.idConduce
+        ] || ""
+      ).trim();
+
+    if (
+      !conducesPermitidos[
+        idConduce
+      ]
+    ) {
+      continue;
+    }
+
+    if (
+      !esDestinoFrioboxReporteFB_(
+        fila[indices.destino]
+      )
+    ) {
+      continue;
+    }
+
+    const material =
+      String(
+        fila[indices.material] || ""
+      ).trim();
+
+    const cantidad =
+      convertirNumeroReporteFB_(
+        fila[indices.cantidad]
+      );
+
+    if (
+      !material ||
+      cantidad <= 0
+    ) {
+      continue;
+    }
+
+    lineas.push({
+      material:
+        material,
+
+      descripcion:
+        String(
+          fila[
+            indices.descripcion
+          ] || ""
+        ).trim(),
+
+      unidadMedida:
+        String(
+          fila[
+            indices.unidadMedida
+          ] || ""
+        ).trim(),
+
+      cantidad:
+        cantidad
+    });
+
+  }
+
+  return lineas;
+
+}
+
+
+/**
+ * Agrupa las líneas por material y unidad.
+ */
+function agruparLineasMaterialesFB_(
+  lineas
+) {
+
+  const grupos = {};
+
+  lineas.forEach(function(linea) {
+
+    const clave =
+      String(linea.material) +
+      "|" +
+      String(linea.unidadMedida);
+
+    if (!grupos[clave]) {
+
+      grupos[clave] = {
+        material:
+          linea.material,
+
+        descripcion:
+          linea.descripcion,
+
+        unidadMedida:
+          linea.unidadMedida,
+
+        cantidad:
+          0
+      };
+
+    }
+
+    grupos[clave].cantidad +=
+      convertirNumeroReporteFB_(
+        linea.cantidad
+      );
+
+  });
+
+  return Object.keys(grupos)
+    .map(function(clave) {
+
+      return grupos[clave];
+
+    });
+
+}
+
+
+/**
+ * Lee el catálogo Materiales.
+ */
+function obtenerCatalogoMaterialesReporteFB_(
+  ss
+) {
+
+  const hoja =
+    ss.getSheetByName(
+      "Materiales"
+    );
+
+  if (!hoja) {
+
+    throw new Error(
+      'No existe la hoja "Materiales".'
+    );
+
+  }
+
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (datos.length < 2) {
+    return {};
+  }
+
+  const encabezados =
+    datos[0].map(
+      normalizarEncabezadoReporteFB_
+    );
+
+  const indices = {
+    material:
+      encabezados.indexOf(
+        "ID_MATERIAL"
+      ),
+
+    descripcion:
+      encabezados.indexOf(
+        "DESCRIPCION"
+      ),
+
+    unidadMedida:
+      encabezados.indexOf(
+        "UM"
+      ),
+
+    promedioVentas:
+      encabezados.indexOf(
+        "PROMEDIO_VENTAS"
+      )
+  };
+
+  if (
+    indices.material === -1
+  ) {
+
+    throw new Error(
+      'La hoja "Materiales" no contiene ID_Material.'
+    );
+
+  }
+
+  const mapa = {};
+
+  for (
+    let filaIndex = 1;
+    filaIndex < datos.length;
+    filaIndex++
+  ) {
+
+    const fila =
+      datos[filaIndex];
+
+    const codigo =
+      String(
+        fila[
+          indices.material
+        ] || ""
+      ).trim();
+
+    if (!codigo) {
+      continue;
+    }
+
+    mapa[codigo] = {
+      descripcion:
+        indices.descripcion !== -1
+          ? fila[
+              indices.descripcion
+            ]
+          : "",
+
+      um:
+        indices.unidadMedida !== -1
+          ? fila[
+              indices.unidadMedida
+            ]
+          : "",
+
+      promedioVentas:
+        indices.promedioVentas !== -1
+          ? fila[
+              indices.promedioVentas
+            ]
+          : 0
+    };
+
+  }
+
+  return mapa;
+
+}
+
+
+/**
+ * Lee y totaliza Inventario_FB por material.
+ */
+function obtenerInventarioFBReporte_(
+  ss
+) {
+
+  const hoja =
+    ss.getSheetByName(
+      "Inventario_FB"
+    );
+
+  if (!hoja) {
+
+    throw new Error(
+      'No existe la hoja "Inventario_FB".'
+    );
+
+  }
+
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (datos.length < 2) {
+    return {};
+  }
+
+  const encabezados =
+    datos[0].map(
+      normalizarEncabezadoReporteFB_
+    );
+
+  const indices = {
+    material:
+      encabezados.indexOf(
+        "MATERIAL"
+      ),
+
+    descripcion:
+      encabezados.indexOf(
+        "DESCRIPCION"
+      ),
+
+    libreUtilizacion:
+      encabezados.indexOf(
+        "LIBRE_UTILIZACION"
+      )
+  };
+
+  if (
+    indices.material === -1 ||
+    indices.libreUtilizacion === -1
+  ) {
+
+    throw new Error(
+      "Inventario_FB no contiene Material o Libre_utilización."
+    );
+
+  }
+
+  const mapa = {};
+
+  for (
+    let filaIndex = 1;
+    filaIndex < datos.length;
+    filaIndex++
+  ) {
+
+    const fila =
+      datos[filaIndex];
+
+    const codigo =
+      String(
+        fila[
+          indices.material
+        ] || ""
+      ).trim();
+
+    if (!codigo) {
+      continue;
+    }
+
+    if (!mapa[codigo]) {
+
+      mapa[codigo] = {
+        descripcion:
+          indices.descripcion !== -1
+            ? fila[
+                indices.descripcion
+              ]
+            : "",
+
+        libreUtilizacion:
+          0
+      };
+
+    }
+
+    mapa[codigo].libreUtilizacion +=
+      convertirNumeroReporteFB_(
+        fila[
+          indices.libreUtilizacion
+        ]
+      );
+
+  }
+
+  return mapa;
+
+}
+
+
+/**
+ * Construye el mensaje compacto.
+ */
+function construirMensajeReporteMaterialesFB_(
+  datos
+) {
+
+  const d =
+    datos || {};
+
+  return [
+    "📦 *REPORTE DE MATERIALES DESPACHADOS A FRIOBOX*",
+    "",
+    "📅 Fecha: *" +
+      String(d.fecha || "-") +
+      "*",
+
+    "🕔 Corte: *" +
+      String(d.horaCorte || "-") +
+      "*",
+
+    "👤 Supervisor: *" +
+      String(
+        d.supervisor ||
+        "Sin supervisor identificado"
+      ) +
+      "*",
+
+    "📦 Materiales distintos: *" +
+      formatearNumeroReporteFB_(
+        d.materialesDistintos,
+        0
+      ) +
+      "*",
+
+    "📊 Total bultos enviados: *" +
+      formatearNumeroReporteFB_(
+        d.totalBultos,
+        2
+      ) +
+      "*",
+
+    "",
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+
+    construirTablaTextoMaterialesFB_(
+      d.materiales
+    ),
+
+    "",
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+
+    "Generado automáticamente por el *Sistema Logístico PT*."
+  ].join("\n");
+
+}
+
+
+/**
+ * Construye la tabla monoespaciada.
+ */
+function construirTablaTextoMaterialesFB_(
+  materiales
+) {
+
+  const lista =
+    Array.isArray(materiales)
+      ? materiales
+      : [];
+
+  const encabezado =
+    ajustarTextoTablaFB_(
+      "Material",
+      10
+    ) +
+    " " +
+    ajustarTextoTablaFB_(
+      "Descripción",
+      24
+    ) +
+    " " +
+    ajustarTextoTablaFB_(
+      "UM",
+      7
+    ) +
+    " " +
+    ajustarNumeroTablaFB_(
+      "Cant.",
+      10
+    ) +
+    " " +
+    ajustarNumeroTablaFB_(
+      "Días_Stock_FB",
+      13
+    );
+
+  const separador =
+    "────────── " +
+    "──────────────────────── " +
+    "─────── " +
+    "────────── " +
+    "─────────────";
+
+  const filas =
+    lista.map(function(item) {
+
+      const dias =
+        item.diasStockFB === null
+          ? "N/D"
+          : formatearNumeroReporteFB_(
+              item.diasStockFB,
+              1
+            );
+
+      return (
+        ajustarTextoTablaFB_(
+          item.material,
+          10
+        ) +
+        " " +
+        ajustarTextoTablaFB_(
+          item.descripcion,
+          24
+        ) +
+        " " +
+        ajustarTextoTablaFB_(
+          item.unidadMedida,
+          7
+        ) +
+        " " +
+        ajustarNumeroTablaFB_(
+          formatearNumeroReporteFB_(
+            item.cantidadBultos,
+            2
+          ),
+          10
+        ) +
+        " " +
+        ajustarNumeroTablaFB_(
+          dias,
+          11
+        ) +
+        " " +
+        String(
+          item.iconoStock || ""
+        )
+      );
+
+    });
+
+  return [
+    "```",
+    encabezado,
+    separador
+  ]
+    .concat(filas)
+    .concat([
+      "```"
+    ])
+    .join("\n");
+
+}
+
+
+/**
+ * Envía al Chat Ejecutivo si está configurado.
+ * Mientras esté vacío, utiliza el Chat Operativo.
+ */
+function enviarMensajeReporteMaterialesFB_(
+  mensaje
+) {
+
+  const webhookEjecutivo =
+    obtenerConfiguracionReporteOperativo_(
+      "Webhook_Chat_Ejecutivo",
+      ""
+    );
+
+  if (
+    String(
+      webhookEjecutivo || ""
+    ).trim()
+  ) {
+
+    return enviarMensajeGoogleChat_(
+      webhookEjecutivo,
+      mensaje,
+      "EJECUTIVO"
+    );
+
+  }
+
+  return enviarMensajeChatOperativo(
+    mensaje
+  );
+
+}
+
+
+/**
+ * Clasifica los días de stock actuales en FB.
+ */
+function clasificarDiasStockFB_(
+  diasStock,
+  limiteCritico,
+  limiteRiesgo
+) {
+
+  if (
+    diasStock === null ||
+    diasStock === undefined ||
+    !isFinite(diasStock)
+  ) {
+
+    return {
+      estado:
+        "SIN PROMEDIO",
+      icono:
+        "⚪",
+      orden:
+        4
+    };
+
+  }
+
+  if (
+    diasStock <
+    limiteCritico
+  ) {
+
+    return {
+      estado:
+        "CRÍTICO",
+      icono:
+        "🔴",
+      orden:
+        1
+    };
+
+  }
+
+  if (
+    diasStock <
+    limiteRiesgo
+  ) {
+
+    return {
+      estado:
+        "RIESGO",
+      icono:
+        "🟠",
+      orden:
+        2
+    };
+
+  }
+
+  return {
+    estado:
+      "NORMAL",
+    icono:
+      "🟢",
+    orden:
+      3
+  };
+
+}
+
+
+/**
+ * Supervisor predominante del día.
+ */
+function obtenerSupervisorReporteFB_(
+  conduces
+) {
+
+  const conteo = {};
+
+  conduces.forEach(function(item) {
+
+    const nombre =
+      String(
+        item.realizadoPor || ""
+      ).trim();
+
+    if (!nombre) {
+      return;
+    }
+
+    conteo[nombre] =
+      (conteo[nombre] || 0) + 1;
+
+  });
+
+  const nombres =
+    Object.keys(conteo);
+
+  if (nombres.length === 0) {
+
+    return (
+      "Sin supervisor identificado"
+    );
+
+  }
+
+  nombres.sort(function(a, b) {
+
+    return (
+      conteo[b] -
+      conteo[a]
+    );
+
+  });
+
+  return nombres[0];
+
+}
+
+
+/**
+ * Lee un número desde Configuracion.
+ */
+function obtenerNumeroConfiguracionReporteFB_(
+  clave,
+  valorPredeterminado
+) {
+
+  const numero =
+    convertirNumeroReporteFB_(
+      obtenerConfiguracionReporteOperativo_(
+        clave,
+        valorPredeterminado
+      )
+    );
+
+  return numero > 0
+    ? numero
+    : valorPredeterminado;
+
+}
+
+
+/**
+ * Comprueba destino FB.
+ */
+function esDestinoFrioboxReporteFB_(
+  valor
+) {
+
+  const texto =
+    normalizarTextoReporteFB_(
+      valor
+    );
+
+  return (
+    texto === "FB" ||
+    texto.indexOf(
+      "FRIOBOX"
+    ) !== -1 ||
+    texto.indexOf(
+      "FRIO BOX"
+    ) !== -1
+  );
+
+}
+
+
+/**
+ * Convierte una fecha a yyyy-MM-dd.
+ */
+function formatearFechaISOReporteFB_(
+  valor,
+  zonaHoraria
+) {
+
+  if (!valor) {
+    return "";
+  }
+
+  if (
+    Object.prototype.toString.call(
+      valor
+    ) === "[object Date]" &&
+    !isNaN(valor.getTime())
+  ) {
+
+    return Utilities.formatDate(
+      valor,
+      zonaHoraria,
+      "yyyy-MM-dd"
+    );
+
+  }
+
+  const texto =
+    String(valor).trim();
+
+  let coincidencia =
+    texto.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})/
+    );
+
+  if (coincidencia) {
+
+    return (
+      coincidencia[1] +
+      "-" +
+      String(
+        coincidencia[2]
+      ).padStart(
+        2,
+        "0"
+      ) +
+      "-" +
+      String(
+        coincidencia[3]
+      ).padStart(
+        2,
+        "0"
+      )
+    );
+
+  }
+
+  coincidencia =
+    texto.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+    );
+
+  if (coincidencia) {
+
+    return (
+      coincidencia[3] +
+      "-" +
+      String(
+        coincidencia[2]
+      ).padStart(
+        2,
+        "0"
+      ) +
+      "-" +
+      String(
+        coincidencia[1]
+      ).padStart(
+        2,
+        "0"
+      )
+    );
+
+  }
+
+  const fecha =
+    new Date(texto);
+
+  if (
+    isNaN(
+      fecha.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return Utilities.formatDate(
+    fecha,
+    zonaHoraria,
+    "yyyy-MM-dd"
+  );
+
+}
+
+
+/**
+ * Normaliza encabezados.
+ */
+function normalizarEncabezadoReporteFB_(
+  valor
+) {
+
+  return String(valor || "")
+    .trim()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      "_"
+    )
+    .toUpperCase();
+
+}
+
+
+/**
+ * Normaliza texto.
+ */
+function normalizarTextoReporteFB_(
+  valor
+) {
+
+  return String(valor || "")
+    .trim()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toUpperCase();
+
+}
+
+
+/**
+ * Convierte a número.
+ */
+function convertirNumeroReporteFB_(
+  valor
+) {
+
+  if (
+    typeof valor === "number" &&
+    isFinite(valor)
+  ) {
+    return valor;
+  }
+
+  const texto =
+    String(
+      valor === null ||
+      valor === undefined
+        ? ""
+        : valor
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        ",",
+        "."
+      );
+
+  const numero =
+    Number(texto);
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+
+}
+
+
+/**
+ * Redondea.
+ */
+function redondearReporteFB_(
+  valor,
+  decimales
+) {
+
+  const factor =
+    Math.pow(
+      10,
+      Number(
+        decimales || 0
+      )
+    );
+
+  return (
+    Math.round(
+      convertirNumeroReporteFB_(
+        valor
+      ) *
+      factor
+    ) /
+    factor
+  );
+
+}
+
+
+/**
+ * Formatea números.
+ */
+function formatearNumeroReporteFB_(
+  valor,
+  decimales
+) {
+
+  return convertirNumeroReporteFB_(
+    valor
+  ).toLocaleString(
+    "es-DO",
+    {
+      minimumFractionDigits:
+        Number(
+          decimales || 0
+        ),
+
+      maximumFractionDigits:
+        Number(
+          decimales || 0
+        )
+    }
+  );
+
+}
+
+
+/**
+ * Ajusta texto para tabla.
+ */
+function ajustarTextoTablaFB_(
+  valor,
+  longitud
+) {
+
+  const texto =
+    String(valor || "")
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+  if (
+    texto.length >
+    longitud
+  ) {
+
+    return (
+      texto.substring(
+        0,
+        Math.max(
+          0,
+          longitud - 1
+        )
+      ) +
+      "…"
+    );
+
+  }
+
+  return texto.padEnd(
+    longitud,
+    " "
+  );
+
+}
+
+
+/**
+ * Ajusta número para tabla.
+ */
+function ajustarNumeroTablaFB_(
+  valor,
+  longitud
+) {
+
+  const texto =
+    String(valor || "");
+
+  if (
+    texto.length >
+    longitud
+  ) {
+
+    return texto.substring(
+      0,
+      longitud
+    );
+
+  }
+
+  return texto.padStart(
+    longitud,
+    " "
+  );
+
+}

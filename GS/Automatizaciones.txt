@@ -1,0 +1,595 @@
+/**
+ * ============================================================
+ * AUTOMATIZACIONES.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Crear, listar y eliminar los disparadores de los reportes.
+ * - Leer las horas desde Configuracion.
+ *
+ * Configuraciones esperadas:
+ * - Hora_Reporte_Despacho_1 = 12:00
+ * - Hora_Reporte_Despacho_2 = 15:00
+ * - Hora_Cierre_Despachos   = 17:00
+ * - Zona_Horaria            = America/Santo_Domingo
+ *
+ * IMPORTANTE:
+ * - Los disparadores de Apps Script no garantizan el minuto
+ *   exacto. nearMinute() trabaja con una ventana aproximada.
+ * - Esta función elimina solo los disparadores de este módulo.
+ * ============================================================
+ */
+
+
+const FUNCIONES_TEMPORIZADORES_DESPACHO_ = [
+  'temporizadorReporteDespachos1200',
+  'temporizadorReporteDespachos1500',
+  'temporizadorCierreDespachos1700'
+];
+
+
+/**
+ * Crea o recrea los tres temporizadores.
+ *
+ * Ejecutar manualmente una sola vez después de configurar
+ * las horas y autorizar el proyecto.
+ *
+ * @return {Object}
+ */
+function configurarTemporizadoresReportesDespacho() {
+
+  eliminarTemporizadoresReportesDespacho();
+
+  const zonaHoraria =
+    obtenerZonaHorariaAutomatizaciones_();
+
+  const hora1 =
+    obtenerHoraAutomatizacion_(
+      'Hora_Reporte_Despacho_1',
+      '12:00'
+    );
+
+  const hora2 =
+    obtenerHoraAutomatizacion_(
+      'Hora_Reporte_Despacho_2',
+      '15:00'
+    );
+
+  const horaCierre =
+    obtenerHoraAutomatizacion_(
+      'Hora_Cierre_Despachos',
+      '17:00'
+    );
+
+  const creados = [];
+
+  creados.push(
+    crearTemporizadorDiario_(
+      'temporizadorReporteDespachos1200',
+      hora1,
+      zonaHoraria
+    )
+  );
+
+  creados.push(
+    crearTemporizadorDiario_(
+      'temporizadorReporteDespachos1500',
+      hora2,
+      zonaHoraria
+    )
+  );
+
+  const horaCierreSegura = {
+  hora:
+    horaCierre.hora,
+
+  minuto:
+    horaCierre.minuto === 0
+      ? 15
+      : horaCierre.minuto
+};
+
+creados.push(
+  crearTemporizadorDiario_(
+    'temporizadorCierreDespachos1700',
+    horaCierreSegura,
+    zonaHoraria
+  )
+);
+
+  const resultado = {
+    exito: true,
+    zonaHoraria:
+      zonaHoraria,
+    temporizadores:
+      creados
+  };
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}
+
+
+/**
+ * Elimina únicamente los triggers de reportes de despacho.
+ *
+ * @return {Object}
+ */
+function eliminarTemporizadoresReportesDespacho() {
+
+  const triggers =
+    ScriptApp.getProjectTriggers();
+
+  let eliminados = 0;
+
+  triggers.forEach(function(trigger) {
+
+    const funcion =
+      trigger.getHandlerFunction();
+
+    if (
+      FUNCIONES_TEMPORIZADORES_DESPACHO_
+        .indexOf(funcion) !== -1
+    ) {
+
+      ScriptApp.deleteTrigger(
+        trigger
+      );
+
+      eliminados++;
+    }
+  });
+
+  return {
+    exito: true,
+    eliminados:
+      eliminados
+  };
+}
+
+
+/**
+ * Lista los temporizadores actuales del módulo.
+ *
+ * @return {Object}
+ */
+function listarTemporizadoresReportesDespacho() {
+
+  const triggers =
+    ScriptApp.getProjectTriggers();
+
+  const lista =
+    triggers
+      .filter(function(trigger) {
+
+        return (
+          FUNCIONES_TEMPORIZADORES_DESPACHO_
+            .indexOf(
+              trigger.getHandlerFunction()
+            ) !== -1
+        );
+      })
+      .map(function(trigger) {
+
+        return {
+          funcion:
+            trigger.getHandlerFunction(),
+
+          evento:
+            String(
+              trigger.getEventType()
+            ),
+
+          idUnico:
+            trigger.getUniqueId()
+        };
+      });
+
+  const resultado = {
+    exito: true,
+    total:
+      lista.length,
+    temporizadores:
+      lista
+  };
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}
+
+
+/**
+ * Función ejecutada por el trigger del primer corte.
+ */
+function temporizadorReporteDespachos1200() {
+
+  return ejecutarReporteOperativo1200(
+    false
+  );
+}
+
+
+/**
+ * Función ejecutada por el trigger del segundo corte.
+ */
+function temporizadorReporteDespachos1500() {
+
+  return ejecutarReporteOperativo1500(
+    false
+  );
+}
+
+
+/**
+ * Función ejecutada por el trigger del cierre.
+ */
+function temporizadorCierreDespachos1700() {
+
+  const ahora =
+    new Date();
+
+  const zonaHoraria =
+    obtenerZonaHorariaAutomatizaciones_();
+
+  console.log(
+    "INICIO CIERRE AUTOMÁTICO: " +
+    Utilities.formatDate(
+      ahora,
+      zonaHoraria,
+      "dd/MM/yyyy HH:mm:ss"
+    )
+  );
+
+  try {
+
+    const resultado =
+      ejecutarCierreOperativo1700(
+        false
+      );
+
+    console.log(
+      "RESULTADO CIERRE AUTOMÁTICO: " +
+      JSON.stringify(
+        resultado,
+        null,
+        2
+      )
+    );
+
+    return resultado;
+
+  } catch (error) {
+
+    console.error(
+      "ERROR EN CIERRE AUTOMÁTICO: " +
+      (
+        error &&
+        error.stack
+          ? error.stack
+          : String(error)
+      )
+    );
+
+    throw error;
+  }
+}
+
+
+/**
+ * Crea un trigger diario.
+ *
+ * @param {string} nombreFuncion
+ * @param {Object} hora
+ * @param {string} zonaHoraria
+ * @return {Object}
+ */
+function crearTemporizadorDiario_(
+  nombreFuncion,
+  hora,
+  zonaHoraria
+) {
+
+  const trigger =
+    ScriptApp
+      .newTrigger(
+        nombreFuncion
+      )
+      .timeBased()
+      .atHour(
+        hora.hora
+      )
+      .nearMinute(
+        hora.minuto
+      )
+      .everyDays(1)
+      .inTimezone(
+        zonaHoraria
+      )
+      .create();
+
+  return {
+    funcion:
+      nombreFuncion,
+    hora:
+      String(hora.hora)
+        .padStart(2, '0') +
+      ':' +
+      String(hora.minuto)
+        .padStart(2, '0'),
+    zonaHoraria:
+      zonaHoraria,
+    idUnico:
+      trigger.getUniqueId()
+  };
+}
+
+
+/**
+ * Lee y convierte una hora de Configuracion.
+ *
+ * Acepta:
+ * - Hora real de Google Sheets.
+ * - 17:00
+ * - 5:00 PM
+ *
+ * @param {string} clave
+ * @param {string} valorPredeterminado
+ * @return {Object}
+ */
+function obtenerHoraAutomatizacion_(
+  clave,
+  valorPredeterminado
+) {
+
+  const valor =
+    obtenerConfiguracionAutomatizaciones_(
+      clave,
+      valorPredeterminado
+    );
+
+  if (
+    Object.prototype.toString.call(valor) ===
+      '[object Date]' &&
+    !isNaN(valor.getTime())
+  ) {
+
+    const textoHora =
+      Utilities.formatDate(
+        valor,
+        obtenerZonaHorariaAutomatizaciones_(),
+        'HH:mm'
+      );
+
+    return convertirTextoHoraAutomatizacion_(
+      textoHora
+    );
+  }
+
+  return convertirTextoHoraAutomatizacion_(
+    String(valor || valorPredeterminado)
+      .trim()
+  );
+}
+
+
+/**
+ * Convierte texto de hora.
+ *
+ * @param {string} texto
+ * @return {Object}
+ */
+function convertirTextoHoraAutomatizacion_(
+  texto
+) {
+
+  let coincidencia =
+    String(texto || '')
+      .trim()
+      .match(
+        /^([01]?\d|2[0-3]):([0-5]\d)$/
+      );
+
+  if (coincidencia) {
+
+    return {
+      hora:
+        Number(coincidencia[1]),
+      minuto:
+        Number(coincidencia[2])
+    };
+  }
+
+  coincidencia =
+    String(texto || '')
+      .trim()
+      .match(
+        /^(\d{1,2}):([0-5]\d)\s*(AM|PM)$/i
+      );
+
+  if (coincidencia) {
+
+    let hora =
+      Number(coincidencia[1]);
+
+    const minuto =
+      Number(coincidencia[2]);
+
+    const periodo =
+      coincidencia[3]
+        .toUpperCase();
+
+    if (
+      periodo === 'PM' &&
+      hora < 12
+    ) {
+      hora += 12;
+    }
+
+    if (
+      periodo === 'AM' &&
+      hora === 12
+    ) {
+      hora = 0;
+    }
+
+    return {
+      hora:
+        hora,
+      minuto:
+        minuto
+    };
+  }
+
+  throw new Error(
+    'La hora "' +
+    texto +
+    '" no tiene un formato válido.'
+  );
+}
+
+
+/**
+ * Obtiene la zona horaria.
+ *
+ * @return {string}
+ */
+function obtenerZonaHorariaAutomatizaciones_() {
+
+  const configurada =
+    obtenerConfiguracionAutomatizaciones_(
+      'Zona_Horaria',
+      ''
+    );
+
+  return (
+    String(configurada || '').trim() ||
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSpreadsheetTimeZone() ||
+    Session.getScriptTimeZone() ||
+    'America/Santo_Domingo'
+  );
+}
+
+
+/**
+ * Lee una configuración.
+ *
+ * @param {string} claveBuscada
+ * @param {*} valorPredeterminado
+ * @return {*}
+ */
+function obtenerConfiguracionAutomatizaciones_(
+  claveBuscada,
+  valorPredeterminado
+) {
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const hoja =
+    ss.getSheetByName('Configuracion');
+
+  if (!hoja) {
+    throw new Error(
+      'No se encontró la hoja "Configuracion".'
+    );
+  }
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+  if (ultimaFila < 1) {
+    return valorPredeterminado;
+  }
+
+  const datos =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        Math.max(2, hoja.getLastColumn())
+      )
+      .getValues();
+
+  const claveObjetivo =
+    normalizarClaveAutomatizaciones_(
+      claveBuscada
+    );
+
+  for (let i = 0; i < datos.length; i++) {
+
+    const claveFila =
+      normalizarClaveAutomatizaciones_(
+        datos[i][0]
+      );
+
+    if (claveFila === claveObjetivo) {
+      return datos[i][1];
+    }
+  }
+
+  return valorPredeterminado;
+}
+
+
+/**
+ * Normaliza claves.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarClaveAutomatizaciones_(
+  valor
+) {
+
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .toUpperCase();
+}
+
+
+/**
+ * Prueba sin esperar a los triggers.
+ *
+ * Ejecuta los tres procesos forzando el envío.
+ * Úsala solo cuando quieras probar toda la secuencia.
+ */
+function probarSecuenciaCompletaReportesDespacho() {
+
+  return {
+    reporte1200:
+      ejecutarReporteOperativo1200(
+        true
+      ),
+
+    reporte1500:
+      ejecutarReporteOperativo1500(
+        true
+      ),
+
+    cierre1700:
+      ejecutarCierreOperativo1700(
+        true
+      )
+  };
+}

@@ -1,0 +1,221 @@
+/**
+ * VERSIONESMODULOS.GS - Sistema Logístico PT | Helados BON
+ * Control de versiones persistente para consultas locales actualizadas.
+ * Ejecutar una vez: instalarVersionesModulosSistema()
+ */
+const VMS_HOJA = 'Versiones_Modulos';
+const VMS_COLUMNAS = ['Modulo','Version','Fecha_Modificacion','Hora_Modificacion','Usuario_ID','Usuario_Nombre','Ultima_Accion'];
+const VMS_MODULOS = ['RECEPCIONES','DESPACHOS','CAMARAS','INDICADORES','METAS','EPP','ALMACEN','ASISTENCIA','HORAS_EXTRAS','AVISOS','CATALOGOS','CONFIGURACION','INSPECCIONES','USUARIOS','INVENTARIO','VERIFICACIONES'];
+const VMS_CACHE_SEGUNDOS = 21600;
+
+function instalarVersionesModulosSistema() {
+  const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+  let hoja = libro.getSheetByName(VMS_HOJA);
+  if (!hoja) hoja = libro.insertSheet(VMS_HOJA);
+  if (hoja.getLastRow() < 1) {
+    hoja.getRange(1,1,1,VMS_COLUMNAS.length).setValues([VMS_COLUMNAS]);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1,1,1,VMS_COLUMNAS.length).setFontWeight('bold').setBackground('#e9eef3');
+  } else {
+    const existentes = hoja.getRange(1,1,1,Math.max(hoja.getLastColumn(),1)).getValues()[0].map(String);
+    const faltantes = VMS_COLUMNAS.filter(function(c){ return existentes.indexOf(c) === -1; });
+    if (faltantes.length) hoja.getRange(1,existentes.length+1,1,faltantes.length).setValues([faltantes]);
+  }
+  const filas = hoja.getLastRow() > 1 ? hoja.getRange(2,1,hoja.getLastRow()-1,1).getValues().map(function(r){return String(r[0]).toUpperCase();}) : [];
+  const ahora = new Date();
+  const zona = libro.getSpreadsheetTimeZone() || Session.getScriptTimeZone() || 'America/Santo_Domingo';
+  const nuevas = VMS_MODULOS.filter(function(m){ return filas.indexOf(m) === -1; }).map(function(m){
+    return [m,1,Utilities.formatDate(ahora,zona,'yyyy-MM-dd'),Utilities.formatDate(ahora,zona,'HH:mm:ss'),'SISTEMA','Sistema Logístico PT','INSTALACION'];
+  });
+  if (nuevas.length) hoja.getRange(hoja.getLastRow()+1,1,nuevas.length,VMS_COLUMNAS.length).setValues(nuevas);
+  const disparadores = ScriptApp.getProjectTriggers().filter(function(t){return t.getHandlerFunction() === 'registrarEdicionManualVersionesModulos';});
+  if (!disparadores.length) ScriptApp.newTrigger('registrarEdicionManualVersionesModulos').forSpreadsheet(libro).onEdit().create();
+  vmsRefrescarCacheCompleta_();
+  return {ok:true,mensaje:'Control de versiones instalado correctamente.',hoja:VMS_HOJA,modulos:VMS_MODULOS.length,disparadorEdicion:true};
+}
+
+function obtenerVersionesModulos(data) {
+  try {
+    const solicitados = Array.isArray(data && data.modulos) ? data.modulos : [];
+    return respuesta({ok:true,data:{versiones:vmsObtenerVersiones_(solicitados)}});
+  } catch (error) {
+    return respuesta({ok:false,mensaje:error && error.message ? error.message : String(error)});
+  }
+}
+
+function vmsNormalizar_(valor) {
+  return String(valor || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\s-]+/g,'_').toUpperCase();
+}
+
+function vmsUnicos_(lista) {
+  return (lista || []).map(vmsNormalizar_).filter(function(v,i,a){return !!v && a.indexOf(v) === i;});
+}
+
+function vmsClaveCache_(modulo) { return 'BON_VERSION_' + vmsNormalizar_(modulo); }
+
+function vmsObtenerVersiones_(modulos) {
+  const pedidos = vmsUnicos_(modulos && modulos.length ? modulos : VMS_MODULOS);
+  const cache = CacheService.getScriptCache();
+  const claves = pedidos.map(vmsClaveCache_);
+  const recuperados = cache.getAll(claves);
+  let faltan = pedidos.filter(function(m){ return !recuperados[vmsClaveCache_(m)]; });
+  if (faltan.length) {
+    vmsRefrescarCacheCompleta_();
+    const nuevos = cache.getAll(claves);
+    Object.keys(nuevos).forEach(function(k){recuperados[k] = nuevos[k];});
+  }
+  const salida = {};
+  pedidos.forEach(function(m){ salida[m] = Number(recuperados[vmsClaveCache_(m)] || 0); });
+  return salida;
+}
+
+function vmsRefrescarCacheCompleta_() {
+  const hoja = SpreadsheetApp.openById(CODIGO_SHEET_ID).getSheetByName(VMS_HOJA);
+  if (!hoja || hoja.getLastRow() < 2) throw new Error('Ejecute primero instalarVersionesModulosSistema().');
+  const valores = hoja.getRange(2,1,hoja.getLastRow()-1,2).getValues();
+  const pares = {};
+  valores.forEach(function(fila){ if (fila[0]) pares[vmsClaveCache_(fila[0])] = String(Number(fila[1]) || 1); });
+  if (Object.keys(pares).length) CacheService.getScriptCache().putAll(pares,VMS_CACHE_SEGUNDOS);
+  return pares;
+}
+
+function marcarModulosActualizados_(modulos,accion,usuario) {
+  const lista = vmsUnicos_(modulos);
+  if (!lista.length) return {};
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+  try {
+    const libro = SpreadsheetApp.openById(CODIGO_SHEET_ID);
+    const hoja = libro.getSheetByName(VMS_HOJA);
+    if (!hoja) throw new Error('No existe Versiones_Modulos. Ejecute instalarVersionesModulosSistema().');
+    const datos = hoja.getDataRange().getValues();
+    const ahora = new Date();
+    const zona = libro.getSpreadsheetTimeZone() || Session.getScriptTimeZone() || 'America/Santo_Domingo';
+    const fecha = Utilities.formatDate(ahora,zona,'yyyy-MM-dd');
+    const hora = Utilities.formatDate(ahora,zona,'HH:mm:ss');
+    const id = String(usuario && (usuario.idEmpleado || usuario.id || usuario.IDEmpleado) || 'SISTEMA');
+    const nombre = String(usuario && (usuario.nombre || usuario.Nombre || usuario.usuarioSesion) || 'Sistema Logístico PT');
+    const versiones = {};
+    const pares = {};
+    lista.forEach(function(modulo){
+      let fila = -1;
+      for (let i=1;i<datos.length;i++) if (vmsNormalizar_(datos[i][0]) === modulo) {fila=i;break;}
+      const version = fila >= 0 ? (Number(datos[fila][1]) || 0) + 1 : 1;
+      const valores = [modulo,version,fecha,hora,id,nombre,String(accion || 'ACTUALIZACION')];
+      if (fila >= 0) hoja.getRange(fila+1,1,1,VMS_COLUMNAS.length).setValues([valores]);
+      else {hoja.appendRow(valores);datos.push(valores);}
+      versiones[modulo] = version;
+      pares[vmsClaveCache_(modulo)] = String(version);
+    });
+    SpreadsheetApp.flush();
+    CacheService.getScriptCache().putAll(pares,VMS_CACHE_SEGUNDOS);
+    return versiones;
+  } finally {try{bloqueo.releaseLock();}catch(ignorar){}}
+}
+
+function vmsModulosDeHoja_(nombre) {
+  const hoja = vmsNormalizar_(nombre);
+  if (hoja === vmsNormalizar_(VMS_HOJA)) return [];
+  if (/RECEPCION/.test(hoja)) return ['RECEPCIONES','CAMARAS','INDICADORES','VERIFICACIONES'];
+  if (/DESPACHO|CONDUCE/.test(hoja)) return ['DESPACHOS','CAMARAS','INDICADORES','METAS','VERIFICACIONES'];
+  if (/META/.test(hoja)) return ['METAS','INDICADORES'];
+  if (/CAMARA|TRAMOS|UBICACIONES|POSICIONES_ESPECIALES|SOLICITANTES/.test(hoja)) return ['ALMACEN','CAMARAS','INDICADORES'];
+  if (/EPP/.test(hoja)) return ['EPP','AVISOS'];
+  if (/AVISOS/.test(hoja)) return ['AVISOS'];
+  if (/ASISTENCIA|VACACION|AMONESTACION|BONO/.test(hoja)) return ['ASISTENCIA','AVISOS','HORAS_EXTRAS'];
+  if (/HORAS_EXTRA|JORNADA/.test(hoja)) return ['HORAS_EXTRAS','ASISTENCIA','AVISOS'];
+  if (/INSPECCION|EVIDENCIAS/.test(hoja)) return ['INSPECCIONES','DESPACHOS'];
+  if (/USUARIOS/.test(hoja)) return ['USUARIOS','ASISTENCIA','HORAS_EXTRAS','EPP'];
+  if (/CATALOGO|MATERIALES|CHOFERES|CENTROS|PRECINTOS|UNIDADES_CARGA/.test(hoja)) return ['CATALOGOS','INVENTARIO','DESPACHOS','RECEPCIONES','ALMACEN','EPP'];
+  if (/CONFIGURACION/.test(hoja)) return ['CONFIGURACION','CAMARAS','INDICADORES','METAS','ALMACEN','EPP'];
+  if (/INVENTARIO/.test(hoja)) return ['INVENTARIO','INDICADORES','ALMACEN','CAMARAS'];
+  return ['INDICADORES'];
+}
+
+function registrarEdicionManualVersionesModulos(evento) {
+  if (!evento || !evento.range) return;
+  const hoja = evento.range.getSheet().getName();
+  const modulos = vmsModulosDeHoja_(hoja);
+  if (!modulos.length) return;
+  const correo = evento.user && typeof evento.user.getEmail === 'function' ? evento.user.getEmail() : '';
+  return marcarModulosActualizados_(modulos,'EDICION_MANUAL_'+hoja,{id:correo || 'EDICION_MANUAL',nombre:correo || 'Edición manual'});
+}
+
+function vmsEsLectura_(accion) {
+  const a = String(accion || '');
+  return /^(obtener|listar|consultar|buscar)/i.test(a) && !/^(obtenerVersionesModulos|obtenerMarcacionPersonalActual|obtenerDisponibilidadMaterialCamara|obtenerPerfilUsuario|obtenerInspeccionActiva|obtenerBorrador)$/i.test(a);
+}
+
+function vmsModulosLectura_(accion) {
+  const a = String(accion || '').toLowerCase();
+  if (/aviso/.test(a)) return ['AVISOS'];
+  if (/epp/.test(a)) return ['EPP','CATALOGOS','USUARIOS'];
+  if (/horaextra|jornadaextraordinaria|jornadasextraordinarias|horasextras/.test(a)) return ['HORAS_EXTRAS','ASISTENCIA','USUARIOS','CATALOGOS'];
+  if (/asistencia|vacacion|bono|amonestacion|colaboradoresgestion/.test(a)) return ['ASISTENCIA','USUARIOS','AVISOS'];
+  if (/meta|causasincumplimiento/.test(a)) return ['METAS','DESPACHOS','CONFIGURACION'];
+  if (/ocupacion|camara/.test(a)) return ['CAMARAS','RECEPCIONES','DESPACHOS','ALMACEN'];
+  if (/almacen|posicionesespeciales|solicitantesalmacen|movimientosalmacen/.test(a)) return ['ALMACEN','CAMARAS','CATALOGOS','CONFIGURACION','INDICADORES'];
+  if (/recepcion/.test(a)) return ['RECEPCIONES','CAMARAS','VERIFICACIONES','INDICADORES','USUARIOS'];
+  if (/inspeccion|evidencia/.test(a)) return ['INSPECCIONES','DESPACHOS'];
+  if (/verificaciondespacho|exactitud/.test(a)) return ['DESPACHOS','VERIFICACIONES','INDICADORES'];
+  if (/despacho|borrador|conduce/.test(a)) return ['DESPACHOS','METAS','VERIFICACIONES','CAMARAS'];
+  if (/prioridad|inventario/.test(a)) return ['INVENTARIO','DESPACHOS','INDICADORES','CATALOGOS'];
+  if (/configuracion/.test(a)) return ['CONFIGURACION'];
+  if (/material|chofer|personalcalidad|personalproduccion|supervisores|lineasproduccion|unidad|centro|precinto|catalogo/.test(a)) return ['CATALOGOS','USUARIOS','CONFIGURACION'];
+  if (/desempeno|panel|analitica|indicador/.test(a)) return ['INDICADORES','RECEPCIONES','DESPACHOS','METAS'];
+  return [];
+}
+
+function vmsModulosEscritura_(accion) {
+  const a = String(accion || '').toLowerCase();
+  if (!a || /^(obtener|listar|consultar|buscar|validar|verificarSesion|login|ping|enviar|generarPDF|guardarPDF|regenerarPDF|calcular)/i.test(accion)) return [];
+  if (/aviso/.test(a)) return ['AVISOS'];
+  if (/epp/.test(a)) return ['EPP','AVISOS'];
+  if (/horaextra|jornada/.test(a)) return ['HORAS_EXTRAS','ASISTENCIA','AVISOS'];
+  if (/asistencia|vacacion|bono|amonestacion|marcacion/.test(a)) return ['ASISTENCIA','HORAS_EXTRAS','AVISOS'];
+  if (/justificacionmeta/.test(a)) return ['METAS','INDICADORES'];
+  if (/recepcion|verificacionrecepcion/.test(a)) return ['RECEPCIONES','CAMARAS','INDICADORES','VERIFICACIONES','ALMACEN'];
+  if (/inspeccion|evidencia/.test(a)) return ['INSPECCIONES','DESPACHOS'];
+  if (/almacen|camara|tramo|traslado|capacidadpiso|materialespecial/.test(a)) return ['ALMACEN','CAMARAS','INDICADORES','RECEPCIONES'];
+  if (/borrador|carga|conduce|despacho|verificaciondespacho/.test(a)) return ['DESPACHOS','CAMARAS','METAS','INDICADORES','VERIFICACIONES','ALMACEN'];
+  if (/perfil|usuario|sesion/.test(a)) return ['USUARIOS'];
+  if (/configuracion/.test(a)) return ['CONFIGURACION','INDICADORES','METAS','CAMARAS','ALMACEN'];
+  if (/catalogo|material|unidad/.test(a)) return ['CATALOGOS','INVENTARIO'];
+  return [];
+}
+
+function vmsObjetoResultado_(resultado) {
+  if (!resultado) return null;
+  if (typeof resultado.getContent === 'function') {
+    try {return JSON.parse(resultado.getContent());} catch(ignorar){return null;}
+  }
+  return typeof resultado === 'object' ? resultado : null;
+}
+
+function vmsResultadoExitoso_(objeto) {
+  return !!objeto && objeto.ok !== false && objeto.exito !== false && objeto.success !== false;
+}
+
+function procesarResultadoVersionesModulos_(accion,data,resultado) {
+  const objeto = vmsObjetoResultado_(resultado);
+  if (!vmsResultadoExitoso_(objeto) || accion === 'obtenerVersionesModulos') return resultado;
+  const escritura = vmsModulosEscritura_(accion);
+  if (escritura.length) {
+    try {
+      objeto.__versionesModulos = marcarModulosActualizados_(escritura,accion,data && data.__sesionValidada && (data.__sesionValidada.usuario || data.__sesionValidada) || data || {});
+      return typeof resultado.getContent === 'function' ? respuesta(objeto) : objeto;
+    } catch(error) {
+      console.error('La acción se completó, pero no fue posible actualizar versiones:',accion,error);
+      objeto.__invalidarCacheCompleta = true;
+      return typeof resultado.getContent === 'function' ? respuesta(objeto) : objeto;
+    }
+  }
+  if (vmsEsLectura_(accion)) {
+    const lectura = vmsModulosLectura_(accion);
+    if (lectura.length) {
+      try {objeto.__versionesModulos = vmsObtenerVersiones_(lectura);return typeof resultado.getContent === 'function' ? respuesta(objeto) : objeto;}
+      catch(error){console.warn('Versionado no instalado todavía:',accion,String(error));}
+    }
+  }
+  return resultado;
+}

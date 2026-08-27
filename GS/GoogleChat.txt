@@ -1,0 +1,282 @@
+/**
+ * ============================================================
+ * GOOGLECHAT.GS
+ * Sistema Logístico PT - Helados BON
+ * ============================================================
+ *
+ * Responsabilidad:
+ * - Leer los webhooks desde Configuracion.
+ * - Enviar mensajes al Chat Operativo.
+ * - Enviar mensajes al Chat Ejecutivo.
+ *
+ * Configuraciones esperadas:
+ *
+ * Webhook_Chat_Operativo
+ * Webhook_Chat_Ejecutivo
+ *
+ * IMPORTANTE:
+ * - Este archivo no calcula indicadores.
+ * - Este archivo no crea disparadores.
+ * - Solo se encarga de enviar mensajes.
+ * ============================================================
+ */
+
+
+/**
+ * Envía un mensaje al Google Chat operativo.
+ *
+ * @param {string} mensaje
+ * @return {Object}
+ */
+function enviarMensajeChatOperativo(mensaje) {
+
+  const webhook =
+    obtenerValorConfiguracionChat_(
+      'Webhook_Chat_Operativo'
+    );
+
+  return enviarMensajeGoogleChat_(
+    webhook,
+    mensaje,
+    'OPERATIVO'
+  );
+}
+
+
+/**
+ * Envía un mensaje al Google Chat ejecutivo.
+ *
+ * Se deja preparado para el informe de inventarios y
+ * prioridades de despacho que construiremos después.
+ *
+ * @param {string} mensaje
+ * @return {Object}
+ */
+function enviarMensajeChatEjecutivo(mensaje) {
+
+  const webhook =
+    obtenerValorConfiguracionChat_(
+      'Webhook_Chat_Ejecutivo'
+    );
+
+  return enviarMensajeGoogleChat_(
+    webhook,
+    mensaje,
+    'EJECUTIVO'
+  );
+}
+
+
+/**
+ * Envía un mensaje mediante un webhook de Google Chat.
+ *
+ * @param {string} webhook
+ * @param {string} mensaje
+ * @param {string} destino
+ * @return {Object}
+ */
+function enviarMensajeGoogleChat_(
+  webhook,
+  mensaje,
+  destino
+) {
+
+  const url =
+    String(webhook || '').trim();
+
+  const texto =
+    String(mensaje || '').trim();
+
+  if (!url) {
+    throw new Error(
+      'No se recibió una URL de webhook para Google Chat.'
+    );
+  }
+
+  if (!/^https:\/\/chat\.googleapis\.com\//i.test(url)) {
+    throw new Error(
+      'La URL configurada para Google Chat no parece válida.'
+    );
+  }
+
+  if (!texto) {
+    throw new Error(
+      'No se recibió contenido para enviar a Google Chat.'
+    );
+  }
+
+  const respuestaHttp =
+    UrlFetchApp.fetch(
+      url,
+      {
+        method: 'post',
+        contentType: 'application/json; charset=UTF-8',
+        payload: JSON.stringify({
+          text: texto
+        }),
+        muteHttpExceptions: true,
+        followRedirects: true
+      }
+    );
+
+  const codigo =
+    respuestaHttp.getResponseCode();
+
+  const cuerpo =
+    respuestaHttp.getContentText();
+
+  if (codigo < 200 || codigo >= 300) {
+
+    console.error(
+      'Error Google Chat ' +
+      String(destino || '') +
+      '. Código: ' +
+      codigo +
+      '. Respuesta: ' +
+      cuerpo
+    );
+
+    throw new Error(
+      'Google Chat respondió con el código HTTP ' +
+      codigo +
+      '.'
+    );
+  }
+
+  const resultado = {
+    exito: true,
+    destino:
+      String(destino || ''),
+    codigoHttp:
+      codigo,
+    mensaje:
+      'Mensaje enviado correctamente a Google Chat.'
+  };
+
+  console.log(
+    JSON.stringify(
+      resultado,
+      null,
+      2
+    )
+  );
+
+  return resultado;
+}
+
+
+/**
+ * Lee una clave desde la hoja Configuracion.
+ *
+ * Columna A = clave
+ * Columna B = valor
+ *
+ * @param {string} claveBuscada
+ * @return {*}
+ */
+function obtenerValorConfiguracionChat_(
+  claveBuscada
+) {
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  const hoja =
+    ss.getSheetByName('Configuracion');
+
+  if (!hoja) {
+    throw new Error(
+      'No se encontró la hoja "Configuracion".'
+    );
+  }
+
+  const ultimaFila =
+    hoja.getLastRow();
+
+  if (ultimaFila < 1) {
+    throw new Error(
+      'La hoja "Configuracion" está vacía.'
+    );
+  }
+
+  const datos =
+    hoja
+      .getRange(
+        1,
+        1,
+        ultimaFila,
+        Math.max(2, hoja.getLastColumn())
+      )
+      .getValues();
+
+  const claveObjetivo =
+    normalizarClaveConfiguracionChat_(
+      claveBuscada
+    );
+
+  for (let i = 0; i < datos.length; i++) {
+
+    const claveFila =
+      normalizarClaveConfiguracionChat_(
+        datos[i][0]
+      );
+
+    if (claveFila === claveObjetivo) {
+      return datos[i][1];
+    }
+  }
+
+  throw new Error(
+    'No se encontró la configuración "' +
+    claveBuscada +
+    '".'
+  );
+}
+
+
+/**
+ * Normaliza claves de Configuracion.
+ *
+ * @param {*} valor
+ * @return {string}
+ */
+function normalizarClaveConfiguracionChat_(
+  valor
+) {
+
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .toUpperCase();
+}
+
+
+/**
+ * Prueba manual del Chat Operativo.
+ */
+function probarChatOperativo() {
+
+  return enviarMensajeChatOperativo(
+    '✅ Prueba de conexión\n\n' +
+    '*Sistema Logístico PT*\n' +
+    'El webhook del Chat Operativo funciona correctamente.'
+  );
+}
+
+
+/**
+ * Prueba manual del Chat Ejecutivo.
+ *
+ * Ejecutar únicamente cuando Webhook_Chat_Ejecutivo
+ * ya esté configurado.
+ */
+function probarChatEjecutivo() {
+
+  return enviarMensajeChatEjecutivo(
+    '✅ Prueba de conexión\n\n' +
+    '*Sistema Logístico PT*\n' +
+    'El webhook del Chat Ejecutivo funciona correctamente.'
+  );
+}

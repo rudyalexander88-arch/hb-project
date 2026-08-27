@@ -1,0 +1,1192 @@
+/**
+ * INVENTARIOCAMARASMOVIMIENTOS.GS
+ * Motor idempotente de movimientos e inventario de cámaras.
+ */
+
+const CAMARAS_HOJAS = {
+  RECEPCIONES_DETALLE: "Recepciones_Detalle",
+  MOVIMIENTOS: "Movimientos_Camaras",
+  INVENTARIO: "Inventario_Camaras",
+  MATERIALES: "Materiales"
+};
+
+function sincronizarRecepcionConCamaras(data) {
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+    const idRecepcion = textoCamara_(
+      (data || {}).idRecepcion ||
+      (data || {}).ID_Recepcion ||
+      ""
+    );
+
+    if (!idRecepcion) {
+      return respuesta({
+        ok: false,
+        mensaje: "Debe indicar la recepción."
+      });
+    }
+
+    const resultado =
+      registrarEntradasCamaraDesdeRecepcion_(
+        idRecepcion
+      );
+
+    const inventario =
+      reconstruirInventarioCamarasDesdeMovimientos_();
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        resultado.movimientosCreados > 0
+          ? "Recepción sincronizada con cámaras."
+          : "La recepción ya estaba sincronizada.",
+      data: {
+        idRecepcion: idRecepcion,
+        detallesEncontrados:
+          resultado.detallesEncontrados,
+        movimientosCreados:
+          resultado.movimientosCreados,
+        movimientosExistentes:
+          resultado.movimientosExistentes,
+        filasInventario:
+          inventario.filasInventario
+      }
+    });
+
+  } catch (error) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+
+function reconstruirMovimientosDesdeRecepciones(data) {
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+    const hojaDetalle =
+      obtenerHojaCamara_(
+        CAMARAS_HOJAS.RECEPCIONES_DETALLE
+      );
+
+    const tablaDetalle =
+      leerTablaCamara_(hojaDetalle);
+
+    exigirColumnasCamara_(
+      tablaDetalle.mapa,
+      [
+        "ID_Detalle_Recepcion",
+        "ID_Recepcion",
+        "ID_Camara",
+        "Material",
+        "Descripcion",
+        "Tarimas_Completas",
+        "Parcial_Unidades",
+        "Posiciones_Ocupadas",
+        "Total_Unidades"
+      ],
+      CAMARAS_HOJAS.RECEPCIONES_DETALLE
+    );
+
+    const recepciones = {};
+
+    tablaDetalle.filas.forEach(function(fila) {
+      const estado = claveCamara_(
+        valorCamara_(
+          fila,
+          tablaDetalle.mapa,
+          "Estado"
+        )
+      );
+
+      if (
+        estado === "ANULADO" ||
+        estado === "ANULADA" ||
+        estado === "INACTIVO"
+      ) {
+        return;
+      }
+
+      const idRecepcion = textoCamara_(
+        valorCamara_(
+          fila,
+          tablaDetalle.mapa,
+          "ID_Recepcion"
+        )
+      );
+
+      if (idRecepcion) {
+        recepciones[idRecepcion] = true;
+      }
+    });
+
+    let creados = 0;
+    let existentes = 0;
+
+    Object.keys(recepciones).forEach(
+      function(idRecepcion) {
+        const resultado =
+          registrarEntradasCamaraDesdeRecepcion_(
+            idRecepcion
+          );
+
+        creados +=
+          resultado.movimientosCreados;
+
+        existentes +=
+          resultado.movimientosExistentes;
+      }
+    );
+
+    const inventario =
+      reconstruirInventarioCamarasDesdeMovimientos_();
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Reconstrucción de cámaras completada.",
+      data: {
+        recepcionesProcesadas:
+          Object.keys(recepciones).length,
+        movimientosCreados: creados,
+        movimientosExistentes: existentes,
+        filasInventario:
+          inventario.filasInventario
+      }
+    });
+
+  } catch (error) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+
+function reconstruirInventarioCamaras(data) {
+  const bloqueo = LockService.getScriptLock();
+  bloqueo.waitLock(30000);
+
+  try {
+    const resultado =
+      reconstruirInventarioCamarasDesdeMovimientos_();
+
+    SpreadsheetApp.flush();
+
+    return respuesta({
+      ok: true,
+      mensaje:
+        "Inventario de cámaras reconstruido.",
+      data: resultado
+    });
+
+  } catch (error) {
+    return respuesta({
+      ok: false,
+      mensaje:
+        error && error.message
+          ? error.message
+          : String(error)
+    });
+  } finally {
+    bloqueo.releaseLock();
+  }
+}
+
+
+function registrarEntradasCamaraDesdeRecepcion_(
+  idRecepcion
+) {
+  const hojaDetalle =
+    obtenerHojaCamara_(
+      CAMARAS_HOJAS.RECEPCIONES_DETALLE
+    );
+
+  const hojaMovimientos =
+    obtenerHojaCamara_(
+      CAMARAS_HOJAS.MOVIMIENTOS
+    );
+
+  const detalle =
+    leerTablaCamara_(hojaDetalle);
+
+  const movimientos =
+    leerTablaCamara_(hojaMovimientos);
+
+  exigirColumnasCamara_(
+    detalle.mapa,
+    [
+      "ID_Detalle_Recepcion",
+      "ID_Recepcion",
+      "ID_Camara",
+      "Material",
+      "Descripcion",
+      "Tarimas_Completas",
+      "Parcial_Unidades",
+      "Posiciones_Ocupadas",
+      "Total_Unidades"
+    ],
+    CAMARAS_HOJAS.RECEPCIONES_DETALLE
+  );
+
+  exigirColumnasCamara_(
+    movimientos.mapa,
+    [
+      "ID_Movimiento",
+      "Fecha",
+      "Hora",
+      "Tipo_Movimiento",
+      "ID_Camara",
+      "Material",
+      "Descripcion",
+      "Tarimas",
+      "Parcial_Unidades",
+      "Posiciones",
+      "Total_Unidades",
+      "Referencia",
+      "Tipo_Referencia",
+      "Usuario_ID",
+      "Usuario_Nombre",
+      "Observacion",
+      "Estado"
+    ],
+    CAMARAS_HOJAS.MOVIMIENTOS
+  );
+
+  const referencias = {};
+
+  movimientos.filas.forEach(function(fila) {
+    const tipoReferencia = claveCamara_(
+      valorCamara_(
+        fila,
+        movimientos.mapa,
+        "Tipo_Referencia"
+      )
+    );
+
+    const referencia = textoCamara_(
+      valorCamara_(
+        fila,
+        movimientos.mapa,
+        "Referencia"
+      )
+    );
+
+    const estado = claveCamara_(
+      valorCamara_(
+        fila,
+        movimientos.mapa,
+        "Estado"
+      )
+    );
+
+    if (
+      tipoReferencia === "RECEPCION" &&
+      referencia &&
+      estado !== "ANULADO" &&
+      estado !== "ANULADA"
+    ) {
+      referencias[referencia] = true;
+    }
+  });
+
+  const filasNuevas = [];
+  let detallesEncontrados = 0;
+  let movimientosExistentes = 0;
+
+  detalle.filas.forEach(function(fila) {
+    const idFila = textoCamara_(
+      valorCamara_(
+        fila,
+        detalle.mapa,
+        "ID_Recepcion"
+      )
+    );
+
+    if (idFila !== idRecepcion) {
+      return;
+    }
+
+    const estadoDetalle = claveCamara_(
+      valorCamara_(
+        fila,
+        detalle.mapa,
+        "Estado"
+      )
+    );
+
+    if (
+      estadoDetalle === "ANULADO" ||
+      estadoDetalle === "ANULADA" ||
+      estadoDetalle === "INACTIVO"
+    ) {
+      return;
+    }
+
+    detallesEncontrados++;
+
+    const idDetalle = textoCamara_(
+      valorCamara_(
+        fila,
+        detalle.mapa,
+        "ID_Detalle_Recepcion"
+      )
+    );
+
+    if (!idDetalle) {
+      throw new Error(
+        "Existe una línea sin ID_Detalle_Recepcion."
+      );
+    }
+
+    if (referencias[idDetalle]) {
+      movimientosExistentes++;
+      return;
+    }
+
+    const fecha = formatearFechaCeldaCamara_(
+      valorCamara_(
+        fila,
+        detalle.mapa,
+        "Fecha_Registro"
+      )
+    );
+
+    const hora = formatearHoraCeldaCamara_(
+      valorCamara_(
+        fila,
+        detalle.mapa,
+        "Hora_Registro"
+      )
+    );
+
+    const origen = textoCamara_(
+      valorCamara_(
+        fila,
+        detalle.mapa,
+        "Origen_Traslado"
+      )
+    );
+
+    const objeto = {
+      ID_Movimiento:
+        generarIdMovimientoCamara_(),
+      Fecha:
+        fecha ||
+        Utilities.formatDate(
+          new Date(),
+          Session.getScriptTimeZone(),
+          "yyyy-MM-dd"
+        ),
+      Hora:
+        hora ||
+        Utilities.formatDate(
+          new Date(),
+          Session.getScriptTimeZone(),
+          "HH:mm:ss"
+        ),
+      Tipo_Movimiento:
+        "ENTRADA_RECEPCION",
+      ID_Camara:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "ID_Camara"
+          )
+        ),
+      Material:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Material"
+          )
+        ),
+      Descripcion:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Descripcion"
+          )
+        ),
+      Tarimas:
+        numeroCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Tarimas_Completas"
+          )
+        ),
+      Parcial_Unidades:
+        numeroCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Parcial_Unidades"
+          )
+        ),
+      Posiciones:
+        numeroCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Posiciones_Ocupadas"
+          )
+        ),
+      Total_Unidades:
+        numeroCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Total_Unidades"
+          )
+        ),
+      Referencia: idDetalle,
+      Tipo_Referencia: "RECEPCION",
+      Usuario_ID:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Auxiliar_ID"
+          )
+        ),
+      Usuario_Nombre:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            detalle.mapa,
+            "Auxiliar_Nombre"
+          )
+        ),
+      Observacion:
+        [
+          "Entrada desde recepción",
+          idRecepcion,
+          origen
+            ? "Vía: " + origen
+            : ""
+        ]
+          .filter(Boolean)
+          .join(" | "),
+      Estado: "ACTIVO"
+    };
+
+    if (!objeto.ID_Camara) {
+      throw new Error(
+        "El detalle " +
+        idDetalle +
+        " no tiene ID_Camara."
+      );
+    }
+
+    if (!objeto.Material) {
+      throw new Error(
+        "El detalle " +
+        idDetalle +
+        " no tiene material."
+      );
+    }
+
+    filasNuevas.push(
+      construirFilaCamara_(
+        movimientos.encabezados,
+        objeto
+      )
+    );
+
+    referencias[idDetalle] = true;
+  });
+
+  if (filasNuevas.length > 0) {
+    hojaMovimientos
+      .getRange(
+        hojaMovimientos.getLastRow() + 1,
+        1,
+        filasNuevas.length,
+        movimientos.encabezados.length
+      )
+      .setValues(filasNuevas);
+  }
+
+  return {
+    detallesEncontrados:
+      detallesEncontrados,
+    movimientosCreados:
+      filasNuevas.length,
+    movimientosExistentes:
+      movimientosExistentes
+  };
+}
+
+
+function reconstruirInventarioCamarasDesdeMovimientos_() {
+  const hojaMovimientos =
+    obtenerHojaCamara_(
+      CAMARAS_HOJAS.MOVIMIENTOS
+    );
+
+  const hojaInventario =
+    obtenerHojaCamara_(
+      CAMARAS_HOJAS.INVENTARIO
+    );
+
+  const movimientos =
+    leerTablaCamara_(hojaMovimientos);
+
+  const inventario =
+    leerTablaCamara_(hojaInventario);
+
+  exigirColumnasCamara_(
+    inventario.mapa,
+    [
+      "ID_Camara",
+      "Material",
+      "Descripcion",
+      "UM",
+      "UMB",
+      "Tarimas_Completas",
+      "Parcial_Unidades",
+      "Posiciones_Ocupadas",
+      "Total_Unidades",
+      "Ultimo_Movimiento",
+      "Estado"
+    ],
+    CAMARAS_HOJAS.INVENTARIO
+  );
+
+  const catalogo =
+    obtenerCatalogoMaterialesCamara_();
+
+  const saldos = {};
+
+  movimientos.filas.forEach(function(fila) {
+    const estado = claveCamara_(
+      valorCamara_(
+        fila,
+        movimientos.mapa,
+        "Estado"
+      )
+    );
+
+    if (
+      estado === "ANULADO" ||
+      estado === "ANULADA" ||
+      estado === "INACTIVO"
+    ) {
+      return;
+    }
+
+    const idCamara = textoCamara_(
+      valorCamara_(
+        fila,
+        movimientos.mapa,
+        "ID_Camara"
+      )
+    );
+
+    const material = textoCamara_(
+      valorCamara_(
+        fila,
+        movimientos.mapa,
+        "Material"
+      )
+    );
+
+    if (!idCamara || !material) {
+      return;
+    }
+
+    const clave =
+      idCamara + "||" + material;
+
+    if (!saldos[clave]) {
+      const datosMaterial =
+        catalogo[material] || {};
+
+      saldos[clave] = {
+        ID_Camara: idCamara,
+        Material: material,
+        Descripcion:
+          textoCamara_(
+            valorCamara_(
+              fila,
+              movimientos.mapa,
+              "Descripcion"
+            )
+          ) ||
+          datosMaterial.descripcion ||
+          "",
+        UM:
+          datosMaterial.um || "",
+        UMB:
+          datosMaterial.umb || "",
+        Tarimas_Completas: 0,
+        Parcial_Unidades: 0,
+        Posiciones_Ocupadas: 0,
+        Total_Unidades: 0,
+        Ultimo_Movimiento: "",
+        Estado: "ACTIVO",
+        _marcaUltimo: 0
+      };
+    }
+
+    const saldo = saldos[clave];
+
+    const signo =
+      obtenerSignoMovimientoCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Tipo_Movimiento"
+        )
+      );
+
+    saldo.Tarimas_Completas +=
+      signo *
+      numeroCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Tarimas"
+        )
+      );
+
+    saldo.Parcial_Unidades +=
+      signo *
+      numeroCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Parcial_Unidades"
+        )
+      );
+
+    saldo.Posiciones_Ocupadas +=
+      signo *
+      numeroCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Posiciones"
+        )
+      );
+
+    saldo.Total_Unidades +=
+      signo *
+      numeroCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Total_Unidades"
+        )
+      );
+
+    const fecha =
+      formatearFechaCeldaCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Fecha"
+        )
+      );
+
+    const hora =
+      formatearHoraCeldaCamara_(
+        valorCamara_(
+          fila,
+          movimientos.mapa,
+          "Hora"
+        )
+      );
+
+    const marca =
+      marcaFechaHoraCamara_(
+        fecha,
+        hora
+      );
+
+    if (marca >= saldo._marcaUltimo) {
+      saldo._marcaUltimo = marca;
+      saldo.Ultimo_Movimiento =
+        [fecha, hora]
+          .filter(Boolean)
+          .join(" ");
+    }
+  });
+
+  const filas = Object.values(saldos)
+    .map(function(saldo) {
+      saldo.Tarimas_Completas =
+        Math.max(
+          0,
+          saldo.Tarimas_Completas
+        );
+
+      saldo.Parcial_Unidades =
+        Math.max(
+          0,
+          saldo.Parcial_Unidades
+        );
+
+      saldo.Posiciones_Ocupadas =
+        Math.max(
+          0,
+          saldo.Posiciones_Ocupadas
+        );
+
+      saldo.Total_Unidades =
+        Math.max(
+          0,
+          saldo.Total_Unidades
+        );
+
+      saldo.Estado =
+        (
+          saldo.Total_Unidades > 0 ||
+          saldo.Posiciones_Ocupadas > 0
+        )
+          ? "ACTIVO"
+          : "SIN_EXISTENCIA";
+
+      delete saldo._marcaUltimo;
+
+      return construirFilaCamara_(
+        inventario.encabezados,
+        saldo
+      );
+    });
+
+  if (hojaInventario.getLastRow() > 1) {
+    hojaInventario
+      .getRange(
+        2,
+        1,
+        hojaInventario.getLastRow() - 1,
+        hojaInventario.getLastColumn()
+      )
+      .clearContent();
+  }
+
+  if (filas.length > 0) {
+    hojaInventario
+      .getRange(
+        2,
+        1,
+        filas.length,
+        inventario.encabezados.length
+      )
+      .setValues(filas);
+  }
+
+  return {
+    filasInventario: filas.length
+  };
+}
+
+
+function obtenerHojaCamara_(nombre) {
+  const hoja =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(nombre);
+
+  if (!hoja) {
+    throw new Error(
+      "No existe la hoja " + nombre + "."
+    );
+  }
+
+  return hoja;
+}
+
+
+function leerTablaCamara_(hoja) {
+  const datos =
+    hoja.getDataRange().getValues();
+
+  if (!datos.length) {
+    return {
+      encabezados: [],
+      mapa: {},
+      filas: []
+    };
+  }
+
+  const encabezados =
+    datos[0].map(textoCamara_);
+
+  const mapa = {};
+
+  encabezados.forEach(
+    function(encabezado, indice) {
+      mapa[encabezado] = indice;
+    }
+  );
+
+  return {
+    encabezados: encabezados,
+    mapa: mapa,
+    filas: datos.slice(1)
+  };
+}
+
+
+function exigirColumnasCamara_(
+  mapa,
+  columnas,
+  nombreHoja
+) {
+  const faltantes =
+    columnas.filter(function(columna) {
+      return (
+        typeof mapa[columna] ===
+        "undefined"
+      );
+    });
+
+  if (faltantes.length > 0) {
+    throw new Error(
+      "Faltan columnas en " +
+      nombreHoja +
+      ": " +
+      faltantes.join(", ")
+    );
+  }
+}
+
+
+function valorCamara_(
+  fila,
+  mapa,
+  encabezado
+) {
+  const indice = mapa[encabezado];
+
+  return typeof indice === "undefined"
+    ? ""
+    : fila[indice];
+}
+
+
+function construirFilaCamara_(
+  encabezados,
+  objeto
+) {
+  return encabezados.map(
+    function(encabezado) {
+      return Object.prototype
+        .hasOwnProperty.call(
+          objeto,
+          encabezado
+        )
+          ? objeto[encabezado]
+          : "";
+    }
+  );
+}
+
+
+function obtenerCatalogoMaterialesCamara_() {
+  const hoja =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName(
+        CAMARAS_HOJAS.MATERIALES
+      );
+
+  if (!hoja) {
+    return {};
+  }
+
+  const tabla =
+    leerTablaCamara_(hoja);
+
+  const resultado = {};
+
+  tabla.filas.forEach(function(fila) {
+    const material = textoCamara_(
+      valorCamara_(
+        fila,
+        tabla.mapa,
+        "ID_Material"
+      ) ||
+      valorCamara_(
+        fila,
+        tabla.mapa,
+        "Material"
+      )
+    );
+
+    if (!material) {
+      return;
+    }
+
+    resultado[material] = {
+      descripcion:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            tabla.mapa,
+            "Descripcion"
+          )
+        ),
+      um:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            tabla.mapa,
+            "UM"
+          )
+        ),
+      umb:
+        textoCamara_(
+          valorCamara_(
+            fila,
+            tabla.mapa,
+            "UMB"
+          )
+        )
+    };
+  });
+
+  return resultado;
+}
+
+
+function obtenerSignoMovimientoCamara_(
+  tipo
+) {
+  const clave = claveCamara_(tipo);
+
+  const negativos = [
+    "SALIDA",
+    "DESPACHO",
+    "CARGA",
+    "CONSUMO",
+    "ROTACION SALIDA",
+    "TRASLADO SALIDA"
+  ];
+
+  for (
+    let i = 0;
+    i < negativos.length;
+    i++
+  ) {
+    if (
+      clave.indexOf(negativos[i]) !== -1
+    ) {
+      return -1;
+    }
+  }
+
+  return 1;
+}
+
+
+function generarIdMovimientoCamara_() {
+  const ahora = new Date();
+
+  return [
+    "MOV",
+    Utilities.formatDate(
+      ahora,
+      Session.getScriptTimeZone(),
+      "yyyyMMdd-HHmmss"
+    ),
+    Utilities
+      .getUuid()
+      .slice(0, 6)
+      .toUpperCase()
+  ].join("-");
+}
+
+
+function textoCamara_(valor) {
+  return (
+    valor === null ||
+    valor === undefined
+  )
+    ? ""
+    : String(valor).trim();
+}
+
+
+function claveCamara_(valor) {
+  return textoCamara_(valor)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
+function numeroCamara_(valor) {
+  const numero = Number(valor);
+
+  return isFinite(numero)
+    ? numero
+    : 0;
+}
+
+
+function formatearFechaCeldaCamara_(
+  valor
+) {
+  if (
+    valor instanceof Date &&
+    !isNaN(valor.getTime())
+  ) {
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone(),
+      "yyyy-MM-dd"
+    );
+  }
+
+  const texto = textoCamara_(valor);
+
+  if (!texto) {
+    return "";
+  }
+
+  let partes =
+    texto.match(
+      /^(\d{4})-(\d{2})-(\d{2})/
+    );
+
+  if (partes) {
+    return [
+      partes[1],
+      partes[2],
+      partes[3]
+    ].join("-");
+  }
+
+  partes =
+    texto.match(
+      /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/
+    );
+
+  if (partes) {
+    return [
+      partes[3],
+      String(partes[2]).padStart(2, "0"),
+      String(partes[1]).padStart(2, "0")
+    ].join("-");
+  }
+
+  return texto;
+}
+
+
+function formatearHoraCeldaCamara_(
+  valor
+) {
+  if (
+    valor instanceof Date &&
+    !isNaN(valor.getTime())
+  ) {
+    return Utilities.formatDate(
+      valor,
+      Session.getScriptTimeZone(),
+      "HH:mm:ss"
+    );
+  }
+
+  const texto = textoCamara_(valor);
+
+  const partes =
+    texto.match(
+      /(?:^|\s)(\d{1,2}):(\d{2})(?::(\d{2}))?/
+    );
+
+  if (!partes) {
+    return texto;
+  }
+
+  return [
+    String(partes[1]).padStart(2, "0"),
+    partes[2],
+    partes[3] || "00"
+  ].join(":");
+}
+
+
+function marcaFechaHoraCamara_(
+  fecha,
+  hora
+) {
+  const marca =
+    new Date(
+      [fecha, hora]
+        .filter(Boolean)
+        .join("T")
+    ).getTime();
+
+  return isNaN(marca)
+    ? 0
+    : marca;
+}
+
+
+/**
+ * Agregar antes del default del switch:
+ *
+ * case "sincronizarRecepcionConCamaras":
+ *   return sincronizarRecepcionConCamaras(data);
+ *
+ * case "reconstruirMovimientosDesdeRecepciones":
+ *   return reconstruirMovimientosDesdeRecepciones(data);
+ *
+ * case "reconstruirInventarioCamaras":
+ *   return reconstruirInventarioCamaras(data);
+ */
+
+function pruebaReconstruirCamarasDesdeRecepciones() {
+  const resultado =
+    reconstruirMovimientosDesdeRecepciones({});
+  Logger.log(resultado.getContent());
+}
+
+function pruebaSincronizarUnaRecepcion() {
+  const resultado =
+    sincronizarRecepcionConCamaras({
+      idRecepcion:
+        "REC-COLOCA-AQUI-EL-ID"
+    });
+  Logger.log(resultado.getContent());
+}
+
+function pruebaReconstruirInventarioCamaras() {
+  const resultado =
+    reconstruirInventarioCamaras({});
+  Logger.log(resultado.getContent());
+}

@@ -1,0 +1,664 @@
+/**
+ * VerificacionRecepciones.gs
+ * Sistema Logístico PT - Helados BON
+ */
+
+const VR_HOJA_ENCABEZADO = "Verificaciones_Recepciones";
+const VR_HOJA_PT = "Verificaciones_Recepciones_PT";
+const VR_HOJA_RECEPCIONES = "Recepciones_Encabezado";
+const VR_HOJA_RECEPCIONES_DETALLE = "Recepciones_Detalle";
+const VR_HOJA_PERSONAL_PRODUCCION = "Personal_Produccion";
+const VR_HOJA_USUARIOS = "Usuarios";
+const VR_HOJA_MATERIALES = "Materiales";
+const VR_HOJA_CATALOGOS = "Catalogos";
+
+function listarRecepcionesPendientesVerificacion(data) {
+  try {
+    data = data || {};
+    const offset = Math.max(0, Number(data.offset || 0));
+    const limite = Math.min(50, Math.max(1, Number(data.limite || 12)));
+    const ss = SpreadsheetApp.getActive();
+    const hojaR = ss.getSheetByName(VR_HOJA_RECEPCIONES);
+    if (!hojaR) throw new Error("No existe la hoja " + VR_HOJA_RECEPCIONES + ".");
+
+    const tr = vrLeerTabla_(hojaR);
+    const hojaV = ss.getSheetByName(VR_HOJA_ENCABEZADO);
+    const verificaciones = new Map();
+
+    if (hojaV && hojaV.getLastRow() > 1) {
+      const tv = vrLeerTabla_(hojaV);
+      tv.filas.forEach(f => {
+        const id = vrTexto_(vrValor_(f, tv.mapa, "ID_Recepcion"));
+        if (!id) return;
+
+        verificaciones.set(id, {
+          idVerificacion:vrTexto_(vrValor_(f,tv.mapa,"ID_Verificacion")),
+          fechaVerificacion:vrFechaTexto_(vrValor_(f,tv.mapa,"Fecha_Verificacion")),
+          tipoIncidencia:vrTexto_(vrValor_(f,tv.mapa,"Tipo_Incidencia")),
+          tipoDesviacion:vrTexto_(vrValor_(f,tv.mapa,"Tipo_Desviacion")),
+          desviacionOriginal:vrNumero_(vrValor_(f,tv.mapa,"Desviacion_Original")),
+          cantidadCorregida:vrNumero_(vrValor_(f,tv.mapa,"Cantidad_Corregida")),
+          desviacionPendiente:vrNumero_(vrValor_(f,tv.mapa,"Desviacion_Pendiente")),
+          estadoResolucion:vrTexto_(vrValor_(f,tv.mapa,"Estado_Resolucion")),
+          valorPendiente:vrNumero_(vrValor_(f,tv.mapa,"Valor_Pendiente")),
+          analistaNombre:vrTexto_(vrValor_(f,tv.mapa,"Analista_Nombre"))
+        });
+      });
+    }
+
+    const registros = tr.filas.map(f => {
+      const id = vrTexto_(vrValor_(f, tr.mapa, "ID_Recepcion"));
+      const estado = vrTexto_(vrValor_(f, tr.mapa, "Estado")).toUpperCase();
+      const fin = vrTexto_(vrValor_(f, tr.mapa, "Produccion_Finalizada")).toUpperCase();
+
+      if (!id) return null;
+
+      const finalizada =
+        ["FINALIZADA","FINALIZADO","CERRADA","CERRADO"].includes(estado) ||
+        ["SI","SÍ"].includes(fin);
+
+      if (!finalizada) return null;
+
+      const v = verificaciones.get(id) || null;
+      const pendienteCorreccion = v && Math.abs(v.desviacionPendiente) > 0;
+      const estadoVista = !v
+        ? "PENDIENTE_VERIFICACION"
+        : pendienteCorreccion
+          ? "PENDIENTE_CORRECCION"
+          : "COMPLETADA";
+
+      return {
+        idRecepcion: id,
+        idVerificacion:v ? v.idVerificacion : "",
+        fecha: vrFechaTexto_(vrValor_(f, tr.mapa, "Fecha")),
+        material: vrTexto_(vrValor_(f, tr.mapa, "Material")),
+        detalle: vrTexto_(vrValor_(f, tr.mapa, "Detalle")),
+        totalTarimas: vrNumero_(vrValor_(f, tr.mapa, "Total_Tarimas")),
+        totalUnidades: vrNumero_(vrValor_(f, tr.mapa, "Total_Unidades")),
+        fechaModificacion: vrFechaTexto_(vrValor_(f, tr.mapa, "Fecha_Modificacion")),
+        estadoVista:estadoVista,
+        estadoResolucion:v ? v.estadoResolucion : "PENDIENTE",
+        tipoIncidencia:v ? v.tipoIncidencia : "",
+        tipoDesviacion:v ? v.tipoDesviacion : "",
+        desviacionOriginal:v ? v.desviacionOriginal : 0,
+        cantidadCorregida:v ? v.cantidadCorregida : 0,
+        desviacionPendiente:v ? v.desviacionPendiente : 0,
+        valorPendiente:v ? v.valorPendiente : 0,
+        fechaVerificacion:v ? v.fechaVerificacion : "",
+        analistaNombre:v ? v.analistaNombre : ""
+      };
+    }).filter(Boolean).reverse();
+
+    /*
+     * Orden operativo del centro de verificación:
+     * 1. Correcciones pendientes.
+     * 2. Recepciones todavía no verificadas.
+     * 3. Verificaciones completadas.
+     *
+     * La inversión anterior conserva, dentro de cada estado,
+     * las recepciones más recientes primero.
+     */
+    const prioridadEstado = {
+      PENDIENTE_CORRECCION:1,
+      PENDIENTE_VERIFICACION:2,
+      COMPLETADA:3
+    };
+
+    registros.sort(function(a,b) {
+      const prioridadA = prioridadEstado[a.estadoVista] || 99;
+      const prioridadB = prioridadEstado[b.estadoVista] || 99;
+      return prioridadA - prioridadB;
+    });
+
+    const indicadores = registros.reduce((acc,item) => {
+      if (item.estadoVista === "PENDIENTE_VERIFICACION") acc.pendientesVerificacion++;
+      else if (item.estadoVista === "PENDIENTE_CORRECCION") acc.pendientesCorreccion++;
+      else if (item.estadoVista === "COMPLETADA") acc.completadas++;
+
+      acc.valorPendiente = vrRedondear_(acc.valorPendiente + Math.abs(item.valorPendiente));
+
+      if (item.tipoDesviacion) {
+        const tipo = item.tipoDesviacion.toUpperCase();
+        acc.porTipo[tipo] = (acc.porTipo[tipo] || 0) + 1;
+      }
+
+      return acc;
+    },{
+      pendientesVerificacion:0,
+      pendientesCorreccion:0,
+      completadas:0,
+      valorPendiente:0,
+      porTipo:{}
+    });
+
+    const filtro = vrTexto_(data.estadoVista).toUpperCase();
+    const filtrados = filtro && filtro !== "TODOS"
+      ? registros.filter(item => item.estadoVista === filtro)
+      : registros;
+
+    const pagina = filtrados.slice(offset, offset + limite);
+
+    return respuesta({
+      ok: true,
+      recepciones: pagina,
+      totalPendientes: indicadores.pendientesVerificacion,
+      totalRegistros: filtrados.length,
+      indicadores:indicadores,
+      graficas:{
+        estados:[
+          {clave:"PENDIENTE_VERIFICACION",etiqueta:"Por verificar",valor:indicadores.pendientesVerificacion},
+          {clave:"PENDIENTE_CORRECCION",etiqueta:"Corrección pendiente",valor:indicadores.pendientesCorreccion},
+          {clave:"COMPLETADA",etiqueta:"Completadas",valor:indicadores.completadas}
+        ],
+        tipos:Object.keys(indicadores.porTipo).map(tipo => ({
+          etiqueta:tipo,
+          valor:indicadores.porTipo[tipo]
+        }))
+      },
+      hayMas: offset + limite < filtrados.length,
+      siguienteOffset: offset + pagina.length
+    });
+
+  } catch (error) {
+    return respuesta({ok:false, mensaje:error.message || String(error)});
+  }
+}
+
+function obtenerDatosRecepcionParaVerificacion(data) {
+  try {
+    const id = vrTexto_((data || {}).idRecepcion);
+    if (!id) throw new Error("Debe indicar la recepción que desea verificar.");
+
+    const recepcion = vrObtenerDatosRecepcionInterno_(id);
+    const incluirVerificacion = Boolean((data || {}).incluirVerificacion);
+
+    if (incluirVerificacion) {
+      const ss = SpreadsheetApp.getActive();
+      const hojaV = ss.getSheetByName(VR_HOJA_ENCABEZADO);
+
+      if (!hojaV) {
+        throw new Error("No existe la hoja " + VR_HOJA_ENCABEZADO + ".");
+      }
+
+      const tv = vrLeerTabla_(hojaV);
+      const fila = tv.filas.find(function(f) {
+        return vrTexto_(vrValor_(f,tv.mapa,"ID_Recepcion")) === id;
+      });
+
+      if (!fila) {
+        throw new Error("No existe una verificación pendiente para corregir.");
+      }
+
+      Object.assign(recepcion, {
+        esCorreccion:true,
+        idVerificacion:vrTexto_(vrValor_(fila,tv.mapa,"ID_Verificacion")),
+        cantidadLibroProduccion:vrNumero_(vrValor_(fila,tv.mapa,"Cantidad_Libro_Produccion")),
+        cantidadSAP:vrNumero_(vrValor_(fila,tv.mapa,"Cantidad_SAP")),
+        cantidadVerificada:vrNumero_(vrValor_(fila,tv.mapa,"Cantidad_Verificada")),
+        cantidadCorregida:vrNumero_(vrValor_(fila,tv.mapa,"Cantidad_Corregida")),
+        desviacionOriginal:vrNumero_(vrValor_(fila,tv.mapa,"Desviacion_Original")),
+        desviacionPendiente:vrNumero_(vrValor_(fila,tv.mapa,"Desviacion_Pendiente")),
+        lineaProduccion:vrTexto_(vrValor_(fila,tv.mapa,"Linea_Produccion")),
+        responsableProduccionId:vrTexto_(vrValor_(fila,tv.mapa,"Responsable_Produccion_ID")),
+        responsableProduccionNombre:vrTexto_(vrValor_(fila,tv.mapa,"Responsable_Produccion_Nombre")),
+        supervisorPTId:vrTexto_(vrValor_(fila,tv.mapa,"Supervisor_PT_ID")),
+        supervisorPTNombre:vrTexto_(vrValor_(fila,tv.mapa,"Supervisor_PT_Nombre")),
+        comentarioAnalista:vrTexto_(vrValor_(fila,tv.mapa,"Comentario_Analista"))
+      });
+    }
+
+    return respuesta({ok:true, recepcion:recepcion});
+  } catch (error) {
+    return respuesta({ok:false, mensaje:error.message || String(error)});
+  }
+}
+
+function listarPersonalProduccion(data) {
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const hoja = ss.getSheetByName(VR_HOJA_PERSONAL_PRODUCCION);
+    if (!hoja) throw new Error("No existe la hoja " + VR_HOJA_PERSONAL_PRODUCCION + ".");
+    const t = vrLeerTabla_(hoja);
+    const filtro = vrTexto_((data || {}).lineaProduccion).toUpperCase();
+
+    const personal = t.filas.map(f => {
+      const estado = vrTexto_(vrValor_(f,t.mapa,"Estado")).toUpperCase();
+      const linea = vrTexto_(vrValor_(f,t.mapa,"Linea_Produccion"));
+      if (estado && estado !== "ACTIVO") return null;
+      if (filtro && linea.toUpperCase() !== filtro) return null;
+      return {
+        idProduccion: vrTexto_(vrValor_(f,t.mapa,"ID_Produccion")),
+        nombre: vrTexto_(vrValor_(f,t.mapa,"Nombre")),
+        lineaProduccion: linea,
+        turno: vrTexto_(vrValor_(f,t.mapa,"Turno")),
+        cargo: vrTexto_(vrValor_(f,t.mapa,"Cargo")),
+        fechaIngreso: vrFechaTexto_(vrValor_(f,t.mapa,"Fecha_Ingreso"))
+      };
+    }).filter(x => x && x.idProduccion && x.nombre);
+
+    return respuesta({ok:true, personal:personal});
+  } catch (error) {
+    return respuesta({ok:false, mensaje:error.message || String(error)});
+  }
+}
+
+function listarSupervisoresPT() {
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const hoja = ss.getSheetByName(VR_HOJA_USUARIOS);
+    if (!hoja) throw new Error("No existe la hoja Usuarios.");
+    const t = vrLeerTabla_(hoja);
+
+    const supervisores = t.filas.map(f => {
+      const rol = vrTexto_(vrValor_(f,t.mapa,"Rol")).toUpperCase();
+      const estado = vrTexto_(vrValor_(f,t.mapa,"Estado")).toUpperCase();
+      if (rol !== "SUPERVISOR" || (estado && estado !== "ACTIVO")) return null;
+      return {
+        idEmpleado: vrTexto_(vrValor_(f,t.mapa,"IDEmpleado")),
+        nombre: vrTexto_(vrValor_(f,t.mapa,"Nombre"))
+      };
+    }).filter(Boolean);
+
+    return respuesta({ok:true, supervisores:supervisores});
+  } catch (error) {
+    return respuesta({ok:false, mensaje:error.message || String(error)});
+  }
+}
+
+function listarLineasProduccion() {
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const hoja = ss.getSheetByName(VR_HOJA_CATALOGOS);
+    if (!hoja) throw new Error("No existe la hoja Catalogos.");
+    const t = vrLeerTabla_(hoja);
+
+    const lineas = t.filas
+      .filter(f => vrTexto_(vrValor_(f,t.mapa,"Tipo")).toUpperCase() === "LINEA_PRODUCCION")
+      .map(f => vrTexto_(vrValor_(f,t.mapa,"Valor")))
+      .filter(Boolean);
+
+    return respuesta({ok:true, lineas:Array.from(new Set(lineas))});
+  } catch (error) {
+    return respuesta({ok:false, mensaje:error.message || String(error)});
+  }
+}
+
+function guardarVerificacionRecepcion(data) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+    data = data || {};
+
+    const idRecepcion = vrTexto_(data.idRecepcion);
+    if (!idRecepcion) throw new Error("Debe indicar la recepción.");
+
+    const r = vrObtenerDatosRecepcionInterno_(idRecepcion);
+    const ss = SpreadsheetApp.getActive();
+    const hojaV = ss.getSheetByName(VR_HOJA_ENCABEZADO);
+    const hojaPT = ss.getSheetByName(VR_HOJA_PT);
+
+    if (!hojaV) throw new Error("No existe la hoja " + VR_HOJA_ENCABEZADO + ".");
+    if (!hojaPT) throw new Error("No existe la hoja " + VR_HOJA_PT + ".");
+
+    const tv = vrLeerTabla_(hojaV);
+    const indiceExistente = tv.filas.findIndex(f =>
+      vrTexto_(vrValor_(f,tv.mapa,"ID_Recepcion")) === idRecepcion
+    );
+    const esActualizacion = indiceExistente >= 0;
+    const filaExistente = esActualizacion
+      ? tv.filas[indiceExistente]
+      : null;
+
+    const libro = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Cantidad_Libro_Produccion"))
+      : vrNumero_(data.cantidadLibroProduccion);
+    const sap = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Cantidad_SAP"))
+      : vrNumero_(data.cantidadSAP);
+    const fisico = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Cantidad_Verificada"))
+      : vrNumero_(data.cantidadVerificada);
+    const pt = vrNumero_(r.cantidadPT);
+    const correccionSolicitada = Math.max(0, vrNumero_(data.cantidadCorregida));
+
+    const desviacion = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Desviacion_Original"))
+      : vrRedondear_(fisico - sap);
+    const corregida = Math.min(correccionSolicitada, Math.abs(desviacion));
+    const pendiente = desviacion > 0
+      ? vrRedondear_(Math.max(0, desviacion - corregida))
+      : desviacion < 0
+        ? vrRedondear_(Math.min(0, desviacion + corregida))
+        : 0;
+
+    const tipo = desviacion > 0 ? "SOBRANTE" : desviacion < 0 ? "FALTANTE" : "SIN DESVIACION";
+    const estadoResolucion = desviacion === 0
+      ? "SIN DESVIACION"
+      : pendiente === 0
+        ? "RESUELTA"
+        : corregida > 0
+          ? "PARCIALMENTE RESUELTA"
+          : "PENDIENTE";
+
+    const diagnostico = vrClasificarVerificacion_({libro:libro, pt:pt, sap:sap, fisico:fisico});
+    const ahora = new Date();
+    const idVerificacion = esActualizacion
+      ? vrTexto_(vrValor_(filaExistente,tv.mapa,"ID_Verificacion"))
+      : "VR-" + Utilities.formatDate(
+          ahora, Session.getScriptTimeZone(), "yyyyMMdd-HHmmss"
+        ) + "-" + Math.floor(Math.random()*900+100);
+
+    const valorBulto = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Valor_Bulto"))
+      : vrNumero_(r.valorBulto);
+
+    const valorUnidadVenta = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Valor_Unidad_Venta"))
+      : vrNumero_(r.valorUnidadVenta);
+
+    const valorDesviacionOriginal = esActualizacion
+      ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Valor_Desviacion_Original"))
+      : vrRedondear_(Math.abs(desviacion)*valorBulto);
+
+    const registro = {
+      ID_Verificacion:idVerificacion,
+      ID_Recepcion:idRecepcion,
+      Fecha_Verificacion:esActualizacion
+        ? vrValor_(filaExistente,tv.mapa,"Fecha_Verificacion")
+        : ahora,
+      Hora_Inicio:esActualizacion
+        ? vrValor_(filaExistente,tv.mapa,"Hora_Inicio")
+        : vrTexto_(data.horaInicio),
+      Hora_Final:Utilities.formatDate(ahora,Session.getScriptTimeZone(),"HH:mm:ss"),
+      Duracion_Minutos:esActualizacion
+        ? vrNumero_(vrValor_(filaExistente,tv.mapa,"Duracion_Minutos"))
+        : vrNumero_(data.duracionMinutos),
+      Material:r.material,
+      Descripcion:r.descripcion,
+      UM:r.um,
+      UMB:r.umb,
+      Cantidad_PT:pt,
+      Cantidad_Libro_Produccion:libro,
+      Cantidad_SAP:sap,
+      Cantidad_Verificada:fisico,
+      Dif_Libro_PT:vrRedondear_(pt-libro),
+      Dif_Libro_SAP:vrRedondear_(sap-libro),
+      Dif_PT_SAP:vrRedondear_(sap-pt),
+      Dif_PT_Verificado:vrRedondear_(fisico-pt),
+      Dif_SAP_Verificado:desviacion,
+      Tipo_Incidencia:diagnostico.tipoIncidencia,
+      Tipo_Desviacion:tipo,
+      Desviacion_Original:desviacion,
+      Cantidad_Corregida:corregida,
+      Desviacion_Pendiente:pendiente,
+      Estado_Resolucion:estadoResolucion,
+      Valor_Unidad_Venta:valorUnidadVenta,
+      Valor_Bulto:valorBulto,
+      Valor_Desviacion_Original:valorDesviacionOriginal,
+      Valor_Corregido:vrRedondear_(corregida*valorBulto),
+      Valor_Pendiente:vrRedondear_(Math.abs(pendiente)*valorBulto),
+      Linea_Produccion:vrTexto_(data.lineaProduccion) ||
+        (esActualizacion ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Linea_Produccion")) : ""),
+      Responsable_Produccion_ID:vrTexto_(data.responsableProduccionId) ||
+        (esActualizacion ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Responsable_Produccion_ID")) : ""),
+      Responsable_Produccion_Nombre:vrTexto_(data.responsableProduccionNombre) ||
+        (esActualizacion ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Responsable_Produccion_Nombre")) : ""),
+      Supervisor_PT_ID:vrTexto_(data.supervisorPTId) ||
+        (esActualizacion ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Supervisor_PT_ID")) : ""),
+      Supervisor_PT_Nombre:vrTexto_(data.supervisorPTNombre) ||
+        (esActualizacion ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Supervisor_PT_Nombre")) : ""),
+      Analista_ID:esActualizacion
+        ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Analista_ID"))
+        : vrTexto_(data.analistaId || data.idEmpleado),
+      Analista_Nombre:esActualizacion
+        ? vrTexto_(vrValor_(filaExistente,tv.mapa,"Analista_Nombre"))
+        : vrTexto_(data.analistaNombre || data.usuarioSesion),
+      Comentario_Analista:vrTexto_(data.comentarioAnalista),
+      Fecha_Creacion:esActualizacion
+        ? vrValor_(filaExistente,tv.mapa,"Fecha_Creacion")
+        : ahora,
+      Fecha_Modificacion:ahora,
+      Estado:"COMPLETADA"
+    };
+
+    if (esActualizacion) {
+      vrActualizarRegistroPorEncabezados_(
+        hojaV,
+        indiceExistente + 2,
+        registro
+      );
+    } else {
+      vrAgregarRegistroPorEncabezados_(hojaV, registro);
+
+      r.colaboradoresPT.forEach(c => {
+        vrAgregarRegistroPorEncabezados_(hojaPT,{
+          ID_Verificacion:idVerificacion,
+          ID_Recepcion:idRecepcion,
+          Auxiliar_ID:c.id,
+          Auxiliar_Nombre:c.nombre,
+          Fecha_Registro:ahora
+        });
+      });
+    }
+
+    let notificacionChat = {
+      enviada:false,
+      mensaje:"La verificación no contiene una desviación valorizada."
+    };
+
+    if (!esActualizacion && registro.Valor_Desviacion_Original > 0) {
+      try {
+        notificacionChat =
+          notificarDesviacionRecepcionChat_(
+            registro,
+            diagnostico
+          );
+      } catch (errorChat) {
+        console.error(
+          "La verificación fue guardada, pero no fue posible notificar Google Chat: " +
+          (errorChat.message || String(errorChat))
+        );
+
+        notificacionChat = {
+          enviada:false,
+          error:errorChat.message || String(errorChat)
+        };
+      }
+    }
+
+    return respuesta({
+      ok:true,
+      mensaje:esActualizacion
+        ? "Corrección actualizada correctamente."
+        : "Verificación registrada correctamente.",
+      idVerificacion:idVerificacion,
+      notificacionChat:notificacionChat,
+      resultado:{
+        tipoIncidencia:diagnostico.tipoIncidencia,
+        diagnostico:diagnostico.mensaje,
+        tipoDesviacion:tipo,
+        desviacionOriginal:desviacion,
+        cantidadCorregida:corregida,
+        desviacionPendiente:pendiente,
+        estadoResolucion:estadoResolucion,
+        valorBulto:valorBulto,
+        valorDesviacionOriginal:registro.Valor_Desviacion_Original,
+        valorCorregido:registro.Valor_Corregido,
+        valorPendiente:registro.Valor_Pendiente
+      }
+    });
+
+  } catch (error) {
+    return respuesta({ok:false, mensaje:error.message || String(error)});
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+}
+
+function vrObtenerDatosRecepcionInterno_(idRecepcion) {
+  const ss = SpreadsheetApp.getActive();
+  const he = ss.getSheetByName(VR_HOJA_RECEPCIONES);
+  const hd = ss.getSheetByName(VR_HOJA_RECEPCIONES_DETALLE);
+  if (!he || !hd) throw new Error("No fue posible acceder a las hojas de recepción.");
+
+  const te = vrLeerTabla_(he);
+  const fe = te.filas.find(f => vrTexto_(vrValor_(f,te.mapa,"ID_Recepcion")) === idRecepcion);
+  if (!fe) throw new Error("No fue posible localizar la recepción.");
+
+  const td = vrLeerTabla_(hd);
+  const detalles = td.filas.filter(f =>
+    vrTexto_(vrValor_(f,td.mapa,"ID_Recepcion")) === idRecepcion
+  );
+  if (!detalles.length) throw new Error("La recepción no contiene detalles.");
+
+  const material = vrTexto_(vrValor_(fe,te.mapa,"Material")) ||
+    vrTexto_(vrValor_(detalles[0],td.mapa,"Material"));
+  const descripcion = vrTexto_(vrValor_(fe,te.mapa,"Detalle")) ||
+    vrTexto_(vrValor_(detalles[0],td.mapa,"Descripcion"));
+  const um = vrTexto_(vrValor_(detalles[0],td.mapa,"UM"));
+
+  let umb = vrNumero_(vrValor_(detalles[0],td.mapa,"UMB"));
+  const mat = vrObtenerMaterial_(ss,material);
+  if (!umb) umb = vrNumero_(mat.UMB);
+
+  const valorUnidad = vrNumero_(mat.Valor_Unidad_Venta);
+
+  return {
+    idRecepcion:idRecepcion,
+    material:material,
+    descripcion:descripcion,
+    um:um,
+    umb:umb,
+    cantidadPT:vrCalcularCantidadPT_(detalles,td.mapa),
+    valorUnidadVenta:valorUnidad,
+    valorBulto:vrRedondear_(valorUnidad*umb),
+    colaboradoresPT:vrObtenerColaboradoresPT_(detalles,td.mapa)
+  };
+}
+
+function vrCalcularCantidadPT_(detalles,mapa) {
+  let total = 0;
+  detalles.forEach(f => {
+    const tarimas = vrNumero_(vrValor_(f,mapa,"Tarimas_Completas"));
+    const parcial = vrNumero_(vrValor_(f,mapa,"Parcial_Unidades"));
+    const estandar = vrNumero_(vrValor_(f,mapa,"Cantidad_Estandar_Pallet"));
+    total += (tarimas*estandar)+parcial;
+  });
+  return vrRedondear_(total);
+}
+
+function vrObtenerColaboradoresPT_(detalles,mapa) {
+  const m = new Map();
+  detalles.forEach(f => {
+    const id = vrTexto_(vrValor_(f,mapa,"Auxiliar_ID"));
+    const nombre = vrTexto_(vrValor_(f,mapa,"Auxiliar_Nombre"));
+    if (!id && !nombre) return;
+    const clave = id || nombre.toUpperCase();
+    if (!m.has(clave)) m.set(clave,{id:id,nombre:nombre});
+  });
+  return Array.from(m.values());
+}
+
+function vrObtenerMaterial_(ss,codigo) {
+  const hoja = ss.getSheetByName(VR_HOJA_MATERIALES);
+  if (!hoja) throw new Error("No existe la hoja Materiales.");
+  const t = vrLeerTabla_(hoja);
+  const buscado = vrTexto_(codigo);
+
+  const fila = t.filas.find(f =>
+    ["ID_Material","Material","Codigo"].some(enc =>
+      t.mapa[enc] !== undefined &&
+      vrTexto_(vrValor_(f,t.mapa,enc)) === buscado
+    )
+  );
+
+  if (!fila) throw new Error("No fue posible localizar el material " + buscado + " en Materiales.");
+
+  return {
+    UMB:vrValor_(fila,t.mapa,"UMB"),
+    Valor_Unidad_Venta:vrValor_(fila,t.mapa,"Valor_Unidad_Venta")
+  };
+}
+
+function vrClasificarVerificacion_(d) {
+  const libro=vrNumero_(d.libro), pt=vrNumero_(d.pt), sap=vrNumero_(d.sap), fisico=vrNumero_(d.fisico);
+
+  if (libro===pt && pt===sap && sap===fisico)
+    return {tipoIncidencia:"SIN DIFERENCIA",mensaje:"Los cuatro registros coinciden."};
+
+  if (pt===sap && sap===fisico && libro!==fisico)
+    return {tipoIncidencia:"ERROR REGISTRO PRODUCCION",mensaje:"Producción presenta una diferencia en su registro, pero SAP, PT y el conteo físico coinciden."};
+
+  if (libro===sap && sap===fisico && pt!==fisico)
+    return {tipoIncidencia:"ERROR REGISTRO PT",mensaje:"PT presenta una diferencia de registro, pero Producción, SAP y el conteo físico coinciden."};
+
+  if (sap!==fisico) {
+    if (fisico-sap>0)
+      return {tipoIncidencia:"DESVIACION INVENTARIO",mensaje:"Producción colocó de menos en el sistema SAP. Existe material físico sin reflejarse completamente en SAP."};
+    return {tipoIncidencia:"DESVIACION INVENTARIO",mensaje:"Producción colocó de más en el sistema SAP. SAP refleja material que no está disponible físicamente."};
+  }
+
+  return {tipoIncidencia:"MULTIPLE",mensaje:"SAP coincide con el conteo físico, pero existen diferencias entre los registros de Producción y/o PT."};
+}
+
+function vrLeerTabla_(hoja) {
+  const v=hoja.getDataRange().getValues();
+  if (!v.length) return {encabezados:[],mapa:{},filas:[]};
+  const e=v[0].map(vrTexto_);
+  const mapa={};
+  e.forEach((x,i)=>{if(x) mapa[x]=i;});
+  return {encabezados:e,mapa:mapa,filas:v.slice(1)};
+}
+
+function vrValor_(fila,mapa,enc) {
+  const i=mapa[enc];
+  return i===undefined ? "" : fila[i];
+}
+
+function vrAgregarRegistroPorEncabezados_(hoja,registro) {
+  const n=hoja.getLastColumn();
+  if (n<1) throw new Error("La hoja "+hoja.getName()+" no contiene encabezados.");
+  const e=hoja.getRange(1,1,1,n).getValues()[0].map(vrTexto_);
+  hoja.appendRow(e.map(x => Object.prototype.hasOwnProperty.call(registro,x) ? registro[x] : ""));
+}
+
+function vrActualizarRegistroPorEncabezados_(hoja,fila,registro) {
+  const n=hoja.getLastColumn();
+  if (n<1) throw new Error("La hoja "+hoja.getName()+" no contiene encabezados.");
+  if (fila<2) throw new Error("La fila de verificación no es válida.");
+
+  const e=hoja.getRange(1,1,1,n).getValues()[0].map(vrTexto_);
+  const actuales=hoja.getRange(fila,1,1,n).getValues()[0];
+  const valores=e.map(function(encabezado,indice) {
+    return Object.prototype.hasOwnProperty.call(registro,encabezado)
+      ? registro[encabezado]
+      : actuales[indice];
+  });
+
+  hoja.getRange(fila,1,1,n).setValues([valores]);
+}
+
+function vrTexto_(v) {
+  return v===null || v===undefined ? "" : String(v).trim();
+}
+
+function vrNumero_(v) {
+  if (v===null || v===undefined || v==="") return 0;
+  if (typeof v==="number") return isFinite(v)?v:0;
+  let s=String(v).trim().replace(/\s/g,"");
+  if (s.includes(",") && s.includes(".")) s=s.replace(/,/g,"");
+  else if (s.includes(",")) s=s.replace(",",".");
+  const n=Number(s);
+  return isFinite(n)?n:0;
+}
+
+function vrRedondear_(v) {
+  return Math.round((vrNumero_(v)+Number.EPSILON)*100)/100;
+}
+
+function vrFechaTexto_(v) {
+  if (v instanceof Date && !isNaN(v.getTime()))
+    return Utilities.formatDate(v,Session.getScriptTimeZone(),"yyyy-MM-dd HH:mm:ss");
+  return vrTexto_(v);
+}

@@ -16,6 +16,30 @@ window.RecepcionMateriales = {
     return !this.esGerencia() && Sistema.tienePermiso(permiso);
   },
 
+  puedeAdministrarRecepciones() {
+    const sesion = this.obtenerSesion();
+    const rol = String(sesion.rol || sesion.Rol || "")
+      .trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return rol === "ADMINISTRADOR" || rol === "ENCARGADO";
+  },
+
+  renderAccionesAdministrativas(item) {
+    if (!this.puedeAdministrarRecepciones()) return "";
+    const id = this.escapar(item.idRecepcion || "");
+    return `
+      <div class="acciones-admin-recepcion" aria-label="Administrar recepción">
+        <button type="button" class="accion-admin-recepcion" data-admin-recepcion="editar" data-id-recepcion="${id}" title="Editar recepción" aria-label="Editar recepción">
+          <i class="fa-solid fa-pen"></i>
+        </button>
+        <button type="button" class="accion-admin-recepcion" data-admin-recepcion="vincular" data-id-recepcion="${id}" title="Vincular recepciones" aria-label="Vincular recepciones">
+          <i class="fa-solid fa-link"></i>
+        </button>
+        <button type="button" class="accion-admin-recepcion eliminar" data-admin-recepcion="anular" data-id-recepcion="${id}" title="Anular recepción" aria-label="Anular recepción">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>`;
+  },
+
   estado: {
     camaras: [],
     recepcionesAbiertas: [],
@@ -865,6 +889,17 @@ configurarScrollInterno() {
         };
       });
 
+    panel.querySelectorAll("[data-admin-recepcion]").forEach(boton => {
+      boton.onclick = evento => {
+        evento.preventDefault();
+        evento.stopPropagation();
+        this.administrarRecepcion(
+          boton.dataset.adminRecepcion,
+          boton.dataset.idRecepcion
+        );
+      };
+    });
+
     const historico =
       document.getElementById("btnHistoricoRecepciones");
 
@@ -1449,6 +1484,8 @@ configurarScrollInterno() {
               </span>
             </div>
 
+            ${this.renderAccionesAdministrativas(item)}
+
           </footer>
 
         </div>
@@ -1603,9 +1640,115 @@ configurarScrollInterno() {
             : ""
         }
 
+        ${this.renderAccionesAdministrativas(item)}
+
       </article>
     `;
 
+  },
+
+  async administrarRecepcion(accion, idRecepcion) {
+    if (!this.puedeAdministrarRecepciones()) {
+      this.notificar("Esta acción está reservada para Encargado y Administrador.", "advertencia");
+      return;
+    }
+    if (accion === "anular") {
+      this.abrirConfirmacionAnulacion(idRecepcion);
+      return;
+    }
+    this.mostrarCarga("Consultando recepción", "Preparando las entradas registradas.");
+    try {
+      const respuesta = await API.post({
+        action: accion === "vincular" ? "listarRecepcionesVinculables" : "obtenerAdministracionRecepcion",
+        idRecepcion
+      });
+      if (!respuesta || respuesta.ok !== true) throw new Error(respuesta && respuesta.mensaje || "No fue posible consultar la recepción.");
+      if (accion === "vincular") this.abrirVinculacionRecepciones(idRecepcion, respuesta.data || {});
+      else this.abrirEdicionRecepcion(respuesta.data || {});
+    } catch (error) {
+      this.notificar(error.message, "error");
+    } finally {
+      this.ocultarCarga();
+    }
+  },
+
+  abrirEdicionRecepcion(datos) {
+    const recepcion = datos.recepcion || {};
+    const detalles = Array.isArray(datos.detalles) ? datos.detalles : [];
+    const camaras = Array.isArray(datos.camaras) ? datos.camaras : this.estado.camaras;
+    const contenido = `
+      <section class="administrar-recepcion-modal">
+        <p class="admin-recepcion-ayuda">Cada tarjeta corresponde a una entrada real. Al guardar se recalculan el encabezado, los movimientos y la ocupación.</p>
+        <div class="entradas-administrables-recepcion">
+          ${detalles.map((d, indice) => `
+            <article class="entrada-administrable-recepcion" data-id-detalle="${this.escapar(d.idDetalle)}">
+              <header><strong>${this.escapar(d.auxiliarNombre || "Colaborador no identificado")}</strong><span>Entrada ${indice + 1}</span></header>
+              <div class="campos-entrada-administrable">
+                <label>Origen<select data-campo="origenTraslado"><option value="Carritos" ${String(d.origenTraslado).toUpperCase()==="CARRITOS"?"selected":""}>Carritos</option><option value="Túnel" ${String(d.origenTraslado).toUpperCase().indexOf("TUN")===0?"selected":""}>Túnel</option></select></label>
+                <label>Hora<input data-campo="horaRegistro" type="time" value="${this.escapar(d.horaRegistro || "")}"></label>
+                <label>Cámara<select data-campo="idCamara">${camaras.map(c => `<option value="${this.escapar(c.idCamara || c.id)}" ${(c.idCamara||c.id)===d.idCamara?"selected":""}>${this.escapar(c.codigo || c.nombre || c.idCamara)}</option>`).join("")}</select></label>
+                <label>Tarimas completas<input data-campo="tarimasCompletas" type="number" min="0" value="${Number(d.tarimasCompletas || 0)}"></label>
+                <label>Unidades parciales<input data-campo="parcialUnidades" type="number" min="0" value="${Number(d.parcialUnidades || 0)}"></label>
+                <label>Posiciones<input data-campo="posicionesOcupadas" type="number" min="0" value="${Number(d.posicionesOcupadas || 0)}"></label>
+              </div>
+            </article>`).join("")}
+        </div>
+        <label class="motivo-admin-recepcion">Motivo de la corrección<textarea id="motivoEdicionRecepcion" rows="2" required></textarea></label>
+        <footer class="acciones-modal-recepcion"><button type="button" class="btn-recepcion secundario" id="cancelarEdicionRecepcion">Cancelar</button><button type="button" class="btn-recepcion principal" id="guardarEdicionRecepcion"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></footer>
+      </section>`;
+    Sistema.abrirModal(this.escapar(recepcion.detalle || recepcion.material || "Editar recepción"), contenido, {clase:"modal-administrar-recepcion"});
+    document.getElementById("cancelarEdicionRecepcion").onclick = () => Sistema.cerrarModal();
+    document.getElementById("guardarEdicionRecepcion").onclick = () => this.guardarEdicionRecepcion(recepcion.idRecepcion);
+  },
+
+  async guardarEdicionRecepcion(idRecepcion) {
+    const motivo = String(document.getElementById("motivoEdicionRecepcion").value || "").trim();
+    if (!motivo) { this.notificar("Indique el motivo de la corrección.", "advertencia"); return; }
+    const detalles = Array.from(document.querySelectorAll(".entrada-administrable-recepcion")).map(tarjeta => {
+      const valor = campo => tarjeta.querySelector(`[data-campo="${campo}"]`).value;
+      return {idDetalle:tarjeta.dataset.idDetalle, origenTraslado:valor("origenTraslado"), horaRegistro:valor("horaRegistro"), idCamara:valor("idCamara"), tarimasCompletas:Number(valor("tarimasCompletas")), parcialUnidades:Number(valor("parcialUnidades")), posicionesOcupadas:Number(valor("posicionesOcupadas"))};
+    });
+    await this.ejecutarAdministracionRecepcion("editarRecepcionAdministrativa", {idRecepcion, motivo, detalles}, "Recepción corregida correctamente.");
+  },
+
+  abrirVinculacionRecepciones(idRecepcion, datos) {
+    const candidatas = Array.isArray(datos.recepciones) ? datos.recepciones : [];
+    const contenido = `<section class="administrar-recepcion-modal"><p class="admin-recepcion-ayuda">Seleccione la recepción que se integrará a la principal. Las entradas y movimientos conservarán su trazabilidad.</p><div class="lista-vinculables-recepcion">${candidatas.length ? candidatas.map(item => `<label><input type="radio" name="recepcionSecundaria" value="${this.escapar(item.idRecepcion)}"><span><strong>${this.escapar(item.idRecepcion)}</strong><small>${this.escapar(item.fecha || "")} · ${this.formatearNumero(item.totalUnidades || 0)} bultos</small></span></label>`).join("") : "<p>No hay otra recepción del mismo material disponible.</p>"}</div><label class="motivo-admin-recepcion">Motivo de la vinculación<textarea id="motivoVincularRecepcion" rows="2"></textarea></label><footer class="acciones-modal-recepcion"><button type="button" class="btn-recepcion secundario" id="cancelarVinculacionRecepcion">Cancelar</button><button type="button" class="btn-recepcion principal" id="confirmarVinculacionRecepcion" ${candidatas.length?"":"disabled"}><i class="fa-solid fa-link"></i> Unificar</button></footer></section>`;
+    Sistema.abrirModal("Vincular recepciones", contenido, {clase:"modal-administrar-recepcion"});
+    document.getElementById("cancelarVinculacionRecepcion").onclick = () => Sistema.cerrarModal();
+    document.getElementById("confirmarVinculacionRecepcion").onclick = () => {
+      const elegida = document.querySelector('[name="recepcionSecundaria"]:checked');
+      const motivo = String(document.getElementById("motivoVincularRecepcion").value || "").trim();
+      if (!elegida || !motivo) { this.notificar("Seleccione la recepción e indique el motivo.", "advertencia"); return; }
+      this.ejecutarAdministracionRecepcion("vincularRecepcionesAdministrativas", {idRecepcionPrincipal:idRecepcion, idRecepcionSecundaria:elegida.value, motivo}, "Recepciones unificadas correctamente.");
+    };
+  },
+
+  abrirConfirmacionAnulacion(idRecepcion) {
+    const contenido = `<section class="confirmacion-anular-recepcion"><div class="icono-confirmacion-anular"><i class="fa-solid fa-trash-can"></i></div><h3>¿Anular esta recepción?</h3><p>Se conservará el encabezado como acuse de auditoría. Se eliminarán los detalles y movimientos asociados y se reconstruirá la ocupación.</p><label>Motivo de la anulación<textarea id="motivoAnularRecepcion" rows="3"></textarea></label><footer><button type="button" class="btn-recepcion secundario" id="cancelarAnulacionRecepcion">Cancelar</button><button type="button" class="btn-recepcion peligro" id="confirmarAnulacionRecepcion">Anular recepción</button></footer></section>`;
+    Sistema.abrirModal("Validar anulación", contenido, {clase:"modal-confirmacion-recepcion", compacto:true});
+    document.getElementById("cancelarAnulacionRecepcion").onclick = () => Sistema.cerrarModal();
+    document.getElementById("confirmarAnulacionRecepcion").onclick = () => {
+      const motivo = String(document.getElementById("motivoAnularRecepcion").value || "").trim();
+      if (!motivo) { this.notificar("Indique el motivo de la anulación.", "advertencia"); return; }
+      this.ejecutarAdministracionRecepcion("anularRecepcionAdministrativa", {idRecepcion, motivo}, "Recepción anulada y ocupación reconstruida.");
+    };
+  },
+
+  async ejecutarAdministracionRecepcion(action, datos, mensaje) {
+    this.mostrarCarga("Actualizando recepción", "Sincronizando detalles, movimientos e inventario.");
+    try {
+      const respuesta = await API.post(Object.assign({action}, datos));
+      if (!respuesta || respuesta.ok !== true) throw new Error(respuesta && respuesta.mensaje || "No fue posible completar la operación.");
+      Sistema.cerrarModal();
+      if (window.CacheOperativo && CacheOperativo.invalidarPrefijo) await CacheOperativo.invalidarPrefijo("recepciones_");
+      await this.cargarCatalogos({forzarCache:true});
+      this.notificar(mensaje, "exito");
+    } catch (error) {
+      this.notificar(error.message, "error");
+    } finally {
+      this.ocultarCarga();
+    }
   },
 
 

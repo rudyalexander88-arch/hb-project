@@ -4,7 +4,7 @@
  *
  * - Usa IndexedDB para evitar los límites de localStorage.
  * - Separa los datos por usuario y rol.
- * - Renueva el corte diariamente a las 18:15.
+ * - Admite corte diario y validación por versión del módulo.
  * - Nunca sustituye las validaciones ni los permisos del backend.
  */
 (function iniciarCacheOperativo(global) {
@@ -201,13 +201,14 @@
       if (!vigente && opciones.permitirVencido !== true) return null;
       return {
         datos: registro.datos,
+        meta: registro.meta || {},
         vigente,
         corteId: registro.corteId,
         guardadoEn: registro.guardadoEn
       };
     },
 
-    async guardar(clave, datos) {
+    async guardar(clave, datos, opciones = {}) {
       const contexto = contextoSesion();
       const registro = {
         id: construirId(clave),
@@ -217,7 +218,8 @@
         version: VERSION_ESQUEMA,
         corteId: corteVigente(),
         guardadoEn: Date.now(),
-        datos
+        datos,
+        meta: opciones.meta && typeof opciones.meta === "object" ? opciones.meta : {}
       };
       await guardarRegistro(registro);
       this.limpiarAntiguos().catch(() => {});

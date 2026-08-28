@@ -4554,3 +4554,84 @@ html[data-tema="oscuro"] .historico-recepciones-controles .historico-recepciones
         font-size: 9px;
     }
 }
+/* Administración controlada de recepciones */
+.tarjeta-recepcion-abierta,
+.tarjeta-recepcion-reciente { position: relative; }
+
+.acciones-admin-recepcion {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tarjeta-recepcion-abierta > .acciones-admin-recepcion {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+}
+
+.tarjeta-recepcion-abierta:has(.btn-recepcion.continuar) > .acciones-admin-recepcion {
+  right: 188px;
+}
+
+.accion-admin-recepcion {
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 1px solid var(--borde-suave, #cbd5e1);
+  border-radius: 8px;
+  background: var(--fondo-control, #eef2f6);
+  color: var(--texto-principal, #243244);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.accion-admin-recepcion:hover { transform: translateY(-1px); border-color: #8b98a8; }
+.accion-admin-recepcion.eliminar { color: #e3182d; border-color: rgba(227,24,45,.35); background: rgba(227,24,45,.08); }
+
+.modal-administrar-recepcion { width: min(1050px, calc(100vw - 30px)); max-height: min(88vh, 850px); }
+.modal-administrar-recepcion #contenidoModal { overflow-y: auto; }
+.administrar-recepcion-modal { display: grid; gap: 14px; }
+.admin-recepcion-ayuda { margin: 0; padding: 11px 13px; border-left: 3px solid #e3182d; border-radius: 8px; background: var(--fondo-control, #eef2f6); color: var(--texto-secundario, #526174); }
+.entradas-administrables-recepcion { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.entrada-administrable-recepcion { border: 1px solid var(--borde-suave, #d7dee7); border-radius: 12px; padding: 12px; background: var(--fondo-tarjeta, #fff); }
+.entrada-administrable-recepcion > header { display:flex; justify-content:space-between; gap:10px; padding-bottom:9px; margin-bottom:10px; border-bottom:1px solid var(--borde-suave, #d7dee7); }
+.entrada-administrable-recepcion > header span { color:#e3182d; font-size:.75rem; font-weight:800; text-transform:uppercase; }
+.campos-entrada-administrable { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.campos-entrada-administrable label,
+.motivo-admin-recepcion { display:grid; gap:5px; color:var(--texto-secundario,#526174); font-size:.78rem; font-weight:700; }
+.campos-entrada-administrable input,
+.campos-entrada-administrable select,
+.motivo-admin-recepcion textarea { width:100%; border:1px solid var(--borde-suave,#cbd5e1); border-radius:8px; padding:9px; background:var(--fondo-control,#f7f9fb); color:var(--texto-principal,#172033); }
+.acciones-modal-recepcion { display:flex; justify-content:flex-end; gap:9px; position:sticky; bottom:0; padding-top:10px; background:var(--fondo-tarjeta,#fff); }
+.lista-vinculables-recepcion { display:grid; gap:8px; }
+.lista-vinculables-recepcion label { display:flex; gap:10px; align-items:center; padding:11px; border:1px solid var(--borde-suave,#cbd5e1); border-radius:10px; background:var(--fondo-control,#f7f9fb); }
+.lista-vinculables-recepcion label span { display:grid; gap:3px; }
+.confirmacion-anular-recepcion { text-align:center; display:grid; gap:12px; }
+.confirmacion-anular-recepcion h3,.confirmacion-anular-recepcion p { margin:0; }
+.confirmacion-anular-recepcion label { display:grid; gap:6px; text-align:left; font-weight:700; }
+.confirmacion-anular-recepcion textarea { border:1px solid var(--borde-suave,#cbd5e1); border-radius:9px; padding:10px; background:var(--fondo-control,#f7f9fb); color:var(--texto-principal,#172033); }
+.confirmacion-anular-recepcion footer { display:flex; justify-content:center; gap:9px; }
+.icono-confirmacion-anular { width:50px; height:50px; margin:auto; border-radius:50%; display:grid; place-items:center; color:#fff; background:#e3182d; font-size:1.2rem; }
+.btn-recepcion.peligro { background:#e3182d; color:#fff; border-color:#e3182d; }
+
+body.tema-oscuro .accion-admin-recepcion,
+body[data-tema="oscuro"] .accion-admin-recepcion { background:#202b38; color:#eaf0f7; border-color:#435164; }
+body.tema-oscuro .entrada-administrable-recepcion,
+body[data-tema="oscuro"] .entrada-administrable-recepcion,
+body.tema-oscuro .acciones-modal-recepcion,
+body[data-tema="oscuro"] .acciones-modal-recepcion { --fondo-tarjeta:#18222e; --fondo-control:#222e3b; --texto-principal:#f4f7fb; --texto-secundario:#c8d2de; --borde-suave:#425064; }
+body.tema-gris .entrada-administrable-recepcion,
+body[data-tema="gris"] .entrada-administrable-recepcion { --fondo-tarjeta:#e4e7eb; --fondo-control:#d8dde3; --texto-principal:#172033; --texto-secundario:#465363; --borde-suave:#aeb8c4; }
+
+@media (max-width: 760px) {
+  .entradas-administrables-recepcion { grid-template-columns:1fr; }
+  .campos-entrada-administrable { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .tarjeta-recepcion-abierta > .acciones-admin-recepcion,
+  .tarjeta-recepcion-abierta:has(.btn-recepcion.continuar) > .acciones-admin-recepcion { right:12px; bottom:56px; }
+  .tarjeta-recepcion-abierta { padding-bottom:92px; }
+}

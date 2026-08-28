@@ -795,12 +795,13 @@ window.ReportesKPIs = {
       this.periodoReduccionDecomiso
     );
     const opciones = this.opcionesReduccionDecomiso(indicadores);
-    const valor = Math.max(0, this.valorNumero(reduccion.avanceMeta));
-    const limitado = Math.min(100, valor);
+    const valor = this.valorNumero(reduccion.reduccionReal);
+    const progresoMeta = Math.max(0, this.valorNumero(reduccion.avanceMeta));
+    const limitado = Math.min(100, progresoMeta);
     const angulo = -90 + limitado * 1.8;
     const clase = !reduccion.disponible
       ? "rojo"
-      : valor >= 100 ? "verde" : valor >= 85 ? "amarillo" : valor >= 60 ? "naranja" : "rojo";
+      : progresoMeta >= 100 ? "verde" : progresoMeta >= 85 ? "amarillo" : progresoMeta >= 60 ? "naranja" : "rojo";
     const variacion = reduccion.reduccionReal >= 0
       ? `Reducción real ${this.porcentaje(reduccion.reduccionReal)}`
       : `Aumento ${this.porcentaje(Math.abs(reduccion.reduccionReal))}`;
@@ -971,7 +972,10 @@ window.ReportesKPIs = {
     const seleccion = configuracion[periodo] || configuracion.MENSUAL;
     const meta = this.valorNumero(indicadores.metaReduccion);
     const mapa = new Map();
-    (Array.isArray(indicadores.porMes) ? indicadores.porMes : []).forEach(item => {
+    const seriePT = Array.isArray(indicadores.porMesPT) && indicadores.porMesPT.length
+      ? indicadores.porMesPT
+      : (Array.isArray(indicadores.porMes) ? indicadores.porMes : []);
+    seriePT.forEach(item => {
       const clave = String(item.periodo || "").slice(0, 7);
       if (/^\d{4}-\d{2}$/.test(clave)) mapa.set(clave, this.valorNumero(item.valor));
     });

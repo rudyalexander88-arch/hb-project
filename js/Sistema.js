@@ -39,6 +39,7 @@ const Sistema = {
         }
 
         modal.classList.remove("oculto");
+        modal.removeAttribute("inert");
         modal.setAttribute("aria-hidden", "false");
         document.body.classList.add("modal-sistema-abierto");
 
@@ -82,30 +83,52 @@ const Sistema = {
             return;
         }
 
-        const elementoActivo = document.activeElement;
-
-        if (
-            elementoActivo &&
-            modal.contains(elementoActivo) &&
-            typeof elementoActivo.blur === "function"
-        ) {
-            elementoActivo.blur();
-        }
-
-        modal.classList.add("oculto");
-        modal.setAttribute("aria-hidden", "true");
-        document.body.classList.remove("modal-sistema-abierto");
-
         const elementoAnterior = this.elementoEnfocadoAntesDelModal;
 
         this.elementoEnfocadoAntesDelModal = null;
 
+        let destinoFoco = null;
+
         if (
             elementoAnterior &&
             document.contains(elementoAnterior) &&
+            !modal.contains(elementoAnterior) &&
             typeof elementoAnterior.focus === "function"
         ) {
-            elementoAnterior.focus({ preventScroll: true });
+            destinoFoco = elementoAnterior;
+        }
+
+        let tabindexTemporal = false;
+
+        if (!destinoFoco) {
+            destinoFoco = document.body;
+
+            if (!document.body.hasAttribute("tabindex")) {
+                document.body.setAttribute("tabindex", "-1");
+                tabindexTemporal = true;
+            }
+        }
+
+        /*
+         * El foco debe quedar fuera del modal antes de aplicar inert o
+         * aria-hidden. blur() por sí solo no garantiza ese traslado en
+         * Chromium y provocaba la advertencia de accesibilidad.
+         */
+        try {
+            destinoFoco.focus({ preventScroll: true });
+        } catch (errorFoco) {
+            document.body.focus();
+        }
+
+        modal.setAttribute("inert", "");
+        modal.classList.add("oculto");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-sistema-abierto");
+
+        if (tabindexTemporal) {
+            window.setTimeout(() => {
+                document.body.removeAttribute("tabindex");
+            }, 0);
         }
 
         const modalContenido = modal.querySelector(".modal-contenido");

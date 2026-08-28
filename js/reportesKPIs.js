@@ -746,6 +746,36 @@ window.ReportesKPIs = {
     this.crearGraficaRecepciones(recepcionesSerie);
     this.conectarAccionesReporte();
     this.conectarSelectorReduccionDecomiso();
+    this.conectarFlorKpis();
+  },
+
+  conectarFlorKpis() {
+    const contenedor = document.querySelector(".rk-kpis-principales");
+    if (!contenedor) return;
+
+    const tarjetas = Array.from(contenedor.querySelectorAll(".rk-kpi"));
+    tarjetas.forEach((tarjeta, indice) => {
+      tarjeta.dataset.rkFlorPosicion = String(indice === 0 ? 4 : indice - 1);
+      tarjeta.tabIndex = 0;
+      tarjeta.setAttribute("role", "button");
+      tarjeta.setAttribute("aria-label", "Mostrar al frente: " + (tarjeta.querySelector("span")?.textContent || "indicador"));
+
+      const activar = () => {
+        if (!window.matchMedia("(max-width: 560px)").matches) return;
+        const frontal = contenedor.querySelector('.rk-kpi[data-rk-flor-posicion="4"]');
+        if (!frontal || frontal === tarjeta) return;
+        const posicionAnterior = tarjeta.dataset.rkFlorPosicion;
+        tarjeta.dataset.rkFlorPosicion = "4";
+        frontal.dataset.rkFlorPosicion = posicionAnterior;
+      };
+
+      tarjeta.addEventListener("click", activar);
+      tarjeta.addEventListener("keydown", evento => {
+        if (evento.key !== "Enter" && evento.key !== " ") return;
+        evento.preventDefault();
+        activar();
+      });
+    });
   },
 
   kpi(etiqueta, valor, icono, clase, detalle) {

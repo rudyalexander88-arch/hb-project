@@ -499,8 +499,38 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   .rk-encabezado .rk-btn { font-size: 0; }
   .rk-encabezado .rk-btn i { font-size: .86rem; }
   .rk-periodo { align-items: flex-start; flex-direction: column; }
-  .rk-kpis-principales { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .rk-kpi { min-height: 116px; padding: 12px; }
+  .rk-kpis-principales {
+    position: relative;
+    display: block;
+    height: 328px;
+    margin: 0 0 14px;
+    isolation: isolate;
+  }
+  .rk-kpi {
+    position: absolute;
+    width: calc(50% - 6px);
+    height: 120px;
+    min-height: 120px;
+    padding: 12px;
+    transition: left .28s ease, right .28s ease, top .28s ease, transform .28s ease, box-shadow .28s ease;
+    cursor: pointer;
+  }
+  .rk-kpi:focus-visible { outline: 3px solid color-mix(in srgb, var(--rk-color) 55%, #fff); outline-offset: 2px; }
+  .rk-kpi[data-rk-flor-posicion="0"] { top: 0; left: 0; z-index: 1; }
+  .rk-kpi[data-rk-flor-posicion="1"] { top: 0; right: 0; z-index: 1; }
+  .rk-kpi[data-rk-flor-posicion="2"] { top: 208px; left: 0; z-index: 1; }
+  .rk-kpi[data-rk-flor-posicion="3"] { top: 208px; right: 0; z-index: 1; }
+  .rk-kpi[data-rk-flor-posicion="4"] {
+    top: 104px;
+    left: 21%;
+    z-index: 4;
+    width: 58%;
+    transform: translateY(0) scale(1.015);
+    box-shadow: 0 10px 24px rgba(16,31,48,.2);
+  }
+  .rk-kpi[data-rk-flor-posicion="4"] > span,
+  .rk-kpi[data-rk-flor-posicion="4"] > strong,
+  .rk-kpi[data-rk-flor-posicion="4"] > small { position: relative; z-index: 1; }
   .rk-velocimetro { grid-template-columns: 1fr; }
   .rk-selector-reduccion { grid-template-columns: 1fr; }
   .rk-medidor { max-width: 250px; margin: 0 auto; }
@@ -519,6 +549,11 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   .rk-dialogo-tarjeta { max-height: calc(100dvh - 24px); border-radius: 14px; }
   .rk-form-reporte { padding: 14px; }
   .rk-dialogo-boton { min-width: 0; }
+}
+
+@media print {
+  .rk-kpis-principales { display:grid!important; height:auto!important; grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:10px!important; }
+  .rk-kpi { position:relative!important; inset:auto!important; width:auto!important; height:auto!important; min-height:126px!important; transform:none!important; }
 }
 
 @media print {

@@ -816,6 +816,15 @@ html[data-tema="gris"] .gal-dep-dona>span{background:#f5f6f7}
 
 /* Accesos y editor de tramos */
 .gal-detalle-acciones{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+@media(min-width:761px){
+ .gal-mapa-detalle-camara>.gal-detalle-encabezado>.gal-detalle-acciones{
+  grid-column:3;
+  grid-row:1;
+  min-width:max-content;
+  align-self:center;
+  padding-bottom:0;
+ }
+}
 .gal-btn.gal-btn-icono{
  display:inline-grid;
  place-items:center;

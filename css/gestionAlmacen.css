@@ -1085,3 +1085,21 @@ html[data-tema="oscuro"] .gal-confirmar-anulacion{background:#1c2634;color:#f2f6
 html[data-tema="oscuro"] .gal-selector-ubicacion,html[data-tema="oscuro"] .gal-tabla-ingreso article,html[data-tema="oscuro"] .gal-detalle-especial-lista article{border-color:#435063;background:#243142;color:#f3f6fa}html[data-tema="oscuro"] .gal-mapa-selector-posiciones button{border-color:#346a4a;background:#1e382a;color:#eaf8ee}html[data-tema="oscuro"] .gal-mapa-selector-posiciones button.ocupada{border-color:#7d682b;background:#3a321c;color:#fff3cb}html[data-tema="oscuro"] .gal-aviso-salida{background:#3a301c;color:#fff1cb}
 @media(max-width:900px){.gal-ingreso-cabecera{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-tabla-ingreso article{grid-template-columns:26px minmax(180px,1fr) 90px 100px 32px}.gal-linea-valor{grid-column:2/5}.gal-mapa-selector-posiciones{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.gal-ingreso-cabecera{grid-template-columns:1fr}.gal-selector-ubicacion,.gal-detalle-especial>header{align-items:stretch;flex-direction:column}.gal-selector-ubicacion .gal-btn,.gal-detalle-especial-acciones .gal-btn{width:100%}.gal-detalle-especial-acciones{flex-direction:column}.gal-ingreso-herramientas{align-items:stretch;flex-direction:column}.gal-ingreso-herramientas .gal-btn{width:100%}.gal-tabla-ingreso article{grid-template-columns:24px minmax(0,1fr) 32px}.gal-tabla-ingreso article>label,.gal-linea-material,.gal-linea-valor{grid-column:2}.gal-tabla-ingreso [data-eliminar-linea]{grid-column:3;grid-row:1}.gal-mapa-selector-posiciones{grid-template-columns:1fr}}
+
+/* Acciones principales de Especiales y acceso compacto a Configuracion. */
+.gal-header-acciones{display:flex;align-items:center;justify-content:flex-end;gap:6px;align-self:center}
+.gal-header-acciones .gal-btn{display:grid;place-items:center;width:36px;min-height:36px;padding:0}
+.gal-subheader-especiales{align-items:center}
+.gal-especiales-acciones{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.gal-especiales-acciones .gal-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin:0}
+@media(max-width:1160px){.gal-shell>.gal-header.gal-header-navegacion{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"texto acciones" "tabs tabs"}.gal-shell>.gal-header.gal-header-navegacion>.gal-header-acciones{grid-area:acciones}}
+@media(max-width:600px){
+ .gal-subheader-especiales{display:grid;grid-template-columns:1fr;gap:8px}
+ .gal-subheader-especiales>h3{margin:0}
+ .gal-especiales-acciones{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:7px}
+ .gal-especiales-acciones .gal-btn-registrar-especial{grid-column:1/-1;grid-row:1;width:100%}
+ .gal-especiales-acciones .gal-btn-anular-transformacion{grid-column:1;grid-row:2;width:100%}
+ .gal-especiales-acciones .gal-btn-transformar{grid-column:2;grid-row:2;width:100%}
+ .gal-especiales-acciones .gal-btn-anular-transformacion span,
+ .gal-especiales-acciones .gal-btn-transformar span{display:none}
+}

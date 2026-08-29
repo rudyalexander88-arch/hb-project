@@ -3953,7 +3953,7 @@ body.asistente-recepcion-abierto {
 
 .fila-historico-recepcion {
     display: grid;
-    grid-template-columns: minmax(220px, 1.7fr) auto repeat(4, minmax(80px, .55fr));
+    grid-template-columns: minmax(190px, 1.45fr) auto repeat(4, minmax(70px, .48fr)) auto;
     align-items: center;
     gap: 8px;
     padding: 9px 10px;
@@ -4602,6 +4602,10 @@ html[data-tema="oscuro"] .historico-recepciones-controles .historico-recepciones
 .entrada-administrable-recepcion > header { display:flex; justify-content:space-between; gap:10px; padding-bottom:9px; margin-bottom:10px; border-bottom:1px solid var(--borde-suave, #d7dee7); }
 .entrada-administrable-recepcion > header span { color:#e3182d; font-size:.75rem; font-weight:800; text-transform:uppercase; }
 .campos-entrada-administrable { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.material-administrable-recepcion{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(260px,1.45fr);gap:9px;padding:12px;border:1px solid var(--borde-suave,#d7dee7);border-radius:12px;background:var(--fondo-control,#f7f9fb)}
+.material-administrable-recepcion label{display:grid;gap:5px;color:var(--texto-secundario,#526174);font-size:.78rem;font-weight:700}
+.material-administrable-recepcion input{width:100%;min-height:38px;border:1px solid var(--borde-suave,#cbd5e1);border-radius:8px;padding:9px;background:var(--fondo-tarjeta,#fff);color:var(--texto-principal,#172033)}
+.material-administrable-recepcion p{grid-column:1/-1;margin:0;color:var(--texto-secundario,#526174);font-size:.72rem}
 .campos-entrada-administrable label,
 .motivo-admin-recepcion { display:grid; gap:5px; color:var(--texto-secundario,#526174); font-size:.78rem; font-weight:700; }
 .campos-entrada-administrable input,
@@ -4623,10 +4627,14 @@ body.tema-oscuro .accion-admin-recepcion,
 body[data-tema="oscuro"] .accion-admin-recepcion { background:#202b38; color:#eaf0f7; border-color:#435164; }
 body.tema-oscuro .entrada-administrable-recepcion,
 body[data-tema="oscuro"] .entrada-administrable-recepcion,
+body.tema-oscuro .material-administrable-recepcion,
+body[data-tema="oscuro"] .material-administrable-recepcion,
 body.tema-oscuro .acciones-modal-recepcion,
 body[data-tema="oscuro"] .acciones-modal-recepcion { --fondo-tarjeta:#18222e; --fondo-control:#222e3b; --texto-principal:#f4f7fb; --texto-secundario:#c8d2de; --borde-suave:#425064; }
 body.tema-gris .entrada-administrable-recepcion,
-body[data-tema="gris"] .entrada-administrable-recepcion { --fondo-tarjeta:#e4e7eb; --fondo-control:#d8dde3; --texto-principal:#172033; --texto-secundario:#465363; --borde-suave:#aeb8c4; }
+body[data-tema="gris"] .entrada-administrable-recepcion,
+body.tema-gris .material-administrable-recepcion,
+body[data-tema="gris"] .material-administrable-recepcion { --fondo-tarjeta:#e4e7eb; --fondo-control:#d8dde3; --texto-principal:#172033; --texto-secundario:#465363; --borde-suave:#aeb8c4; }
 
 /* Estado seleccionado del origen de recepción en el tema gris. */
 html[data-tema="gris"] .opcion-origen-recepcion.activo,
@@ -4652,6 +4660,8 @@ body[data-tema="gris"] .opcion-origen-recepcion.activo span {
 
 @media (max-width: 760px) {
   .entradas-administrables-recepcion { grid-template-columns:1fr; }
+  .material-administrable-recepcion { grid-template-columns:1fr; }
+  .material-administrable-recepcion p { grid-column:1; }
   .campos-entrada-administrable { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .tarjeta-recepcion-abierta > .acciones-admin-recepcion,
   .tarjeta-recepcion-abierta:has(.btn-recepcion.continuar) > .acciones-admin-recepcion { right:12px; bottom:56px; }

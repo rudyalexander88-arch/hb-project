@@ -1212,6 +1212,16 @@ configurarScrollInterno() {
     });
 
     lista.innerHTML = html || `<div class="estado-proximo-recepciones"><i class="fa-solid fa-box-archive"></i><span>No existen recepciones para mostrar.</span></div>`;
+    lista.querySelectorAll("[data-admin-recepcion]").forEach(boton => {
+      boton.onclick = evento => {
+        evento.preventDefault();
+        evento.stopPropagation();
+        this.administrarRecepcion(
+          boton.dataset.adminRecepcion,
+          boton.dataset.idRecepcion
+        );
+      };
+    });
     if (boton) boton.hidden = !this.estado.historicoHayMas;
     if (resumen) resumen.textContent = `Mostrando ${registros.length} de ${this.estado.historicoTotal} recepciones`;
   },
@@ -1230,6 +1240,7 @@ configurarScrollInterno() {
         <div class="fila-historico-metrica"><span>Cajas/cubos</span><strong>${this.formatearNumero(item.totalUnidades)}</strong></div>
         <div class="fila-historico-metrica"><span>Posiciones</span><strong>${this.formatearNumero(item.totalPosiciones)}</strong></div>
         <div class="fila-historico-metrica"><span>Duración</span><strong>${this.formatearNumero(item.duracionMinutos)} min</strong></div>
+        ${this.renderAccionesAdministrativas(item)}
       </article>`;
   },
 
@@ -1679,6 +1690,11 @@ configurarScrollInterno() {
     const contenido = `
       <section class="administrar-recepcion-modal">
         <p class="admin-recepcion-ayuda">Cada tarjeta corresponde a una entrada real. Al guardar se recalculan el encabezado, los movimientos y la ocupación.</p>
+        <section class="material-administrable-recepcion">
+          <label>Código del material<input id="materialEdicionRecepcion" type="text" value="${this.escapar(recepcion.material || "")}" autocomplete="off" required></label>
+          <label>Descripción<input id="descripcionEdicionRecepcion" type="text" value="${this.escapar(recepcion.detalle || recepcion.descripcion || "")}" autocomplete="off" required></label>
+          <p>El código debe existir y estar activo en el catálogo de materiales.</p>
+        </section>
         <div class="entradas-administrables-recepcion">
           ${detalles.map((d, indice) => `
             <article class="entrada-administrable-recepcion" data-id-detalle="${this.escapar(d.idDetalle)}">
@@ -1704,11 +1720,14 @@ configurarScrollInterno() {
   async guardarEdicionRecepcion(idRecepcion) {
     const motivo = String(document.getElementById("motivoEdicionRecepcion").value || "").trim();
     if (!motivo) { this.notificar("Indique el motivo de la corrección.", "advertencia"); return; }
+    const material = String(document.getElementById("materialEdicionRecepcion").value || "").trim();
+    const descripcion = String(document.getElementById("descripcionEdicionRecepcion").value || "").trim();
+    if (!material || !descripcion) { this.notificar("Indique el material y su descripción.", "advertencia"); return; }
     const detalles = Array.from(document.querySelectorAll(".entrada-administrable-recepcion")).map(tarjeta => {
       const valor = campo => tarjeta.querySelector(`[data-campo="${campo}"]`).value;
       return {idDetalle:tarjeta.dataset.idDetalle, origenTraslado:valor("origenTraslado"), horaRegistro:valor("horaRegistro"), idCamara:valor("idCamara"), tarimasCompletas:Number(valor("tarimasCompletas")), parcialUnidades:Number(valor("parcialUnidades")), posicionesOcupadas:Number(valor("posicionesOcupadas"))};
     });
-    await this.ejecutarAdministracionRecepcion("editarRecepcionAdministrativa", {idRecepcion, motivo, detalles}, "Recepción corregida correctamente.");
+    await this.ejecutarAdministracionRecepcion("editarRecepcionAdministrativa", {idRecepcion, material, descripcion, motivo, detalles}, "Recepción corregida correctamente.");
   },
 
   abrirVinculacionRecepciones(idRecepcion, datos) {

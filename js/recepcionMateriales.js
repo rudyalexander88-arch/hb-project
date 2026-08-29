@@ -1691,9 +1691,19 @@ configurarScrollInterno() {
       <section class="administrar-recepcion-modal">
         <p class="admin-recepcion-ayuda">Cada tarjeta corresponde a una entrada real. Al guardar se recalculan el encabezado, los movimientos y la ocupación.</p>
         <section class="material-administrable-recepcion">
-          <label>Código del material<input id="materialEdicionRecepcion" type="text" value="${this.escapar(recepcion.material || "")}" autocomplete="off" required></label>
-          <label>Descripción<input id="descripcionEdicionRecepcion" type="text" value="${this.escapar(recepcion.detalle || recepcion.descripcion || "")}" autocomplete="off" required></label>
-          <p>El código debe existir y estar activo en el catálogo de materiales.</p>
+          <label class="buscador-material-administrable">
+            Buscar material en el catálogo
+            <span class="campo-busqueda-material-administrable">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input id="buscarMaterialEdicionRecepcion" type="search" placeholder="Escriba código o descripción" autocomplete="off">
+            </span>
+          </label>
+          <div id="resultadosMaterialEdicionRecepcion" class="resultados-material-administrable" hidden></div>
+          <div class="material-seleccionado-administrable">
+            <label>Código del material<input id="materialEdicionRecepcion" type="text" value="${this.escapar(recepcion.material || "")}" readonly required></label>
+            <label>Descripción<input id="descripcionEdicionRecepcion" type="text" value="${this.escapar(recepcion.detalle || recepcion.descripcion || "")}" readonly required></label>
+          </div>
+          <p id="estadoMaterialEdicionRecepcion"><i class="fa-solid fa-circle-check"></i> Material actual validado. Busque y seleccione otro únicamente si desea cambiarlo.</p>
         </section>
         <div class="entradas-administrables-recepcion">
           ${detalles.map((d, indice) => `
@@ -1713,8 +1723,101 @@ configurarScrollInterno() {
         <footer class="acciones-modal-recepcion"><button type="button" class="btn-recepcion secundario" id="cancelarEdicionRecepcion">Cancelar</button><button type="button" class="btn-recepcion principal" id="guardarEdicionRecepcion"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button></footer>
       </section>`;
     Sistema.abrirModal(this.escapar(recepcion.detalle || recepcion.material || "Editar recepción"), contenido, {clase:"modal-administrar-recepcion"});
+    this.configurarBusquedaMaterialEdicionRecepcion(recepcion);
     document.getElementById("cancelarEdicionRecepcion").onclick = () => Sistema.cerrarModal();
     document.getElementById("guardarEdicionRecepcion").onclick = () => this.guardarEdicionRecepcion(recepcion.idRecepcion);
+  },
+
+  configurarBusquedaMaterialEdicionRecepcion(recepcion) {
+    const buscador = document.getElementById("buscarMaterialEdicionRecepcion");
+    const resultados = document.getElementById("resultadosMaterialEdicionRecepcion");
+    const materialInput = document.getElementById("materialEdicionRecepcion");
+    const descripcionInput = document.getElementById("descripcionEdicionRecepcion");
+    const estado = document.getElementById("estadoMaterialEdicionRecepcion");
+
+    if (!buscador || !resultados || !materialInput || !descripcionInput || !estado) return;
+
+    let temporizador = null;
+    let secuenciaBusqueda = 0;
+    let materialSeleccionado = {
+      material: String(recepcion.material || "").trim(),
+      descripcion: String(recepcion.detalle || recepcion.descripcion || "").trim()
+    };
+
+    buscador.oninput = () => {
+      window.clearTimeout(temporizador);
+      const busqueda = String(buscador.value || "").trim();
+      const secuenciaActual = ++secuenciaBusqueda;
+
+      materialSeleccionado = null;
+      materialInput.value = "";
+      descripcionInput.value = "";
+      estado.className = "pendiente";
+      estado.innerHTML = '<i class="fa-solid fa-circle-info"></i> Seleccione un material de los resultados para habilitar el guardado.';
+
+      if (busqueda.length < 2) {
+        resultados.hidden = true;
+        resultados.innerHTML = "";
+        return;
+      }
+
+      temporizador = window.setTimeout(
+        () => this.buscarMaterialParaEdicionRecepcion(busqueda, secuenciaActual, () => secuenciaBusqueda, resultados, item => {
+          materialSeleccionado = item;
+          materialInput.value = String(item.id || item.material || "");
+          descripcionInput.value = String(item.descripcion || "");
+          buscador.value = `${materialInput.value} - ${descripcionInput.value}`;
+          resultados.hidden = true;
+          estado.className = "validado";
+          estado.innerHTML = '<i class="fa-solid fa-circle-check"></i> Material seleccionado y validado en el catálogo.';
+        }),
+        500
+      );
+    };
+
+    buscador.dataset.materialSeleccionado = materialSeleccionado ? "true" : "false";
+    buscador.obtenerMaterialSeleccionado = () => materialSeleccionado;
+  },
+
+  async buscarMaterialParaEdicionRecepcion(busqueda, secuencia, obtenerSecuencia, contenedor, alSeleccionar) {
+    contenedor.hidden = false;
+    contenedor.innerHTML = '<div class="busqueda-material-administrable-cargando"><i class="fa-solid fa-spinner fa-spin"></i> Buscando materiales...</div>';
+
+    try {
+      const respuesta = await API.post({
+        action: "buscarMaterialesRecepcionMateriales",
+        busqueda,
+        limite: 15
+      });
+
+      if (secuencia !== obtenerSecuencia()) return;
+      if (!respuesta || respuesta.ok !== true) {
+        throw new Error(respuesta && respuesta.mensaje || "No fue posible buscar materiales.");
+      }
+
+      const materiales = Array.isArray(respuesta.data) ? respuesta.data : [];
+      if (!materiales.length) {
+        contenedor.innerHTML = '<div class="material-administrable-vacio">No se encontraron materiales activos.</div>';
+        return;
+      }
+
+      contenedor.innerHTML = materiales.map((item, indice) => `
+        <button type="button" class="resultado-material-administrable" data-indice-material="${indice}">
+          <span><strong>${this.escapar(item.id || item.material || "-")}</strong><small>${this.escapar(item.descripcion || "Sin descripción")}</small></span>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      `).join("");
+
+      contenedor.querySelectorAll("[data-indice-material]").forEach(boton => {
+        boton.onclick = () => {
+          const item = materiales[Number(boton.dataset.indiceMaterial)];
+          if (item) alSeleccionar(item);
+        };
+      });
+    } catch (error) {
+      if (secuencia !== obtenerSecuencia()) return;
+      contenedor.innerHTML = `<div class="material-administrable-error"><i class="fa-solid fa-triangle-exclamation"></i> ${this.escapar(error.message)}</div>`;
+    }
   },
 
   async guardarEdicionRecepcion(idRecepcion) {
@@ -1722,7 +1825,14 @@ configurarScrollInterno() {
     if (!motivo) { this.notificar("Indique el motivo de la corrección.", "advertencia"); return; }
     const material = String(document.getElementById("materialEdicionRecepcion").value || "").trim();
     const descripcion = String(document.getElementById("descripcionEdicionRecepcion").value || "").trim();
-    if (!material || !descripcion) { this.notificar("Indique el material y su descripción.", "advertencia"); return; }
+    const buscadorMaterial = document.getElementById("buscarMaterialEdicionRecepcion");
+    const seleccionCatalogo = buscadorMaterial && typeof buscadorMaterial.obtenerMaterialSeleccionado === "function"
+      ? buscadorMaterial.obtenerMaterialSeleccionado()
+      : null;
+    if (!material || !descripcion || !seleccionCatalogo) {
+      this.notificar("Busque y seleccione un material válido del catálogo.", "advertencia");
+      return;
+    }
     const detalles = Array.from(document.querySelectorAll(".entrada-administrable-recepcion")).map(tarjeta => {
       const valor = campo => tarjeta.querySelector(`[data-campo="${campo}"]`).value;
       return {idDetalle:tarjeta.dataset.idDetalle, origenTraslado:valor("origenTraslado"), horaRegistro:valor("horaRegistro"), idCamara:valor("idCamara"), tarimasCompletas:Number(valor("tarimasCompletas")), parcialUnidades:Number(valor("parcialUnidades")), posicionesOcupadas:Number(valor("posicionesOcupadas"))};

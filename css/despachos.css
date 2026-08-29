@@ -3281,6 +3281,12 @@ body.centro-despachos-abierto
  */
 #modalSistema:not(.oculto) {
     overscroll-behavior: contain;
+    pointer-events: auto !important;
+}
+
+#modalSistema:not(.oculto) > .modal-contenido,
+#modalSistema:not(.oculto) #contenidoModal {
+    pointer-events: auto !important;
 }
 
 #contenidoModal.modo-centro-despachos {

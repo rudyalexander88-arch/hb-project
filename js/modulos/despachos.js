@@ -10,6 +10,55 @@ urlPdfTemporalConduce: null,
 consultaAccionesDespachosMovil: null,
 controlAccionesDespachosResponsive: null,
 
+activarModalAsistente() {
+
+    const modal =
+        document.getElementById("modalSistema");
+
+    const contenido =
+        document.getElementById("contenidoModal");
+
+    if (!modal) {
+        return false;
+    }
+
+    const activar = () => {
+
+        if (modal.classList.contains("oculto")) {
+            return;
+        }
+
+        modal.inert = false;
+        modal.removeAttribute("inert");
+        modal.setAttribute("aria-hidden", "false");
+        modal.style.pointerEvents = "auto";
+
+        if (contenido) {
+            contenido.inert = false;
+            contenido.removeAttribute("inert");
+            contenido.style.pointerEvents = "auto";
+        }
+
+        document.body.classList.add(
+            "modal-sistema-abierto"
+        );
+
+    };
+
+    modal.classList.remove("oculto");
+    activar();
+
+    /*
+     * Algunas aperturas esperan catálogos o terminan dentro del mismo
+     * ciclo del cargador global. Se reafirma el estado en el siguiente
+     * cuadro únicamente si el modal continúa visible.
+     */
+    window.requestAnimationFrame(activar);
+
+    return true;
+
+},
+
 sincronizarAccionesDespachosResponsive() {
 
     const panel =
@@ -4266,17 +4315,7 @@ Conduce.contadorLineas =
                     : `Finalizar ${Conduce.encabezado.noConduce || "despacho"}`;
         }
 
-        if (
-            typeof Sistema !== "undefined" &&
-            typeof Sistema.reactivarModal === "function"
-        ) {
-            Sistema.reactivarModal();
-        } else if (modal) {
-            modal.classList.remove("oculto");
-            modal.removeAttribute("inert");
-            modal.setAttribute("aria-hidden", "false");
-            document.body.classList.add("modal-sistema-abierto");
-        }
+        Despachos.activarModalAsistente();
 
         if (
             estado === "despachado" ||
@@ -6413,6 +6452,8 @@ async confirmarFrioBoxComoDestinoFinal(
 
 
 async pasoCarga() {
+
+    Despachos.activarModalAsistente();
 
     document.getElementById("contenidoModal").innerHTML = `
         <div class="barra-superior-carga">
@@ -8905,6 +8946,9 @@ validarPasoCarga() {
 },
 
 async pasoCalidad() {
+
+	Despachos.activarModalAsistente();
+
 	const contenidoModal =
     document.getElementById("contenidoModal");
 
@@ -8921,6 +8965,8 @@ contenidoModal.style.overflowY = "auto";
 
         personalCalidad =
             await Catalogos.cargarCalidad();
+
+        Despachos.activarModalAsistente();
 
     } catch (error) {
 

@@ -1019,3 +1019,29 @@ html[data-tema="gris"] .gal-editor-tramo-medidas b{background:#dfe4e8}
  .gal-editor-tramo-medidas{grid-column:1/-1;grid-row:2;grid-template-columns:repeat(2,minmax(0,1fr))}
  .gal-editor-tramo>.gal-btn-icono{grid-column:2;grid-row:1}
 }
+
+/* Graficas de decomisos: paleta pastel estable y tendencia diferenciada. */
+.gal-chart-tendencia{
+ stroke:#40566f;
+}
+.gal-leyenda-tendencia{
+ border-top-color:#40566f;
+}
+.gal-dep-dona{
+ overflow:visible;
+}
+.gal-dep-dona>svg{
+ overflow:visible;
+}
+.gal-dep-segmento:hover,
+.gal-dep-segmento:focus,
+.gal-dep-segmento.activo{
+ opacity:.92;
+ stroke-width:11;
+}
+html[data-tema="oscuro"] .gal-chart-tendencia{
+ stroke:#b8c3cf;
+}
+html[data-tema="oscuro"] .gal-leyenda-tendencia{
+ border-top-color:#b8c3cf;
+}

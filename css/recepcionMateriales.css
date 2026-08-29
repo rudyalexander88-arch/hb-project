@@ -4628,6 +4628,28 @@ body[data-tema="oscuro"] .acciones-modal-recepcion { --fondo-tarjeta:#18222e; --
 body.tema-gris .entrada-administrable-recepcion,
 body[data-tema="gris"] .entrada-administrable-recepcion { --fondo-tarjeta:#e4e7eb; --fondo-control:#d8dde3; --texto-principal:#172033; --texto-secundario:#465363; --borde-suave:#aeb8c4; }
 
+/* Estado seleccionado del origen de recepción en el tema gris. */
+html[data-tema="gris"] .opcion-origen-recepcion.activo,
+body.tema-gris .opcion-origen-recepcion.activo,
+body[data-tema="gris"] .opcion-origen-recepcion.activo {
+  border-color: var(--rec-rojo, #e3182d) !important;
+  background: #f8e1e4 !important;
+  color: #172033 !important;
+  box-shadow: 0 0 0 2px rgba(227, 24, 45, .14);
+}
+
+html[data-tema="gris"] .opcion-origen-recepcion.activo :is(i, strong),
+body.tema-gris .opcion-origen-recepcion.activo :is(i, strong),
+body[data-tema="gris"] .opcion-origen-recepcion.activo :is(i, strong) {
+  color: var(--rec-rojo, #e3182d) !important;
+}
+
+html[data-tema="gris"] .opcion-origen-recepcion.activo span,
+body.tema-gris .opcion-origen-recepcion.activo span,
+body[data-tema="gris"] .opcion-origen-recepcion.activo span {
+  color: #4b2630 !important;
+}
+
 @media (max-width: 760px) {
   .entradas-administrables-recepcion { grid-template-columns:1fr; }
   .campos-entrada-administrable { grid-template-columns:repeat(2,minmax(0,1fr)); }

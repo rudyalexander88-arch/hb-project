@@ -73,6 +73,23 @@ const Sistema = {
     },
 
 
+    reactivarModal() {
+
+        const modal = document.getElementById("modalSistema");
+
+        if (!modal) {
+            return false;
+        }
+
+        modal.classList.remove("oculto");
+        modal.removeAttribute("inert");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("modal-sistema-abierto");
+
+        return true;
+    },
+
+
     cerrarModal(limpiarConduce = false) {
 
         const modal = document.getElementById("modalSistema");

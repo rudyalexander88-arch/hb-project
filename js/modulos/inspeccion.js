@@ -163,7 +163,17 @@ const InspeccionContenedores = {
         this.categoriaBASCGuardando = "";
         this.selloLlegada = "";
 
-        modal.classList.remove("oculto");
+        if (
+            typeof Sistema !== "undefined" &&
+            typeof Sistema.reactivarModal === "function"
+        ) {
+            Sistema.reactivarModal();
+        } else {
+            modal.classList.remove("oculto");
+            modal.removeAttribute("inert");
+            modal.setAttribute("aria-hidden", "false");
+            document.body.classList.add("modal-sistema-abierto");
+        }
 
         contenidoModal.innerHTML = `
             <section class="asistente-inspeccion">
@@ -657,7 +667,19 @@ formatearTamanoContenedor(
                             "modalSistema"
                         );
 
-                    modal.classList.add("oculto");
+                    if (
+                        typeof Sistema !== "undefined" &&
+                        typeof Sistema.cerrarModal === "function"
+                    ) {
+                        Sistema.cerrarModal();
+                    } else if (modal) {
+                        modal.setAttribute("inert", "");
+                        modal.classList.add("oculto");
+                        modal.setAttribute("aria-hidden", "true");
+                        document.body.classList.remove(
+                            "modal-sistema-abierto"
+                        );
+                    }
 
                 }
             );

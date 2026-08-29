@@ -4266,8 +4266,16 @@ Conduce.contadorLineas =
                     : `Finalizar ${Conduce.encabezado.noConduce || "despacho"}`;
         }
 
-        if (modal) {
+        if (
+            typeof Sistema !== "undefined" &&
+            typeof Sistema.reactivarModal === "function"
+        ) {
+            Sistema.reactivarModal();
+        } else if (modal) {
             modal.classList.remove("oculto");
+            modal.removeAttribute("inert");
+            modal.setAttribute("aria-hidden", "false");
+            document.body.classList.add("modal-sistema-abierto");
         }
 
         if (
@@ -4279,7 +4287,7 @@ Conduce.contadorLineas =
 
         } else {
 
-            Despachos.pasoCarga();
+            await Despachos.pasoCarga();
 
         }
 

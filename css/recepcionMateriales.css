@@ -2626,8 +2626,22 @@ body.asistente-recepcion-abierto {
    PANTALLAS GRANDES
    ============================================================ */
 
+@media (min-width: 1001px) and (max-width: 1349px) {
+
+    .recepciones-abiertas-grid,
+    .lista-recepciones-abiertas {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+    }
+
+}
+
 @media (min-width: 1350px) {
 
+    .recepciones-abiertas-grid,
     .lista-recepciones-abiertas {
         grid-template-columns:
             repeat(
@@ -4601,15 +4615,27 @@ html[data-tema="oscuro"] .historico-recepciones-controles .historico-recepciones
 .entrada-administrable-recepcion { border: 1px solid var(--borde-suave, #d7dee7); border-radius: 12px; padding: 12px; background: var(--fondo-tarjeta, #fff); }
 .entrada-administrable-recepcion > header { display:flex; justify-content:space-between; gap:10px; padding-bottom:9px; margin-bottom:10px; border-bottom:1px solid var(--borde-suave, #d7dee7); }
 .entrada-administrable-recepcion > header span { color:#e3182d; font-size:.75rem; font-weight:800; text-transform:uppercase; }
+.acciones-entrada-administrable { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
+.marcar-eliminar-entrada { display:inline-flex!important; grid-template-columns:none!important; align-items:center; gap:6px; min-height:28px; padding:4px 8px; border:1px solid rgba(227,24,45,.35); border-radius:8px; background:rgba(227,24,45,.07); color:#e3182d!important; cursor:pointer; }
+.marcar-eliminar-entrada input { width:15px!important; height:15px; min-height:0!important; margin:0; padding:0!important; accent-color:#e3182d; cursor:pointer; }
+.marcar-eliminar-entrada span { color:#e3182d!important; font-size:.68rem!important; }
+.entrada-administrable-recepcion.marcada-eliminar { border-color:#e3182d; background:rgba(227,24,45,.08); box-shadow:0 0 0 2px rgba(227,24,45,.09); }
+.entrada-administrable-recepcion.marcada-eliminar .campos-entrada-administrable { opacity:.48; }
+.entrada-administrable-recepcion.marcada-eliminar .campos-entrada-administrable select,
+.entrada-administrable-recepcion.marcada-eliminar .campos-entrada-administrable input { cursor:not-allowed; }
 .campos-entrada-administrable { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
 .material-administrable-recepcion{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(260px,1.45fr);gap:9px;padding:12px;border:1px solid var(--borde-suave,#d7dee7);border-radius:12px;background:var(--fondo-control,#f7f9fb)}
 .material-administrable-recepcion label{display:grid;gap:5px;color:var(--texto-secundario,#526174);font-size:.78rem;font-weight:700}
 .material-administrable-recepcion input{width:100%;min-height:38px;border:1px solid var(--borde-suave,#cbd5e1);border-radius:8px;padding:9px;background:var(--fondo-tarjeta,#fff);color:var(--texto-principal,#172033)}
 .material-administrable-recepcion p{grid-column:1/-1;margin:0;color:var(--texto-secundario,#526174);font-size:.72rem}
-.material-administrable-recepcion .buscador-material-administrable,
+.material-administrable-recepcion .material-busqueda-estado-administrable,
 .material-administrable-recepcion .resultados-material-administrable,
 .material-administrable-recepcion .material-seleccionado-administrable,
 .material-administrable-recepcion>p{grid-column:1/-1}
+.material-busqueda-estado-administrable{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,210px);gap:10px;align-items:end}
+.material-busqueda-estado-administrable>.buscador-material-administrable,
+.material-busqueda-estado-administrable>.estado-guardado-administrable{grid-column:auto;min-width:0}
+.estado-guardado-administrable select{width:100%;min-height:42px;border:1px solid var(--borde-suave,#cbd5e1);border-radius:9px;padding:9px 34px 9px 10px;background:var(--fondo-tarjeta,#fff);color:var(--texto-principal,#172033);font-weight:700}
 .campo-busqueda-material-administrable{display:flex;align-items:center;gap:9px;margin-top:6px;padding:0 12px;border:1px solid var(--borde-suave,#cbd5e1);border-radius:9px;background:var(--fondo-tarjeta,#fff)}
 .campo-busqueda-material-administrable:focus-within{border-color:#e51b2b;box-shadow:0 0 0 3px rgba(229,27,43,.11)}
 .campo-busqueda-material-administrable i{color:#e51b2b}
@@ -4643,6 +4669,14 @@ html[data-tema="oscuro"] .historico-recepciones-controles .historico-recepciones
 .icono-confirmacion-anular { width:50px; height:50px; margin:auto; border-radius:50%; display:grid; place-items:center; color:#fff; background:#e3182d; font-size:1.2rem; }
 .btn-recepcion.peligro { background:#e3182d; color:#fff; border-color:#e3182d; }
 
+.confirmacion-eliminar-entradas-overlay { position:fixed; inset:0; z-index:12000; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.58); backdrop-filter:blur(2px); }
+.confirmacion-eliminar-entradas-recepcion { width:min(470px,calc(100vw - 32px)); display:grid; gap:12px; padding:22px; border:1px solid var(--borde-suave,#d7dee7); border-radius:14px; background:var(--fondo-tarjeta,#fff); color:var(--texto-principal,#172033); text-align:center; box-shadow:0 22px 55px rgba(15,23,42,.28); }
+.confirmacion-eliminar-entradas-recepcion h3,
+.confirmacion-eliminar-entradas-recepcion p { margin:0; }
+.confirmacion-eliminar-entradas-recepcion p { color:var(--texto-secundario,#526174); line-height:1.5; }
+.confirmacion-eliminar-entradas-recepcion footer { display:flex; justify-content:center; flex-wrap:wrap; gap:9px; margin-top:4px; }
+.icono-confirmacion-eliminar-entradas { width:54px; height:54px; margin:auto; display:grid; place-items:center; border-radius:50%; background:#fff0f1; color:#e3182d; font-size:1.35rem; }
+
 body.tema-oscuro .accion-admin-recepcion,
 body[data-tema="oscuro"] .accion-admin-recepcion { background:#202b38; color:#eaf0f7; border-color:#435164; }
 body.tema-oscuro .entrada-administrable-recepcion,
@@ -4651,10 +4685,16 @@ body.tema-oscuro .material-administrable-recepcion,
 body[data-tema="oscuro"] .material-administrable-recepcion,
 body.tema-oscuro .acciones-modal-recepcion,
 body[data-tema="oscuro"] .acciones-modal-recepcion { --fondo-tarjeta:#18222e; --fondo-control:#222e3b; --texto-principal:#f4f7fb; --texto-secundario:#c8d2de; --borde-suave:#425064; }
+body.tema-oscuro .confirmacion-eliminar-entradas-recepcion,
+body[data-tema="oscuro"] .confirmacion-eliminar-entradas-recepcion { --fondo-tarjeta:#18222e; --texto-principal:#f4f7fb; --texto-secundario:#c8d2de; --borde-suave:#425064; }
 body.tema-gris .entrada-administrable-recepcion,
 body[data-tema="gris"] .entrada-administrable-recepcion,
 body.tema-gris .material-administrable-recepcion,
 body[data-tema="gris"] .material-administrable-recepcion { --fondo-tarjeta:#e4e7eb; --fondo-control:#d8dde3; --texto-principal:#172033; --texto-secundario:#465363; --borde-suave:#aeb8c4; }
+
+@media (max-width: 680px) {
+  .material-busqueda-estado-administrable{grid-template-columns:1fr}
+}
 
 /* Estado seleccionado del origen de recepción en el tema gris. */
 html[data-tema="gris"] .opcion-origen-recepcion.activo,

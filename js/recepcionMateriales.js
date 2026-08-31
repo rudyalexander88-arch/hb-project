@@ -653,6 +653,28 @@ configurarScrollInterno() {
                 : []
             );
 
+      /*
+       * Una recepcion nunca debe mostrarse simultaneamente como abierta y
+       * completada. La lista de completadas consultada en esta carga tiene
+       * prioridad cuando el backend devuelve un estado transitorio
+       * contradictorio para el mismo ID.
+       */
+      const idsRecepcionesCompletadas = new Set(
+        this.estado.recepcionesRecientes
+          .map(item => String(item && item.idRecepcion || "").trim())
+          .filter(Boolean)
+      );
+
+      this.estado.recepcionesAbiertas =
+        this.estado.recepcionesAbiertas.filter(item => {
+          const idRecepcion = String(
+            item && item.idRecepcion || ""
+          ).trim();
+
+          return !idRecepcion ||
+            !idsRecepcionesCompletadas.has(idRecepcion);
+        });
+
       this.estado.analiticaOperativa =
         respuestaAnalitica &&
         respuestaAnalitica.ok === true &&
@@ -1691,13 +1713,22 @@ configurarScrollInterno() {
       <section class="administrar-recepcion-modal">
         <p class="admin-recepcion-ayuda">Cada tarjeta corresponde a una entrada real. Al guardar se recalculan el encabezado, los movimientos y la ocupación.</p>
         <section class="material-administrable-recepcion">
-          <label class="buscador-material-administrable">
-            Buscar material en el catálogo
-            <span class="campo-busqueda-material-administrable">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input id="buscarMaterialEdicionRecepcion" type="search" placeholder="Escriba código o descripción" autocomplete="off">
-            </span>
-          </label>
+          <div class="material-busqueda-estado-administrable">
+            <label class="buscador-material-administrable">
+              Buscar material en el catálogo
+              <span class="campo-busqueda-material-administrable">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input id="buscarMaterialEdicionRecepcion" type="search" placeholder="Escriba código o descripción" autocomplete="off">
+              </span>
+            </label>
+            <label class="estado-guardado-administrable">
+              Guardar recepción como
+              <select id="estadoEdicionRecepcion">
+                <option value="FINALIZADA" ${["FINALIZADA", "FINALIZADO", "COMPLETADA", "COMPLETADO", "CERRADA", "CERRADO"].includes(String(recepcion.estado || "").trim().toUpperCase()) ? "selected" : ""}>Finalizada</option>
+                <option value="ABIERTA" ${!["FINALIZADA", "FINALIZADO", "COMPLETADA", "COMPLETADO", "CERRADA", "CERRADO"].includes(String(recepcion.estado || "").trim().toUpperCase()) ? "selected" : ""}>Abierta</option>
+              </select>
+            </label>
+          </div>
           <div id="resultadosMaterialEdicionRecepcion" class="resultados-material-administrable" hidden></div>
           <div class="material-seleccionado-administrable">
             <label>Código del material<input id="materialEdicionRecepcion" type="text" value="${this.escapar(recepcion.material || "")}" readonly required></label>
@@ -1833,11 +1864,16 @@ configurarScrollInterno() {
       this.notificar("Busque y seleccione un material válido del catálogo.", "advertencia");
       return;
     }
+    const estadoRecepcion = String(document.getElementById("estadoEdicionRecepcion")?.value || "").trim().toUpperCase();
+    if (!["FINALIZADA", "ABIERTA"].includes(estadoRecepcion)) {
+      this.notificar("Seleccione el estado en que se guardará la recepción.", "advertencia");
+      return;
+    }
     const detalles = Array.from(document.querySelectorAll(".entrada-administrable-recepcion")).map(tarjeta => {
       const valor = campo => tarjeta.querySelector(`[data-campo="${campo}"]`).value;
       return {idDetalle:tarjeta.dataset.idDetalle, origenTraslado:valor("origenTraslado"), horaRegistro:valor("horaRegistro"), idCamara:valor("idCamara"), tarimasCompletas:Number(valor("tarimasCompletas")), parcialUnidades:Number(valor("parcialUnidades")), posicionesOcupadas:Number(valor("posicionesOcupadas"))};
     });
-    await this.ejecutarAdministracionRecepcion("editarRecepcionAdministrativa", {idRecepcion, material, descripcion, motivo, detalles}, "Recepción corregida correctamente.");
+    await this.ejecutarAdministracionRecepcion("editarRecepcionAdministrativa", {idRecepcion, material, descripcion, estadoRecepcion, motivo, detalles}, estadoRecepcion === "FINALIZADA" ? "Recepción corregida y finalizada correctamente." : "Recepción corregida y disponible para continuar.");
   },
 
   abrirVinculacionRecepciones(idRecepcion, datos) {

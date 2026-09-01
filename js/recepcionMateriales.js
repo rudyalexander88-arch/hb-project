@@ -5,6 +5,9 @@
 
 window.RecepcionMateriales = {
 
+  _guardadoDistribucionEnCurso: false,
+  _idOperacionDistribucionPendiente: "",
+
   esGerencia() {
     const sesion = API.obtenerSesion() || {};
     const rol = String(sesion.rol || "").trim().toUpperCase()
@@ -1711,7 +1714,7 @@ configurarScrollInterno() {
     const camaras = Array.isArray(datos.camaras) ? datos.camaras : this.estado.camaras;
     const contenido = `
       <section class="administrar-recepcion-modal">
-        <p class="admin-recepcion-ayuda">Cada tarjeta corresponde a una entrada real. Al guardar se recalculan el encabezado, los movimientos y la ocupación.</p>
+        <p class="admin-recepcion-ayuda">Cada tarjeta corresponde a una entrada real. Puede corregirla o marcarla para eliminar. Al guardar se recalculan el encabezado, los movimientos, el inventario y la ocupación.</p>
         <section class="material-administrable-recepcion">
           <div class="material-busqueda-estado-administrable">
             <label class="buscador-material-administrable">
@@ -1739,7 +1742,17 @@ configurarScrollInterno() {
         <div class="entradas-administrables-recepcion">
           ${detalles.map((d, indice) => `
             <article class="entrada-administrable-recepcion" data-id-detalle="${this.escapar(d.idDetalle)}">
-              <header><strong>${this.escapar(d.auxiliarNombre || "Colaborador no identificado")}</strong><span>Entrada ${indice + 1}</span></header>
+              <header>
+                <strong>${this.escapar(d.auxiliarNombre || "Colaborador no identificado")}</strong>
+                <div class="acciones-entrada-administrable">
+                  <span>Entrada ${indice + 1}</span>
+                  ${detalles.length > 1 ? `
+                    <label class="marcar-eliminar-entrada">
+                      <input type="checkbox" data-eliminar-entrada>
+                      <span><i class="fa-solid fa-trash-can"></i> Eliminar</span>
+                    </label>` : ""}
+                </div>
+              </header>
               <div class="campos-entrada-administrable">
                 <label>Origen<select data-campo="origenTraslado"><option value="Carritos" ${String(d.origenTraslado).toUpperCase()==="CARRITOS"?"selected":""}>Carritos</option><option value="Túnel" ${String(d.origenTraslado).toUpperCase().indexOf("TUN")===0?"selected":""}>Túnel</option></select></label>
                 <label>Hora<input data-campo="horaRegistro" type="time" value="${this.escapar(d.horaRegistro || "")}"></label>
@@ -1755,8 +1768,52 @@ configurarScrollInterno() {
       </section>`;
     Sistema.abrirModal(this.escapar(recepcion.detalle || recepcion.material || "Editar recepción"), contenido, {clase:"modal-administrar-recepcion"});
     this.configurarBusquedaMaterialEdicionRecepcion(recepcion);
+    document.querySelectorAll("[data-eliminar-entrada]").forEach(control => {
+      control.addEventListener("change", () => {
+        const tarjeta = control.closest(".entrada-administrable-recepcion");
+        if (!tarjeta) return;
+        tarjeta.classList.toggle("marcada-eliminar", control.checked);
+        tarjeta.querySelectorAll("[data-campo]").forEach(campo => {
+          campo.disabled = control.checked;
+        });
+      });
+    });
     document.getElementById("cancelarEdicionRecepcion").onclick = () => Sistema.cerrarModal();
     document.getElementById("guardarEdicionRecepcion").onclick = () => this.guardarEdicionRecepcion(recepcion.idRecepcion);
+  },
+
+  confirmarEliminacionEntradasRecepcion(cantidad) {
+    return new Promise(resolver => {
+      const anterior = document.getElementById("confirmacionEliminarEntradasRecepcion");
+      if (anterior) anterior.remove();
+
+      const capa = document.createElement("div");
+      capa.id = "confirmacionEliminarEntradasRecepcion";
+      capa.className = "confirmacion-eliminar-entradas-overlay";
+      capa.setAttribute("role", "dialog");
+      capa.setAttribute("aria-modal", "true");
+      capa.setAttribute("aria-labelledby", "tituloEliminarEntradasRecepcion");
+      capa.innerHTML = `
+        <section class="confirmacion-eliminar-entradas-recepcion">
+          <div class="icono-confirmacion-eliminar-entradas"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <h3 id="tituloEliminarEntradasRecepcion">¿Eliminar ${cantidad === 1 ? "esta entrada" : "estas entradas"}?</h3>
+          <p>${cantidad === 1 ? "La entrada marcada" : `Las ${cantidad} entradas marcadas`} se eliminará${cantidad === 1 ? "" : "n"} de la recepción junto con sus movimientos asociados. Luego se recalcularán los totales, el inventario y la ocupación.</p>
+          <footer>
+            <button type="button" class="btn-recepcion secundario" id="cancelarEliminarEntradasRecepcion">Volver</button>
+            <button type="button" class="btn-recepcion peligro" id="confirmarEliminarEntradasRecepcion"><i class="fa-solid fa-trash-can"></i> Confirmar eliminación</button>
+          </footer>
+        </section>`;
+
+      const cerrar = resultado => {
+        capa.remove();
+        resolver(resultado);
+      };
+
+      document.body.appendChild(capa);
+      document.getElementById("cancelarEliminarEntradasRecepcion").onclick = () => cerrar(false);
+      document.getElementById("confirmarEliminarEntradasRecepcion").onclick = () => cerrar(true);
+      document.getElementById("cancelarEliminarEntradasRecepcion").focus();
+    });
   },
 
   configurarBusquedaMaterialEdicionRecepcion(recepcion) {
@@ -1871,9 +1928,27 @@ configurarScrollInterno() {
     }
     const detalles = Array.from(document.querySelectorAll(".entrada-administrable-recepcion")).map(tarjeta => {
       const valor = campo => tarjeta.querySelector(`[data-campo="${campo}"]`).value;
-      return {idDetalle:tarjeta.dataset.idDetalle, origenTraslado:valor("origenTraslado"), horaRegistro:valor("horaRegistro"), idCamara:valor("idCamara"), tarimasCompletas:Number(valor("tarimasCompletas")), parcialUnidades:Number(valor("parcialUnidades")), posicionesOcupadas:Number(valor("posicionesOcupadas"))};
+      const eliminar = Boolean(tarjeta.querySelector("[data-eliminar-entrada]")?.checked);
+      return {idDetalle:tarjeta.dataset.idDetalle, eliminar, origenTraslado:valor("origenTraslado"), horaRegistro:valor("horaRegistro"), idCamara:valor("idCamara"), tarimasCompletas:Number(valor("tarimasCompletas")), parcialUnidades:Number(valor("parcialUnidades")), posicionesOcupadas:Number(valor("posicionesOcupadas"))};
     });
-    await this.ejecutarAdministracionRecepcion("editarRecepcionAdministrativa", {idRecepcion, material, descripcion, estadoRecepcion, motivo, detalles}, estadoRecepcion === "FINALIZADA" ? "Recepción corregida y finalizada correctamente." : "Recepción corregida y disponible para continuar.");
+    const cantidadEliminar = detalles.filter(item => item.eliminar).length;
+    if (cantidadEliminar >= detalles.length) {
+      this.notificar("La recepción debe conservar al menos una entrada.", "advertencia");
+      return;
+    }
+    if (cantidadEliminar > 0) {
+      const confirmado = await this.confirmarEliminacionEntradasRecepcion(cantidadEliminar);
+      if (!confirmado) return;
+    }
+    await this.ejecutarAdministracionRecepcion(
+      "editarRecepcionAdministrativa",
+      {idRecepcion, material, descripcion, estadoRecepcion, motivo, detalles},
+      cantidadEliminar > 0
+        ? `${cantidadEliminar === 1 ? "Entrada eliminada" : "Entradas eliminadas"} y recepción recalculada correctamente.`
+        : estadoRecepcion === "FINALIZADA"
+          ? "Recepción corregida y finalizada correctamente."
+          : "Recepción corregida y disponible para continuar."
+    );
   },
 
   abrirVinculacionRecepciones(idRecepcion, datos) {
@@ -4168,7 +4243,33 @@ if (
   },
 
 
+ generarIdOperacionDistribucion() {
+  if (
+    window.crypto &&
+    typeof window.crypto.randomUUID === "function"
+  ) {
+    return "ING-" + window.crypto.randomUUID().toUpperCase();
+  }
+
+  return "ING-" +
+    Date.now().toString(36).toUpperCase() + "-" +
+    Math.random().toString(36).slice(2, 10).toUpperCase();
+ },
+
+
  async guardarDistribucion() {
+
+  if (this._guardadoDistribucionEnCurso) {
+    this.notificar(
+      "La entrada ya se está guardando. Espere la confirmación del sistema.",
+      "advertencia"
+    );
+    return;
+  }
+
+  this._guardadoDistribucionEnCurso = true;
+
+  try {
 
   const distribucion =
     this.obtenerDistribucionUtilizada();
@@ -4258,6 +4359,14 @@ if (
 
     }
 
+    if (!this._idOperacionDistribucionPendiente) {
+      this._idOperacionDistribucionPendiente =
+        this.generarIdOperacionDistribucion();
+    }
+
+    const idOperacion =
+      this._idOperacionDistribucionPendiente;
+
   try {
 
     /*
@@ -4279,6 +4388,9 @@ if (
 
         action:
           "guardarDistribucionMaterialRecepcion",
+
+        idOperacion:
+          idOperacion,
 
         idRecepcion:
           recepcion && recepcion.idRecepcion || "",
@@ -4410,6 +4522,8 @@ if (
      */
     await this.cerrarAsistenteDespuesDeGuardar();
 
+    this._idOperacionDistribucionPendiente = "";
+
 
   } catch (error) {
 
@@ -4436,6 +4550,10 @@ if (
 
     }
 
+  }
+
+  } finally {
+    this._guardadoDistribucionEnCurso = false;
   }
 
 },

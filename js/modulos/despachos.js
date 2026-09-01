@@ -1441,13 +1441,14 @@ if (!preservarEstado) {
         </section>
     `;
 
-    modal.classList.remove(
-        "oculto"
-    );
-	
-	document.body.classList.add(
-    "centro-despachos-abierto"
-	);
+	/*
+	 * El modal global puede conservar inert, aria-hidden o
+	 * pointer-events desactivados después de cerrar otro asistente.
+	 * Reactivamos su capa interactiva antes de configurar los eventos
+	 * del Centro de Despachos para impedir que el foco y los clics
+	 * continúen llegando al módulo principal que queda detrás.
+	 */
+	Despachos.activarModalAsistente();
 	
 	document.body.classList.add(
     "centro-despachos-abierto"

@@ -6925,3 +6925,67 @@ html[data-theme="dark"]
         flex: 0 0 auto;
     }
 }
+
+/* ============================================================
+   ASISTENTE DE CARGA · CONTRASTE DEL PASO 3 EN TEMA OSCURO
+   ============================================================ */
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal :is(
+    .barra-superior-carga,
+    .contenedor-tarimas,
+    .resumen-encabezado-carga,
+    .tabla-carga
+) {
+    background: #182330;
+    border-color: #3d4d60;
+    color: #edf3f9;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .tabla-carga :is(td, h4, strong, span) {
+    color: #edf3f9;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .tabla-carga :is(td, small) {
+    border-color: #3d4d60;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .tabla-carga small {
+    color: #b9c6d4;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .tabla-carga tbody tr:hover td {
+    background: #223143;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .fila-seleccionada td {
+    background: #173c2a !important;
+    color: #f0fff5;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .fila-recorte td {
+    background: #3c2c12;
+    color: #fff2ce;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .pasos-compactos .paso {
+    color: #aebbc9;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .pasos-compactos .paso.activo {
+    color: #f7f9fc;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+#contenidoModal .btn-icono:not(.rojo) {
+    background: #344457;
+    color: #f4f7fb;
+}

@@ -9,7 +9,7 @@ window.ReportesKPIs = {
   pestanaActiva: "indicadores",
   // Valores disponibles: "hojas" o "segmentadas".
   estiloPestanas: "hojas",
-  versionCache: "2",
+  versionCache: "3",
   prefijoCache: "bon_reportes_kpi",
   horaCorte: 18,
   minutoCorte: 15,
@@ -20,6 +20,11 @@ window.ReportesKPIs = {
   focoAntesDialogo: null,
   manejarTecladoDialogo: null,
   periodoReduccionDecomiso: "MENSUAL",
+  filtroPeriodo: {
+    tipo: "MES_ACTUAL",
+    mesDesde: "",
+    mesHasta: ""
+  },
 
   puedeVer() {
     const sesion = this.obtenerSesion();
@@ -39,14 +44,17 @@ window.ReportesKPIs = {
     }
   },
 
-  claveCache() {
+  claveCache(rango) {
     const sesion = this.obtenerSesion();
     const usuario = this.clave(
       sesion.idEmpleado || sesion.IDEmpleado || sesion.usuario ||
       sesion.Usuario || sesion.nombre || sesion.Nombre || "USUARIO"
     );
     const rol = this.clave(sesion.rol || sesion.Rol || "SIN_ROL");
-    return `${this.prefijoCache}_${usuario}_${rol}`;
+    const periodo = rango || this.obtenerRangoSeleccionado();
+    const clavePeriodo = String(periodo && periodo.clave || "MES_ACTUAL")
+      .replace(/[^0-9A-Z_-]/gi, "_");
+    return `${this.prefijoCache}_${usuario}_${rol}_${clavePeriodo}`;
   },
 
   fechaISO(fecha) {
@@ -78,7 +86,7 @@ window.ReportesKPIs = {
       datos.fechaCarga &&
       datos.corteId === this.identificadorCorteVigente() &&
       datos.rango &&
-      datos.rango.mes === this.rangoMesActual().mes
+      datos.rango.clave === this.obtenerRangoSeleccionado().clave
     );
   },
 
@@ -138,6 +146,7 @@ window.ReportesKPIs = {
       return;
     }
 
+    this.asegurarFiltroPeriodo();
     this.destruirGraficas();
     contenedor.innerHTML = this.construirModulo();
     this.conectarEventos();
@@ -187,7 +196,7 @@ window.ReportesKPIs = {
       <div class="rk-estado rk-cargando-local">
         <i class="fa-solid fa-chart-pie"></i>
         <strong>Preparando indicadores</strong>
-        <span>Consolidando la información del mes actual.</span>
+        <span>Consolidando la información del período seleccionado.</span>
       </div>
     `;
   },
@@ -467,7 +476,9 @@ window.ReportesKPIs = {
     ];
     return {
       titulo: "Reportes & KPIs",
-      periodo: this.datos.rango && this.datos.rango.mes ? this.datos.rango.mes : "",
+      periodo: this.datos.rango && this.datos.rango.etiqueta
+        ? this.datos.rango.etiqueta
+        : "",
       corte: this.datos.corteId || "",
       generadoEn: new Date().toISOString(),
       generadoPor: this.obtenerSesion().nombre || this.obtenerSesion().Nombre || "",
@@ -552,20 +563,33 @@ window.ReportesKPIs = {
     }
 
     this.cargando = true;
-    Sistema.mostrarCarga("Cargando Reportes & KPIs", "Consolidando los indicadores del mes actual.");
+    const rango = this.obtenerRangoSeleccionado();
+    Sistema.mostrarCarga(
+      "Cargando Reportes & KPIs",
+      `Consolidando los indicadores de ${rango.etiqueta}.`
+    );
     try {
-      const rango = this.rangoMesActual();
       const peticiones = {
         exactitud: {
           action: "obtenerCentroExactitudDespachos",
           fechaDesde: rango.fechaDesde,
           fechaHasta: rango.fechaHasta,
-          agrupacion: "DIA",
+          agrupacion: rango.agrupacion,
           limite: 1,
           desplazamiento: 0
         },
-        metas: {action: "listarMetasDiarias", accion: "listarMetasDiarias", mes: rango.mes},
-        recepciones: {action: "obtenerAnaliticaOperativaRecepciones", frecuencia: "DIA"},
+        metas: {
+          action: "listarMetasDiarias",
+          accion: "listarMetasDiarias",
+          fechaDesde: rango.fechaDesde,
+          fechaHasta: rango.fechaHasta
+        },
+        recepciones: {
+          action: "obtenerAnaliticaOperativaRecepciones",
+          frecuencia: rango.frecuenciaRecepciones,
+          fechaDesde: rango.fechaDesde,
+          fechaHasta: rango.fechaHasta
+        },
         complemento: {
           action: "obtenerComplementoReportesKPI",
           fechaDesde: rango.fechaDesde,
@@ -573,8 +597,8 @@ window.ReportesKPIs = {
         },
         decomisos: {
           action: "obtenerDecomisosAlmacen",
-          desde: rango.mes,
-          hasta: rango.mes,
+          desde: rango.mesDesde,
+          hasta: rango.mesHasta,
           pagina: 1,
           limite: 10
         },
@@ -641,6 +665,8 @@ window.ReportesKPIs = {
     const panel = document.getElementById("rkPanelIndicadores");
     if (!panel) return;
 
+    const rango = this.datos.rango || this.obtenerRangoSeleccionado();
+
     const exactitudData = this.extraerData(this.datos.exactitud);
     const exactitud = exactitudData.resumen || {};
     const complemento = this.extraerData(this.datos.complemento);
@@ -670,14 +696,16 @@ window.ReportesKPIs = {
         <div class="rk-documento-titulo"><strong>Sistema Logístico Productos Terminados</strong><span>REPORTE DE INDICADORES DEPARTAMENTALES</span></div>
         <div class="rk-documento-codigo"><span>Documento KPI</span><strong>${this.escapar(this.datos.corteId || "Corte actual")}</strong></div>
       </header>
+      ${this.construirFiltroPeriodo(rango)}
+
       <div class="rk-acciones-reporte" aria-label="Acciones del reporte">
         <button type="button" id="rkEnviarReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-envelope"></i> Enviar</button>
         <button type="button" id="rkImprimirReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-print"></i> Imprimir</button>
         <button type="button" id="rkExportarReporte" class="rk-btn rk-btn-secundario"><i class="fa-solid fa-file-export"></i> Exportar</button>
       </div>
       <div class="rk-periodo">
-        <div><i class="fa-solid fa-calendar"></i><span>Mes actual: <strong>${this.escapar(this.datos.rango.mes)}</strong></span></div>
-        <small>Corte ${this.escapar(fechaCorte)} · consultado ${this.escapar(fechaCarga)}</small>
+        <div><i class="fa-solid fa-calendar"></i><span>Período: <strong>${this.escapar(rango.etiqueta)}</strong></span></div>
+        <small>Corte ${this.escapar(fechaCorte)} · consultado ${this.escapar(fechaCarga)} · ocupación al corte operativo actual</small>
       </div>
 
       <section class="rk-kpis-principales">
@@ -744,6 +772,7 @@ window.ReportesKPIs = {
 
     this.crearGraficaExactitud(exactitudData.evolucion || []);
     this.crearGraficaRecepciones(recepcionesSerie);
+    this.conectarFiltroPeriodo();
     this.conectarAccionesReporte();
     this.conectarSelectorReduccionDecomiso();
     this.conectarFlorKpis();
@@ -1143,12 +1172,207 @@ window.ReportesKPIs = {
     return respuesta.data || respuesta.ocupacion || respuesta;
   },
 
-  rangoMesActual() {
+  asegurarFiltroPeriodo() {
+    if (!this.filtroPeriodo || typeof this.filtroPeriodo !== "object") {
+      this.filtroPeriodo = {tipo: "MES_ACTUAL", mesDesde: "", mesHasta: ""};
+    }
+    if (!this.filtroPeriodo.tipo) this.filtroPeriodo.tipo = "MES_ACTUAL";
+  },
+
+  mesISO(fecha) {
+    return [
+      fecha.getFullYear(),
+      String(fecha.getMonth() + 1).padStart(2, "0")
+    ].join("-");
+  },
+
+  fechaISOFecha(fecha) {
+    return [
+      fecha.getFullYear(),
+      String(fecha.getMonth() + 1).padStart(2, "0"),
+      String(fecha.getDate()).padStart(2, "0")
+    ].join("-");
+  },
+
+  fechaDesdeMes(mes) {
+    const partes = String(mes || "").split("-").map(Number);
+    if (partes.length !== 2 || !partes[0] || partes[1] < 1 || partes[1] > 12) return null;
+    return new Date(partes[0], partes[1] - 1, 1);
+  },
+
+  formatearEtiquetaMes(mes) {
+    const fecha = this.fechaDesdeMes(mes);
+    if (!fecha) return String(mes || "");
+    const texto = fecha.toLocaleDateString("es-DO", {month: "long", year: "numeric"});
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  },
+
+  crearRangoMensual(tipo, mesDesde, mesHasta) {
+    const inicio = this.fechaDesdeMes(mesDesde);
+    const inicioHasta = this.fechaDesdeMes(mesHasta);
+    if (!inicio || !inicioHasta) throw new Error("Seleccione un mes inicial y un mes final válidos.");
+    if (inicio > inicioHasta) throw new Error("El mes inicial no puede ser posterior al mes final.");
+
+    const mesActual = this.mesISO(new Date());
+    if (mesHasta > mesActual) throw new Error("El período no puede terminar en un mes futuro.");
+
+    const fin = new Date(inicioHasta.getFullYear(), inicioHasta.getMonth() + 1, 0);
+    const cantidadMeses = (inicioHasta.getFullYear() - inicio.getFullYear()) * 12 +
+      inicioHasta.getMonth() - inicio.getMonth() + 1;
+    const etiqueta = mesDesde === mesHasta
+      ? this.formatearEtiquetaMes(mesDesde)
+      : `${this.formatearEtiquetaMes(mesDesde)} – ${this.formatearEtiquetaMes(mesHasta)}`;
+
+    return {
+      tipo: tipo,
+      mesDesde: mesDesde,
+      mesHasta: mesHasta,
+      mes: mesDesde === mesHasta ? mesDesde : "",
+      fechaDesde: this.fechaISOFecha(inicio),
+      fechaHasta: this.fechaISOFecha(fin),
+      cantidadMeses: cantidadMeses,
+      agrupacion: cantidadMeses === 1 ? "DIA" : cantidadMeses <= 3 ? "SEMANA" : "MES",
+      frecuenciaRecepciones: cantidadMeses === 1 ? "DIA" : cantidadMeses <= 3 ? "SEMANA" : "MES",
+      etiqueta: etiqueta,
+      clave: `${mesDesde}_${mesHasta}`
+    };
+  },
+
+  obtenerRangoSeleccionado() {
+    this.asegurarFiltroPeriodo();
     const ahora = new Date();
-    const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-    const fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
-    const iso = fecha => [fecha.getFullYear(), String(fecha.getMonth() + 1).padStart(2, "0"), String(fecha.getDate()).padStart(2, "0")].join("-");
-    return {fechaDesde: iso(inicio), fechaHasta: iso(fin), mes: iso(inicio).slice(0, 7)};
+    const mesActual = this.mesISO(ahora);
+    let tipo = this.filtroPeriodo.tipo;
+    let mesDesde = mesActual;
+    let mesHasta = mesActual;
+
+    if (tipo === "MES_ANTERIOR") {
+      const anterior = new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1);
+      mesDesde = this.mesISO(anterior);
+      mesHasta = mesDesde;
+    } else if (tipo === "ULTIMOS_3") {
+      mesDesde = this.mesISO(new Date(ahora.getFullYear(), ahora.getMonth() - 2, 1));
+    } else if (tipo === "RANGO") {
+      mesDesde = this.filtroPeriodo.mesDesde;
+      mesHasta = this.filtroPeriodo.mesHasta;
+    } else {
+      tipo = "MES_ACTUAL";
+    }
+
+    try {
+      return this.crearRangoMensual(tipo, mesDesde, mesHasta);
+    } catch (error) {
+      this.filtroPeriodo = {tipo: "MES_ACTUAL", mesDesde: mesActual, mesHasta: mesActual};
+      return this.crearRangoMensual("MES_ACTUAL", mesActual, mesActual);
+    }
+  },
+
+  rangoMesActual() {
+    const mes = this.mesISO(new Date());
+    return this.crearRangoMensual("MES_ACTUAL", mes, mes);
+  },
+
+  construirFiltroPeriodo(rango) {
+    const opciones = [
+      {clave: "MES_ACTUAL", etiqueta: "Mes actual"},
+      {clave: "MES_ANTERIOR", etiqueta: "Mes anterior"},
+      {clave: "ULTIMOS_3", etiqueta: "Últimos 3 meses"},
+      {clave: "RANGO", etiqueta: "Rango mensual"}
+    ];
+    const mesMaximo = this.mesISO(new Date());
+
+    return `
+      <section class="rk-filtro-periodo" aria-labelledby="rkFiltroPeriodoTitulo">
+        <div class="rk-filtro-periodo-cabecera">
+          <div>
+            <span>Período de análisis</span>
+            <strong id="rkFiltroPeriodoTitulo">${this.escapar(rango.etiqueta)}</strong>
+          </div>
+          <div class="rk-periodos-rapidos" role="group" aria-label="Seleccionar período">
+            ${opciones.map(opcion => `
+              <button
+                type="button"
+                data-rk-periodo="${opcion.clave}"
+                class="${rango.tipo === opcion.clave ? "activo" : ""}"
+                aria-pressed="${rango.tipo === opcion.clave ? "true" : "false"}"
+                ${opcion.clave === "RANGO" ? `aria-expanded="${rango.tipo === "RANGO" ? "true" : "false"}"` : ""}
+              >${this.escapar(opcion.etiqueta)}</button>
+            `).join("")}
+          </div>
+        </div>
+
+        <div id="rkRangoMensual" class="rk-rango-mensual" ${rango.tipo === "RANGO" ? "" : "hidden"}>
+          <div class="rk-linea-meses" aria-hidden="true">
+            <span class="rk-linea-punto inicio"></span>
+            <span class="rk-linea-tramo"></span>
+            <span class="rk-linea-punto fin"></span>
+          </div>
+          <div class="rk-rango-campos">
+            <label>
+              <span>Desde</span>
+              <input id="rkMesDesde" type="month" max="${mesMaximo}" value="${this.escapar(rango.mesDesde)}">
+            </label>
+            <div class="rk-rango-resumen">
+              <span id="rkEtiquetaMesDesde">${this.escapar(this.formatearEtiquetaMes(rango.mesDesde))}</span>
+              <i class="fa-solid fa-arrow-right"></i>
+              <span id="rkEtiquetaMesHasta">${this.escapar(this.formatearEtiquetaMes(rango.mesHasta))}</span>
+            </div>
+            <label>
+              <span>Hasta</span>
+              <input id="rkMesHasta" type="month" max="${mesMaximo}" value="${this.escapar(rango.mesHasta)}">
+            </label>
+            <button type="button" id="rkAplicarRango" class="rk-btn rk-btn-principal">
+              <i class="fa-solid fa-filter"></i> Aplicar rango
+            </button>
+          </div>
+        </div>
+      </section>
+    `;
+  },
+
+  conectarFiltroPeriodo() {
+    const panelRango = document.getElementById("rkRangoMensual");
+    const mesDesde = document.getElementById("rkMesDesde");
+    const mesHasta = document.getElementById("rkMesHasta");
+
+    const actualizarEtiquetas = () => {
+      const desde = document.getElementById("rkEtiquetaMesDesde");
+      const hasta = document.getElementById("rkEtiquetaMesHasta");
+      if (desde && mesDesde) desde.textContent = this.formatearEtiquetaMes(mesDesde.value);
+      if (hasta && mesHasta) hasta.textContent = this.formatearEtiquetaMes(mesHasta.value);
+    };
+
+    document.querySelectorAll("[data-rk-periodo]").forEach(boton => {
+      boton.addEventListener("click", async () => {
+        const tipo = boton.dataset.rkPeriodo;
+        if (tipo === "RANGO") {
+          if (panelRango) panelRango.hidden = false;
+          boton.setAttribute("aria-expanded", "true");
+          if (mesDesde) mesDesde.focus();
+          return;
+        }
+        this.filtroPeriodo = {tipo: tipo, mesDesde: "", mesHasta: ""};
+        await this.cargarIndicadores(true);
+      });
+    });
+
+    if (mesDesde) mesDesde.addEventListener("change", actualizarEtiquetas);
+    if (mesHasta) mesHasta.addEventListener("change", actualizarEtiquetas);
+
+    const aplicar = document.getElementById("rkAplicarRango");
+    if (aplicar) aplicar.addEventListener("click", async () => {
+      try {
+        const rango = this.crearRangoMensual("RANGO", mesDesde ? mesDesde.value : "", mesHasta ? mesHasta.value : "");
+        this.filtroPeriodo = {
+          tipo: "RANGO",
+          mesDesde: rango.mesDesde,
+          mesHasta: rango.mesHasta
+        };
+        await this.cargarIndicadores(true);
+      } catch (error) {
+        Sistema.advertencia(error.message || String(error), 4600);
+      }
+    });
   },
 
   rangoComparativoDecomisos() {

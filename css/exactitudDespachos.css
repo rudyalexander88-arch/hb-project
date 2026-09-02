@@ -2243,6 +2243,124 @@
     max-width: 760px;
 }
 
+/* ============================================================
+   ASISTENTE DE VERIFICACIÓN · CONTRASTE EN TEMA OSCURO
+   ============================================================ */
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-contenido.modal-asistente-verificacion,
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion #contenidoModal,
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion .asistente-verificacion-despacho {
+    background: #101923;
+    color: #edf3f9;
+    color-scheme: dark;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion :is(
+    .encabezado-asistente-verificacion,
+    .resumen-asistente-verificacion,
+    .kpi-asistente-verificacion,
+    .tarjeta-material-verificacion,
+    .contenido-material-verificacion,
+    .correccion-general-despacho,
+    .contenido-cruce-material,
+    .datos-material-cruce > div
+) {
+    background: #182330;
+    border-color: #3d4d60;
+    color: #edf3f9;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion .tarjeta-material-verificacion:is(
+    .diferencia,
+    .parcial,
+    .resuelta
+) {
+    background: #1b2734;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion :is(
+    .identidad-material-verificacion strong,
+    .resumen-linea-material strong,
+    .encabezado-asistente-verificacion strong,
+    .kpi-asistente-verificacion strong,
+    .encabezado-cruce-material strong,
+    .datos-material-cruce strong,
+    .campo-correccion-material label,
+    .seleccionar-correccion-material span
+) {
+    color: #f4f7fb;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion :is(
+    .identidad-material-verificacion span,
+    .identidad-material-verificacion small,
+    .resumen-linea-material span,
+    .kpi-asistente-verificacion span,
+    .datos-material-cruce span,
+    .campo-correccion-material small
+) {
+    color: #b9c6d4;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion :is(
+    input,
+    select,
+    textarea,
+    .control-busqueda-cruce-material input
+) {
+    background: #222e3b;
+    border-color: #4b5d72;
+    color: #f7f9fc;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion :is(input, select, textarea):disabled {
+    background: #293646;
+    color: #d8e1eb;
+    opacity: 1;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion :is(
+    .ayuda-asistente-verificacion,
+    .nota-cruce-material
+) {
+    background: #172c40;
+    border-color: #397db4;
+    color: #d7eafd;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion .resultados-material-cruce {
+    background: #182330;
+    border-color: #4b5d72;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion .opcion-material-cruce {
+    background: #182330;
+    border-color: #344457;
+    color: #edf3f9;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion .opcion-material-cruce:hover {
+    background: #263547;
+}
+
+html:is([data-tema="oscuro"], [data-theme="dark"])
+.modal-asistente-verificacion .opcion-material-cruce small {
+    color: #b9c6d4;
+}
+
 .resultado-correccion-despacho {
     display: flex;
     flex-direction: column;

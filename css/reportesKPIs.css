@@ -285,6 +285,162 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   gap: 7px;
 }
 
+.rk-filtro-periodo {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--rk-borde);
+  border-radius: 13px;
+  background: var(--rk-superficie);
+  box-shadow: var(--rk-sombra);
+}
+
+.rk-filtro-periodo-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.rk-filtro-periodo-cabecera > div:first-child span,
+.rk-filtro-periodo-cabecera > div:first-child strong {
+  display: block;
+}
+
+.rk-filtro-periodo-cabecera > div:first-child span {
+  color: var(--rk-secundario);
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.rk-filtro-periodo-cabecera > div:first-child strong {
+  margin-top: 2px;
+  color: var(--rk-texto);
+  font-size: .8rem;
+}
+
+.rk-periodos-rapidos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.rk-periodos-rapidos button {
+  min-height: 33px;
+  padding: 6px 10px;
+  border: 1px solid var(--rk-borde);
+  border-radius: 9px;
+  background: var(--rk-superficie-suave);
+  color: var(--rk-texto);
+  font: inherit;
+  font-size: .68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.rk-periodos-rapidos button:hover,
+.rk-periodos-rapidos button:focus-visible {
+  border-color: var(--rk-rojo);
+  color: var(--rk-rojo);
+  outline: none;
+}
+
+.rk-periodos-rapidos button.activo {
+  border-color: var(--rk-rojo);
+  background: var(--rk-rojo);
+  color: #fff;
+}
+
+.rk-rango-mensual {
+  margin-top: 11px;
+  padding: 12px;
+  border: 1px solid var(--rk-borde);
+  border-radius: 11px;
+  background: var(--rk-superficie-suave);
+}
+
+.rk-rango-mensual[hidden] { display: none !important; }
+
+.rk-linea-meses {
+  display: grid;
+  grid-template-columns: 12px minmax(80px, 1fr) 12px;
+  align-items: center;
+  width: min(620px, calc(100% - 24px));
+  margin: 0 auto 10px;
+}
+
+.rk-linea-tramo {
+  height: 4px;
+  background: linear-gradient(90deg, var(--rk-rojo), var(--rk-naranja));
+}
+
+.rk-linea-punto {
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--rk-superficie);
+  border-radius: 50%;
+  background: var(--rk-rojo);
+  box-shadow: 0 0 0 2px var(--rk-rojo);
+}
+
+.rk-linea-punto.fin {
+  background: var(--rk-naranja);
+  box-shadow: 0 0 0 2px var(--rk-naranja);
+}
+
+.rk-rango-campos {
+  display: grid;
+  grid-template-columns: minmax(145px, .8fr) minmax(230px, 1.2fr) minmax(145px, .8fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.rk-rango-campos label {
+  display: grid;
+  gap: 5px;
+  color: var(--rk-secundario);
+  font-size: .65rem;
+  font-weight: 750;
+}
+
+.rk-rango-campos input[type="month"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid var(--rk-borde);
+  border-radius: 9px;
+  background: var(--rk-superficie);
+  color: var(--rk-texto);
+  font: inherit;
+  color-scheme: light;
+}
+
+html[data-tema="oscuro"] .rk-rango-campos input[type="month"] {
+  color-scheme: dark;
+}
+
+.rk-rango-campos input[type="month"]:focus {
+  border-color: var(--rk-rojo);
+  outline: 3px solid color-mix(in srgb, var(--rk-rojo) 16%, transparent);
+}
+
+.rk-rango-resumen {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 7px 10px;
+  color: var(--rk-texto);
+  font-size: .68rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+.rk-rango-resumen i { color: var(--rk-rojo); }
+
 .rk-periodo {
   display: flex;
   align-items: center;
@@ -489,6 +645,11 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   .rk-grid-metas, .rk-grid-graficas, .rk-grid-responsables { grid-template-columns: 1fr; }
   .rk-velocimetro { grid-template-columns: minmax(0, 1fr) 190px; }
   .rk-trio-montos { grid-template-columns: 1fr; }
+  .rk-filtro-periodo-cabecera { align-items: flex-start; flex-direction: column; }
+  .rk-periodos-rapidos { width: 100%; justify-content: flex-start; }
+  .rk-rango-campos { grid-template-columns: 1fr 1fr; }
+  .rk-rango-resumen { grid-column: 1 / -1; grid-row: 2; }
+  .rk-rango-campos .rk-btn { grid-column: 1 / -1; }
 }
 
 @media (max-width: 560px) {
@@ -499,6 +660,13 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   .rk-encabezado .rk-btn { font-size: 0; }
   .rk-encabezado .rk-btn i { font-size: .86rem; }
   .rk-periodo { align-items: flex-start; flex-direction: column; }
+  .rk-filtro-periodo { padding: 10px; }
+  .rk-periodos-rapidos { display: grid; grid-template-columns: 1fr 1fr; }
+  .rk-periodos-rapidos button { width: 100%; }
+  .rk-rango-campos { grid-template-columns: 1fr; }
+  .rk-rango-resumen,
+  .rk-rango-campos .rk-btn { grid-column: 1; }
+  .rk-rango-resumen { grid-row: auto; justify-content: flex-start; padding-inline: 2px; }
   .rk-kpis-principales {
     position: relative;
     display: block;
@@ -560,7 +728,7 @@ html[data-tema="oscuro"] .rk-dialogo-fondo {
   body * { visibility: hidden !important; }
   .rk-modulo, .rk-modulo * { visibility: visible !important; }
   .rk-modulo { position: absolute; inset: 0; min-height: 0; padding: 0; background: #fff !important; color: #111 !important; }
-  .rk-encabezado .rk-btn, .rk-pestanas, .rk-acciones-reporte { display: none !important; }
+  .rk-encabezado .rk-btn, .rk-pestanas, .rk-acciones-reporte, .rk-filtro-periodo { display: none !important; }
   .rk-encabezado-documento:not([hidden]) { display: grid !important; grid-template-columns: 105px 1fr 120px; align-items: center; min-height: 82px; margin-bottom: 14px; border: 1px solid #bfc6ce; border-top: 7px solid #d71920; border-radius: 12px; color: #20262e !important; }
   .rk-documento-marca, .rk-documento-titulo, .rk-documento-codigo { display: grid; min-height: 66px; place-items: center; align-content: center; padding: 7px; text-align: center; }
   .rk-documento-marca, .rk-documento-titulo { border-right: 1px solid #d7dce1; }

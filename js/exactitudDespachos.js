@@ -4176,21 +4176,43 @@ window.ExactitudDespachos = {
       materialCruce ||
       {};
 
-    const cantidadPrincipal =
-      datos.cantidadPrincipal ||
-      "";
-
-    const recorte =
-      datos.recorte ||
-      "";
-
-    const total =
+    const estandarPallet =
       Number(
-        cantidadPrincipal || 0
+        datos.estandarPallet || 0
+      );
+
+    const tieneFormatoTarimas =
+      Object.prototype.hasOwnProperty.call(
+        datos,
+        "tarimasCompletas"
+      );
+
+    const totalAnterior =
+      Number(
+        datos.cantidadPrincipal || 0
       ) +
       Number(
-        recorte || 0
+        datos.recorte || 0
       );
+
+    const tarimasCompletas =
+      tieneFormatoTarimas
+        ? datos.tarimasCompletas
+        : estandarPallet > 0 && totalAnterior > 0
+          ? Math.floor(totalAnterior / estandarPallet)
+          : "";
+
+    const cantidadParcial =
+      tieneFormatoTarimas
+        ? Number(datos.cantidadParcial || 0)
+        : estandarPallet > 0
+          ? totalAnterior % estandarPallet
+          : Number(datos.recorte || 0);
+
+    const total =
+      Number(tarimasCompletas || 0) *
+      estandarPallet +
+      Number(cantidadParcial || 0);
 
     return `
 
@@ -4276,6 +4298,12 @@ window.ExactitudDespachos = {
           )}"
         >
 
+        <input
+          type="hidden"
+          class="input-cruce-estandar"
+          value="${this.escapar(estandarPallet || "")}"
+        >
+
 
         <div class="datos-material-cruce">
 
@@ -4331,16 +4359,16 @@ window.ExactitudDespachos = {
           <div class="campo-correccion-material">
 
             <label>
-              Cantidad principal
+              Tarimas completas
             </label>
 
             <input
               type="number"
-              min="1"
+              min="0"
               step="1"
-              class="input-cruce-cantidad-principal"
+              class="input-cruce-tarimas-completas"
               value="${this.escapar(
-                cantidadPrincipal
+                tarimasCompletas
               )}"
               ${
                 modoConsulta
@@ -4350,7 +4378,7 @@ window.ExactitudDespachos = {
             >
 
             <small>
-              No puede superar el estándar pallet.
+              Cada tarima usará el estándar pallet del material.
             </small>
 
           </div>
@@ -4359,7 +4387,7 @@ window.ExactitudDespachos = {
           <div class="campo-correccion-material">
 
             <label>
-              Recorte adicional
+              Cantidad parcial
             </label>
 
             <input
@@ -4368,7 +4396,7 @@ window.ExactitudDespachos = {
               step="1"
               class="input-cruce-recorte"
               value="${this.escapar(
-                recorte
+                cantidadParcial
               )}"
               ${
                 modoConsulta
@@ -4843,7 +4871,7 @@ window.ExactitudDespachos = {
               ".input-correccion-cantidad, " +
               ".input-correccion-causa, " +
               ".input-correccion-comentario, " +
-              ".input-cruce-cantidad-principal, " +
+              ".input-cruce-tarimas-completas, " +
               ".input-cruce-recorte, " +
               ".input-cruce-fecha-produccion"
             )
@@ -5581,9 +5609,9 @@ window.ExactitudDespachos = {
         ".input-busqueda-material-cruce"
       );
 
-    const principal =
+    const tarimasCompletas =
       obtener(
-        ".input-cruce-cantidad-principal"
+        ".input-cruce-tarimas-completas"
       );
 
     const recorte =
@@ -5702,10 +5730,44 @@ window.ExactitudDespachos = {
           seleccionado.vidaUtilAnios ||
           "",
 
-        cantidadPrincipal:
-          principal
-            ? principal.value
+        tarimasCompletas:
+          tarimasCompletas
+            ? tarimasCompletas.value
             : "",
+
+        unidadesPorTarima:
+          seleccionado.estandarPallet ||
+          "",
+
+        cantidadParcial:
+          recorte
+            ? recorte.value
+            : "0",
+
+        cantidadTotal:
+          Number(
+            tarimasCompletas
+              ? tarimasCompletas.value || 0
+              : 0
+          ) *
+          Number(
+            seleccionado.estandarPallet || 0
+          ) +
+          Number(
+            recorte
+              ? recorte.value || 0
+              : 0
+          ),
+
+        cantidadPrincipal:
+          Number(
+            tarimasCompletas
+              ? tarimasCompletas.value || 0
+              : 0
+          ) *
+          Number(
+            seleccionado.estandarPallet || 0
+          ),
 
         recorte:
           recorte
@@ -6179,9 +6241,14 @@ window.ExactitudDespachos = {
         ".input-busqueda-material-cruce"
       );
 
-    const cantidad =
+    const tarimasCompletas =
       tarjeta.querySelector(
-        ".input-cruce-cantidad-principal"
+        ".input-cruce-tarimas-completas"
+      );
+
+    const estandar =
+      tarjeta.querySelector(
+        ".input-cruce-estandar"
       );
 
     const resultados =
@@ -6209,14 +6276,21 @@ window.ExactitudDespachos = {
 
 
     if (
-      cantidad &&
+      tarimasCompletas &&
       !String(
-        cantidad.value ||
+        tarimasCompletas.value ||
         ""
       ).trim()
     ) {
 
-      cantidad.value =
+      tarimasCompletas.value = "1";
+
+    }
+
+
+    if (estandar) {
+
+      estandar.value =
         material.estandarPallet ||
         "";
 
@@ -6290,9 +6364,14 @@ window.ExactitudDespachos = {
     tarjeta
   ) {
 
-    const principal =
+    const tarimasCompletas =
       tarjeta.querySelector(
-        ".input-cruce-cantidad-principal"
+        ".input-cruce-tarimas-completas"
+      );
+
+    const estandar =
+      tarjeta.querySelector(
+        ".input-cruce-estandar"
       );
 
     const recorte =
@@ -6313,8 +6392,13 @@ window.ExactitudDespachos = {
 
     total.value =
       Number(
-        principal
-          ? principal.value || 0
+        tarimasCompletas
+          ? tarimasCompletas.value || 0
+          : 0
+      ) *
+      Number(
+        estandar
+          ? estandar.value || 0
           : 0
       ) +
       Number(
@@ -6449,15 +6533,67 @@ window.ExactitudDespachos = {
         }
 
 
-        if (
+        const tarimasCompletas =
           Number(
-            cruce.cantidadPrincipal ||
-            0
-          ) <= 0
+            cruce.tarimasCompletas || 0
+          );
+
+        const cantidadParcial =
+          Number(
+            cruce.cantidadParcial || 0
+          );
+
+        const estandarPallet =
+          Number(
+            cruce.estandarPallet || 0
+          );
+
+
+        if (
+          !Number.isInteger(
+            tarimasCompletas
+          ) ||
+          tarimasCompletas < 0
         ) {
 
           this.notificar(
-            "Debe indicar una cantidad principal válida para el material cruzado.",
+            "La cantidad de tarimas completas debe ser un entero mayor o igual que cero.",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+
+        if (
+          !Number.isInteger(
+            cantidadParcial
+          ) ||
+          cantidadParcial < 0 ||
+          estandarPallet <= 0 ||
+          cantidadParcial >= estandarPallet
+        ) {
+
+          this.notificar(
+            "La cantidad parcial debe ser un entero entre 0 y " +
+            Math.max(estandarPallet - 1, 0) +
+            ".",
+            "advertencia"
+          );
+
+          return;
+
+        }
+
+
+        if (
+          tarimasCompletas === 0 &&
+          cantidadParcial === 0
+        ) {
+
+          this.notificar(
+            "Debe indicar al menos una tarima completa o una cantidad parcial.",
             "advertencia"
           );
 

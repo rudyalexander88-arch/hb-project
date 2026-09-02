@@ -20,12 +20,18 @@ window.AsistenciaPersonal={
  async abrirAmonestacion(){
   this.cargar("Cargando amonestaciones","Consultando colaboradores y documentos pendientes.");
   try{
-   const [cols,r]=await Promise.all([this.cargarColaboradores(),API.post({action:"listarAmonestacionesPendientes"})]);
+   const [cols,r]=await Promise.all([this.cargarColaboradores(),API.post({action:"listarAmonestacionesPendientes",pagina:1,limite:12})]);
    if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible consultar las amonestaciones.");
-   this.amonestacionesPendientes=r.data.registros||[];
+   const datos=r.data||{};
+   this.colaboradoresAmonestacion=cols;
+   this.amonestacionesPendientes=datos.pendientes||datos.registros||[];
+   this.amonestacionesHistorico=datos.historico||[];
+   this.amonestacionesHistoricoPagina=1;
+   this.amonestacionesHistoricoHayMas=datos.hayMasHistorico===true;
+   this.amonestacionesHistoricoTotal=Number(datos.totalHistorico||this.amonestacionesHistorico.length);
    this.amonestacionActivaId="";
    this.amonestacionesVisibles=12;
-   this.modal("Amonestaciones",`<section class="ap-modulo ap-modulo-amonestaciones"><div class="ap-form-bloque"><div id="apAmoEdicion" class="ap-edicion-pendiente" hidden><i class="fa-solid fa-file-pen"></i><span>Gestionando una amonestación pendiente.</span><button id="apCancelarAmo" type="button">Cancelar</button></div><div class="ap-grid-form"><label>Colaborador<select id="apAmoEmpleado">${this.opcionesColaboradores(cols)}</select></label><label>Fecha<input id="apAmoFecha" type="date" value="${this.hoy()}"></label><label class="ancho">Causa<input id="apAmoCausa" placeholder="Indique la causa de la amonestación"></label><label class="ancho">Comentario<textarea id="apAmoComentario" placeholder="Agregue una observación para Recursos Humanos"></textarea></label><div class="ancho ap-archivo-campo"><span class="ap-archivo-etiqueta">Formulario firmado PDF</span><label for="apAmoArchivo" class="ap-archivo-selector"><span class="ap-archivo-boton"><i class="fa-solid fa-file-arrow-up"></i> Seleccionar PDF</span><span id="apAmoArchivoNombre" class="ap-archivo-nombre">Ningún documento seleccionado</span></label><input id="apAmoArchivo" class="ap-archivo-input" type="file" accept=".pdf,application/pdf"></div></div><div class="ap-acciones"><button id="apGuardarAmo"><i class="fa-solid fa-paper-plane"></i> Registrar y enviar a RR. HH.</button></div></div><div class="ap-pendientes-encabezado"><strong>Amonestaciones pendientes</strong><span>${this.amonestacionesPendientes.length}</span></div><div id="apAmonestacionesLista"></div></section>`);
+   this.modal("Amonestaciones",`<section class="ap-modulo ap-modulo-amonestaciones"><div class="ap-form-bloque"><div id="apAmoEdicion" class="ap-edicion-pendiente" hidden><i class="fa-solid fa-file-pen"></i><span>Gestionando una amonestación pendiente.</span><button id="apCancelarAmo" type="button">Cancelar</button></div><div class="ap-grid-form"><label>Colaborador<select id="apAmoEmpleado">${this.opcionesColaboradores(cols)}</select></label><label>Fecha<input id="apAmoFecha" type="date" value="${this.hoy()}"></label><label class="ancho">Causa<input id="apAmoCausa" placeholder="Indique la causa de la amonestación"></label><label class="ancho">Comentario<textarea id="apAmoComentario" placeholder="Agregue una observación para Recursos Humanos"></textarea></label><div class="ancho ap-archivo-campo"><span class="ap-archivo-etiqueta">Formulario firmado PDF</span><label for="apAmoArchivo" class="ap-archivo-selector"><span class="ap-archivo-boton"><i class="fa-solid fa-file-arrow-up"></i> Seleccionar PDF</span><span id="apAmoArchivoNombre" class="ap-archivo-nombre">Ningún documento seleccionado</span></label><input id="apAmoArchivo" class="ap-archivo-input" type="file" accept=".pdf,application/pdf"></div></div><div class="ap-acciones"><button id="apGuardarAmo"><i class="fa-solid fa-paper-plane"></i> Registrar y enviar a RR. HH.</button></div></div><div class="ap-pendientes-encabezado"><strong>Amonestaciones pendientes</strong><span>${this.amonestacionesPendientes.length}</span></div><div id="apAmonestacionesLista"></div><section class="ap-historico-amonestaciones"><div class="ap-pendientes-encabezado"><strong>Histórico de amonestaciones</strong><span id="apAmoHistoricoTotal">${this.amonestacionesHistoricoTotal}</span></div><div class="ap-historico-filtros"><label>Colaborador<select id="apAmoHistEmpleado">${this.opcionesColaboradores(cols).replace("Seleccione...","Todos los colaboradores")}</select></label><label>Mes<input id="apAmoHistPeriodo" type="month"></label><label>Estado<select id="apAmoHistEstado"><option value="">Todos los estados</option><option value="ENVIADA RRHH">Enviada a RR. HH.</option><option value="ANULADA">Anulada</option></select></label><div class="ap-historico-acciones"><button id="apAmoAplicarFiltros" type="button"><i class="fa-solid fa-filter"></i> Aplicar</button><button id="apAmoLimpiarFiltros" type="button" class="ap-historico-limpiar"><i class="fa-solid fa-xmark"></i> Limpiar</button></div></div><div id="apAmonestacionesHistorico"></div></section></section>`);
    document.getElementById("apGuardarAmo").onclick=()=>this.guardarAmonestacion();
    document.getElementById("apCancelarAmo").onclick=()=>this.cancelarAmonestacionActiva();
    document.getElementById("apAmoArchivo").onchange=e=>{
@@ -33,6 +39,30 @@ window.AsistenciaPersonal={
     document.getElementById("apAmoArchivoNombre").textContent=archivo?archivo.name:"Ningún documento seleccionado";
    };
    this.renderAmonestacionesPendientes();
+   this.renderHistoricoAmonestaciones();
+   document.getElementById("apAmoAplicarFiltros").onclick=()=>this.cargarHistoricoAmonestaciones(true);
+   document.getElementById("apAmoLimpiarFiltros").onclick=()=>{document.getElementById("apAmoHistEmpleado").value="";document.getElementById("apAmoHistPeriodo").value="";document.getElementById("apAmoHistEstado").value="";this.cargarHistoricoAmonestaciones(true);};
+  }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
+ },
+ renderHistoricoAmonestaciones(){
+  const lista=this.amonestacionesHistorico||[],contenedor=document.getElementById("apAmonestacionesHistorico");
+  if(!contenedor)return;
+  contenedor.innerHTML=`<div class="ap-listado-simple ap-listado-amonestaciones ap-listado-historico">${lista.map(a=>{const archivo=String(a.Archivo_URL||"").trim(),estado=this.n(a.Estado),clase=estado==="ANULADA"?"ap-estado-anulado":"ap-estado-enviado";return`<article class="ap-amonestacion-fila"><div><strong>${this.e(a.Empleado_Nombre)}</strong><span>${this.e(a.Fecha_Incidencia)} · ${this.e(a.Causa||a.Tipo_Amonestacion)}</span><small>${this.e(a.ID_Amonestacion)}${a.Registrado_Por_Nombre?` · Registrada por ${this.e(a.Registrado_Por_Nombre)}`:""}</small></div><em class="${clase}">${this.e(a.Estado)}</em>${archivo?`<a class="ap-ver-documento" href="${this.e(archivo)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-file-pdf"></i> Ver PDF</a>`:'<span class="ap-sin-documento">Sin documento</span>'}</article>`}).join("")||"<div class='ap-vacio'>No hay amonestaciones en el histórico para los filtros seleccionados.</div>"}</div>${this.amonestacionesHistoricoHayMas?`<button id="apCargarMasHistoricoAmonestaciones" type="button" class="ap-cargar-mas">Cargar más del histórico</button>`:""}`;
+  const total=document.getElementById("apAmoHistoricoTotal");if(total)total.textContent=String(this.amonestacionesHistoricoTotal||0);
+  const cargarMas=document.getElementById("apCargarMasHistoricoAmonestaciones");if(cargarMas)cargarMas.onclick=()=>this.cargarHistoricoAmonestaciones(false);
+ },
+ async cargarHistoricoAmonestaciones(reiniciar){
+  const pagina=reiniciar?1:(this.amonestacionesHistoricoPagina||1)+1;
+  this.cargar("Cargando histórico","Consultando las amonestaciones registradas.");
+  try{
+   const r=await API.post({action:"listarAmonestacionesPendientes",pagina,limite:12,empleadoId:document.getElementById("apAmoHistEmpleado")?.value||"",periodo:document.getElementById("apAmoHistPeriodo")?.value||"",estado:document.getElementById("apAmoHistEstado")?.value||""});
+   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible consultar el histórico.");
+   const datos=r.data||{},nuevos=datos.historico||[];
+   this.amonestacionesHistorico=reiniciar?nuevos:(this.amonestacionesHistorico||[]).concat(nuevos);
+   this.amonestacionesHistoricoPagina=pagina;
+   this.amonestacionesHistoricoHayMas=datos.hayMasHistorico===true;
+   this.amonestacionesHistoricoTotal=Number(datos.totalHistorico||0);
+   this.renderHistoricoAmonestaciones();
   }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
  },
  renderAmonestacionesPendientes(){

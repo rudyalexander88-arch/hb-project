@@ -537,20 +537,6 @@ const API = {
 
                 }
 
-                const controlador =
-                    typeof AbortController !== "undefined"
-                        ? new AbortController()
-                        : null;
-
-                if (controlador) {
-
-                    temporizador = window.setTimeout(
-                        () => controlador.abort(),
-                        60000
-                    );
-
-                }
-
                 // USO DE TEXT/PLAIN PARA EVITAR PREFLIGHT Y BLOQUEOS CORS
                 const opciones = {
                     method: "POST",
@@ -562,12 +548,27 @@ const API = {
                     redirect: "follow"
                 };
 
-                if (controlador) {
-                    opciones.signal = controlador.signal;
-                }
-
                 const respuesta = await this._ejecutarSolicitudRed(
-                    () => fetch(API_URL, opciones)
+                    async () => {
+                        const controlador =
+                            typeof AbortController !== "undefined"
+                                ? new AbortController()
+                                : null;
+
+                        if (controlador) {
+                            opciones.signal = controlador.signal;
+                            temporizador = window.setTimeout(
+                                () => controlador.abort(),
+                                60000
+                            );
+                        }
+
+                        try {
+                            return await fetch(API_URL, opciones);
+                        } finally {
+                            window.clearTimeout(temporizador);
+                        }
+                    }
                 );
 
                 window.clearTimeout(temporizador);

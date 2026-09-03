@@ -5171,9 +5171,13 @@ mostrarAvisoPrioridadesNuevoConduce(
     `;
 
 
-    modal.classList.remove(
-        "oculto"
-    );
+    /*
+     * El modal global puede conservar inert, aria-hidden o
+     * pointer-events desactivados después del cargador o de otro visor.
+     * No basta con quitar la clase "oculto": hay que restaurar la capa
+     * interactiva para que el cierre y las dos acciones reciban clic.
+     */
+    Despachos.activarModalAsistente();
 
 
     const btnVerPrioridades =

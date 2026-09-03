@@ -243,8 +243,62 @@ window.Prioridades = {
         );
 
 
-        modal.classList.remove(
-            "oculto"
+        /*
+         * El modal global puede quedar visible, pero no interactivo,
+         * si otro asistente o el cargador dejó activos inert,
+         * aria-hidden o pointer-events. Reutilizamos la activación
+         * central de Despachos y conservamos un respaldo autónomo.
+         */
+        const activarModalPrioridades =
+            function() {
+
+                if (
+                    window.Despachos &&
+                    typeof window.Despachos
+                        .activarModalAsistente ===
+                        "function"
+                ) {
+
+                    window.Despachos
+                        .activarModalAsistente();
+
+                    return;
+
+                }
+
+
+                modal.classList.remove(
+                    "oculto"
+                );
+
+                modal.inert = false;
+                modal.removeAttribute("inert");
+                modal.setAttribute(
+                    "aria-hidden",
+                    "false"
+                );
+                modal.style.pointerEvents =
+                    "auto";
+
+                contenido.inert = false;
+                contenido.removeAttribute(
+                    "inert"
+                );
+                contenido.style.pointerEvents =
+                    "auto";
+
+                document.body.classList.add(
+                    "modal-sistema-abierto"
+                );
+
+            };
+
+
+        activarModalPrioridades();
+
+
+        window.requestAnimationFrame(
+            activarModalPrioridades
         );
 
 
@@ -303,6 +357,13 @@ window.Prioridades = {
         } finally {
 
             CargadorSistema.ocultar();
+
+
+            /*
+             * El cargador no debe devolver el foco ni los eventos a
+             * la ventana inferior cuando termina la consulta.
+             */
+            activarModalPrioridades();
 
         }
 

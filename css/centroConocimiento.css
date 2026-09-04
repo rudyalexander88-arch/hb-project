@@ -45,9 +45,63 @@ html[data-tema="oscuro"] :is(.manual-punto,.manual-proyecto-sistema,.manual-proy
 
 /* Un mismo lenguaje visual para los encabezados de todos los procesos. */
 .manual-cuerpo>h3,.manual-documento-estructurado>h3{position:relative;padding:0 0 9px 14px;border-bottom:1px solid #e1e7ed}.manual-cuerpo>h3:before,.manual-documento-estructurado>h3:before{content:"";display:block;position:absolute;left:0;top:.18em;width:4px;height:1.15em;border-radius:3px;background:linear-gradient(180deg,var(--cc-rojo),#ff8b00)}.manual-documento-estructurado>h3+p{margin-top:10px}.manual-portada address{display:none!important}
+.manual-proyecto-sistema+.manual-documento-estructurado{margin-top:32px}.manual-proyecto-sistema+.manual-documento-estructurado>h3:first-child{margin-top:0}
 
-/* Organigrama jerárquico en tarjetas. */
-.manual-organigrama{margin:26px 0;padding:24px;border:1px solid #dde4eb;border-radius:14px;background:linear-gradient(145deg,#f8fafc,#fff8ee);overflow:hidden}.manual-organigrama-encabezado{text-align:center}.manual-organigrama-encabezado>span{color:var(--cc-rojo);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.manual-organigrama-encabezado h3{margin:4px 0 5px!important;padding:0!important;border:0!important;font-size:calc(22px * var(--manual-escala))}.manual-organigrama-encabezado h3:before{display:none!important}.manual-organigrama-encabezado p{margin:0 auto;color:#6a7687;font-size:.9em}.manual-organigrama-arbol{display:flex;align-items:center;flex-direction:column;margin-top:22px}.manual-org-tarjeta{display:grid;grid-template-columns:44px minmax(0,1fr);gap:13px;width:min(560px,100%);padding:15px 17px;border:1px solid #dbe2e9;border-radius:12px;background:#fff;box-shadow:0 7px 18px #1722350b}.manual-org-tarjeta>i{display:grid;place-items:center;width:44px;height:44px;border-radius:11px;background:#ffe9ec;color:var(--cc-rojo);font-size:17px}.manual-org-tarjeta small{display:block;margin-bottom:2px;color:#8994a3;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.manual-org-tarjeta h4{margin:0 0 4px;color:#172235;font-size:calc(15px * var(--manual-escala));line-height:1.35}.manual-org-tarjeta p{margin:0;color:#596678;font-size:.88em;line-height:1.55}.manual-org-gerencia{border-top:4px solid var(--cc-rojo)}.manual-org-gerencia>i{background:var(--cc-rojo);color:#fff}.manual-org-encargado{border-top:4px solid #ff8b00}.manual-org-encargado>i{background:#fff0dc;color:#df7200}.manual-org-lideres{border-left:4px solid #1976d2}.manual-org-auxiliares{border-left:4px solid #25a34a}.manual-org-conector{display:block;width:2px;height:24px;background:#aeb9c6}.manual-org-conector-ramifica{position:relative;height:30px}.manual-org-paralelo{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;width:100%}.manual-org-paralelo:before{content:"";position:absolute;top:-31px;left:25%;right:25%;height:30px;border:2px solid #aeb9c6;border-bottom:0;border-radius:9px 9px 0 0}.manual-org-paralelo .manual-org-tarjeta{width:auto;height:100%;box-sizing:border-box}.manual-org-paralelo .manual-org-tarjeta:before{content:"";position:absolute;top:-2px}.manual-org-paralelo+ .manual-org-conector{height:28px}
-html[data-tema="oscuro"] .manual-organigrama,html[data-theme="dark"] .manual-organigrama,.tema-oscuro .manual-organigrama{border-color:#364657;background:linear-gradient(145deg,#1b2733,#242f3b)}html[data-tema="oscuro"] .manual-org-tarjeta,html[data-theme="dark"] .manual-org-tarjeta,.tema-oscuro .manual-org-tarjeta{border-color:#405162;background:#263442}html[data-tema="oscuro"] .manual-org-tarjeta h4,html[data-theme="dark"] .manual-org-tarjeta h4,.tema-oscuro .manual-org-tarjeta h4{color:#f3f7fb}html[data-tema="oscuro"] .manual-org-tarjeta p,html[data-theme="dark"] .manual-org-tarjeta p,.tema-oscuro .manual-org-tarjeta p{color:#cbd6e1}
-@media(max-width:760px){.manual-organigrama{padding:18px 13px}.manual-org-paralelo{grid-template-columns:minmax(0,1fr);gap:14px}.manual-org-paralelo:before{display:none}.manual-org-paralelo .manual-org-tarjeta+ .manual-org-tarjeta:before{content:"";position:absolute;left:50%;top:-14px;width:2px;height:14px;background:#aeb9c6}.manual-org-tarjeta{grid-template-columns:38px minmax(0,1fr);padding:13px}.manual-org-tarjeta>i{width:38px;height:38px}.manual-org-conector-ramifica{height:22px}}
-.manual-org-tarjeta{position:relative}
+/* Móvil: categorías en seis tarjetas (2 columnas x 3 filas). */
+@media(max-width:620px){
+ .cc-navegacion{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;overflow:visible;padding:9px}
+ .cc-navegacion button{display:grid;grid-template-columns:25px minmax(0,1fr);align-items:center;width:100%;min-height:54px;padding:9px;white-space:normal;border:1px solid var(--cc-borde);background:#f7f9fb;text-align:left;line-height:1.25}
+ .cc-navegacion button i{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#e9eef3}
+ .cc-navegacion button.activo{border-color:#f3a1ab;background:#fff0f1}
+}
+
+/* Contraste completo del Centro de conocimiento en tema oscuro. */
+html[data-tema="oscuro"] .modal-centro-conocimiento :is(.cc-detalle,.cc-detalle-cabecera,.cc-meta,.cc-texto,.cc-recursos,.cc-recurso),
+html[data-theme="dark"] .modal-centro-conocimiento :is(.cc-detalle,.cc-detalle-cabecera,.cc-meta,.cc-texto,.cc-recursos,.cc-recurso),
+.tema-oscuro .modal-centro-conocimiento :is(.cc-detalle,.cc-detalle-cabecera,.cc-meta,.cc-texto,.cc-recursos,.cc-recurso){color:#e8eef6}
+html[data-tema="oscuro"] .modal-centro-conocimiento .cc-detalle-cabecera,
+html[data-theme="dark"] .modal-centro-conocimiento .cc-detalle-cabecera,
+.tema-oscuro .modal-centro-conocimiento .cc-detalle-cabecera{border-color:#405064;background:#202d3a}
+html[data-tema="oscuro"] .modal-centro-conocimiento .cc-detalle-cabecera :is(h2,p),
+html[data-theme="dark"] .modal-centro-conocimiento .cc-detalle-cabecera :is(h2,p),
+.tema-oscuro .modal-centro-conocimiento .cc-detalle-cabecera :is(h2,p){color:#f3f7fb}
+html[data-tema="oscuro"] .modal-centro-conocimiento .cc-meta>span,
+html[data-theme="dark"] .modal-centro-conocimiento .cc-meta>span,
+.tema-oscuro .modal-centro-conocimiento .cc-meta>span{background:#2b3948;color:#e8eef6}
+html[data-tema="oscuro"] .modal-centro-conocimiento .cc-recurso,
+html[data-theme="dark"] .modal-centro-conocimiento .cc-recurso,
+.tema-oscuro .modal-centro-conocimiento .cc-recurso{border-color:#405064;background:#202d3a}
+html[data-tema="oscuro"] .modal-centro-conocimiento .cc-recurso :is(strong,p),
+html[data-theme="dark"] .modal-centro-conocimiento .cc-recurso :is(strong,p),
+.tema-oscuro .modal-centro-conocimiento .cc-recurso :is(strong,p){color:#dfe8f2}
+html[data-tema="oscuro"] .manual-proyecto-grid b,
+html[data-theme="dark"] .manual-proyecto-grid b,
+.tema-oscuro .manual-proyecto-grid b{color:#f4f7fb}
+html[data-tema="oscuro"] .manual-flujo-estados span,
+html[data-theme="dark"] .manual-flujo-estados span,
+.tema-oscuro .manual-flujo-estados span{border-color:#46576a;background:#263442;color:#edf3fb}
+
+/* La portada conserva su identidad clara incluso dentro del tema oscuro. */
+.modal-centro-conocimiento .manual-portada .manual-portada-marca{background:#fff!important;color:#172235!important}
+.modal-centro-conocimiento .manual-portada .manual-portada-marca>div b{color:#172235!important}
+.modal-centro-conocimiento .manual-portada .manual-portada-contenido{background:linear-gradient(115deg,#f9fbfc 0%,#fff 55%,#fff2e5 100%)!important;color:#172235!important}
+.modal-centro-conocimiento .manual-portada .manual-portada-contenido h2{color:#172235!important;text-shadow:none!important}
+.modal-centro-conocimiento .manual-portada .manual-portada-contenido h3{color:#3c4859!important;text-shadow:none!important}
+.modal-centro-conocimiento .manual-portada .manual-portada-contenido p{color:#687386!important}
+.cc-detalle-acciones .cc-imprimir-manual{display:inline-grid;place-items:center;flex:0 0 42px;width:42px;min-width:42px;height:42px;padding:0;font-size:15px}
+.cc-listado-acciones{display:flex;align-items:center;justify-content:flex-end;gap:12px}.cc-listado-acciones .cc-cargar-mas{display:inline-flex;align-items:center;justify-content:center;gap:5px;margin:0;padding:8px 12px;white-space:nowrap}.cc-listado-acciones .cc-cargar-mas[hidden]{display:none}
+
+@media(max-width:620px){
+ html[data-tema="oscuro"] .cc-navegacion button,
+ html[data-theme="dark"] .cc-navegacion button,
+ .tema-oscuro .cc-navegacion button{border-color:#405064;background:#263442;color:#e7eef7}
+ html[data-tema="oscuro"] .cc-navegacion button i,
+ html[data-theme="dark"] .cc-navegacion button i,
+ .tema-oscuro .cc-navegacion button i{background:#344456;color:#dfe8f2}
+ html[data-tema="oscuro"] .cc-navegacion button.activo,
+ html[data-theme="dark"] .cc-navegacion button.activo,
+ .tema-oscuro .cc-navegacion button.activo{border-color:#e75b69;background:#4b2029;color:#ffd8dd}
+ .cc-detalle-acciones .cc-imprimir-manual{flex:0 0 42px;width:42px}
+ .cc-listado>header{align-items:center}.cc-listado-acciones{margin-left:auto}.cc-listado-acciones .cc-cargar-mas{padding:8px 10px;font-size:10px}
+ .manual-proyecto-sistema+.manual-documento-estructurado{margin-top:26px}
+}

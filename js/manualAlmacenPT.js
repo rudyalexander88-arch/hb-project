@@ -4,31 +4,33 @@ window.ManualAlmacenPT={
  pdfDescarga:"",
  orden:["CC-MANUAL-01","CC-MANUAL-02","CC-MANUAL-03","CC-MANUAL-04","CC-MANUAL-05","CC-MANUAL-06","CC-MANUAL-07","CC-MANUAL-08","CC-MANUAL-09"],
  secciones:{
-  "CC-MANUAL-01":{titulo:"Manual de procesos del Almacén de Productos Terminados",corto:"Presentación y alcance",paginas:"1-9",portada:true,html:"",textoOriginal:`1. INTRODUCCIÓN
-      El presente Manual de Procesos del área de Productos Terminados
-(PT) de Helados Bon S.A. ha sido elaborado con el objetivo de documentar,
+  "CC-MANUAL-01":{titulo:"Manual de procesos del Almacén de Productos Terminados",corto:"Presentación y alcance",paginas:"1-9",portada:true,html:"",textoOriginal:
+
+   `1. INTRODUCCIÓN
+      El presenteManual de Procesosdel área deProductosTerminados
+(PT)de Helados Bon S.A. ha sido elaborado con elobjetivo de documentar,
 estandarizar y fortalecer las operaciones realizadas en esta área crítica dentro
 de la cadena de valor de la organización. Este manual recoge los
 procedimientos operativos clave relacionados con la recepción,
 almacenamiento, manejo interno y despacho de productos terminados,
 asegurando que cada actividad se ejecute bajo criterios de calidad, seguridad,
-eficiencia y cumplimiento normativo.
+eficiencia y cumplimiento de normas internas.
 
 La planta de producción ubicada en la Zona Industrial de Herrera, en Santo
 Domingo Oeste, constituye un punto estratégico para las operaciones
 logísticas de la empresa. Desde esta instalación, se garantiza el suministro
 oportuno de productos al Centro de Distribución Local y al Centro de
 Exportación, preservando en todo momento los estándares de inocuidad,
-parámetro de temperatura en la cadena de frío y presentación que caracterizan a Helados BON S.A.
+temperatura y presentación que caracterizan a Helados Bon SA.
 
 Este documento también busca fortalecer el alineamiento con la visión
-corporativa y los principios del Código de Gobierno Corporativo de Grupo
-Nutresa, promoviendo la transparencia, la trazabilidad, el respeto por las
+corporativa y los principios del Código de Gobierno Corporativo deGrupo
+Nutresa, promoviendo la transparencia, la trazabilidad,el respeto por las
 normas y el compromiso ético en el ejercicio diario de nuestras funciones.
 
 El manual está dirigido a todo el personal operativo, administrativo y de
-supervisión del área de Productos Terminados, y debe utilizarse como guía
-oficial para la ejecución de tareas, la toma de decisiones y la capacitación de
+supervisión del área de Productos Terminados, y debe utilizarse comoguía
+oficial para la ejecución de tareas, la toma de decisionesy la capacitación de
 nuevos colaboradores. Su correcta aplicación contribuirá a mejorar la
 productividad, la calidad del servicio interno y externo, así como la
 satisfacción de nuestros consumidores y clientes.
@@ -64,31 +66,62 @@ colaboradores involucrados.
 
   4. ALCANCE
 
-❖ Este manual aplica a todas las actividades operativas realizadas en el
+❖    ste manual aplica a todas las actividades operativas realizadas en el
+      E
       área de almacenamiento y despacho de productos terminados, así
        como a los procesos internos propios del almacén dentro de la
         empresa.
 
-❖ Abarca desde la recepción de productos para almacenamiento, su
+❖    barca desde la recepción de productos para almacenamiento, su
+      A
       adecuada manipulación, ubicación, conservación y control de
        inventarios, hasta el proceso de preparación, verificación y despacho de
         los mismos.
 
-❖ Su contenido es de cumplimiento obligatorio para todo el personal
+❖ Su contenido es de cumplimiento obligatoriopara todoel personal
       involucrado en dichos procesos, y su aplicación garantiza la
        estandarización, trazabilidad y mejora continua de las operaciones,
-        conforme a los lineamientos de Grupo Nutresa.
+        conforme a los lineamientos deGrupo Nutresa.
 
    5. ESTRUCTURA ORGANIZACIONAL DEL DEPARTAMENTO
 
 La estructura organizacional del área de Productos Terminados (PT) de
-Helados Bon S.A. responde a una distribución jerárquica que facilita la
-gestión eficiente y eficaz de las operaciones, la supervisión del personal y el control
+Helados Bon S.A.responde a una distribución jerárquicaque facilita la
+gestión eficiente de las operaciones, la supervisión del personal y el control
 de los inventarios, garantizando una ejecución alineada con los estándares de
 calidad, seguridad y eficiencia de la organización.
 
-[[ORGANIGRAMA_JERARQUICO_PT]]`},
-  "CC-MANUAL-02":{titulo:"Equipos de protección personal",corto:"EPP obligatorio",paginas:"10-12",html:"",textoOriginal:`EPP DE USO OBLIGATORIO EN ALMACÉN DE PRODUCTOS
+ORGANIGRAMA JERÁRQUICO
+
+   1. Gerente de Planta
+      Máxima autoridad operativa dentro de la planta. Supervisa y dirige
+      todas las áreas, incluyendo Productos Terminados.
+
+   2. Encargado de Almacén de Producto Terminado
+      Responsable directo del funcionamiento operativo del departamento
+      de PT. Coordina supervisores, control de inventario y la ejecución de los
+      procesos logísticos.
+
+   3. (Nivel paralelo)
+      Supervisores del Departamento de PT
+       Supervisan las actividades diarias de recepción, almacenamiento y
+      despacho.
+      Asistente de Control de Inventario PT
+       Da soporte en el control, registro y conciliación de inventarios.
+      Coordina con supervisores y el encargado para mantener exactitud en
+      el inventario.
+
+4. Líderes Montacarguistas
+   Encargados de coordinar las operaciones de movimiento de carga
+   dentro del almacén, asegurando el cumplimiento de normas de
+   seguridad y eficiencia logística.
+
+5. Auxiliares de Almacén PT
+   Ejecutan las actividades operativas diarias como recepción de
+   productos, traslado a cámaras frías, conteos, preparación de pedidos y
+   despachos.`},
+  "CC-MANUAL-02":{titulo:"Equipos de protección personal",corto:"EPP obligatorio",paginas:"10-12",html:"",textoOriginal:`PP DE USO OBLIGATORIO EN ALMACÉN DE PRODUCTOS
+E
 TERMINADOS (PT)
 
 1. Definición y responsabilidades
@@ -137,26 +170,26 @@ Cada uno de estos implementos es de uso individual y exclusivo del
 colaborador al que se le asigna, con el fin de garantizar higiene, seguridad y
 trazabilidad.
 
-3. Higiene, cuidado y restricciones
+3.Higiene, cuidado y restricciones
 
-   ● Responsabilidad del usuario: Mantener en buen estado e higiene sus
+   ● Responsabilidad del usuario:Mantener en buen estadoe higiene sus
        EPP, informando de inmediato cualquier daño o deterioro que afecte su
        funcionamiento.
-   ● Lavado de abrigos: Helados Bon es responsable de enviar los abrigos
+   ● Lavado de abrigos:Helados Bon es responsable de enviarlos abrigos
        a lavado al menos una vez al mes.
 
    ● Restricciones de retiro:
              ○ Botas y abrigos no pueden ser retirados de la empresa bajo
-                ninguna circunstancia. Salvo que algunos colaboradores sean
+                ninguna circunstancia.Salvo que algunos colaboradoressean
                 requeridos para brindar apoyo a las operaciones de otro
-                centro. En este escenario, el encargado de PT debe enviar un
+                centro.En este escenario, el encargado de PT debeenviar un
                 comunicado al encargado de seguridad, autorizando la salida y
                 retorno de estos EPP.
              ○ Pasamontañas, medias y guantes pueden ser transportados al
                 hogar del colaborador con autorización previa, para ser lavados
                 de forma personal si así lo desea.
 
-Nota: El incumplimiento en el uso del EPP obligatorio dentro del almacén de
+Nota: El incumplimiento en el uso del EPP obligatoriodentro del almacén de
 PT constituye una falta grave a las normas de seguridad y podrá ser sujeto a
 medidas disciplinarias según lo establecido en el reglamento interno de
 trabajo.`},
@@ -324,19 +357,19 @@ cámaras refrigeradas hacia los centros de distribución.
 
 3. Responsables
 
-   ● Supervisor de PT: Coordinación general del despacho, preparación del
+   ● Supervisor de PT:Coordinación general del despacho,preparación del
       conduce, verificación de carga y colocación del precinto de seguridad.
 
-   ● Responsable de Calidad: Validación de condiciones de temperatura,
+   ● Responsable de Calidad:Validación de condicionesde temperatura,
       aprobación de productos y control de carga.
 
-  ● Auxiliares de PT: Preparación, flejado, traslado de tarimas hacia la
+  ● Auxiliares de PT:Preparación, flejado, traslado de tarimas hacia la
      precámara, carga del contenedor.
 
-  ● Chofer: Apertura y cierre del contenedor, resguardo del conduce y
+  ● Chofer:Apertura y cierre del contenedor, resguardodel conduce y
      transporte seguro de la carga.
 
-  ● Seguridad de Puerta: Verificación de la colocación del precinto de
+  ● Seguridad de Puerta:Verificación de la colocacióndel precinto de
      seguridad.
 
 4. Medios y Recursos
@@ -351,7 +384,7 @@ cámaras refrigeradas hacia los centros de distribución.
 
   ● Flejes de seguridad para tarimas.
 
-  ● Documento F-0103 (Conduce de despacho).
+  ● DocumentoF-0103 (Conduce de despacho).
 
   ● Precintos de seguridad numerados.
 
@@ -362,21 +395,21 @@ cámaras refrigeradas hacia los centros de distribución.
         ○ El Supervisor de PT y un responsable de Calidad ingresan a las
            cámaras refrigeradas y verifican que los productos estén a una
            temperatura ≤-23 °C.
-        ○ Una vez aprobados, se identifican con una etiqueta redonda verde.
+        ○ Una vez aprobados, se identifican con unlabel redondoverde.
 
   2. Preparación de carga:
 
         ○ Los auxiliares flejan las tarimas y las trasladan de forma alineada
-           a la precámara (Cámara 7).
-        ○ Simultáneamente, el Supervisor prepara un borrador del conduce
-           de despacho y verifica la temperatura de los contenedores
+           a laprecámara (Cámara 7).
+        ○ Simultáneamente, el Supervisor prepara un borrador delconduce
+           de despachoy verifica la temperatura de los contenedores
            asignados.
 
   3. Verificación del contenedor:
 
         ○ El supervisor debe realizar la inspección del contenedor en base
            a lo establecido en los requisitos 4.1 / 4.11 OEA, y documentar la
-           información en el FORMULARIO DE INSPECCIÓN DE
+           información en elFORMULARIO DE INSPECCIÓN DE
            CONTENEDORES REFRIGERADOS.
         ○ El Supervisor y el responsable de Calidad comprueban que la
            temperatura del contenedor esté ≤-18 °C.
@@ -384,7 +417,7 @@ cámaras refrigeradas hacia los centros de distribución.
 
 4. Carga del contenedor:
 
-      ○ Se procede con la carga, verificando en cada tarima: material,
+      ○ Se procede con la carga, verificando en cada tarima:material,
          descripción, fecha y lote.
       ○ En caso de parciales, deben ser indicados con claridad en la
          documentación.
@@ -394,14 +427,14 @@ cámaras refrigeradas hacia los centros de distribución.
 5. Cierre del contenedor:
 
       ○ Una vez cargada la unidad, el chofer procede a cerrarla.
-      ○ El Supervisor completa el conduce (F-0103) con toda la
+      ○ El Supervisor completa elconduce (F-0103)con todala
          información requerida.
       ○ Un duplicado del conduce se entrega al chofer para su entrega en
          el centro de destino.
 
 6. Colocación del precinto:
 
-      ○ El Supervisor coloca el precinto de seguridad en conjunto con el
+      ○ El Supervisor coloca elprecinto de seguridaden conjuntocon el
          guardia de puerta, quien garantiza su correcta aplicación.`},
   "CC-MANUAL-06":{titulo:"Uso y control de precintos",corto:"Uso y control de precintos",paginas:"27-31 y 43-46",html:`
 <div class="manual-codigo">Control digital de precintos de seguridad</div>
@@ -442,7 +475,7 @@ vencimiento u otras no conformidades, no cumplen con los criterios de
 calidad y aptitud definidos por la organización.
 Este proceso busca garantizar la correcta segregación, trazabilidad y
 disposición de dichos productos, asegurando la transparencia en su gestión y
-el cumplimiento de las políticas corporativas de Grupo Nutresa, así como de
+el cumplimiento de las políticas corporativas deGrupoNutresa, así como de
 las normativas legales, fiscales y ambientales aplicables.
 
 Objetivos
@@ -458,7 +491,7 @@ Objetivos
       consumidor.
 
    4. Reducir progresivamente el inventario acumulado en el almacén de
-      maltratos hasta alcanzar un nivel cero.
+      maltratos hasta alcanzar un nivelcero.
 
    5. Proporcionar información clara y soportada a las áreas de Calidad,
       Logística, Contabilidad y Finanzas para la toma de decisiones.
@@ -466,55 +499,55 @@ Objetivos
 Alcance
 
    ● Este procedimiento aplica a todos los productos terminados
-      almacenados en el área de PT que sean identificados como
+      almacenados en el área de PTque sean identificadoscomo
       maltratados, vencidos o no conformes.
 
-   ● Inicia desde la recepción y registro del producto no apto en el
-      almacén y finaliza con el descargo en SAP tras la ejecución del
+   ● Inicia desde larecepción y registro del productono aptoen el
+      almacén y finaliza con eldescargo en SAPtras laejecución del
       decomiso.
 
-   ● Incluye las etapas de registro, clasificación, transferencia, ejecución
+   ● Incluye las etapas deregistro, clasificación, transferencia,ejecución
       del decomiso y descargo contable.
 
-   ● Aplica para todas las áreas involucradas: Almacén de PT, Calidad,
+   ● Aplica para todas las áreas involucradas:Almacénde PT, Calidad,
       Logística, Contabilidad y Auditoría.
 
 Responsables
 
-  ● Gerente de Planta: Máxima autoridad, aprueba y supervisa la correcta
+  ● Gerente de Planta:Máxima autoridad, aprueba y supervisala correcta
      ejecución del procedimiento.
 
-  ● Encargado de Almacén de PT: Responsable de coordinar el proceso
+  ● Encargado de Almacén de PT:Responsable de coordinarel proceso
      dentro del almacén y asegurar la segregación física de los productos.
 
-  ● Analista de Control de Inventario: Ejecuta registros, transferencias en
+  ● Analista de Control de Inventario:Ejecuta registros,transferencias en
      SAP, descargos y generación de reportes.
 
-  ● Departamento de Calidad: Clasifica y valida los productos no aptos,
+  ● Departamento de Calidad:Clasifica y valida los productosno aptos,
      participa en el decomiso y firma actas.
 
-  ● Logística: Asegura la coordinación del traslado de los productos hacia
+  ● Logística:Asegura la coordinación del traslado delos productos hacia
      el área de destrucción o proveedor autorizado.
 
-  ● Contabilidad/Finanzas: Registra y valida los impactos contables
+  ● Contabilidad/Finanzas:Registra y valida los impactoscontables
      derivados del decomiso.
 
-  ● Auditoría interna/externa: Verifica la transparencia y cumplimiento del
+  ● Auditoría interna/externa:Verifica la transparenciay cumplimiento del
      proceso.
 
-  ● DGII (cuando aplique): Supervisa y valida la destrucción en
+  ● DGII (cuando aplique):Supervisa y valida la destrucciónen
      cumplimiento con la normativa fiscal local.
 
 Descripción del proceso paso a paso
 
 1. Registro de ingreso (Frecuencia: Diaria)
 
-   ● Responsables: Personal de Almacén de PT.
+   ● Responsables:Personal de Almacén de PT.
 
    ● Todo producto maltratado o no conforme será colocado en el área
       asignada de “Productos Maltratados”.
 
-   ● Se debe completar un registro físico o digital con los siguientes
+   ● Se debe completar unregistro físico o digitalconlos siguientes
       campos:
 
          ○ Fecha.
@@ -529,17 +562,17 @@ Alcance
 
 2. Clasificación y evaluación (Frecuencia: Semanal)
 
-   ● Responsables: Asistente de Inventario + Departamento de Calidad.
+   ● Responsables:Asistente de Inventario + Departamentode Calidad.
 
    ● Se recolectan los productos reportados como maltratados.
 
   ● Se determina su destino:
 
-         1. Reproceso (si cumple condiciones).
-         2. Regreso al inventario utilizable (si se valida su aptitud).
-         3. Decomiso (cuando no es apto para consumo o uso).
+         1. Reproceso(si cumple condiciones).
+         2. Regreso al inventario utilizable(si se valida suaptitud).
+         3. Decomiso(cuando no es apto para consumo o uso).
 
-  ● Esta clasificación debe quedar documentada con firma de ambos
+  ● Esta clasificación debe quedardocumentada con firmade ambos
      colaboradores (representante de calidad y representante de almacén).
 
   ● La decisión deberá estar aprobada según la matriz de autorizaciones
@@ -547,12 +580,12 @@ Alcance
 
 3. Registro en el sistema (Frecuencia: Semanal)
 
-  ● Responsable: Analista de Control de Inventario.
+  ● Responsable:Analista de Control de Inventario.
 
   ● Se realiza transferencia en SAP, moviendo el producto desde
      “Inventario Libre Utilización” hacia el “Almacén de Maltratos”.
 
-  ● Se envía correo electrónico a Calidad, Logística y Contabilidad con:
+  ● Se envíacorreo electrónicoa Calidad, Logística yContabilidad con:
 
          ○ Número de documento SAP.
          ○ Resumen de productos transferidos.
@@ -574,7 +607,7 @@ Alcance
   ● El decomiso se realizará en lugar, fecha y proveedor autorizado para
      destrucción (Política 6.2.c).
 
-  ● Se generará un Acta de Decomiso, con:
+  ● Se generará unActa de Decomiso, con:
 
         ○ Detalle de productos destruidos.
         ○ Lotes y cantidades.
@@ -587,33 +620,33 @@ Alcance
 
 5. Descargo en sistema (Frecuencia: Mensual)
 
-  ● Responsable: Analista de Control de Inventario.
+  ● Responsable:Analista de Control de Inventario.
 
   ● Se dará de baja en SAP de acuerdo con el Acta de Decomiso.
 
   ● El documento SAP generado se compartirá vía correo electrónico a
      Calidad, Logística y Contabilidad.
 
-  ● El valor del almacén de maltratos deberá quedar en cero tras la
+  ● El valor del almacén de maltratos deberá quedar encerotras la
      ejecución (Política 6.3).
 
   ● El expediente del decomiso (registro inicial, clasificación, acta,
-     documento SAP) será archivado de manera física o digital por 5 años
+     documento SAP) será archivado de manera física o digital por5 años
      mínimo, cumpliendo los estándares de auditoría y trazabilidad.
 
 6. Programa de reducción gradual del acumulado actual
 
   ● Dado el inventario pendiente de decomiso acumulado, se implementará
-     un plan de reducción progresiva, en el que se incluirán lotes históricos
+     unplan de reducción progresiva, en el que se incluiránlotes históricos
      en cada decomiso mensual.
 
   ● Se estima que en un período de tiempo definido (X meses), el almacén
-     de maltratos quedará en cero, cumpliendo con el principio de no
+     de maltratos quedará encero, cumpliendo con el principiode no
      acumulación de inventarios no aptos (Política 6.3).
 
-Nota final: Este procedimiento busca garantizar trazabilidad, cumplimiento
+Nota final:Este procedimiento busca garantizartrazabilidad, cumplimiento
 normativo, transparencia y control contable, alineándose con los
-lineamientos de Grupo Nutresa y las normativas locales (incluyendo la DGII).`},
+lineamientos deGrupo Nutresay las normativas locales(incluyendo la DGII).`},
   "CC-MANUAL-09":{titulo:"Proveedores logísticos y choferes",corto:"Proveedores y choferes",paginas:"47-49",html:"",textoOriginal:`PROVEEDORES DE SERVICIOS LOGÍSTICOS Y CHOFERES
 
 Objetivo
@@ -697,12 +730,12 @@ Control y Supervisión
  esContenidoInicial(id,texto){if(!this.existe(id))return false;const t=String(texto||"");return !t||t.indexOf("Referencia: páginas")>=0||t.indexOf("Manual oficial del Almacén")===0;},
  textoEditable(id){const seccion=this.secciones[id];if(!seccion)return"";if(seccion.textoOriginal)return seccion.textoOriginal;const temporal=document.createElement("div");temporal.innerHTML=seccion.html;temporal.querySelectorAll("br").forEach(x=>x.replaceWith("\n"));temporal.querySelectorAll("h2,h3,h4,p,li,tr,aside,section").forEach(x=>x.insertAdjacentText("beforeend","\n"));return temporal.textContent.replace(/\n[ \t]+/g,"\n").replace(/\n{3,}/g,"\n\n").trim();},
  portadaHTML(){return `<section class="manual-portada"><div class="manual-portada-marca"><img src="../img/logo_dashboard.png" alt="Helados BON"><div><span>SISTEMA LOGÍSTICO PT</span><b>Documento controlado</b></div><em>PT-MP-01</em></div><div class="manual-portada-contenido"><span>HELADOS BON S.A.</span><h2>Manual de procesos</h2><h3>Almacén de Productos Terminados</h3><p>Guía oficial para la ejecución, control y mejora de las operaciones.</p></div><div class="manual-portada-control"><span><b>Revisión</b>1.2.2</span><span><b>Estado</b>Publicado</span><span><b>Fecha</b>Agosto 2025</span><span><b>Elaboración</b>Rudy A. De Leon Reyes · Encargado de Almacén PT</span></div><div class="manual-portada-aprobaciones"><span><b>Revisión</b>Carolina Muñoz Koury · Analista de Mejora Continua</span><span><b>Aprobación</b>Susan Bello · Gerente de Planta</span></div></section><section class="manual-proyecto-sistema"><span class="manual-etiqueta">Transformación digital</span><h3>Sistema Logístico PT</h3><p>El Sistema Logístico PT integra en una sola plataforma los procesos de recepción, almacenamiento, ocupación de cámaras, despachos, inspección de contenedores, evidencias, precintos, trazabilidad y reportes. Sustituye registros dispersos en papel por información operativa centralizada, verificable y disponible para los responsables autorizados.</p><div class="manual-proyecto-grid"><article><i class="fa-solid fa-shield-halved"></i><div><b>Controles preventivos</b><p>Aplica validaciones y bloqueos que evitan duplicidades, estados incompatibles, precintos no disponibles y despachos sin inspección aprobada.</p></div></article><article><i class="fa-solid fa-link"></i><div><b>Trazabilidad integral</b><p>Relaciona materiales, recepciones, ocupaciones, conduces, inspecciones, evidencias, responsables, fechas y documentos.</p></div></article><article><i class="fa-solid fa-mobile-screen-button"></i><div><b>Operación en campo</b><p>Permite registrar y consultar desde computadoras y dispositivos móviles, acercando el control al lugar donde ocurre cada operación.</p></div></article><article><i class="fa-solid fa-chart-line"></i><div><b>Información para decidir</b><p>Facilita seguimiento, auditoría, indicadores y atención oportuna de desviaciones con una fuente de datos común.</p></div></article></div></section>`;},
- organigramaHTML(){return `<section class="manual-organigrama" aria-labelledby="manualOrganigramaTitulo"><div class="manual-organigrama-encabezado"><span>Estructura organizacional</span><h3 id="manualOrganigramaTitulo">Organigrama jerárquico</h3><p>Relación de autoridad, coordinación y ejecución del Almacén de Productos Terminados.</p></div><div class="manual-organigrama-arbol"><article class="manual-org-tarjeta manual-org-gerencia"><i class="fa-solid fa-building-user"></i><div><small>Nivel 1</small><h4>Gerente de Planta</h4><p>Máxima autoridad operativa. Supervisa y dirige todas las áreas, incluyendo Productos Terminados.</p></div></article><span class="manual-org-conector" aria-hidden="true"></span><article class="manual-org-tarjeta manual-org-encargado"><i class="fa-solid fa-warehouse"></i><div><small>Nivel 2</small><h4>Encargado de Almacén de Producto Terminado</h4><p>Dirige el departamento de PT y coordina la supervisión, el control de inventario y los procesos logísticos.</p></div></article><span class="manual-org-conector manual-org-conector-ramifica" aria-hidden="true"></span><div class="manual-org-paralelo"><article class="manual-org-tarjeta"><i class="fa-solid fa-people-group"></i><div><small>Nivel 3 · Coordinación operativa</small><h4>Supervisores del Departamento de PT</h4><p>Supervisan las actividades diarias de recepción, almacenamiento y despacho.</p></div></article><article class="manual-org-tarjeta"><i class="fa-solid fa-chart-column"></i><div><small>Nivel 3 · Control de inventario</small><h4>Analista de Control de Inventario PT</h4><p>Apoya el registro y la conciliación; coordina con Supervisores y Encargado para mantener la exactitud del inventario.</p></div></article></div><span class="manual-org-conector" aria-hidden="true"></span><article class="manual-org-tarjeta manual-org-lideres"><i class="fa-solid fa-dolly"></i><div><small>Nivel 4</small><h4>Líderes Montacarguistas</h4><p>Coordinan el movimiento de carga dentro del almacén bajo las normas de seguridad y eficiencia logística.</p></div></article><span class="manual-org-conector" aria-hidden="true"></span><article class="manual-org-tarjeta manual-org-auxiliares"><i class="fa-solid fa-people-carry-box"></i><div><small>Nivel 5</small><h4>Auxiliares de Almacén PT</h4><p>Ejecutan recepción, traslado a cámaras frías, conteos, preparación de pedidos y despachos.</p></div></article></div></section>`;},
- formatearOriginal(texto){const escapar=valor=>String(valor||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");const nombres="INTRODUCCIÓN|JUSTIFICACIÓN|OBJETIVOS?|ALCANCE|RESPONSABLES?|PROCEDIMIENTO|DESARROLLO|POLÍTICAS?|NORMAS?|REGISTROS?|REFERENCIAS?|ANEXOS?|CONTROL Y SUPERVISIÓN|MEDIDAS DISCIPLINARIAS|CONSIDERACIONES|DOCUMENTACIÓN|FRECUENCIA|INDICADORES?|DEFINICIONES?|FUNCIONES?|REQUISITOS?|DISPOSICIONES?|ESTRUCTURA ORGANIZACIONAL DEL DEPARTAMENTO";const encabezado=new RegExp("^(?:\\d+[.)]\\s*)?(?:"+nombres+")$","i"),encabezadoConTexto=new RegExp("^((?:\\d+[.)]\\s*)?(?:"+nombres+"))[:.]?\\s+(.+)$","i"),codigo=/^(proceso\s*:|código\s*:|manual de procesos|uso y control|equipos de protección)/i;const bloques=String(texto||"").split(/\f+/).flatMap(pagina=>pagina.split(/\n\s*\n/)).map(bloque=>bloque.replace(/\s*\n\s*/g," ").replace(/\s+/g," ").trim()).filter(Boolean);return `<div class="manual-documento-estructurado">${bloques.map(bloque=>{if(bloque==="[[ORGANIGRAMA_JERARQUICO_PT]]")return this.organigramaHTML();const esPunto=/^[❖●■○•]/.test(bloque),limpio=bloque.replace(/^[❖●■○•]\s*/,"").trim(),seguro=escapar(limpio);if(esPunto)return `<div class="manual-punto"><i class="fa-solid fa-check"></i><p>${seguro}</p></div>`;if(codigo.test(limpio)&&limpio.length<180)return `<div class="manual-codigo">${seguro}</div>`;const combinado=limpio.match(encabezadoConTexto);if(combinado)return `<h3>${escapar(combinado[1])}</h3><p>${escapar(combinado[2])}</p>`;if(encabezado.test(limpio)||(/^\d+[.)]\s+/.test(limpio)&&limpio.length<150))return `<h3>${seguro}</h3>`;return `<p>${seguro}</p>`;}).join("")}</div>`;},
+ formatearOriginal(texto){const escapar=valor=>String(valor||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");const nombres="INTRODUCCIÓN|JUSTIFICACIÓN|OBJETIVOS?|ALCANCE|RESPONSABLES?|PROCEDIMIENTO|DESARROLLO|POLÍTICAS?|NORMAS?|REGISTROS?|REFERENCIAS?|ANEXOS?|CONTROL Y SUPERVISIÓN|MEDIDAS DISCIPLINARIAS|CONSIDERACIONES|DOCUMENTACIÓN|FRECUENCIA|INDICADORES?|DEFINICIONES?|FUNCIONES?|REQUISITOS?|DISPOSICIONES?|ESTRUCTURA ORGANIZACIONAL(?: DEL DEPARTAMENTO)?";const encabezado=new RegExp("^(?:\\d+[.)]\\s*)?(?:"+nombres+")$","i"),encabezadoConTexto=new RegExp("^((?:\\d+[.)]\\s*)?(?:"+nombres+"))[:.]?\\s+(.+)$","i"),codigo=/^(proceso\s*:|código\s*:|manual de procesos|uso y control|equipos de protección)/i;const bloques=String(texto||"").split(/\f+/).flatMap(pagina=>pagina.split(/\n\s*\n/)).map(bloque=>bloque.replace(/\s*\n\s*/g," ").replace(/\s+/g," ").trim()).filter(Boolean);return `<div class="manual-documento-estructurado">${bloques.map(bloque=>{const esPunto=/^[❖●■○•]/.test(bloque),limpio=bloque.replace(/^[❖●■○•]\s*/,"").trim(),seguro=escapar(limpio);if(esPunto)return `<div class="manual-punto"><i class="fa-solid fa-check"></i><p>${seguro}</p></div>`;if(codigo.test(limpio)&&limpio.length<180)return `<div class="manual-codigo">${seguro}</div>`;const combinado=limpio.match(encabezadoConTexto);if(combinado)return `<h3>${escapar(combinado[1])}</h3><p>${escapar(combinado[2])}</p>`;if(encabezado.test(limpio)||(/^\d+[.)]\s+/.test(limpio)&&limpio.length<150))return `<h3>${seguro}</h3>`;return `<p>${seguro}</p>`;}).join("")}</div>`;},
  render(id){const actual=this.secciones[id]||this.secciones[this.orden[0]],contenido=(actual.portada?this.portadaHTML():"")+(actual.html||this.formatearOriginal(actual.textoOriginal)),indice=this.orden.indexOf(id),anterior=this.orden[indice-1],siguiente=this.orden[indice+1],descarga=this.pdfDescarga?`<a href="${this.pdfDescarga}" target="_blank" rel="noopener"><i class="fa-solid fa-file-arrow-down"></i> Descargar manual</a>`:"";return `<div class="manual-html"><aside class="manual-indice"><header><strong>Contenido del manual</strong><button id="manualCerrarIndice" type="button" aria-label="Cerrar índice"><i class="fa-solid fa-xmark"></i></button></header>${this.orden.map((clave,i)=>{const s=this.secciones[clave];return `<button type="button" data-manual-seccion="${clave}" class="${clave===id?"activo":""}"><span>${String(i+1).padStart(2,"0")}</span><b>${s.corto}</b></button>`;}).join("")}</aside><article class="manual-contenido"><header class="manual-titulo"><button id="manualAbrirIndice" type="button"><i class="fa-solid fa-bars"></i> Índice</button><div><span>Documento PT · páginas ${actual.paginas} · revisión 1.2.2 · publicado</span><h2>${actual.titulo}</h2></div><div class="manual-titulo-acciones"><div class="manual-lectura-controles" aria-label="Tamaño de lectura"><button type="button" data-manual-zoom="-1" title="Reducir texto">A−</button><button type="button" data-manual-zoom="0" title="Tamaño normal">A</button><button type="button" data-manual-zoom="1" title="Aumentar texto">A+</button></div>${descarga}</div></header><div class="manual-cuerpo">${contenido}</div><footer class="manual-navegacion">${anterior?`<button type="button" data-manual-seccion="${anterior}"><i class="fa-solid fa-arrow-left"></i> Anterior</button>`:"<span></span>"}<span>${indice+1} de ${this.orden.length}</span>${siguiente?`<button type="button" data-manual-seccion="${siguiente}">Siguiente <i class="fa-solid fa-arrow-right"></i></button>`:"<span></span>"}</footer></article></div>`;},
  vincular(centro,id,conservarEdicion){document.querySelectorAll("[data-manual-seccion]").forEach(b=>b.onclick=()=>this.mostrarLocal(centro,b.dataset.manualSeccion));const abrir=document.getElementById("manualAbrirIndice"),cerrar=document.getElementById("manualCerrarIndice"),indice=document.querySelector(".manual-indice");if(abrir&&indice)abrir.onclick=()=>indice.classList.add("abierto");if(cerrar&&indice)cerrar.onclick=()=>indice.classList.remove("abierto");const editar=document.getElementById("ccEditar");if(editar&&!conservarEdicion)editar.onclick=()=>this.editarSeccion(centro,id);document.querySelectorAll("[data-manual-zoom]").forEach(b=>b.onclick=()=>this.cambiarEscala(Number(b.dataset.manualZoom)));this.aplicarEscala();},
  cambiarEscala(paso){let escala=Number(localStorage.getItem("manual_pt_escala")||1);escala=paso===0?1:Math.min(1.35,Math.max(.9,escala+(paso*.1)));localStorage.setItem("manual_pt_escala",String(escala));this.aplicarEscala();},
  aplicarEscala(){const manual=document.querySelector(".manual-html"),escala=Number(localStorage.getItem("manual_pt_escala")||1);if(manual)manual.style.setProperty("--manual-escala",String(escala));document.querySelectorAll("[data-manual-zoom]").forEach(b=>b.classList.toggle("activo",Number(b.dataset.manualZoom)===0&&escala===1));},
+ imprimirCompleto(){document.getElementById("manualImpresionHost")?.remove();document.getElementById("manualImpresionEstilos")?.remove();const host=document.createElement("div");host.id="manualImpresionHost";host.innerHTML=this.orden.map((id,indice)=>{const s=this.secciones[id],contenido=(s.portada?this.portadaHTML():"")+(s.html||this.formatearOriginal(s.textoOriginal));return `<article class="manual-capitulo ${indice===0?"manual-capitulo-inicial":""}"><header class="manual-impresion-cabecera"><span>Documento PT · páginas ${s.paginas} · revisión 1.2.2 · publicado</span><h1>${s.titulo}</h1></header><div class="manual-cuerpo">${contenido}</div></article>`;}).join("");const estilos=document.createElement("style");estilos.id="manualImpresionEstilos";estilos.textContent=`#manualImpresionHost{display:none}@media print{@page{size:letter;margin:12mm}html,body{width:auto!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important}body>*:not(#manualImpresionHost){display:none!important}#manualImpresionHost,#manualImpresionHost *{visibility:visible!important}#manualImpresionHost{display:block!important;position:static!important;width:auto!important;height:auto!important;margin:0!important;padding:0!important;overflow:visible!important;background:#fff!important;color:#172235!important;font-family:Poppins,Arial,sans-serif!important}.manual-capitulo{display:block!important;break-before:page;page-break-before:always}.manual-capitulo-inicial{break-before:auto;page-break-before:auto}.manual-impresion-cabecera{display:block!important;padding:0 0 12px!important;margin:0 0 14px!important;border-bottom:2px solid #e51b30!important;background:#fff!important}.manual-impresion-cabecera span{color:#e51b30!important;font-size:9px!important;font-weight:800!important;text-transform:uppercase}.manual-impresion-cabecera h1{margin:4px 0 0!important;color:#172235!important;font-size:22px!important;line-height:1.25!important}.manual-cuerpo{display:block!important;width:auto!important;max-width:none!important;padding:0!important;color:#303d50!important;background:#fff!important;font-size:11px!important;line-height:1.55!important}.manual-cuerpo h3{color:#172235!important;font-size:15px!important;break-after:avoid}.manual-cuerpo h4{color:#172235!important;font-size:12px!important}.manual-cuerpo p,.manual-cuerpo li{color:#303d50!important}.manual-portada,.manual-proyecto-sistema,.manual-punto,.manual-dos-columnas section,.manual-proyecto-grid article{break-inside:avoid;page-break-inside:avoid}.manual-portada{background:#fff!important;color:#172235!important}.manual-portada-contenido h2{color:#172235!important}.manual-portada-contenido h3{color:#3c4859!important}.manual-portada-contenido p{color:#687386!important}.manual-proyecto-grid b{color:#172235!important}.manual-tabla-scroll{overflow:visible!important}.manual-tabla-scroll table{width:100%!important;min-width:0!important;white-space:normal!important;font-size:8px!important}.manual-navegacion,.manual-indice,.manual-titulo,.manual-lectura-controles{display:none!important}#manualImpresionHost *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`;document.head.appendChild(estilos);document.body.appendChild(host);const limpiar=()=>{host.remove();estilos.remove();window.removeEventListener("afterprint",limpiar);};window.addEventListener("afterprint",limpiar);const imagenes=[...host.querySelectorAll("img")];Promise.all(imagenes.map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=r;img.onerror=r;}))).then(()=>setTimeout(()=>window.print(),100));return true;},
  mostrarLocal(centro,id){const contenedor=document.querySelector(".cc-texto"),seccion=this.secciones[id];if(!contenedor||!seccion)return;contenedor.innerHTML=this.render(id);const titulo=document.querySelector(".cc-detalle-cabecera h2"),resumen=document.querySelector(".cc-detalle-cabecera p");if(titulo)titulo.textContent=seccion.titulo;if(resumen)resumen.textContent=`Sección del manual · páginas ${seccion.paginas}`;this.vincular(centro,id,false);contenedor.closest("#contenidoModal")?.scrollTo({top:0,behavior:"smooth"});},
  async editarSeccion(centro,id){centro.cargarEspera("Abriendo edición","Cargando la versión administrativa.");try{const r=await API.post({action:"obtenerDocumentoConocimiento",idDocumento:id});if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible abrir la edición.");centro.editarDocumento(r.data);}catch(e){Sistema.error(e.message);}finally{centro.ocultarEspera();}}
 };

@@ -4,16 +4,23 @@ window.CentroConocimiento={
  sesion(){return window.Sistema&&Sistema.obtenerSesion?Sistema.obtenerSesion():JSON.parse(localStorage.getItem("sesion")||sessionStorage.getItem("sesion")||"{}");},
  async cargar(opciones){
   opciones=opciones||{};this.estado.pagina=1;this.estado.documentos=[];
-  this.pintarBase();await this.buscar(false);
+  if(!this.pintarBase())return;
+  await this.buscar(false);
   if(opciones.documentoId)await this.abrirDocumento(opciones.documentoId);
  },
  pintarBase(){
-  const c=document.querySelector("main.contenido");if(!c)return;
+  const c=document.getElementById("contenidoPrincipal");
+  if(!c){
+   console.error("CentroConocimiento: no existe #contenidoPrincipal.");
+   if(window.Sistema&&typeof Sistema.error==="function")Sistema.error("No fue posible abrir el Centro de conocimiento.");
+   return;
+  }
   c.innerHTML=`<section class="cc-modulo"><header class="cc-hero"><div><span>CENTRO DE CONOCIMIENTO</span><h1>Biblioteca institucional</h1><p>Políticas, procedimientos, manuales y tutoriales disponibles para su rol.</p></div><button id="ccNuevo" type="button" hidden><i class="fa-solid fa-plus"></i> Nuevo contenido</button></header><div class="cc-barra"><label class="cc-buscar"><i class="fa-solid fa-magnifying-glass"></i><input id="ccBuscar" placeholder="Buscar por título, categoría o palabra clave"></label><select id="ccTipo" aria-label="Filtrar por tipo"><option value="TODOS">Todo el contenido</option><option>MANUAL</option><option>POLITICA EMPRESA</option><option>POLITICA ALMACEN PT</option><option>PROCEDIMIENTO</option><option>TUTORIAL</option></select></div><div class="cc-biblioteca"><aside class="cc-navegacion"><strong>Documentación</strong><button type="button" data-cc-tipo="TODOS" class="activo"><i class="fa-solid fa-layer-group"></i><span>Todo</span></button><button type="button" data-cc-tipo="MANUAL"><i class="fa-solid fa-book"></i><span>Manuales</span></button><button type="button" data-cc-tipo="POLITICA EMPRESA"><i class="fa-solid fa-building-shield"></i><span>Políticas de empresa</span></button><button type="button" data-cc-tipo="POLITICA ALMACEN PT"><i class="fa-solid fa-warehouse"></i><span>Políticas de Almacén PT</span></button><button type="button" data-cc-tipo="PROCEDIMIENTO"><i class="fa-solid fa-list-check"></i><span>Procedimientos</span></button><button type="button" data-cc-tipo="TUTORIAL"><i class="fa-solid fa-circle-play"></i><span>Tutoriales</span></button></aside><section class="cc-listado"><header><div><strong>Contenido disponible</strong><span id="ccResumen" class="cc-resumen"></span></div><span class="cc-indicacion">Seleccione una fila para consultar</span></header><div class="cc-columnas"><span>Documento</span><span>Tipo</span><span>Versión</span><span>Estado</span><span></span></div><div id="ccCatalogo" class="cc-catalogo"></div><button id="ccCargarMas" class="cc-cargar-mas" type="button" hidden><i class="fa-solid fa-plus"></i> Cargar más</button></section></div></section>`;
   document.getElementById("ccBuscar").oninput=this.debounce(()=>{this.estado.busqueda=document.getElementById("ccBuscar").value;this.buscar(false);},350);
   document.getElementById("ccTipo").onchange=e=>{this.estado.tipo=e.target.value;document.querySelectorAll("[data-cc-tipo]").forEach(x=>x.classList.toggle("activo",x.dataset.ccTipo===this.estado.tipo));this.buscar(false);};
   document.getElementById("ccCargarMas").onclick=()=>this.buscar(true);
   document.querySelectorAll("[data-cc-tipo]").forEach(b=>b.onclick=()=>{this.estado.tipo=b.dataset.ccTipo;document.getElementById("ccTipo").value=this.estado.tipo;document.querySelectorAll("[data-cc-tipo]").forEach(x=>x.classList.toggle("activo",x===b));this.buscar(false);});
+  return true;
  },
  async buscar(acumular){
   const pagina=acumular?this.estado.pagina+1:1;this.cargarEspera("Consultando conocimiento","Aplicando permisos y filtros.");

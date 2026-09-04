@@ -164,11 +164,22 @@ window.AsistenciaPersonal={
   try{
    const d=await this.cargarAvisos(pagina||1,20),avisos=[...(anteriores||[]),...(d.avisos||[])];
    this.avisosActuales=avisos;
-   this.modal("Mis avisos",`<section class="ap-modulo ap-centro-avisos">${this.puedeGestionar()?`<header class="ap-avisos-cabecera"><div><strong>Centro de avisos</strong><span>Comunicaciones internas del equipo</span></div><button id="apAbrirCrearAviso" type="button"><i class="fa-solid fa-bullhorn"></i> Crear aviso</button></header><div id="apAvisoFormulario"></div>`:""}<section class="ap-avisos">${avisos.map(a=>`<article data-prioridad="${this.e(this.n(a.Tipo))}"><i class="fa-solid ${this.n(a.Tipo)==="URGENTE"?"fa-triangle-exclamation":"fa-bell"}"></i><div><strong>${this.e(a.Titulo)}</strong><p>${this.e(a.Mensaje)}</p><small>${this.e(a.Fecha_Creacion)}${["IMPORTANTE","URGENTE"].includes(this.n(a.Tipo))?` · ${this.e(a.Tipo)}`:""}</small></div>${this.n(a.Tipo)==="RECEPCION VACIA"?`<button data-ap-aprobar-recepcion="${this.e(a.Referencia_ID)}">Aprobar eliminación</button>`:`<button data-ap-leer="${this.e(a.ID_Aviso)}">Marcar leído</button>`}</article>`).join("")||"<div class='ap-vacio'>No tiene avisos pendientes.</div>"}</section>${d.hayMas?'<button id="apCargarMasAvisos" type="button" class="ap-cargar-mas">Cargar más avisos</button>':""}</section>`);
+   const seleccionables=avisos.filter(a=>this.n(a.Tipo)!=="RECEPCION VACIA");
+   this.modal("Mis avisos",`<section class="ap-modulo ap-centro-avisos">${this.puedeGestionar()?`<header class="ap-avisos-cabecera"><div><strong>Centro de avisos</strong><span>Comunicaciones internas del equipo</span></div><button id="apAbrirCrearAviso" type="button"><i class="fa-solid fa-bullhorn"></i> Crear aviso</button></header><div id="apAvisoFormulario"></div>`:""}${seleccionables.length?`<div id="apBarraSeleccionAvisos" class="ap-avisos-seleccion"><label class="ap-seleccionar-todos"><input id="apSeleccionarTodosAvisos" type="checkbox"><span>Seleccionar todos</span></label><div><span id="apTotalAvisosSeleccionados">0 seleccionados</span><button id="apMarcarAvisosSeleccionados" type="button" disabled><i class="fa-solid fa-check-double"></i> Marcar seleccionados como leídos</button></div></div>`:""}<section class="ap-avisos">${avisos.map(a=>{const especial=this.n(a.Tipo)==="RECEPCION VACIA";return `<article data-aviso-id="${this.e(a.ID_Aviso)}" data-prioridad="${this.e(this.n(a.Tipo))}" data-seleccionable="${especial?"NO":"SI"}">${especial?'<span class="ap-aviso-seleccion-vacia" aria-hidden="true"></span>':`<label class="ap-aviso-seleccion" title="Seleccionar aviso"><input type="checkbox" data-ap-seleccionar-aviso value="${this.e(a.ID_Aviso)}" aria-label="Seleccionar ${this.e(a.Titulo)}"><span></span></label>`}<i class="fa-solid ${this.n(a.Tipo)==="URGENTE"?"fa-triangle-exclamation":"fa-bell"}"></i><div class="ap-aviso-contenido"><strong>${this.e(a.Titulo)}</strong><p>${this.e(a.Mensaje)}</p><small>${this.e(a.Fecha_Creacion)}${["IMPORTANTE","URGENTE"].includes(this.n(a.Tipo))?` · ${this.e(a.Tipo)}`:""}</small></div>${especial?`<button data-ap-aprobar-recepcion="${this.e(a.Referencia_ID)}">Aprobar eliminación</button>`:`<button data-ap-leer="${this.e(a.ID_Aviso)}">Marcar leído</button>`}</article>`;}).join("")||"<div class='ap-vacio'>No tiene avisos pendientes.</div>"}</section>${d.hayMas?'<button id="apCargarMasAvisos" type="button" class="ap-cargar-mas">Cargar más avisos</button>':""}</section>`);
    const crear=document.getElementById("apAbrirCrearAviso"),cargarMas=document.getElementById("apCargarMasAvisos");
    if(crear)crear.onclick=()=>this.abrirCrearAviso();
    if(cargarMas)cargarMas.onclick=()=>this.abrirAvisos((d.pagina||1)+1,avisos);
+   this.configurarSeleccionAvisos();
    document.querySelectorAll("[data-ap-leer]").forEach(b=>b.onclick=()=>this.marcarAvisoLeido(b));
+   document.querySelectorAll('[data-aviso-id]').forEach(tarjeta=>{
+    const aviso=avisos.find(a=>String(a.ID_Aviso)===String(tarjeta.dataset.avisoId));
+    if(!aviso||this.n(aviso.Referencia_Tipo)!=="CENTRO_CONOCIMIENTO")return;
+    const acciones=tarjeta.querySelector("button[data-ap-leer]");
+    if(!acciones)return;
+    const ir=document.createElement("button");ir.type="button";ir.className="ap-ir-conocimiento";ir.innerHTML='<i class="fa-solid fa-book-open"></i> Ir al Centro de conocimiento';
+    ir.onclick=async()=>{Sistema.cerrarModal();if(window.activarMenu)activarMenu("menuCentroConocimiento");if(window.CentroConocimiento)await CentroConocimiento.cargar({documentoId:aviso.Referencia_ID});};
+    acciones.before(ir);
+   });
    document.querySelectorAll("[data-ap-aprobar-recepcion]").forEach(b=>b.onclick=async()=>{
     const confirmado=await Sistema.confirmar({titulo:"Eliminar recepción vacía",mensaje:"¿Autoriza eliminar esta recepción vacía y sin registros?",detalle:"Antes de eliminarla, el sistema comprobará nuevamente que no tenga materiales, cantidades ni líneas registradas.",tipo:"peligro",textoConfirmar:"Sí, eliminar",textoCancelar:"Cancelar"});
     if(!confirmado)return;
@@ -177,15 +188,46 @@ window.AsistenciaPersonal={
    });
   }catch(e){Sistema.error(e.message);}finally{this.ocultar();}
  },
- async marcarAvisoLeido(boton){
-  this.cargar("Actualizando aviso","Marcando la comunicación como leída.");
+ configurarSeleccionAvisos(){
+  const todos=document.getElementById("apSeleccionarTodosAvisos"),accion=document.getElementById("apMarcarAvisosSeleccionados");
+  document.querySelectorAll("[data-ap-seleccionar-aviso]").forEach(c=>c.onchange=()=>this.actualizarSeleccionAvisos());
+  if(todos)todos.onchange=()=>{document.querySelectorAll("[data-ap-seleccionar-aviso]").forEach(c=>{c.checked=todos.checked;});this.actualizarSeleccionAvisos();};
+  if(accion)accion.onclick=()=>this.marcarAvisosSeleccionados();
+  this.actualizarSeleccionAvisos();
+ },
+ actualizarSeleccionAvisos(){
+  const casillas=[...document.querySelectorAll("[data-ap-seleccionar-aviso]")],seleccionadas=casillas.filter(c=>c.checked),todos=document.getElementById("apSeleccionarTodosAvisos"),total=document.getElementById("apTotalAvisosSeleccionados"),accion=document.getElementById("apMarcarAvisosSeleccionados");
+  casillas.forEach(c=>c.closest("article")?.classList.toggle("seleccionado",c.checked));
+  if(todos){todos.checked=casillas.length>0&&seleccionadas.length===casillas.length;todos.indeterminate=seleccionadas.length>0&&seleccionadas.length<casillas.length;}
+  if(total)total.textContent=`${seleccionadas.length} seleccionado${seleccionadas.length===1?"":"s"}`;
+  if(accion)accion.disabled=!seleccionadas.length;
+ },
+ async marcarAvisosSeleccionados(){
+  const ids=[...document.querySelectorAll("[data-ap-seleccionar-aviso]:checked")].map(c=>c.value);
+  if(!ids.length){Sistema.info("Seleccione al menos un aviso.");return;}
+  await this.marcarAvisosLeidos(ids,document.getElementById("apMarcarAvisosSeleccionados"));
+ },
+ async marcarAvisosLeidos(ids,botonOrigen){
+  const unicos=[...new Set((ids||[]).map(String).filter(Boolean))];
+  if(!unicos.length)return;
+  if(botonOrigen)botonOrigen.disabled=true;
+  this.cargar(unicos.length===1?"Actualizando aviso":"Actualizando avisos",unicos.length===1?"Marcando la comunicación como leída.":"Marcando las comunicaciones seleccionadas como leídas.");
   try{
-   const r=await API.post({action:"marcarAvisoAsistenciaLeido",idAviso:boton.dataset.apLeer});
-   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible marcar el aviso como leído.");
-   const lista=boton.closest(".ap-avisos");
-   boton.closest("article").remove();
-   if(lista&&!lista.querySelector("article"))lista.innerHTML="<div class='ap-vacio'>No tiene avisos pendientes.</div>";
-  }catch(error){Sistema.error(error.message);}finally{this.ocultar();}
+   const r=await API.post({action:"marcarAvisoAsistenciaLeido",idsAvisos:unicos,idAviso:unicos[0]});
+   if(!r||!r.ok)throw new Error(r&&r.mensaje||"No fue posible marcar los avisos como leídos.");
+   unicos.forEach(id=>[...document.querySelectorAll(".ap-avisos article[data-aviso-id]")].find(a=>a.dataset.avisoId===id)?.remove());
+   this.avisosActuales=(this.avisosActuales||[]).filter(a=>!unicos.includes(String(a.ID_Aviso)));
+   const lista=document.querySelector(".ap-avisos"),restantes=lista?[...lista.querySelectorAll("article")]:[];
+   if(lista&&!restantes.length)lista.innerHTML="<div class='ap-vacio'>No tiene avisos pendientes.</div>";
+   const barra=document.getElementById("apBarraSeleccionAvisos");
+   if(barra&&!document.querySelector("[data-ap-seleccionar-aviso]"))barra.remove();
+   this.actualizarSeleccionAvisos();
+   if(unicos.length>1)Sistema.exito(r.mensaje||"Avisos actualizados correctamente.");
+   document.dispatchEvent(new CustomEvent("avisosSistemaActualizados",{detail:{eliminados:Number(r.data&&r.data.eliminados||unicos.length)}}));
+  }catch(error){Sistema.error(error.message);this.actualizarSeleccionAvisos();}finally{this.ocultar();}
+ },
+ async marcarAvisoLeido(boton){
+  await this.marcarAvisosLeidos([boton.dataset.apLeer],boton);
  },
  async abrirCrearAviso(){
   if(!this.puedeGestionar()){Sistema.info("Su rol no puede crear avisos.");return;}

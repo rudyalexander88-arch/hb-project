@@ -66,7 +66,9 @@ window.RecepcionMateriales = {
     historicoOffset: 0,
     historicoLimite: 10,
     historicoHayMas: false,
-    historicoTotal: 0
+    historicoTotal: 0,
+    historicoBusqueda: "",
+    historicoSeleccionados: {}
   },
 
 
@@ -1055,18 +1057,39 @@ configurarScrollInterno() {
     this.estado.historico = [];
     this.estado.historicoOffset = 0;
     this.estado.historicoHayMas = false;
+    this.estado.historicoBusqueda = "";
+    this.estado.historicoSeleccionados = {};
+
+    const controlesAdministrativos = this.puedeAdministrarRecepciones()
+      ? `<div class="historico-recepciones-acciones-masivas">
+          <span id="cantidadSeleccionHistoricoRecepciones">0 seleccionadas</span>
+          <button type="button" id="btnVincularHistoricoRecepciones" class="btn-recepcion secundario" disabled>
+            <i class="fa-solid fa-link"></i> Vincular
+          </button>
+          <button type="button" id="btnAnularHistoricoRecepciones" class="btn-recepcion peligro" disabled>
+            <i class="fa-solid fa-trash-can"></i> Anular
+          </button>
+        </div>`
+      : "";
 
     const contenido = `
       <section class="historico-recepciones-modal">
         <header class="historico-recepciones-controles">
           <span class="historico-recepciones-identidad">CONSULTA OPERATIVA</span>
-          <label class="historico-recepciones-limite">
-            <span>Mostrar:</span>
-            <select id="limiteHistoricoRecepciones">
-              <option value="10">10 recep.</option>
-              <option value="30">30 recep.</option>
-            </select>
-          </label>
+          <div class="historico-recepciones-herramientas">
+            <label class="historico-recepciones-buscador">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input id="buscarHistoricoRecepciones" type="search" placeholder="Buscar material, ID o fecha" autocomplete="off">
+            </label>
+            ${controlesAdministrativos}
+            <label class="historico-recepciones-limite">
+              <span>Mostrar:</span>
+              <select id="limiteHistoricoRecepciones">
+                <option value="10">10 recep.</option>
+                <option value="30">30 recep.</option>
+              </select>
+            </label>
+          </div>
         </header>
         <div id="listaHistoricoRecepciones" class="lista-historico-recepciones">
           <div class="estado-proximo-recepciones"><i class="fa-solid fa-spinner fa-spin"></i><span>Cargando histórico...</span></div>
@@ -1091,6 +1114,7 @@ configurarScrollInterno() {
     }
 
     const selector = document.getElementById("limiteHistoricoRecepciones");
+    const buscador = document.getElementById("buscarHistoricoRecepciones");
     const cargarMas = document.getElementById("btnCargarMasHistoricoRecepciones");
     if (selector) {
       selector.value = String(this.estado.historicoLimite);
@@ -1098,9 +1122,27 @@ configurarScrollInterno() {
         this.estado.historicoLimite = Number(selector.value);
         this.estado.historico = [];
         this.estado.historicoOffset = 0;
+        this.estado.historicoSeleccionados = {};
         this.cargarHistoricoRecepciones(false);
       };
     }
+    if (buscador) {
+      let temporizadorBusqueda = null;
+      buscador.oninput = () => {
+        window.clearTimeout(temporizadorBusqueda);
+        temporizadorBusqueda = window.setTimeout(() => {
+          this.estado.historicoBusqueda = String(buscador.value || "").trim();
+          this.estado.historico = [];
+          this.estado.historicoOffset = 0;
+          this.estado.historicoSeleccionados = {};
+          this.cargarHistoricoRecepciones(false);
+        }, 350);
+      };
+    }
+    const vincular = document.getElementById("btnVincularHistoricoRecepciones");
+    const anular = document.getElementById("btnAnularHistoricoRecepciones");
+    if (vincular) vincular.onclick = () => this.prepararVinculacionHistoricoRecepciones();
+    if (anular) anular.onclick = () => this.prepararAnulacionHistoricoRecepciones();
     if (cargarMas) cargarMas.onclick = () => this.cargarHistoricoRecepciones(true);
     this.cargarHistoricoRecepciones(false);
   },
@@ -1109,7 +1151,8 @@ configurarScrollInterno() {
   async cargarHistoricoRecepciones(anexar) {
     const claveCache =
       "recepciones_historico_" +
-      String(this.estado.historicoLimite);
+      String(this.estado.historicoLimite) + "_" +
+      encodeURIComponent(String(this.estado.historicoBusqueda || "").toLowerCase());
 
     if (
       !anexar &&
@@ -1155,7 +1198,8 @@ configurarScrollInterno() {
       const respuesta = await API.post({
         action:"obtenerHistoricoRecepciones",
         offset:anexar ? this.estado.historicoOffset : 0,
-        limite:this.estado.historicoLimite
+        limite:this.estado.historicoLimite,
+        buscar:this.estado.historicoBusqueda
       });
       if (!respuesta || respuesta.ok !== true) {
         throw new Error(respuesta && respuesta.mensaje ? respuesta.mensaje : "No fue posible consultar el histórico.");
@@ -1247,14 +1291,33 @@ configurarScrollInterno() {
         );
       };
     });
+    lista.querySelectorAll("[data-seleccionar-recepcion]").forEach(control => {
+      control.onchange = () => {
+        const id = String(control.value || "").trim();
+        const item = registros.find(registro => String(registro.idRecepcion || "").trim() === id);
+        if (control.checked && item) this.estado.historicoSeleccionados[id] = item;
+        else delete this.estado.historicoSeleccionados[id];
+        const fila = control.closest(".fila-historico-recepcion");
+        if (fila) fila.classList.toggle("seleccionada", control.checked);
+        this.actualizarControlesSeleccionHistoricoRecepciones();
+      };
+    });
+    this.actualizarControlesSeleccionHistoricoRecepciones();
     if (boton) boton.hidden = !this.estado.historicoHayMas;
     if (resumen) resumen.textContent = `Mostrando ${registros.length} de ${this.estado.historicoTotal} recepciones`;
   },
 
 
   renderFilaHistoricoRecepcion(item) {
+    const idRecepcion = String(item.idRecepcion || "").trim();
+    const permiteSeleccion = this.puedeAdministrarRecepciones();
+    const seleccionada = Boolean(this.estado.historicoSeleccionados[idRecepcion]);
     return `
-      <article class="fila-historico-recepcion">
+      <article class="fila-historico-recepcion${permiteSeleccion ? " con-seleccion" : ""}${seleccionada ? " seleccionada" : ""}">
+        ${permiteSeleccion ? `<label class="seleccion-historico-recepcion" title="Seleccionar recepción">
+          <input type="checkbox" data-seleccionar-recepcion value="${this.escapar(idRecepcion)}" ${seleccionada ? "checked" : ""}>
+          <span aria-hidden="true"></span>
+        </label>` : ""}
         <div class="fila-historico-identidad">
           <span>${this.escapar(item.idRecepcion || "-")}</span>
           <strong>${this.escapar(item.detalle || item.material || "Recepción")}</strong>
@@ -1267,6 +1330,119 @@ configurarScrollInterno() {
         <div class="fila-historico-metrica"><span>Duración</span><strong>${this.formatearNumero(item.duracionMinutos)} min</strong></div>
         ${this.renderAccionesAdministrativas(item)}
       </article>`;
+  },
+
+
+  obtenerRecepcionesSeleccionadasHistorico() {
+    return Object.keys(this.estado.historicoSeleccionados || {})
+      .map(id => this.estado.historicoSeleccionados[id])
+      .filter(Boolean);
+  },
+
+
+  actualizarControlesSeleccionHistoricoRecepciones() {
+    const seleccionadas = this.obtenerRecepcionesSeleccionadasHistorico();
+    const cantidad = document.getElementById("cantidadSeleccionHistoricoRecepciones");
+    const vincular = document.getElementById("btnVincularHistoricoRecepciones");
+    const anular = document.getElementById("btnAnularHistoricoRecepciones");
+    if (cantidad) cantidad.textContent = `${seleccionadas.length} ${seleccionadas.length === 1 ? "seleccionada" : "seleccionadas"}`;
+    if (vincular) vincular.disabled = seleccionadas.length < 2;
+    if (anular) anular.disabled = seleccionadas.length < 1;
+  },
+
+
+  prepararVinculacionHistoricoRecepciones() {
+    const seleccionadas = this.obtenerRecepcionesSeleccionadasHistorico();
+    if (seleccionadas.length < 2) {
+      this.notificar("Seleccione al menos dos recepciones para vincularlas.", "advertencia");
+      return;
+    }
+    const materiales = seleccionadas.map(item => String(item.material || "").trim().toUpperCase());
+    if (!materiales[0] || materiales.some(material => material !== materiales[0])) {
+      this.notificar("Solo se pueden vincular recepciones del mismo material.", "advertencia");
+      return;
+    }
+    const ordenadas = seleccionadas.slice().sort((a, b) => {
+      const fechaA = Date.parse(String(a.fecha || "") + "T00:00:00") || Number.MAX_SAFE_INTEGER;
+      const fechaB = Date.parse(String(b.fecha || "") + "T00:00:00") || Number.MAX_SAFE_INTEGER;
+      return fechaA - fechaB || String(a.idRecepcion || "").localeCompare(String(b.idRecepcion || ""));
+    });
+    this.confirmarAccionMasivaHistoricoRecepciones("vincular", ordenadas, ordenadas[0]);
+  },
+
+
+  prepararAnulacionHistoricoRecepciones() {
+    const seleccionadas = this.obtenerRecepcionesSeleccionadasHistorico();
+    if (!seleccionadas.length) {
+      this.notificar("Seleccione una o más recepciones para anularlas.", "advertencia");
+      return;
+    }
+    this.confirmarAccionMasivaHistoricoRecepciones("anular", seleccionadas, null);
+  },
+
+
+  confirmarAccionMasivaHistoricoRecepciones(tipo, recepciones, principal) {
+    const anterior = document.getElementById("confirmacionAccionMasivaRecepciones");
+    if (anterior) anterior.remove();
+    const esVinculacion = tipo === "vincular";
+    const capa = document.createElement("div");
+    capa.id = "confirmacionAccionMasivaRecepciones";
+    capa.className = "confirmacion-eliminar-entradas-overlay";
+    capa.setAttribute("role", "dialog");
+    capa.setAttribute("aria-modal", "true");
+    capa.innerHTML = `
+      <section class="confirmacion-eliminar-entradas-recepcion confirmacion-accion-masiva-recepciones">
+        <div class="icono-confirmacion-eliminar-entradas"><i class="fa-solid ${esVinculacion ? "fa-link" : "fa-triangle-exclamation"}"></i></div>
+        <h3>${esVinculacion ? `¿Unificar ${recepciones.length} recepciones?` : `¿Anular ${recepciones.length} ${recepciones.length === 1 ? "recepción" : "recepciones"}?`}</h3>
+        <p>${esVinculacion
+          ? `Todas las entradas quedarán bajo el encabezado más antiguo: <strong>${this.escapar(principal.idRecepcion || "")}</strong>. Los demás encabezados quedarán como vinculados para auditoría.`
+          : "Se conservarán los encabezados anulados para auditoría. Se eliminarán sus entradas y movimientos y se reconstruirá la ocupación."}</p>
+        <label>Motivo de la ${esVinculacion ? "vinculación" : "anulación"}<textarea id="motivoAccionMasivaRecepciones" rows="3" required></textarea></label>
+        <footer>
+          <button type="button" class="btn-recepcion secundario" id="cancelarAccionMasivaRecepciones">Cancelar</button>
+          <button type="button" class="btn-recepcion ${esVinculacion ? "principal" : "peligro"}" id="confirmarAccionMasivaRecepciones">
+            <i class="fa-solid ${esVinculacion ? "fa-link" : "fa-trash-can"}"></i> ${esVinculacion ? "Unificar" : "Anular"}
+          </button>
+        </footer>
+      </section>`;
+    document.body.appendChild(capa);
+    document.getElementById("cancelarAccionMasivaRecepciones").onclick = () => capa.remove();
+    document.getElementById("confirmarAccionMasivaRecepciones").onclick = async () => {
+      const motivo = String(document.getElementById("motivoAccionMasivaRecepciones").value || "").trim();
+      if (!motivo) {
+        this.notificar(`Indique el motivo de la ${esVinculacion ? "vinculación" : "anulación"}.`, "advertencia");
+        return;
+      }
+      capa.remove();
+      const idsRecepciones = recepciones.map(item => item.idRecepcion);
+      await this.ejecutarAdministracionHistoricoRecepciones(
+        esVinculacion ? "vincularRecepcionesAdministrativas" : "anularRecepcionAdministrativa",
+        esVinculacion
+          ? {idsRecepciones, idRecepcionPrincipal:principal.idRecepcion, principalAutomatico:true, motivo}
+          : {idsRecepciones, motivo},
+        esVinculacion ? "Recepciones unificadas correctamente." : "Recepciones anuladas y ocupación reconstruida."
+      );
+    };
+    document.getElementById("motivoAccionMasivaRecepciones").focus();
+  },
+
+
+  async ejecutarAdministracionHistoricoRecepciones(action, datos, mensaje) {
+    this.mostrarCarga("Actualizando recepciones", "Sincronizando encabezados, entradas, movimientos e inventario.");
+    try {
+      const respuesta = await API.post(Object.assign({action}, datos));
+      if (!respuesta || respuesta.ok !== true) throw new Error(respuesta && respuesta.mensaje || "No fue posible completar la operación.");
+      if (window.CacheOperativo && CacheOperativo.invalidarPrefijo) await CacheOperativo.invalidarPrefijo("recepciones_");
+      this.estado.historico = [];
+      this.estado.historicoOffset = 0;
+      this.estado.historicoSeleccionados = {};
+      await this.cargarHistoricoRecepciones(false);
+      this.notificar(mensaje, "exito");
+    } catch (error) {
+      this.notificar(error.message, "error");
+    } finally {
+      this.ocultarCarga();
+    }
   },
 
 

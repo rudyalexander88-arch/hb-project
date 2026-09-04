@@ -850,6 +850,7 @@ function aplicarPermisosDashboard() {
         { idMenu: "menuDespachos", modulo: "DESPACHOS" },
         { idMenu: "menuRecepciones", modulo: "RECEPCIONES" },
         { idMenu: "menuReportes", modulo: "REPORTES" },
+        { idMenu: "menuCentroConocimiento", modulo: "CENTRO_CONOCIMIENTO" },
         { idMenu: "menuUsuarios", modulo: "USUARIOS" },
         { idMenu: "menuConfiguracion", modulo: "CONFIGURACION" }
     ];
@@ -863,7 +864,9 @@ function aplicarPermisosDashboard() {
             return;
         }
 
-        const permitido =
+        const permitido = item.idMenu === "menuCentroConocimiento"
+                ? true
+                :
             item.idMenu === "menuInventario"
                 ? puedeAccederGestionAlmacenDashboard()
                 : item.idMenu === "menuReportes" &&
@@ -1145,6 +1148,18 @@ function inicializarMenu() {
             }
         );
 
+    }
+
+    const menuCentroConocimiento = document.getElementById("menuCentroConocimiento");
+    if (menuCentroConocimiento) {
+        menuCentroConocimiento.addEventListener("click", async () => {
+            if (!window.CentroConocimiento || typeof window.CentroConocimiento.cargar !== "function") {
+                Sistema.error("El Centro de conocimiento no está disponible.");
+                return;
+            }
+            activarMenu("menuCentroConocimiento");
+            await window.CentroConocimiento.cargar();
+        });
     }
 
 

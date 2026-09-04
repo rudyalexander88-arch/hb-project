@@ -4568,6 +4568,177 @@ html[data-tema="oscuro"] .historico-recepciones-controles .historico-recepciones
         font-size: 9px;
     }
 }
+
+/* HISTÓRICO · BÚSQUEDA, SELECCIÓN Y ACCIONES MASIVAS */
+.historico-recepciones-herramientas {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+}
+
+.historico-recepciones-buscador {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: clamp(210px, 28vw, 340px);
+    margin: 0;
+}
+
+.historico-recepciones-buscador i {
+    position: absolute;
+    left: 11px;
+    z-index: 1;
+    color: #677486;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.historico-recepciones-buscador input {
+    width: 100%;
+    height: 34px;
+    padding: 0 11px 0 31px;
+    border: 1px solid #d9e0e8;
+    border-radius: 9px;
+    background: #fff;
+    color: #182334;
+    font: 500 10px "Poppins", sans-serif;
+}
+
+.historico-recepciones-acciones-masivas {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.historico-recepciones-acciones-masivas > span {
+    color: #677486;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.historico-recepciones-acciones-masivas .btn-recepcion {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 9px;
+}
+
+.fila-historico-recepcion.con-seleccion {
+    grid-template-columns: 26px minmax(190px, 1.45fr) auto repeat(4, minmax(70px, .48fr)) auto;
+    transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.fila-historico-recepcion.seleccionada {
+    border-color: #ed1b2f;
+    background: #fff8f9;
+    box-shadow: 0 0 0 2px rgba(237, 27, 47, .08);
+}
+
+.seleccion-historico-recepcion {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 32px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.seleccion-historico-recepcion input {
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    accent-color: #ed1b2f;
+    cursor: pointer;
+}
+
+.confirmacion-accion-masiva-recepciones label {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+    text-align: left;
+    color: #3f4b5d;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.confirmacion-accion-masiva-recepciones textarea {
+    width: 100%;
+    min-height: 78px;
+    resize: vertical;
+    padding: 10px;
+    border: 1px solid #cfd7e2;
+    border-radius: 9px;
+    font: 500 11px "Poppins", sans-serif;
+}
+
+html[data-tema="oscuro"] .historico-recepciones-buscador input,
+html[data-tema="oscuro"] .confirmacion-accion-masiva-recepciones textarea {
+    border-color: #435064;
+    background: #232e3d;
+    color: #edf2f8;
+}
+
+html[data-tema="oscuro"] .historico-recepciones-buscador input::placeholder {
+    color: #aeb9c8;
+}
+
+html[data-tema="oscuro"] .historico-recepciones-buscador i,
+html[data-tema="oscuro"] .historico-recepciones-acciones-masivas > span,
+html[data-tema="oscuro"] .confirmacion-accion-masiva-recepciones label {
+    color: #cad4e0;
+}
+
+html[data-tema="oscuro"] .fila-historico-recepcion.seleccionada {
+    border-color: #f34a5b;
+    background: #30232d;
+}
+
+@media (max-width: 980px) {
+    .historico-recepciones-controles {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .historico-recepciones-herramientas {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .historico-recepciones-buscador {
+        flex: 1 1 240px;
+        width: auto;
+    }
+
+    .fila-historico-recepcion.con-seleccion {
+        grid-template-columns: 26px minmax(180px, 1.5fr) auto repeat(2, minmax(72px, .55fr));
+    }
+}
+
+@media (max-width: 620px) {
+    .historico-recepciones-buscador,
+    .historico-recepciones-acciones-masivas {
+        flex: 1 1 100%;
+    }
+
+    .historico-recepciones-acciones-masivas > span {
+        margin-right: auto;
+    }
+
+    .historico-recepciones-acciones-masivas .btn-recepcion {
+        flex: 0 1 auto;
+    }
+
+    .historico-recepciones-controles .historico-recepciones-limite {
+        margin-left: auto;
+    }
+
+    .fila-historico-recepcion.con-seleccion {
+        grid-template-columns: 26px minmax(0, 1fr) auto;
+    }
+}
 /* Administración controlada de recepciones */
 .tarjeta-recepcion-abierta,
 .tarjeta-recepcion-reciente { position: relative; }

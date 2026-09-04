@@ -670,6 +670,120 @@
     color: #cf173d;
 }
 
+/* =========================================================
+   CENTRO DE AVISOS · SELECCION MULTIPLE
+   ========================================================= */
+.ap-avisos-seleccion {
+    position: sticky;
+    z-index: 3;
+    top: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 4px 10px;
+    padding: 9px 11px;
+    border: 1px solid #dce2e8;
+    border-radius: 10px;
+    background: rgba(255,255,255,.96);
+    box-shadow: 0 5px 16px rgba(25,35,45,.07);
+    backdrop-filter: blur(7px);
+}
+
+.ap-avisos-seleccion > div,
+.ap-seleccionar-todos {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ap-seleccionar-todos {
+    color: #303944;
+    font: 700 var(--ui-fs-10, 10px) Poppins, sans-serif;
+    cursor: pointer;
+}
+
+.ap-seleccionar-todos input,
+.ap-aviso-seleccion input {
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    accent-color: #ed1b2f;
+    cursor: pointer;
+}
+
+#apTotalAvisosSeleccionados {
+    color: #687482;
+    font-size: var(--ui-fs-9, 9px);
+    white-space: nowrap;
+}
+
+#apMarcarAvisosSeleccionados {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: #ed1b2f;
+    color: #fff;
+    font: 800 var(--ui-fs-9, 9px) Poppins, sans-serif;
+    cursor: pointer;
+}
+
+#apMarcarAvisosSeleccionados:disabled {
+    opacity: .48;
+    cursor: not-allowed;
+}
+
+.ap-avisos article {
+    grid-template-columns: 24px 34px minmax(0,1fr) auto;
+    transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.ap-avisos article.seleccionado {
+    border-color: #ed1b2f;
+    background: #fff7f8;
+    box-shadow: 0 0 0 1px rgba(237,27,47,.08);
+}
+
+.ap-aviso-seleccion {
+    display: grid;
+    width: 24px;
+    height: 34px;
+    place-items: center;
+    cursor: pointer;
+}
+
+.ap-aviso-seleccion-vacia {
+    width: 24px;
+}
+
+.ap-aviso-contenido {
+    min-width: 0;
+}
+
+html[data-tema="oscuro"] .modal-asistencia-personal .ap-avisos-seleccion,
+html[data-theme="dark"] .modal-asistencia-personal .ap-avisos-seleccion,
+.tema-oscuro .modal-asistencia-personal .ap-avisos-seleccion {
+    border-color: var(--bon-borde, #46515f);
+    background: rgba(32,39,49,.96);
+}
+
+html[data-tema="oscuro"] .modal-asistencia-personal .ap-seleccionar-todos,
+html[data-theme="dark"] .modal-asistencia-personal .ap-seleccionar-todos,
+.tema-oscuro .modal-asistencia-personal .ap-seleccionar-todos {
+    color: var(--bon-texto, #f5f7fa);
+}
+
+html[data-tema="oscuro"] .modal-asistencia-personal .ap-avisos article.seleccionado,
+html[data-theme="dark"] .modal-asistencia-personal .ap-avisos article.seleccionado,
+.tema-oscuro .modal-asistencia-personal .ap-avisos article.seleccionado {
+    border-color: #ed5362 !important;
+    background: #35262d !important;
+}
+
 [data-tema="oscuro"] .ap-avisos p,
 [data-theme="dark"] .ap-avisos p,
 .tema-oscuro .ap-avisos p {
@@ -831,11 +945,31 @@ html[data-tema="oscuro"] .modal-asistencia-personal .ap-historico-limpiar {
     }
 
     .ap-avisos article {
-        grid-template-columns: 34px minmax(0, 1fr);
+        grid-template-columns: 24px 34px minmax(0, 1fr);
     }
 
     .ap-avisos article > button {
         grid-column: 1 / -1;
+    }
+
+    .ap-avisos-seleccion {
+        position: static;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ap-avisos-seleccion > div {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #apTotalAvisosSeleccionados {
+        text-align: right;
+    }
+
+    #apMarcarAvisosSeleccionados {
+        justify-content: center;
+        width: 100%;
     }
 }
 
@@ -898,3 +1032,5 @@ html[data-tema="oscuro"] #modalSistema.modal-asistencia-personal > .modal-conten
         max-height: calc(100dvh - 12px) !important;
     }
 }
+.ap-ir-conocimiento{margin-left:auto!important;background:#1769aa!important;color:#fff!important;white-space:nowrap}
+@media(max-width:680px){.ap-ir-conocimiento{width:100%;margin-left:0!important}}

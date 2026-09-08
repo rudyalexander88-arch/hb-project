@@ -24,12 +24,12 @@ if (!usuarioDashboardSesion) {
 // ESCRITORIO Y MENÚ MÓVIL
 // ===============================
 
-const nombreSesion =
+const nombreDashboardSesion =
     usuarioDashboardSesion.nombre ||
     usuarioDashboardSesion.Nombre ||
     "Usuario";
 
-const rolSesion =
+const rolDashboardSesion =
     usuarioDashboardSesion.rol ||
     usuarioDashboardSesion.Rol ||
     "";
@@ -786,7 +786,7 @@ TipografiaSistema.aplicarPreferenciaGuardada();
     if (elemento) {
 
         elemento.textContent =
-            nombreSesion;
+            nombreDashboardSesion;
 
     }
 
@@ -805,7 +805,7 @@ TipografiaSistema.aplicarPreferenciaGuardada();
     if (elemento) {
 
         elemento.textContent =
-            rolSesion;
+            rolDashboardSesion;
 
     }
 
@@ -911,7 +911,7 @@ function aplicarPermisosDashboard() {
 
 function puedeAccederGestionAlmacenDashboard() {
 
-    const rol = String(rolSesion || "")
+    const rol = String(rolDashboardSesion || "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim()

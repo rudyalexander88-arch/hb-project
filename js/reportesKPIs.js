@@ -90,7 +90,32 @@ window.ReportesKPIs = {
     );
   },
 
-  leerCache(permitirVencido = false) {
+  async leerCache(permitirVencido = false) {
+    if (window.CacheOperativo && typeof CacheOperativo.obtener === "function") {
+      try {
+        const registro = await CacheOperativo.obtener(
+          this.claveCache(),
+          {permitirVencido: permitirVencido}
+        );
+        if (
+          registro &&
+          registro.datos &&
+          registro.meta &&
+          registro.meta.versionModulo === this.versionCache
+        ) {
+          const datosOperativos = registro.datos;
+          const fechaOperativa = new Date(datosOperativos.fechaCarga);
+          if (!Number.isNaN(fechaOperativa.getTime())) {
+            datosOperativos.fechaCarga = fechaOperativa;
+            return datosOperativos;
+          }
+        }
+      } catch (error) {
+        console.warn("No fue posible leer CacheOperativo para Reportes & KPIs:", error);
+      }
+    }
+
+    // Migración silenciosa del caché anterior basado en localStorage.
     try {
       const contenido = localStorage.getItem(this.claveCache());
       if (!contenido) return null;
@@ -107,6 +132,7 @@ window.ReportesKPIs = {
       }
       datos.fechaCarga = fechaCarga;
       if (!permitirVencido && !this.esDatoVigente(datos)) return null;
+      await this.guardarCache(datos);
       return datos;
     } catch (error) {
       console.warn("No fue posible leer el caché de Reportes & KPIs:", error);
@@ -114,7 +140,22 @@ window.ReportesKPIs = {
     }
   },
 
-  guardarCache(datos) {
+  async guardarCache(datos) {
+    if (window.CacheOperativo && typeof CacheOperativo.guardar === "function") {
+      try {
+        await CacheOperativo.guardar(this.claveCache(), datos, {
+          meta: {
+            versionModulo: this.versionCache,
+            rango: datos && datos.rango ? datos.rango.clave : ""
+          }
+        });
+        return;
+      } catch (error) {
+        console.warn("No fue posible guardar Reportes & KPIs en CacheOperativo:", error);
+      }
+    }
+
+    // Respaldo compatible si IndexedDB no está disponible.
     try {
       localStorage.setItem(this.claveCache(), JSON.stringify({
         version: this.versionCache,
@@ -554,7 +595,7 @@ window.ReportesKPIs = {
         this.renderizarIndicadores();
         return;
       }
-      const datosGuardados = this.leerCache();
+      const datosGuardados = await this.leerCache();
       if (datosGuardados) {
         this.datos = datosGuardados;
         this.renderizarIndicadores();
@@ -606,6 +647,11 @@ window.ReportesKPIs = {
       };
 
       const claves = Object.keys(peticiones);
+      if (forzar) {
+        claves.forEach(clave => {
+          peticiones[clave].__forzarActualizacion = true;
+        });
+      }
       const respuestas = await Promise.all(claves.map(clave => this.consultaSegura(peticiones[clave])));
       const rangoDecomisos = this.rangoComparativoDecomisos();
       const decomisosHistorico = await this.consultaSegura({
@@ -613,29 +659,41 @@ window.ReportesKPIs = {
         desde: rangoDecomisos.desde,
         hasta: rangoDecomisos.hasta,
         pagina: 1,
-        limite: 1
+        limite: 1,
+        __forzarActualizacion: forzar === true
       });
       const consultaCompleta = respuestas.every(respuesta => respuesta && respuesta.ok !== false) &&
         decomisosHistorico && decomisosHistorico.ok !== false;
-      const respaldo = consultaCompleta ? null : this.leerCache(true);
-      if (respaldo) {
-        this.datos = respaldo;
-        this.renderizarIndicadores();
-        Sistema.advertencia("No fue posible actualizar todos los indicadores. Se muestra el último corte disponible.", 5200);
-        return;
-      }
+      const respaldo = consultaCompleta ? null : await this.leerCache(true);
       this.datos = {
         fechaCarga: new Date(),
         corteId: this.identificadorCorteVigente(),
-        rango: rango
+        rango: rango,
+        consultaCompleta: consultaCompleta
       };
-      claves.forEach((clave, indice) => { this.datos[clave] = respuestas[indice]; });
-      this.datos.decomisosHistorico = decomisosHistorico;
-      if (consultaCompleta) this.guardarCache(this.datos);
+      claves.forEach((clave, indice) => {
+        const respuesta = respuestas[indice];
+        this.datos[clave] = respuesta && respuesta.ok !== false
+          ? respuesta
+          : (respaldo && respaldo[clave] ? respaldo[clave] : respuesta);
+      });
+      this.datos.decomisosHistorico = decomisosHistorico && decomisosHistorico.ok !== false
+        ? decomisosHistorico
+        : (respaldo && respaldo.decomisosHistorico ? respaldo.decomisosHistorico : decomisosHistorico);
+      const tieneInformacion = claves.some(clave => this.datos[clave] && this.datos[clave].ok !== false);
+      if (tieneInformacion) await this.guardarCache(this.datos);
       this.renderizarIndicadores();
+      if (!consultaCompleta) {
+        Sistema.advertencia(
+          respaldo
+            ? "Algunos indicadores conservan el último corte disponible."
+            : "No fue posible actualizar todos los indicadores.",
+          5200
+        );
+      }
     } catch (error) {
       console.error("Error cargando Reportes & KPIs:", error);
-      const respaldo = this.leerCache(true);
+      const respaldo = await this.leerCache(true);
       if (respaldo) {
         this.datos = respaldo;
         this.renderizarIndicadores();

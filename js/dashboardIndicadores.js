@@ -755,6 +755,45 @@ const DashboardIndicadores = {
         }
 
         this.cargandoOcupacion = true;
+
+        const claveCache =
+            "DASHBOARD_INDICADOR_OCUPACION_CAMARAS";
+
+        if (
+            !forzarConsulta &&
+            window.CacheOperativo &&
+            typeof window.CacheOperativo.obtener === "function"
+        ) {
+
+            try {
+
+                const guardado =
+                    await window.CacheOperativo.obtener(
+                        claveCache
+                    );
+
+                if (guardado && guardado.datos) {
+
+                    this.ocupacionCache =
+                        guardado.datos;
+
+                    this.actualizarTarjetaOcupacion();
+                    this.cargandoOcupacion = false;
+                    return;
+
+                }
+
+            } catch (errorCache) {
+
+                console.warn(
+                    "No fue posible leer el caché de ocupación:",
+                    errorCache
+                );
+
+            }
+
+        }
+
         this.mostrarEstadoCargaTarjetaOcupacion();
 
         try {
@@ -782,6 +821,23 @@ const DashboardIndicadores = {
                 respuesta.ocupacion ||
                 respuesta;
 
+            if (
+                window.CacheOperativo &&
+                typeof window.CacheOperativo.guardar === "function"
+            ) {
+
+                await window.CacheOperativo.guardar(
+                    claveCache,
+                    this.ocupacionCache,
+                    {
+                        meta: {
+                            versionModulo: "1"
+                        }
+                    }
+                );
+
+            }
+
             this.actualizarTarjetaOcupacion();
 
         } catch (error) {
@@ -791,7 +847,39 @@ const DashboardIndicadores = {
                 error
             );
 
-            this.mostrarErrorTarjetaOcupacion();
+            let respaldo = null;
+
+            if (
+                window.CacheOperativo &&
+                typeof window.CacheOperativo.obtener === "function"
+            ) {
+
+                try {
+
+                    respaldo =
+                        await window.CacheOperativo.obtener(
+                            claveCache,
+                            { permitirVencido: true }
+                        );
+
+                } catch (errorCache) {
+
+                    respaldo = null;
+
+                }
+
+            }
+
+            if (respaldo && respaldo.datos) {
+
+                this.ocupacionCache = respaldo.datos;
+                this.actualizarTarjetaOcupacion();
+
+            } else {
+
+                this.mostrarErrorTarjetaOcupacion();
+
+            }
 
         } finally {
 

@@ -8,7 +8,7 @@
 // VALIDAR SESIÓN
 // ===============================
 
-const usuarioDashboardSesion = JSON.parse(
+var usuarioDashboardSesion = JSON.parse(
     localStorage.getItem("sesion") || sessionStorage.getItem("sesion")
 );
 
@@ -24,12 +24,12 @@ if (!usuarioDashboardSesion) {
 // ESCRITORIO Y MENÚ MÓVIL
 // ===============================
 
-const nombreSesion =
+var nombreDashboardSesion =
     usuarioDashboardSesion.nombre ||
     usuarioDashboardSesion.Nombre ||
     "Usuario";
 
-const rolSesion =
+var rolDashboardSesion =
     usuarioDashboardSesion.rol ||
     usuarioDashboardSesion.Rol ||
     "";
@@ -39,7 +39,7 @@ const rolSesion =
 // ESCALA TIPOGRÁFICA CONFIGURABLE
 // ===============================
 
-const TipografiaSistema = {
+var TipografiaSistema = {
 
     CLAVE_CONFIGURACION:
         "UI_Escala_Tipografica",
@@ -786,7 +786,7 @@ TipografiaSistema.aplicarPreferenciaGuardada();
     if (elemento) {
 
         elemento.textContent =
-            nombreSesion;
+            nombreDashboardSesion;
 
     }
 
@@ -805,7 +805,7 @@ TipografiaSistema.aplicarPreferenciaGuardada();
     if (elemento) {
 
         elemento.textContent =
-            rolSesion;
+            rolDashboardSesion;
 
     }
 
@@ -817,6 +817,9 @@ TipografiaSistema.aplicarPreferenciaGuardada();
 // ===============================
 
 window.addEventListener("load", async () => {
+
+    if (window.__BON_DASHBOARD_SISTEMA_LOAD__) return;
+    window.__BON_DASHBOARD_SISTEMA_LOAD__ = true;
 
     aplicarPermisosDashboard();
 
@@ -911,7 +914,7 @@ function aplicarPermisosDashboard() {
 
 function puedeAccederGestionAlmacenDashboard() {
 
-    const rol = String(rolSesion || "")
+    const rol = String(rolDashboardSesion || "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim()
@@ -1306,7 +1309,7 @@ function activarMenu(idMenu) {
 // CERRAR SESIÓN
 // ===============================
 
-let cierreSesionEnProceso = false;
+var cierreSesionEnProceso = false;
 
 
 async function cerrarSesion() {
@@ -1445,7 +1448,7 @@ async function cerrarSesion() {
 // CARGADOR GLOBAL DEL SISTEMA
 // ======================================================
 
-const CargadorSistema = {
+var CargadorSistema = {
 
     cargasActivas: 0,
 
@@ -1625,6 +1628,9 @@ window.CargadorSistema =
 document.addEventListener(
     "DOMContentLoaded",
     () => {
+
+        if (window.__BON_DASHBOARD_SISTEMA_DOM__) return;
+        window.__BON_DASHBOARD_SISTEMA_DOM__ = true;
 
         iniciarControlTarjetasDashboard();
 

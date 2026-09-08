@@ -148,7 +148,7 @@ const API = {
 
     _esConsultaCacheable(accion) {
         return /^(listar|obtener|consultar|buscar)/i.test(accion) &&
-            !/^(obtenerVersionesModulos|obtenerMarcacionPersonalActual|obtenerDisponibilidadMaterialCamara|obtenerPerfilUsuario|obtenerInspeccionActiva|obtenerBorrador|verificarSesionUsuario)$/i.test(accion);
+            !/^(obtenerVersionesModulos|obtenerInventariosMensuales|obtenerMarcacionPersonalActual|obtenerDisponibilidadMaterialCamara|obtenerPerfilUsuario|obtenerInspeccionActiva|obtenerBorrador|verificarSesionUsuario)$/i.test(accion);
     },
 
     _serializarEstable(valor) {
@@ -380,7 +380,7 @@ const API = {
 
                 const consulta = this._enviarRed({
                     action: "obtenerVersionesModulos",
-                    modulos: []
+                    modulos: [...lote.modulos]
                 }).then(resultado => {
                     if (!resultado || resultado.ok === false) {
                         const error = new Error(

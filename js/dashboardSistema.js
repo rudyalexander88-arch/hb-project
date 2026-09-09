@@ -1049,8 +1049,8 @@ function inicializarMenu() {
 
                 } else {
 
-                    console.error(
-                        "Despachos no está disponible."
+                    Sistema.error(
+                        "El módulo de Despachos no está disponible. Verifique que despachos.js esté cargado."
                     );
 
                 }

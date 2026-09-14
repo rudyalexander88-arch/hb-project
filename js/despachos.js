@@ -43,6 +43,24 @@ activarModalAsistente() {
             "modal-sistema-abierto"
         );
 
+        /*
+         * Aísla la ventana activa del contenido que permanece detrás.
+         * Se configura una sola vez por instancia del modal global.
+         */
+        if (!modal.dataset.aislamientoEventosDespachos) {
+            modal.dataset.aislamientoEventosDespachos = "true";
+
+            ["wheel", "touchmove"].forEach(tipoEvento => {
+                modal.addEventListener(
+                    tipoEvento,
+                    evento => {
+                        evento.stopPropagation();
+                    },
+                    { passive: true }
+                );
+            });
+        }
+
     };
 
     modal.classList.remove("oculto");
@@ -12982,12 +13000,9 @@ async verConduce(idConduce) {
         .classList.remove("oculto");
 
     /*
-     * El cargador global u otro asistente puede dejar #modalSistema o
-     * #contenidoModal con inert/pointer-events desactivados. El visor ya
-     * está visible en pantalla, pero sin esta reactivación los clics, la
-     * rueda del mouse y el foco terminan llegando al módulo que queda
-     * debajo. Reutilizamos el mismo mecanismo seguro que usa el resto de
-     * Despachos para restaurar la capa interactiva del modal.
+     * El cargador global u otro asistente puede haber dejado el modal
+     * con inert o pointer-events desactivados. Reafirmamos su estado
+     * interactivo antes de trabajar con el visor.
      */
     Despachos.activarModalAsistente();
 
@@ -13053,6 +13068,10 @@ async verConduce(idConduce) {
         .classList.add(
             "oculto"
         );
+
+    document.body.classList.remove(
+        "modal-sistema-abierto"
+    );
 
 };
 
@@ -13807,6 +13826,9 @@ async abrirInspeccionesRealizadas() {
                 modal.classList.remove(
                     "modal-visor-inspecciones"
                 );
+                document.body.classList.remove(
+                    "modal-sistema-abierto"
+                );
                 observarCierre.disconnect();
             }
         });
@@ -13823,6 +13845,13 @@ async abrirInspeccionesRealizadas() {
     modal.classList.remove(
         "oculto"
     );
+
+    /*
+     * El visor de inspecciones reutiliza #modalSistema. Debe restaurar
+     * explícitamente inert, aria-hidden y pointer-events para impedir
+     * que los eventos continúen actuando sobre el módulo inferior.
+     */
+    Despachos.activarModalAsistente();
 
 
     Despachos

@@ -12981,6 +12981,16 @@ async verConduce(idConduce) {
         .getElementById("modalSistema")
         .classList.remove("oculto");
 
+    /*
+     * El cargador global u otro asistente puede dejar #modalSistema o
+     * #contenidoModal con inert/pointer-events desactivados. El visor ya
+     * está visible en pantalla, pero sin esta reactivación los clics, la
+     * rueda del mouse y el foco terminan llegando al módulo que queda
+     * debajo. Reutilizamos el mismo mecanismo seguro que usa el resto de
+     * Despachos para restaurar la capa interactiva del modal.
+     */
+    Despachos.activarModalAsistente();
+
     const iframe =
         document.getElementById(
             "iframeConduceFinal"

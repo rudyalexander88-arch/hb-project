@@ -6989,3 +6989,32 @@ html:is([data-tema="oscuro"], [data-theme="dark"])
     background: #344457;
     color: #f4f7fb;
 }
+
+
+/* ============================================================
+   AISLAMIENTO GLOBAL DEL MODAL DE DESPACHOS
+   Corrige interacción/scroll que atravesaba hacia el módulo inferior.
+   ============================================================ */
+body.modal-sistema-abierto {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+}
+
+body.modal-sistema-abierto #contenidoPrincipal {
+    pointer-events: none !important;
+}
+
+body.modal-sistema-abierto #modalSistema:not(.oculto) {
+    pointer-events: auto !important;
+    touch-action: auto;
+    overscroll-behavior: contain;
+}
+
+body.modal-sistema-abierto #modalSistema:not(.oculto) > .modal-contenido,
+body.modal-sistema-abierto #modalSistema:not(.oculto) #contenidoModal {
+    pointer-events: auto !important;
+}
+
+body.modal-sistema-abierto #modalSistema:not(.oculto) #contenidoModal {
+    overscroll-behavior: contain;
+}

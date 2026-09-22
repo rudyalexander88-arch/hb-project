@@ -6,15 +6,12 @@ const API_URL =
     "https://script.google.com/macros/s/AKfycbzxXpO4u3hnsWqi0ng8FUFenOXNNmedIPW9JdnrYo8ioP_V4DylzSUaDZ806XrHvDdC/exec";
 
 /*
- * Endpoint alternativo que el propio deployment reporta como URL de servicio.
- * Solo se usa como recuperación para CONSULTAS seguras cuando Google devuelve
- * 404 en la URL temporal de script.googleusercontent.com.
+ * La v03 usa un único endpoint estable. Se retiró el fallback /a/bon.com.do
+ * porque las pruebas demostraron que termina en la misma redirección 404.
  */
-const API_URL_DOMINIO =
-    "https://script.google.com/a/bon.com.do/macros/s/AKfycbzxXpO4u3hnsWqi0ng8FUFenOXNNmedIPW9JdnrYo8ioP_V4DylzSUaDZ806XrHvDdC/exec";
 
-const BON_API_CLIENT_VERSION = "2026.09.22.02";
-const BON_API_TIMEOUT_MS = 60000;
+const BON_API_CLIENT_VERSION = "2026.09.22.03";
+const BON_API_TIMEOUT_MS = 90000;
 
 
 const API = {
@@ -141,6 +138,7 @@ const API = {
 
 
     _prefijoCache: "bon_consulta_v2:",
+    _cacheTtlMs: 90000,
     _consultasEnCurso: new Map(),
     _versionesPendientes: null,
     _versionesEnCurso: null,
@@ -452,33 +450,28 @@ const API = {
         if (cacheable && clave && !forzar) {
             const guardado = this._leerCache(clave);
             if (guardado) {
+                /*
+                 * v03: no hacemos una segunda petición a
+                 * obtenerVersionesModulos para validar cada lectura de caché.
+                 * Esa validación estaba multiplicando el tráfico de arranque y
+                 * convirtiéndose en un punto único de fallo.
+                 *
+                 * La caché es corta (90 s) y las operaciones de escritura ya
+                 * invalidan las consultas relacionadas.
+                 */
+                const antiguedad = Date.now() - Number(guardado.guardado || 0);
+
+                if (
+                    antiguedad >= 0 &&
+                    antiguedad <= this._cacheTtlMs
+                ) {
+                    return guardado.resultado;
+                }
+
                 try {
-                    const actuales = await this._solicitarVersiones(Object.keys(guardado.versiones));
-                    if (this._versionesCoinciden(guardado.versiones, actuales)) return guardado.resultado;
-                } catch (error) {
-
-                    if (error && error.codigo === "SESION_INVALIDADA") {
-                        return {
-                            ok: false,
-                            codigo: error.codigo,
-                            mensaje: error.message
-                        };
-                    }
-
-                    if (this._errorTemporalValidacion(error)) {
-                        if (!this._avisoConexionCiclo) {
-                            console.warn(
-                                "Google no respondió temporalmente; se utilizará la información guardada:",
-                                accion,
-                                error.codigo
-                            );
-                            this._avisoConexionCiclo = true;
-                        }
-
-                        return guardado.resultado;
-                    }
-
-                    console.warn("No se pudo validar la caché; se consultará el servidor:", accion, error);
+                    sessionStorage.removeItem(clave);
+                } catch (errorCache) {
+                    // Si no puede eliminarse, simplemente se consulta la red.
                 }
             }
             if (this._consultasEnCurso.has(clave)) return this._consultasEnCurso.get(clave);
@@ -547,10 +540,7 @@ const API = {
                  * El parámetro técnico evita reutilizar accidentalmente una
                  * redirección 302/URL temporal anterior de ContentService.
                  */
-                const baseEndpoint =
-                    consultaSegura && intento === 2
-                        ? API_URL_DOMINIO
-                        : API_URL;
+                const baseEndpoint = API_URL;
 
                 const urlSolicitud = new URL(baseEndpoint);
                 urlSolicitud.searchParams.set(
@@ -638,15 +628,16 @@ const API = {
                             "Intento:", intento,
                             "Respuesta final:", respuesta.url || "(sin URL)",
                             "Endpoint inicial:", baseEndpoint,
-                            "Cliente:", BON_API_CLIENT_VERSION
+                            "Cliente:", BON_API_CLIENT_VERSION,
+                            "Cola activa:", this._solicitudesRedActivas,
+                            "Pendientes:", this._colaSolicitudesRed.length
                         );
 
                         if (
                             consultaSegura &&
-                            intento < intentos
+                            intento === 1
                         ) {
-                            const espera =
-                                intento === 1 ? 800 : 1800;
+                            const espera = 1200;
 
                             await new Promise(
                                 resolve =>

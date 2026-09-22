@@ -5,6 +5,9 @@
 const API_URL =
     "https://script.google.com/macros/s/AKfycbzxXpO4u3hnsWqi0ng8FUFenOXNNmedIPW9JdnrYo8ioP_V4DylzSUaDZ806XrHvDdC/exec";
 
+const BON_API_CLIENT_VERSION = "2026.09.22.01";
+const BON_API_TIMEOUT_MS = 60000;
+
 
 const API = {
 
@@ -266,7 +269,7 @@ const API = {
             "ERROR_CONEXION",
             "TIEMPO_AGOTADO",
             "RESPUESTA_INVALIDA"
-        ].includes(codigo) || /^HTTP_(404|408|429|500|502|503|504)$/.test(codigo);
+        ].includes(codigo) || /^HTTP_(408|429|500|502|503|504)$/.test(codigo);
     },
 
     _invalidarCicloVersiones() {
@@ -493,12 +496,10 @@ const API = {
     async _enviarRed(datos) {
 
         const solicitud = this.prepararSolicitud(datos);
+        const accion = this._accion(solicitud);
 
-        const accion = String(
-            solicitud.action ||
-            solicitud.accion ||
-            ""
-        ).trim();
+        // Identifica la versión del cliente sin alterar las acciones existentes.
+        solicitud.__clienteApiVersion = BON_API_CLIENT_VERSION;
 
         const reintentoSeguro =
             /^(listar|obtener|consultar|buscar|ping)/i.test(accion) ||
@@ -506,38 +507,27 @@ const API = {
 
         const intentos = reintentoSeguro ? 3 : 1;
 
-        const erroresReintentables = [
-            404,
-            408,
-            429,
-            500,
-            502,
-            503,
-            504
-        ];
+        // 404 NO se reintenta. En Apps Script normalmente indica que la
+        // implementación/redirect ya no es utilizable, no una sobrecarga temporal.
+        const erroresReintentables = new Set([
+            408, 429, 500, 502, 503, 504
+        ]);
 
         for (let intento = 1; intento <= intentos; intento++) {
 
-            let temporizador;
+            let temporizador = null;
+            let tiempoAgotado = false;
 
             try {
 
-                if (
-                    typeof navigator !== "undefined" &&
-                    navigator.onLine === false
-                ) {
-
+                if (typeof navigator !== "undefined" && navigator.onLine === false) {
                     return {
                         ok: false,
                         codigo: "SIN_CONEXION",
-                        mensaje:
-                            "El dispositivo no tiene conexión a internet. " +
-                            "Sus cambios locales permanecen guardados."
+                        mensaje: "El dispositivo no tiene conexión a internet. Sus cambios locales permanecen guardados."
                     };
-
                 }
 
-                // USO DE TEXT/PLAIN PARA EVITAR PREFLIGHT Y BLOQUEOS CORS
                 const opciones = {
                     method: "POST",
                     headers: {
@@ -548,157 +538,139 @@ const API = {
                     redirect: "follow"
                 };
 
-                const respuesta = await this._ejecutarSolicitudRed(
-                    async () => {
-                        const controlador =
-                            typeof AbortController !== "undefined"
-                                ? new AbortController()
-                                : null;
+                const respuesta = await this._ejecutarSolicitudRed(async () => {
+                    const controlador =
+                        typeof AbortController !== "undefined"
+                            ? new AbortController()
+                            : null;
 
-                        if (controlador) {
-                            opciones.signal = controlador.signal;
-                            temporizador = window.setTimeout(
-                                () => controlador.abort(),
-                                60000
-                            );
-                        }
+                    if (controlador) {
+                        opciones.signal = controlador.signal;
+                        temporizador = window.setTimeout(() => {
+                            tiempoAgotado = true;
+                            controlador.abort();
+                        }, BON_API_TIMEOUT_MS);
+                    }
 
-                        try {
-                            return await fetch(API_URL, opciones);
-                        } finally {
+                    try {
+                        return await fetch(API_URL, opciones);
+                    } finally {
+                        if (temporizador !== null) {
                             window.clearTimeout(temporizador);
+                            temporizador = null;
                         }
                     }
-                );
-
-                window.clearTimeout(temporizador);
+                });
 
                 const texto = await respuesta.text();
 
                 if (!respuesta.ok) {
+                    const estado = Number(respuesta.status || 0);
 
-                    if (erroresReintentables.includes(respuesta.status)) {
-                        console.warn("Respuesta temporal del servidor:", respuesta.status, accion);
-                    } else {
-                        console.error("Respuesta HTTP:", respuesta.status, String(texto || "").slice(0, 180));
+                    if (estado === 404) {
+                        console.error(
+                            "Backend Apps Script no disponible (404).",
+                            "Acción:", accion,
+                            "API:", API_URL,
+                            "Cliente:", BON_API_CLIENT_VERSION
+                        );
+
+                        return {
+                            ok: false,
+                            codigo: "BACKEND_NO_DISPONIBLE",
+                            httpStatus: 404,
+                            mensaje:
+                                "La implementación del servidor no está disponible. " +
+                                "Actualice la página. Si continúa, debe revisarse la implementación de Apps Script."
+                        };
                     }
 
-                    if (
-                        intento < intentos &&
-                        erroresReintentables.includes(respuesta.status)
-                    ) {
+                    if (erroresReintentables.has(estado)) {
+                        console.warn("Respuesta temporal del servidor:", estado, accion);
+                    } else {
+                        console.error("Respuesta HTTP:", estado, String(texto || "").slice(0, 180));
+                    }
 
+                    if (intento < intentos && erroresReintentables.has(estado)) {
                         const espera = 1500 * intento;
-
                         console.warn(
-                            "Reintentando acción:",
-                            accion,
-                            "Intento siguiente:",
-                            intento + 1,
-                            "Espera:",
-                            espera + " ms"
+                            "Reintentando acción:", accion,
+                            "Intento siguiente:", intento + 1,
+                            "Espera:", espera + " ms"
                         );
-
-                        await new Promise(
-                            resolve => window.setTimeout(resolve, espera)
-                        );
-
+                        await new Promise(resolve => window.setTimeout(resolve, espera));
                         continue;
-
                     }
 
                     return {
                         ok: false,
-                        codigo: "HTTP_" + respuesta.status,
-                        mensaje:
-                            "El servidor respondió con error " +
-                            respuesta.status +
-                            ". Intente nuevamente."
+                        codigo: "HTTP_" + estado,
+                        httpStatus: estado,
+                        mensaje: "El servidor respondió con error " + estado + ". Intente nuevamente."
                     };
-
                 }
 
                 let resultado;
 
                 try {
-
                     resultado = JSON.parse(texto);
-
                 } catch (errorJSON) {
-
-                    console.error(
-                        "Respuesta no JSON:",
-                        String(texto || "").slice(0, 350),
-                        errorJSON
-                    );
-
+                    console.error("Respuesta no JSON:", String(texto || "").slice(0, 350), errorJSON);
                     return {
                         ok: false,
                         codigo: "RESPUESTA_INVALIDA",
-                        mensaje:
-                            "El servidor no devolvió una respuesta válida."
+                        mensaje: "El servidor no devolvió una respuesta válida."
                     };
-
                 }
 
-                if (
-                    resultado &&
-                    resultado.codigo === "SESION_INVALIDADA"
-                ) {
-
+                if (resultado && resultado.codigo === "SESION_INVALIDADA") {
                     this.cerrarPorSesionInvalidada(resultado.mensaje);
-
                 }
 
                 return resultado;
 
             } catch (error) {
 
-                window.clearTimeout(temporizador);
+                if (temporizador !== null) {
+                    window.clearTimeout(temporizador);
+                    temporizador = null;
+                }
+
+                const fueAbort = Boolean(error && error.name === "AbortError");
+                const esTimeout = tiempoAgotado || fueAbort;
 
                 console.error(
-                    "Error API, acción " + accion +
-                    ", intento " + intento + ":",
-                    error
+                    "Error API, acción " + accion + ", intento " + intento + ":",
+                    esTimeout ? "TIEMPO_AGOTADO" : error
                 );
 
                 if (intento < intentos) {
-
                     const espera = 1500 * intento;
-
-                    await new Promise(
-                        resolve => window.setTimeout(resolve, espera)
-                    );
-
+                    await new Promise(resolve => window.setTimeout(resolve, espera));
                     continue;
-
                 }
-
-                const tiempoAgotado =
-                    error && error.name === "AbortError";
 
                 return {
                     ok: false,
-                    codigo: tiempoAgotado
-                        ? "TIEMPO_AGOTADO"
-                        : "ERROR_CONEXION",
-                    mensaje: tiempoAgotado
-                        ? "El servidor tardó demasiado en responder. " +
-                          "Intente nuevamente."
-                        : "Error al conectar con el servidor. " +
-                          "Verifique la conexión e intente nuevamente."
+                    codigo: esTimeout ? "TIEMPO_AGOTADO" : "ERROR_CONEXION",
+                    mensaje: esTimeout
+                        ? "El servidor tardó demasiado en responder. Intente nuevamente."
+                        : "Error al conectar con el servidor. Verifique la conexión e intente nuevamente."
                 };
 
             } finally {
-
-                window.clearTimeout(temporizador);
-
+                if (temporizador !== null) {
+                    window.clearTimeout(temporizador);
+                }
             }
-
         }
 
+        return {
+            ok: false,
+            codigo: "ERROR_CONEXION",
+            mensaje: "No fue posible completar la solicitud."
+        };
     }
-
 };
 
 

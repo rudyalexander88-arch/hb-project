@@ -5,7 +5,15 @@
 const API_URL =
     "https://script.google.com/macros/s/AKfycbzxXpO4u3hnsWqi0ng8FUFenOXNNmedIPW9JdnrYo8ioP_V4DylzSUaDZ806XrHvDdC/exec";
 
-const BON_API_CLIENT_VERSION = "2026.09.22.01";
+/*
+ * Endpoint alternativo que el propio deployment reporta como URL de servicio.
+ * Solo se usa como recuperación para CONSULTAS seguras cuando Google devuelve
+ * 404 en la URL temporal de script.googleusercontent.com.
+ */
+const API_URL_DOMINIO =
+    "https://script.google.com/a/bon.com.do/macros/s/AKfycbzxXpO4u3hnsWqi0ng8FUFenOXNNmedIPW9JdnrYo8ioP_V4DylzSUaDZ806XrHvDdC/exec";
+
+const BON_API_CLIENT_VERSION = "2026.09.22.02";
 const BON_API_TIMEOUT_MS = 60000;
 
 
@@ -498,17 +506,18 @@ const API = {
         const solicitud = this.prepararSolicitud(datos);
         const accion = this._accion(solicitud);
 
-        // Identifica la versión del cliente sin alterar las acciones existentes.
         solicitud.__clienteApiVersion = BON_API_CLIENT_VERSION;
 
-        const reintentoSeguro =
+        /*
+         * Solo las consultas pueden repetirse sin riesgo de duplicar una
+         * operación. Una escritura NUNCA se reenvía automáticamente.
+         */
+        const consultaSegura =
             /^(listar|obtener|consultar|buscar|ping)/i.test(accion) ||
             accion === "verificarSesionUsuario";
 
-        const intentos = reintentoSeguro ? 3 : 1;
+        const intentos = consultaSegura ? 3 : 1;
 
-        // 404 NO se reintenta. En Apps Script normalmente indica que la
-        // implementación/redirect ya no es utilizable, no una sobrecarga temporal.
         const erroresReintentables = new Set([
             408, 429, 500, 502, 503, 504
         ]);
@@ -520,13 +529,38 @@ const API = {
 
             try {
 
-                if (typeof navigator !== "undefined" && navigator.onLine === false) {
+                if (
+                    typeof navigator !== "undefined" &&
+                    navigator.onLine === false
+                ) {
                     return {
                         ok: false,
                         codigo: "SIN_CONEXION",
-                        mensaje: "El dispositivo no tiene conexión a internet. Sus cambios locales permanecen guardados."
+                        mensaje:
+                            "El dispositivo no tiene conexión a internet. " +
+                            "Sus cambios locales permanecen guardados."
                     };
                 }
+
+                /*
+                 * Cada intento sale desde /exec con una URL inicial nueva.
+                 * El parámetro técnico evita reutilizar accidentalmente una
+                 * redirección 302/URL temporal anterior de ContentService.
+                 */
+                const baseEndpoint =
+                    consultaSegura && intento === 2
+                        ? API_URL_DOMINIO
+                        : API_URL;
+
+                const urlSolicitud = new URL(baseEndpoint);
+                urlSolicitud.searchParams.set(
+                    "_bon_req",
+                    Date.now() + "-" + intento
+                );
+                urlSolicitud.searchParams.set(
+                    "_bon_v",
+                    BON_API_CLIENT_VERSION
+                );
 
                 const opciones = {
                     method: "POST",
@@ -535,70 +569,143 @@ const API = {
                     },
                     body: JSON.stringify(solicitud),
                     cache: "no-store",
-                    redirect: "follow"
+                    redirect: "follow",
+
+                    /*
+                     * La autenticación del Sistema Logístico se realiza con
+                     * tokenSesion. No necesitamos enviar cookies de Google
+                     * desde GitHub Pages al Web App.
+                     */
+                    credentials: "omit",
+                    referrerPolicy: "no-referrer"
                 };
 
-                const respuesta = await this._ejecutarSolicitudRed(async () => {
-                    const controlador =
-                        typeof AbortController !== "undefined"
-                            ? new AbortController()
-                            : null;
+                const respuesta = await this._ejecutarSolicitudRed(
+                    async () => {
 
-                    if (controlador) {
-                        opciones.signal = controlador.signal;
-                        temporizador = window.setTimeout(() => {
-                            tiempoAgotado = true;
-                            controlador.abort();
-                        }, BON_API_TIMEOUT_MS);
-                    }
+                        const controlador =
+                            typeof AbortController !== "undefined"
+                                ? new AbortController()
+                                : null;
 
-                    try {
-                        return await fetch(API_URL, opciones);
-                    } finally {
-                        if (temporizador !== null) {
-                            window.clearTimeout(temporizador);
-                            temporizador = null;
+                        if (controlador) {
+
+                            opciones.signal = controlador.signal;
+
+                            temporizador = window.setTimeout(
+                                () => {
+                                    tiempoAgotado = true;
+                                    controlador.abort();
+                                },
+                                BON_API_TIMEOUT_MS
+                            );
+                        }
+
+                        try {
+                            return await fetch(
+                                urlSolicitud.toString(),
+                                opciones
+                            );
+                        } finally {
+
+                            if (temporizador !== null) {
+                                window.clearTimeout(temporizador);
+                                temporizador = null;
+                            }
                         }
                     }
-                });
+                );
 
                 const texto = await respuesta.text();
+                const estado = Number(respuesta.status || 0);
 
                 if (!respuesta.ok) {
-                    const estado = Number(respuesta.status || 0);
 
+                    /*
+                     * ContentService responde mediante una URL temporal en
+                     * script.googleusercontent.com. Un 404 en ESA URL no
+                     * significa necesariamente que /exec haya desaparecido.
+                     *
+                     * Para consultas seguras hacemos un nuevo intento desde
+                     * /exec. Para escrituras NO repetimos: doPost pudo haber
+                     * ejecutado la operación antes de fallar la respuesta.
+                     */
                     if (estado === 404) {
-                        console.error(
-                            "Backend Apps Script no disponible (404).",
+
+                        console.warn(
+                            "Respuesta 404 de Apps Script.",
                             "Acción:", accion,
-                            "API:", API_URL,
+                            "Intento:", intento,
+                            "Respuesta final:", respuesta.url || "(sin URL)",
+                            "Endpoint inicial:", baseEndpoint,
                             "Cliente:", BON_API_CLIENT_VERSION
                         );
 
+                        if (
+                            consultaSegura &&
+                            intento < intentos
+                        ) {
+                            const espera =
+                                intento === 1 ? 800 : 1800;
+
+                            await new Promise(
+                                resolve =>
+                                    window.setTimeout(resolve, espera)
+                            );
+
+                            continue;
+                        }
+
                         return {
                             ok: false,
-                            codigo: "BACKEND_NO_DISPONIBLE",
+                            codigo:
+                                consultaSegura
+                                    ? "BACKEND_RESPUESTA_404"
+                                    : "RESPUESTA_OPERACION_NO_CONFIRMADA",
                             httpStatus: 404,
                             mensaje:
-                                "La implementación del servidor no está disponible. " +
-                                "Actualice la página. Si continúa, debe revisarse la implementación de Apps Script."
+                                consultaSegura
+                                    ? "Google Apps Script no pudo entregar la respuesta de la consulta. Intente nuevamente."
+                                    : "La operación pudo haber sido recibida por el servidor, pero Google no pudo confirmar la respuesta. No repita la acción automáticamente; actualice la información para verificar el resultado."
                         };
                     }
 
                     if (erroresReintentables.has(estado)) {
-                        console.warn("Respuesta temporal del servidor:", estado, accion);
+                        console.warn(
+                            "Respuesta temporal del servidor:",
+                            estado,
+                            accion
+                        );
                     } else {
-                        console.error("Respuesta HTTP:", estado, String(texto || "").slice(0, 180));
+                        console.error(
+                            "Respuesta HTTP:",
+                            estado,
+                            String(texto || "").slice(0, 180)
+                        );
                     }
 
-                    if (intento < intentos && erroresReintentables.has(estado)) {
+                    if (
+                        consultaSegura &&
+                        intento < intentos &&
+                        erroresReintentables.has(estado)
+                    ) {
+
                         const espera = 1500 * intento;
+
                         console.warn(
-                            "Reintentando acción:", accion,
-                            "Intento siguiente:", intento + 1,
-                            "Espera:", espera + " ms"
+                            "Reintentando consulta:",
+                            accion,
+                            "Intento siguiente:",
+                            intento + 1,
+                            "Espera:",
+                            espera + " ms"
                         );
-                        await new Promise(resolve => window.setTimeout(resolve, espera));
+
+                        await new Promise(
+                            resolve =>
+                                window.setTimeout(resolve, espera)
+                        );
+
                         continue;
                     }
 
@@ -606,25 +713,42 @@ const API = {
                         ok: false,
                         codigo: "HTTP_" + estado,
                         httpStatus: estado,
-                        mensaje: "El servidor respondió con error " + estado + ". Intente nuevamente."
+                        mensaje:
+                            "El servidor respondió con error " +
+                            estado +
+                            ". Intente nuevamente."
                     };
                 }
 
                 let resultado;
 
                 try {
+
                     resultado = JSON.parse(texto);
+
                 } catch (errorJSON) {
-                    console.error("Respuesta no JSON:", String(texto || "").slice(0, 350), errorJSON);
+
+                    console.error(
+                        "Respuesta no JSON:",
+                        String(texto || "").slice(0, 350),
+                        errorJSON
+                    );
+
                     return {
                         ok: false,
                         codigo: "RESPUESTA_INVALIDA",
-                        mensaje: "El servidor no devolvió una respuesta válida."
+                        mensaje:
+                            "El servidor no devolvió una respuesta válida."
                     };
                 }
 
-                if (resultado && resultado.codigo === "SESION_INVALIDADA") {
-                    this.cerrarPorSesionInvalidada(resultado.mensaje);
+                if (
+                    resultado &&
+                    resultado.codigo === "SESION_INVALIDADA"
+                ) {
+                    this.cerrarPorSesionInvalidada(
+                        resultado.mensaje
+                    );
                 }
 
                 return resultado;
@@ -636,29 +760,68 @@ const API = {
                     temporizador = null;
                 }
 
-                const fueAbort = Boolean(error && error.name === "AbortError");
-                const esTimeout = tiempoAgotado || fueAbort;
+                const fueAbort =
+                    Boolean(
+                        error &&
+                        error.name === "AbortError"
+                    );
+
+                const esTimeout =
+                    tiempoAgotado || fueAbort;
 
                 console.error(
-                    "Error API, acción " + accion + ", intento " + intento + ":",
-                    esTimeout ? "TIEMPO_AGOTADO" : error
+                    "Error API, acción " +
+                        accion +
+                        ", intento " +
+                        intento +
+                        ":",
+                    esTimeout
+                        ? "TIEMPO_AGOTADO"
+                        : error
                 );
 
-                if (intento < intentos) {
+                /*
+                 * Igual que con HTTP: solamente las consultas se repiten.
+                 * Una escritura podría haber llegado al servidor aunque el
+                 * navegador no recibiera la respuesta.
+                 */
+                if (
+                    consultaSegura &&
+                    intento < intentos
+                ) {
+
                     const espera = 1500 * intento;
-                    await new Promise(resolve => window.setTimeout(resolve, espera));
+
+                    await new Promise(
+                        resolve =>
+                            window.setTimeout(resolve, espera)
+                    );
+
                     continue;
                 }
 
                 return {
                     ok: false,
-                    codigo: esTimeout ? "TIEMPO_AGOTADO" : "ERROR_CONEXION",
-                    mensaje: esTimeout
-                        ? "El servidor tardó demasiado en responder. Intente nuevamente."
-                        : "Error al conectar con el servidor. Verifique la conexión e intente nuevamente."
+                    codigo:
+                        esTimeout
+                            ? "TIEMPO_AGOTADO"
+                            : (
+                                consultaSegura
+                                    ? "ERROR_CONEXION"
+                                    : "RESPUESTA_OPERACION_NO_CONFIRMADA"
+                            ),
+                    mensaje:
+                        esTimeout
+                            ? "El servidor tardó demasiado en responder. Intente nuevamente."
+                            : (
+                                consultaSegura
+                                    ? "Error al conectar con el servidor. Verifique la conexión e intente nuevamente."
+                                    : "No fue posible confirmar la respuesta del servidor. No repita la operación automáticamente; actualice la información para verificar si fue aplicada."
+                            )
                 };
 
             } finally {
+
                 if (temporizador !== null) {
                     window.clearTimeout(temporizador);
                 }
@@ -668,7 +831,8 @@ const API = {
         return {
             ok: false,
             codigo: "ERROR_CONEXION",
-            mensaje: "No fue posible completar la solicitud."
+            mensaje:
+                "No fue posible completar la solicitud."
         };
     }
 };

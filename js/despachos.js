@@ -6123,7 +6123,11 @@ async confirmarFrioBoxComoDestinoFinal(
     const cantidadDestinos =
         String(Conduce.encabezado.cantidadDestinos || 1);
 
-    const centros = await Catalogos.cargarCentros();
+    const centros = await Despachos.ejecutarConCargador(
+        "Cargando destinos",
+        "Estamos preparando la información del despacho.",
+        () => Catalogos.cargarCentros()
+    );
 
     const opcionesCentros = centros.map(centro => `
         <option
@@ -6267,6 +6271,13 @@ async confirmarFrioBoxComoDestinoFinal(
     };
 
     document.getElementById("btnPasoCarga").onclick = async () => {
+
+        // Bloquea también validaciones y confirmaciones repetidas del paso 2.
+        if (Despachos._confirmandoDestinos) return;
+        Despachos._confirmandoDestinos = true;
+        const botonConfirmar = document.getElementById("btnPasoCarga");
+        if (botonConfirmar) botonConfirmar.disabled = true;
+        try {
 
         let destino1 =
             document.getElementById("destino1").value;
@@ -6468,6 +6479,12 @@ async confirmarFrioBoxComoDestinoFinal(
 
         Despachos.pasoCarga();
 
+        } finally {
+            Despachos._confirmandoDestinos = false;
+            if (botonConfirmar && botonConfirmar.isConnected) {
+                botonConfirmar.disabled = false;
+            }
+        }
     };
 
 },
@@ -7477,6 +7494,11 @@ async modalAgregarTarima() {
 
         <div class="formulario-conduce">
 
+            <div role="tablist" class="pestanas-tarima" aria-label="Modalidad de carga de tarimas">
+                <button type="button" id="tabTarimaIndividual" role="tab" aria-controls="panelTarimaIndividual" aria-selected="true" class="pestana-tarima">Carga individual</button>
+                <button type="button" id="tabTarimaMasiva" role="tab" aria-controls="panelTarimaMasiva" aria-selected="false" class="pestana-tarima">Carga múltiple</button>
+            </div>
+            <section id="panelTarimaIndividual" role="tabpanel">
             <h3>Datos de la Tarima</h3>
 
             <div class="grid-form">
@@ -7549,8 +7571,27 @@ async modalAgregarTarima() {
 
             </div>
 
+            </section>
+            <section id="panelTarimaMasiva" role="tabpanel" hidden>
+                <h3>Agregar varios materiales</h3>
+                <p style="margin:8px 0">Indique una fila por material, fecha, destino y cámara. Se guardarán todas las tarimas en una sola operación.</p>
+                <div id="resumenTarimasMasivas" aria-live="polite" style="font-weight:600;margin:12px 0"></div>
+                <div style="overflow-x:auto;width:100%">
+                    <table style="width:100%;min-width:960px;border-collapse:separate;border-spacing:6px 8px">
+                        <thead><tr><th>Material</th><th>Descripción</th><th>Producción</th><th>Tarimas</th>${Number(Conduce.encabezado.cantidadDestinos) === 2 ? '<th>Destino</th>' : ''}<th>Cámara origen</th><th></th></tr></thead>
+                        <tbody id="filasTarimasMasivas"></tbody>
+                    </table>
+                </div>
+                <button type="button" id="btnAgregarFilaTarima" class="btn-secundario">+ Agregar fila</button>
+                <div class="acciones-modal">
+                    <button type="button" id="btnCancelarTarimaMasiva" class="btn-secundario">Cancelar</button>
+                    <button type="button" id="btnGuardarTarimasMasivas" class="btn-verde">Agregar todas</button>
+                </div>
+            </section>
         </div>
     `;
+
+    Despachos.configurarCargaMasivaTarimas(materiales);
 
     const inputBuscar = document.getElementById("buscarMaterialTarima");
     const inputMaterial = document.getElementById("materialTarima");
@@ -7624,20 +7665,20 @@ async modalAgregarTarima() {
                     campoCamara.hidden = false;
                     selectorCamara.disabled = false;
                     selectorCamara.innerHTML = `
-                        <option value="">Sin cámara registrada / continuar despacho</option>
+                        <option value="">Seleccione una cámara de origen</option>
                         ${Despachos.opcionesCamarasMaterial(disponibilidadCamara)}
                     `;
                     detalleCamara.textContent = disponibilidadCamara.camaras.length
-                        ? "Seleccione la cámara si está registrada. Si la existencia de cámaras no coincide con la operación física, puede continuar sin asignarla."
-                        : "El material no tiene inventario registrado en cámaras. Esto no impide el despacho.";
+                        ? "Seleccione obligatoriamente la cámara de origen antes de agregar las tarimas."
+                        : "No hay cámaras registradas para este material. Verifique la disponibilidad antes de agregarlo.";
 
                 } catch (error) {
 
                     disponibilidadCamara = {accionSinExistencia: "PERMITIR", camaras: []};
                     campoCamara.hidden = false;
                     selectorCamara.disabled = false;
-                    selectorCamara.innerHTML = `<option value="">Sin cámara registrada / continuar despacho</option>`;
-                    detalleCamara.textContent = "No fue posible consultar las cámaras. El despacho puede continuar; la ocupación se reconciliará por el módulo de cámaras.";
+                    selectorCamara.innerHTML = `<option value="">Seleccione una cámara de origen</option>`;
+                    detalleCamara.textContent = "No fue posible consultar las cámaras. Reintente la consulta antes de agregar las tarimas.";
                     Despachos.notificar(detalleCamara.textContent, "advertencia");
 
                 }
@@ -7649,6 +7690,8 @@ async modalAgregarTarima() {
         });
 
     });
+
+    selectorCamara.addEventListener("change", () => selectorCamara.setCustomValidity(""));
 
     document.getElementById("btnCancelarTarima").onclick = () => {
         Despachos.pasoCarga();
@@ -7702,6 +7745,16 @@ async modalAgregarTarima() {
             Despachos.notificar("No puede exceder las 18 posiciones del contenedor.", "error");
             return;
         }
+
+        // La cámara se valida al agregar, no al avanzar al paso 4.
+        if (!idCamara || !camaraSeleccionada) {
+            selectorCamara.setCustomValidity("Seleccione una cámara frigorífica de origen.");
+            selectorCamara.reportValidity();
+            selectorCamara.focus();
+            Despachos.notificar("Seleccione la cámara de origen antes de agregar las tarimas.", "error");
+            return;
+        }
+        selectorCamara.setCustomValidity("");
 
         const material = materiales.find(m => m.id === idMaterial);
 		const origenCamara = camaraSeleccionada
@@ -7769,6 +7822,325 @@ async modalAgregarTarima() {
 
 },	
 
+
+
+configurarCargaMasivaTarimas(materiales) {
+    const individual = document.getElementById("panelTarimaIndividual");
+    const masivo = document.getElementById("panelTarimaMasiva");
+    const tabIndividual = document.getElementById("tabTarimaIndividual");
+    const tabMasivo = document.getElementById("tabTarimaMasiva");
+    const cuerpo = document.getElementById("filasTarimasMasivas");
+    const resumen = document.getElementById("resumenTarimasMasivas");
+    const guardar = document.getElementById("btnGuardarTarimasMasivas");
+    const existentes = () => Conduce.detalle.filter(l => l.tipo === "Tarima").length;
+    const restante = () => Math.max(0, 18 - existentes());
+    const limpiar = valor => Despachos.escaparHTMLInspecciones(String(valor || ""));
+    const destinos = [Conduce.encabezado.destino1, Conduce.encabezado.destino2].filter(Boolean);
+    const cambiar = multiple => {
+        individual.hidden = multiple;
+        masivo.hidden = !multiple;
+        tabIndividual.setAttribute("aria-selected", String(!multiple));
+        tabMasivo.setAttribute("aria-selected", String(multiple));
+
+    };
+    tabIndividual.onclick = () => cambiar(false);
+    tabMasivo.onclick = () => cambiar(true);
+    document.getElementById("btnCancelarTarimaMasiva").onclick = () => Despachos.pasoCarga();
+
+    const actualizar = () => {
+        const total = [...cuerpo.querySelectorAll(".cantidad-masiva")]
+            .reduce((a, e) => a + (Number.isInteger(Number(e.value)) && Number(e.value) > 0 ? Number(e.value) : 0), 0);
+        resumen.textContent = `Ocupadas: ${existentes()} / 18 · Nuevas: ${total} · Disponibles: ${restante()}`;
+        resumen.style.color = total > restante() ? "#c62828" : "inherit";
+        guardar.disabled = total > restante() || restante() === 0;
+    };
+
+    const agregarFila = () => {
+        if (cuerpo.querySelectorAll("tr.masiva-principal").length >= 18 || restante() === 0) {
+            Despachos.notificar("No hay posiciones disponibles para más tarimas.", "advertencia");
+            return;
+        }
+        const fila = document.createElement("tr");
+        fila.classList.add("masiva-principal");
+        fila.innerHTML = `
+            <td><div class="buscador-material-masivo">
+                <input type="search" class="buscar-material-masivo" aria-label="Buscar material por código o descripción" placeholder="Código o nombre..." autocomplete="off" aria-autocomplete="list" aria-expanded="false">
+                <input type="hidden" class="material-masivo" value="">
+                <div class="sugerencias-material-masivo" role="listbox" hidden></div>
+            </div></td>
+            <td class="descripcion-masiva" style="min-width:160px">—</td>
+            <td><input type="date" class="fecha-masiva" aria-label="Fecha producción" style="width:145px"></td>
+            <td><input type="number" class="cantidad-masiva" min="1" max="18" step="1" value="1" aria-label="Cantidad tarimas" style="width:75px"></td>
+            ${Number(Conduce.encabezado.cantidadDestinos) === 2 ? `<td><select class="destino-masivo" aria-label="Destino"><option value="">Seleccione</option>${destinos.map(d => `<option value="${limpiar(d)}">${limpiar(d)}</option>`).join("")}</select></td>` : ""}
+            <td><select class="camara-masiva" aria-label="Cámara origen" style="width:200px" disabled><option value="">Seleccione material</option></select></td>
+            <td class="acciones-fila-masiva"><button type="button" class="btn-detallar-tarimas" aria-label="Desplegar detalle de tarimas" aria-expanded="false" title="Personalizar tarimas"><i class="fa-solid fa-chevron-down"></i></button><button type="button" class="btn-quitar-fila" aria-label="Eliminar fila">✕</button></td>`;
+        cuerpo.appendChild(fila);
+        const materialSelect = fila.querySelector(".material-masivo");
+        const camaraSelect = fila.querySelector(".camara-masiva");
+        camaraSelect.addEventListener("change", () => camaraSelect.setCustomValidity(""));
+        const botonDetalle = fila.querySelector(".btn-detallar-tarimas");
+        const filaDetalle = document.createElement("tr");
+        filaDetalle.className = "masiva-detalle-fila";
+        filaDetalle.hidden = true;
+        const celdaDetalle = document.createElement("td");
+        celdaDetalle.colSpan = fila.cells.length;
+        filaDetalle.appendChild(celdaDetalle);
+        fila.after(filaDetalle);
+        fila._tarimasPersonalizadas = [];
+        const materialActual = () => materiales.find(m => String(m.id) === materialSelect.value);
+        const sincronizarTarimas = () => {
+            const material = materialActual();
+            const n = Number(fila.querySelector(".cantidad-masiva").value);
+            if (!material || !Number.isInteger(n) || n < 1 || n > 18) {
+                celdaDetalle.textContent = "Seleccione un material y una cantidad válida para personalizar sus tarimas.";
+                return;
+            }
+            const base = Number(material.base || 0);
+            const altura = Number(material.altura || 0);
+            const anterior = fila._tarimasPersonalizadas;
+            fila._tarimasPersonalizadas = Array.from({length:n}, (_, i) => anterior[i] || {base, altura, recorte:0});
+            const filasHtml = fila._tarimasPersonalizadas.map((t, i) => `
+                <tr data-tarima="${i}"><td>${i+1}</td>
+                <td><input type="number" class="detalle-altura" min="0" step="1" value="${t.altura}" aria-label="Alturas tarima ${i+1}"></td>
+                <td><input type="number" class="detalle-base" min="1" step="1" value="${t.base}" aria-label="Base tarima ${i+1}"></td>
+                <td><input type="number" class="detalle-parcial" min="0" step="1" value="${t.recorte}" aria-label="Parcial tarima ${i+1}"></td>
+                <td class="detalle-total">${t.base*t.altura+t.recorte}</td></tr>`).join("");
+            celdaDetalle.innerHTML = `<div class="masiva-detalle-contenido"><div class="masiva-detalle-titulo"><strong>Detalle individual de tarimas</strong><span>Estándar: ${base*altura} cajas por tarima</span></div><div class="masiva-detalle-scroll"><table class="masiva-detalle-tabla"><thead><tr><th>Tarima</th><th>Alturas</th><th>Base</th><th>Parcial</th><th>Total cajas</th></tr></thead><tbody>${filasHtml}</tbody></table></div><div class="masiva-detalle-total">Total del material: <strong>${fila._tarimasPersonalizadas.reduce((a,t)=>a+t.base*t.altura+t.recorte,0)}</strong> cajas</div></div>`;
+            celdaDetalle.querySelectorAll("tbody tr").forEach((tr, i) => {
+                tr.querySelectorAll("input").forEach(input => {
+                    const recalcular = () => {
+                    const t = fila._tarimasPersonalizadas[i];
+                    t.altura = Number(tr.querySelector(".detalle-altura").value);
+                    t.base = Number(tr.querySelector(".detalle-base").value);
+                    t.recorte = Number(tr.querySelector(".detalle-parcial").value);
+                    const total = t.base*t.altura+t.recorte;
+                    tr.querySelector(".detalle-total").textContent = Number.isFinite(total) ? total : "—";
+                    celdaDetalle.querySelector(".masiva-detalle-total strong").textContent = fila._tarimasPersonalizadas.reduce((a,v)=>a+v.base*v.altura+v.recorte,0);
+                    };
+                    input.addEventListener("input", recalcular);
+                    input.addEventListener("change", recalcular);
+                });
+            });
+        };
+        botonDetalle.onclick = () => {
+            const abrir = filaDetalle.hidden;
+            filaDetalle.hidden = !abrir;
+            botonDetalle.setAttribute("aria-expanded", String(abrir));
+            if (abrir) sincronizarTarimas();
+        };
+        fila.querySelector(".btn-quitar-fila").onclick = () => { cerrarSugerencias(); filaDetalle.remove(); fila.remove(); actualizar(); };
+        fila.querySelector(".cantidad-masiva").addEventListener("input", () => { actualizar(); if (!filaDetalle.hidden) sincronizarTarimas(); });
+        const buscar = fila.querySelector(".buscar-material-masivo");
+        const sugerencias = fila.querySelector(".sugerencias-material-masivo");
+        let temporizadorBusqueda = null;
+        // El menú se presenta fuera del contenedor horizontal de la tabla.
+        // Así no queda recortado por overflow ni debajo de los botones.
+        const posicionarSugerencias = () => {
+            if (!buscar.isConnected) {
+                sugerencias.remove();
+                window.removeEventListener("resize", posicionarSugerencias);
+                return;
+            }
+            if (sugerencias.hidden) return;
+            const rect = buscar.getBoundingClientRect();
+            const espacioAbajo = window.innerHeight - rect.bottom - 12;
+            const arriba = espacioAbajo < 190 && rect.top > espacioAbajo;
+            const alto = Math.max(110, Math.min(270, arriba ? rect.top - 12 : espacioAbajo));
+            sugerencias.style.position = "fixed";
+            sugerencias.style.left = `${Math.max(8, rect.left)}px`;
+            sugerencias.style.width = `${Math.min(440, Math.max(rect.width, 320), window.innerWidth - Math.max(8, rect.left) - 12)}px`;
+            sugerencias.style.maxHeight = `${alto}px`;
+            sugerencias.style.top = arriba ? `${Math.max(8, rect.top - alto - 5)}px` : `${rect.bottom + 5}px`;
+            sugerencias.style.zIndex = "11050";
+        };
+        const abrirSugerencias = () => {
+            if (sugerencias.parentNode !== document.body) document.body.appendChild(sugerencias);
+            sugerencias.hidden = false;
+            buscar.setAttribute("aria-expanded", "true");
+            posicionarSugerencias();
+        };
+        const cerrarSugerencias = () => {
+            sugerencias.hidden = true;
+            sugerencias.replaceChildren();
+            buscar.setAttribute("aria-expanded", "false");
+            if (sugerencias.parentNode === document.body) fila.querySelector(".buscador-material-masivo").appendChild(sugerencias);
+        };
+        window.addEventListener("resize", posicionarSugerencias, { passive: true });
+        document.getElementById("contenidoModal")?.addEventListener("scroll", posicionarSugerencias, { passive: true });
+        buscar.addEventListener("input", () => {
+            clearTimeout(temporizadorBusqueda);
+            materialSelect.value = "";
+            fila._disponibilidad = null;
+            fila.querySelector(".descripcion-masiva").textContent = "—";
+            camaraSelect.disabled = true;
+            camaraSelect.innerHTML = '<option value="">Seleccione material</option>';
+            cerrarSugerencias();
+            // El catálogo ya está en memoria: no se consulta al servidor por tecla.
+            temporizadorBusqueda = setTimeout(() => {
+                if (!buscar.isConnected) return;
+                const coincidencias = Despachos.buscarMaterialesInteligente(materiales, buscar.value, 8);
+                if (!coincidencias.length) {
+                    if (buscar.value.trim().length >= 2) {
+                        sugerencias.textContent = "No se encontraron materiales";
+                        abrirSugerencias();
+                    }
+                    return;
+                }
+                const fragmento = document.createDocumentFragment();
+                coincidencias.forEach(material => {
+                    const opcion = document.createElement("button");
+                    opcion.type = "button";
+                    opcion.className = "opcion-material-masivo";
+                    opcion.setAttribute("role", "option");
+                    opcion.textContent = `${material.id} · ${material.descripcion}`;
+                    opcion.addEventListener("click", () => {
+                        buscar.value = `${material.id} · ${material.descripcion}`;
+                        materialSelect.value = String(material.id);
+                        cerrarSugerencias();
+                        materialSelect.dispatchEvent(new Event("change"));
+                    });
+                    fragmento.appendChild(opcion);
+                });
+                sugerencias.replaceChildren(fragmento);
+                abrirSugerencias();
+            }, 450);
+        });
+        buscar.addEventListener("keydown", evento => {
+            if (evento.key === "Escape") cerrarSugerencias();
+            if (evento.key === "Enter" && !sugerencias.hidden) {
+                const primera = sugerencias.querySelector("button");
+                if (primera) { evento.preventDefault(); primera.click(); }
+            }
+        });
+        buscar.addEventListener("blur", () => setTimeout(cerrarSugerencias, 180));
+        materialSelect.onchange = async () => {
+            const codigo = materialSelect.value;
+            const material = materiales.find(m => String(m.id) === codigo);
+            fila.querySelector(".descripcion-masiva").textContent = material ? material.descripcion : "—";
+            fila._tarimasPersonalizadas = [];
+            if (!filaDetalle.hidden) sincronizarTarimas();
+            camaraSelect.disabled = true;
+            camaraSelect.innerHTML = '<option value="">Consultando cámaras...</option>';
+            fila._disponibilidad = null;
+            if (!codigo) { camaraSelect.innerHTML = '<option value="">Seleccione material</option>'; return; }
+            try {
+                const disponibilidad = await Despachos.ejecutarConCargador(
+                    "Consultando cámaras", "Verificando existencia del material.",
+                    () => Despachos.consultarDisponibilidadMaterialCamara(codigo)
+                );
+                if (materialSelect.value !== codigo || !fila.isConnected) return;
+                fila._disponibilidad = disponibilidad;
+                camaraSelect.innerHTML = `<option value="">Seleccione una cámara de origen</option>${Despachos.opcionesCamarasMaterial(disponibilidad)}`;
+            } catch (error) {
+                if (materialSelect.value !== codigo || !fila.isConnected) return;
+                fila._disponibilidad = { accionSinExistencia: "PERMITIR", camaras: [] };
+                camaraSelect.innerHTML = '<option value="">Seleccione una cámara de origen</option>';
+                Despachos.notificar("No fue posible consultar cámaras. Reintente antes de agregar las tarimas.", "advertencia");
+            } finally {
+                if (materialSelect.value === codigo && fila.isConnected) camaraSelect.disabled = false;
+            }
+        };
+        actualizar();
+    };
+    document.getElementById("btnAgregarFilaTarima").onclick = agregarFila;
+    agregarFila();
+
+    guardar.onclick = async () => {
+        if (guardar.dataset.procesando === "true") return;
+        const filas = [...cuerpo.querySelectorAll("tr.masiva-principal")];
+        if (!filas.length) return Despachos.notificar("Agregue al menos una fila.", "error");
+        const solicitudes = [];
+        let total = 0;
+        for (const [indice, fila] of filas.entries()) {
+            const codigo = fila.querySelector(".material-masivo").value;
+            const material = materiales.find(m => String(m.id) === codigo);
+            const fecha = fila.querySelector(".fecha-masiva").value;
+            const cantidad = Number(fila.querySelector(".cantidad-masiva").value);
+            const destino = fila.querySelector(".destino-masivo")?.value || (Number(Conduce.encabezado.cantidadDestinos) === 1 ? Conduce.encabezado.destino1 : "");
+            const selector = fila.querySelector(".camara-masiva");
+            if (!material || !fecha || Despachos.fechaEsFutura(fecha) || !destino || !Number.isInteger(cantidad) || cantidad < 1 || cantidad > 18 || selector.disabled || !fila._disponibilidad) {
+                return Despachos.notificar(`Revise material, fecha, cantidad, destino y cámara de la fila ${indice + 1}.`, "error");
+            }
+            const camara = (fila._disponibilidad.camaras || []).find(c => String(c.idCamara) === selector.value);
+            if (!selector.value || !camara) {
+                selector.setCustomValidity("Seleccione una cámara de origen para esta fila.");
+                selector.reportValidity();
+                selector.focus();
+                Despachos.notificar(`Seleccione la cámara de origen en la fila ${indice + 1} antes de agregar todas.`, "error");
+                return;
+            }
+            selector.setCustomValidity("");
+            const origen = camara ? {
+                idCamara: camara.idCamara,
+                codigoCamara: camara.codigo || "",
+                observacionCamara: `Origen seleccionado al agregar tarima: ${camara.codigo || camara.idCamara}`
+            } : { idCamara: "", codigoCamara: "", observacionCamara: "Despacho registrado sin cámara de origen disponible en el control de ocupación." };
+            total += cantidad;
+            // Fuente de verdad: valores actuales del formulario, incluso si
+            // el usuario pulsa «Agregar todas» sin salir de la última celda.
+            const detalleFila = fila.nextElementSibling;
+            const detalleAbierto = detalleFila?.classList.contains("masiva-detalle-fila") && !detalleFila.hidden;
+            let tarimas;
+            if (detalleAbierto) {
+                const controles = [...detalleFila.querySelectorAll("tbody tr[data-tarima]")];
+                if (controles.length !== cantidad) {
+                    return Despachos.notificar(`El detalle de la fila ${indice + 1} no coincide con la cantidad de tarimas.`, "error");
+                }
+                tarimas = controles.map(tr => ({
+                    altura: Number(tr.querySelector(".detalle-altura").value),
+                    base: Number(tr.querySelector(".detalle-base").value),
+                    recorte: Number(tr.querySelector(".detalle-parcial").value)
+                }));
+                fila._tarimasPersonalizadas = tarimas;
+            } else {
+                tarimas = fila._tarimasPersonalizadas.length === cantidad
+                    ? fila._tarimasPersonalizadas
+                    : Array.from({length:cantidad}, () => ({base:Number(material.base || 0), altura:Number(material.altura || 0), recorte:0}));
+            }
+            const validas = tarimas.every(t => [t.base,t.altura,t.recorte].every(v => Number.isInteger(v) && v >= 0) && t.base > 0 && t.recorte < t.base && (t.base*t.altura+t.recorte) > 0 && (t.base*t.altura+t.recorte) <= Number(material.base || 0)*Number(material.altura || 0));
+            if (!validas) return Despachos.notificar(`Revise el detalle de tarimas de la fila ${indice+1}. El parcial debe ser menor que la base y ninguna tarima debe superar el estándar.`, "error");
+            solicitudes.push({material, fecha, cantidad, destino, origen, tarimas});
+        }
+        if (total > restante()) return Despachos.notificar(`Solo quedan ${restante()} posiciones libres de 18.`, "error");
+        guardar.dataset.procesando = "true";
+        guardar.disabled = true;
+        const anterior = Conduce.detalle.slice();
+        const contador = Number(Conduce.contadorLineas || 0);
+        try {
+            for (const item of solicitudes) {
+                for (const tarima of item.tarimas) {
+                    await Despachos.agregarLinea(item.material, item.fecha, item.destino, "Tarima", item.origen);
+                    const linea = Conduce.detalle[Conduce.detalle.length - 1];
+                    if (!linea) throw new Error("No se encontró la tarima recién agregada");
+                    linea.base = tarima.base;
+                    linea.altura = tarima.altura;
+                    linea.recorte = tarima.recorte;
+                    linea.cantidad = tarima.base * tarima.altura + tarima.recorte;
+                }
+            }
+            const ok = await Despachos.guardarCambios({silencioso: true, mostrarCargador: true});
+            if (!ok) {
+                Conduce.detalle = anterior;
+                Conduce.contadorLineas = contador;
+                Despachos.normalizarDetalleCarga();
+                Despachos.refrescarCarga();
+                return;
+            }
+            Despachos.notificar(`${total} tarima(s) agregadas correctamente.`, "exito");
+            Despachos.pasoCarga();
+        } catch (error) {
+            Conduce.detalle = anterior;
+            Conduce.contadorLineas = contador;
+            Despachos.normalizarDetalleCarga();
+            Despachos.refrescarCarga();
+            console.error("Error al agregar tarimas múltiples:", error);
+            Despachos.notificar("No se pudo confirmar la carga múltiple. Verifique el conduce antes de reintentar.", "error");
+        } finally {
+            guardar.dataset.procesando = "false";
+            guardar.disabled = false;
+        }
+    };
+},
 
 async modalAgregarRecorte() {
 
@@ -10162,6 +10534,25 @@ mostrarResumenProvisional() {
 
 async guardarCambios(opciones = {}) {
 
+    // Una sola escritura activa por asistente. Evita encabezados duplicados
+    // cuando se confirma varias veces antes de recibir el ID del servidor.
+    if (Despachos._guardadoConduceEnCurso) {
+        return Despachos._guardadoConduceEnCurso;
+    }
+
+    const operacion = Despachos._guardarCambiosProtegido(opciones);
+    Despachos._guardadoConduceEnCurso = operacion;
+    try {
+        return await operacion;
+    } finally {
+        if (Despachos._guardadoConduceEnCurso === operacion) {
+            Despachos._guardadoConduceEnCurso = null;
+        }
+    }
+},
+
+async _guardarCambiosProtegido(opciones = {}) {
+
     const silencioso =
         opciones.silencioso === true;
 
@@ -10183,6 +10574,17 @@ async guardarCambios(opciones = {}) {
 
     try {
 
+        // La clave permanece en el encabezado hasta recibir el ID. Si la
+        // respuesta se pierde, un reintento recupera la misma creación.
+        if (!Conduce.encabezado.idConduce &&
+            !Conduce.encabezado.claveCreacion) {
+            Conduce.encabezado.claveCreacion =
+                (window.crypto && typeof window.crypto.randomUUID === "function")
+                    ? window.crypto.randomUUID()
+                    : "pt-" + Date.now() + "-" +
+                      Math.random().toString(36).slice(2);
+        }
+
         const respuesta = await API.post({
 
             action: "guardarBorrador",
@@ -10199,16 +10601,19 @@ async guardarCambios(opciones = {}) {
 
         });
 
-        if (!respuesta.ok) {
+        // No asumir éxito sin datos: una redirección de Apps Script puede
+        // fallar aun cuando el servidor haya recibido la escritura.
+        if (!respuesta || respuesta.ok !== true ||
+            !respuesta.data || !respuesta.data.idConduce ||
+            !respuesta.data.noConduce) {
 
             Despachos.notificar(
-                respuesta.mensaje ||
-                "No fue posible guardar los cambios.",
+                (respuesta && respuesta.mensaje) ||
+                "No se confirmó el guardado. Verifique el conduce antes de reintentar.",
                 "error"
             );
 
             return false;
-
         }
 
         Conduce.encabezado.idConduce =

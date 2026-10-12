@@ -63,6 +63,9 @@ activarModalAsistente() {
 
     };
 
+    // Registrar una sola limpieza para todas las rutas de cierre del modal.
+    Despachos.vigilarCierreModalSistema();
+
     modal.classList.remove("oculto");
     activar();
 
@@ -75,6 +78,49 @@ activarModalAsistente() {
 
     return true;
 
+},
+
+vigilarCierreModalSistema() {
+    const modal = document.getElementById("modalSistema");
+    if (!modal) return;
+
+    // El observador es único por elemento, incluso si se recarga el módulo.
+    if (Despachos._modalSistemaObservado === modal) return;
+    if (Despachos._observadorCierreModalSistema) {
+        Despachos._observadorCierreModalSistema.disconnect();
+    }
+
+    const limpiarSiCerrado = () => {
+        if (!modal.classList.contains("oculto")) return;
+
+        document.body.classList.remove("modal-sistema-abierto");
+        document.body.classList.remove("centro-despachos-abierto");
+
+        const principal = document.getElementById("contenidoPrincipal");
+        if (principal) {
+            principal.inert = false;
+            principal.removeAttribute("inert");
+            principal.style.pointerEvents = "";
+        }
+
+        // No retirar otras clases ni estilos de módulos ajenos.
+        const contenido = document.getElementById("contenidoModal");
+        if (contenido) {
+            contenido.inert = false;
+            contenido.removeAttribute("inert");
+            contenido.style.pointerEvents = "";
+        }
+        modal.style.pointerEvents = "";
+    };
+
+    const observador = new MutationObserver(limpiarSiCerrado);
+    observador.observe(modal, {
+        attributes: true,
+        attributeFilter: ["class"]
+    });
+    Despachos._modalSistemaObservado = modal;
+    Despachos._observadorCierreModalSistema = observador;
+    limpiarSiCerrado();
 },
 
 sincronizarAccionesDespachosResponsive() {
@@ -892,6 +938,8 @@ async cargar() {
 	
 	const modalSistema =
     document.getElementById("modalSistema");
+
+Despachos.vigilarCierreModalSistema();
 
 if (
     modalSistema &&
@@ -7903,24 +7951,44 @@ configurarCargaMasivaTarimas(materiales) {
                 <tr data-tarima="${i}"><td>${i+1}</td>
                 <td><input type="number" class="detalle-altura" min="0" step="1" value="${t.altura}" aria-label="Alturas tarima ${i+1}"></td>
                 <td><input type="number" class="detalle-base" min="1" step="1" value="${t.base}" aria-label="Base tarima ${i+1}"></td>
-                <td><input type="number" class="detalle-parcial" min="0" step="1" value="${t.recorte}" aria-label="Parcial tarima ${i+1}"></td>
+                <td><input type="number" class="detalle-parcial" step="1" value="${t.recorte}" aria-label="Parcial tarima ${i+1}"></td>
                 <td class="detalle-total">${t.base*t.altura+t.recorte}</td></tr>`).join("");
             celdaDetalle.innerHTML = `<div class="masiva-detalle-contenido"><div class="masiva-detalle-titulo"><strong>Detalle individual de tarimas</strong><span>Estándar: ${base*altura} cajas por tarima</span></div><div class="masiva-detalle-scroll"><table class="masiva-detalle-tabla"><thead><tr><th>Tarima</th><th>Alturas</th><th>Base</th><th>Parcial</th><th>Total cajas</th></tr></thead><tbody>${filasHtml}</tbody></table></div><div class="masiva-detalle-total">Total del material: <strong>${fila._tarimasPersonalizadas.reduce((a,t)=>a+t.base*t.altura+t.recorte,0)}</strong> cajas</div></div>`;
-            celdaDetalle.querySelectorAll("tbody tr").forEach((tr, i) => {
-                tr.querySelectorAll("input").forEach(input => {
-                    const recalcular = () => {
-                    const t = fila._tarimasPersonalizadas[i];
-                    t.altura = Number(tr.querySelector(".detalle-altura").value);
-                    t.base = Number(tr.querySelector(".detalle-base").value);
-                    t.recorte = Number(tr.querySelector(".detalle-parcial").value);
-                    const total = t.base*t.altura+t.recorte;
-                    tr.querySelector(".detalle-total").textContent = Number.isFinite(total) ? total : "—";
-                    celdaDetalle.querySelector(".masiva-detalle-total strong").textContent = fila._tarimasPersonalizadas.reduce((a,v)=>a+v.base*v.altura+v.recorte,0);
+            // Delegación sobre la subtabla: recalcular leyendo TODOS los inputs
+            // actuales, sin depender de listeners asociados a filas reconstruidas.
+            const recalcularDetalle = () => {
+                const controles = [...celdaDetalle.querySelectorAll("tbody tr[data-tarima]")];
+                if (!controles.length) return;
+                let suma = 0;
+                let valido = true;
+                fila._tarimasPersonalizadas = controles.map(tr => {
+                    const leer = clase => {
+                        const campo = tr.querySelector(clase);
+                        return campo && campo.value.trim() !== "" ? Number(campo.value) : NaN;
                     };
-                    input.addEventListener("input", recalcular);
-                    input.addEventListener("change", recalcular);
+                    const t = {
+                        altura: leer(".detalle-altura"),
+                        base: leer(".detalle-base"),
+                        recorte: leer(".detalle-parcial")
+                    };
+                    const cajas = t.altura * t.base + t.recorte;
+                    const correcto = [t.altura, t.base, t.recorte, cajas].every(Number.isFinite);
+                    tr.querySelector(".detalle-total").textContent = correcto ? String(cajas) : "—";
+                    if (correcto) suma += cajas;
+                    else valido = false;
+                    return t;
                 });
-            });
+                celdaDetalle.querySelector(".masiva-detalle-total strong").textContent = valido ? String(suma) : "—";
+            };
+            // Asignar al contenedor estable: funciona también después de editar
+            // con teclado, flechas numéricas o al abandonar el campo.
+            celdaDetalle.oninput = evento => {
+                if (evento.target.matches(".detalle-altura, .detalle-base, .detalle-parcial")) recalcularDetalle();
+            };
+            celdaDetalle.onchange = evento => {
+                if (evento.target.matches(".detalle-altura, .detalle-base, .detalle-parcial")) recalcularDetalle();
+            };
+            recalcularDetalle();
         };
         botonDetalle.onclick = () => {
             const abrir = filaDetalle.hidden;
@@ -8082,6 +8150,9 @@ configurarCargaMasivaTarimas(materiales) {
             const detalleAbierto = detalleFila?.classList.contains("masiva-detalle-fila") && !detalleFila.hidden;
             let tarimas;
             if (detalleAbierto) {
+                // Sincronizar pantalla y estado aunque el último input conserve el foco.
+                const activo = detalleFila.querySelector("input:focus");
+                if (activo) activo.dispatchEvent(new Event("input", { bubbles: true }));
                 const controles = [...detalleFila.querySelectorAll("tbody tr[data-tarima]")];
                 if (controles.length !== cantidad) {
                     return Despachos.notificar(`El detalle de la fila ${indice + 1} no coincide con la cantidad de tarimas.`, "error");
@@ -8097,8 +8168,26 @@ configurarCargaMasivaTarimas(materiales) {
                     ? fila._tarimasPersonalizadas
                     : Array.from({length:cantidad}, () => ({base:Number(material.base || 0), altura:Number(material.altura || 0), recorte:0}));
             }
-            const validas = tarimas.every(t => [t.base,t.altura,t.recorte].every(v => Number.isInteger(v) && v >= 0) && t.base > 0 && t.recorte < t.base && (t.base*t.altura+t.recorte) > 0 && (t.base*t.altura+t.recorte) <= Number(material.base || 0)*Number(material.altura || 0));
-            if (!validas) return Despachos.notificar(`Revise el detalle de tarimas de la fila ${indice+1}. El parcial debe ser menor que la base y ninguna tarima debe superar el estándar.`, "error");
+            // Una tarima puede tener cajas sueltas superiores a una base completa.
+            // Lo que limita la carga es el TOTAL por tarima, no el campo parcial aislado.
+            const estandar = Number(material.base || 0) * Number(material.altura || 0);
+            for (const [indiceTarima, tarima] of tarimas.entries()) {
+                const {base, altura, recorte} = tarima;
+                const identificacion = `Fila ${indice + 1} (${material.id}), tarima ${indiceTarima + 1}`;
+                if (![base, altura, recorte].every(Number.isSafeInteger) || base <= 0 || altura < 0) {
+                    return Despachos.notificar(`${identificacion}: alturas y base deben ser enteros no negativos (base mayor que cero); el parcial puede ser negativo.`, "error");
+                }
+                const cajas = base * altura + recorte;
+                if (!Number.isSafeInteger(cajas) || cajas <= 0) {
+                    return Despachos.notificar(`${identificacion}: el total de cajas debe ser mayor que cero.`, "error");
+                }
+                if (!Number.isFinite(estandar) || estandar <= 0) {
+                    return Despachos.notificar(`${identificacion}: el estándar del material no es válido.`, "error");
+                }
+                // El estándar es informativo, no un límite máximo de cajas.
+                // Una tarima puede superar el estándar por tener alturas adicionales.
+                // Se mantiene la validación de enteros y total positivo.
+            }
             solicitudes.push({material, fecha, cantidad, destino, origen, tarimas});
         }
         if (total > restante()) return Despachos.notificar(`Solo quedan ${restante()} posiciones libres de 18.`, "error");

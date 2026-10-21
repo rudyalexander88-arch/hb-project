@@ -5,6 +5,129 @@
 
 const InspeccionContenedores = {
 
+    async bascMostrarAccesoContingencia() {
+        const destino = document.querySelector(".asistente-inspeccion .acciones-inspeccion");
+        if (!destino) return;
+        try {
+            const permiso = await API.post({action:"bascConsultarPermisoContingencia"});
+            if (!permiso || !permiso.ok || !permiso.autorizado) return;
+            if (!document.contains(destino)) return;
+            const boton = document.createElement("button");
+            boton.type = "button";
+            boton.className = "btn-secundario-inspeccion basc-contingencia-acceso";
+            boton.textContent = "Regularizar inspección BASC por contingencia";
+            boton.addEventListener("click", () => this.bascAbrirFormularioContingencia());
+            destino.prepend(boton);
+        } catch (error) {
+            console.warn("No fue posible consultar el permiso BASC:", error);
+        }
+    },
+
+    bascEscaparHTML(valor) {
+        return String(valor == null ? "" : valor).replace(/&/g,"&amp;")
+          .replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    },
+
+    bascAbrirFormularioContingencia() {
+        const contenedor = document.getElementById("contenidoModal");
+        if (!contenedor) return;
+        const e = valor => this.bascEscaparHTML(valor);
+        const opciones = this.conduces.map(d =>
+            `<option value="${e(d.idConduce)}">${e(d.noConduce)} · ${e(d.destino1 || "")}</option>`
+        ).join("");
+        const puntos = this.catalogo.map(p => `
+            <label class="basc-contingencia-punto">
+              <input type="checkbox" class="basc-contingencia-nc" value="${e(p.codigo)}">
+              <strong>${e(p.codigo)}</strong> ${e(p.categoria)} — ${e(p.descripcion)}
+              <textarea class="basc-contingencia-observacion" data-punto="${e(p.codigo)}"
+                rows="2" placeholder="Observación específica obligatoria si selecciona No cumple"
+                ></textarea>
+            </label>`).join("");
+        contenedor.innerHTML = `
+          <section class="asistente-inspeccion basc-contingencia-formulario">
+            <h2>Regularizar inspección BASC por contingencia</h2>
+            <p>Solo para inspecciones realizadas durante la caída del sistema y respaldadas por evidencias históricas.</p>
+            <form id="bascFormularioContingencia" class="basc-contingencia-campos">
+              <label>Conduce histórico en borrador
+                <select name="idConduce" required><option value="">Seleccione...</option>${opciones}</select>
+              </label>
+              <label>Fecha real de inspección <input type="date" name="fechaInspeccion" required></label>
+              <label>Hora real de inspección <input type="time" name="horaInspeccion" required></label>
+              <label>Nombre del inspector original <input name="inspectorNombre" required maxlength="150"></label>
+              <label>Sello de llegada observado <input name="selloLlegada" required maxlength="100"></label>
+              <label>Enlace de la carpeta original de evidencias en Google Drive
+                <input type="url" name="carpetaEvidenciasUrl" placeholder="https://drive.google.com/drive/folders/..." required>
+              </label>
+              <label>Motivo de la contingencia
+                <textarea name="motivo" rows="3" required maxlength="1000" placeholder="Explique la caída del sistema y el origen del respaldo"></textarea>
+              </label>
+              <label>¿Existen observaciones para esta inspección?
+                <select name="hayObservaciones" required>
+                  <option value="no">No, todos los puntos cumplen</option>
+                  <option value="si">Sí, seleccionar puntos No cumple</option>
+                </select>
+              </label>
+              <div id="bascContingenciaHallazgos" class="basc-contingencia-hallazgos" hidden>
+                <p>Seleccione cada punto que no cumple e indique su observación individual.</p>
+                ${puntos}
+              </div>
+              <label class="basc-contingencia-confirmacion">
+                <input type="checkbox" name="confirmacion" required>
+                Confirmo que estos resultados corresponden a una inspección efectivamente realizada y documentada.
+              </label>
+              <div class="acciones-inspeccion">
+                <button type="button" class="btn-secundario-inspeccion" id="bascContingenciaCancelar">Volver</button>
+                <button type="submit" class="btn-iniciar-inspeccion" id="bascContingenciaGuardar">Regularizar y generar PDF</button>
+              </div>
+              <p id="bascContingenciaMensaje" role="status"></p>
+            </form>
+          </section>`;
+        const form = document.getElementById("bascFormularioContingencia");
+        const selector = form.elements.hayObservaciones;
+        const panel = document.getElementById("bascContingenciaHallazgos");
+        selector.addEventListener("change", () => { panel.hidden = selector.value !== "si"; });
+        document.getElementById("bascContingenciaCancelar").addEventListener("click", () => this.mostrarPasoInformacion());
+        form.addEventListener("submit", event => {event.preventDefault(); this.bascGuardarContingencia(form);});
+    },
+
+    async bascGuardarContingencia(form) {
+        const mensaje = document.getElementById("bascContingenciaMensaje");
+        const boton = document.getElementById("bascContingenciaGuardar");
+        const fd = new FormData(form);
+        const hallazgos = [];
+        if (fd.get("hayObservaciones") === "si") {
+            form.querySelectorAll(".basc-contingencia-nc:checked").forEach(check => {
+                const area = Array.from(form.querySelectorAll(".basc-contingencia-observacion"))
+                    .find(a => a.dataset.punto === check.value);
+                hallazgos.push({codigoPunto:check.value,observacion:area ? area.value.trim() : ""});
+            });
+            if (!hallazgos.length || hallazgos.some(h => !h.observacion)) {
+                mensaje.textContent = "Seleccione al menos un punto No cumple y escriba una observación para cada uno.";
+                return;
+            }
+        }
+        if (!confirm("¿Confirma que la inspección histórica fue realizada y sus evidencias son auténticas?")) return;
+        boton.disabled = true;
+        mensaje.textContent = "Registrando y generando el PDF BASC...";
+        try {
+            const resultado = await API.post({
+                action:"bascRegularizarInspeccionContingencia",
+                idConduce:fd.get("idConduce"), fechaInspeccion:fd.get("fechaInspeccion"),
+                horaInspeccion:fd.get("horaInspeccion"), inspectorNombre:fd.get("inspectorNombre"),
+                selloLlegada:fd.get("selloLlegada"), carpetaEvidenciasUrl:fd.get("carpetaEvidenciasUrl"),
+                motivo:fd.get("motivo"), hayObservaciones:fd.get("hayObservaciones"), hallazgos
+            });
+            if (!resultado || !resultado.ok) throw new Error(resultado?.mensaje || "No se pudo regularizar.");
+            const url = resultado.data?.pdfUrl;
+            mensaje.textContent = "Inspección regularizada correctamente. " + (url ? "El PDF se abrirá en una nueva pestaña." : "");
+            if (url) window.open(url,"_blank","noopener,noreferrer");
+            await this.cargarDatosIniciales();
+        } catch (error) {
+            mensaje.textContent = error.message || String(error);
+        } finally { boton.disabled = false; }
+    },
+
     pasoActual: 1,
 
     conduces: [],
@@ -543,6 +666,7 @@ formatearTamanoContenedor(
         `;
 
         this.configurarEventosPasoInformacion();
+        this.bascMostrarAccesoContingencia();
 
     },
 

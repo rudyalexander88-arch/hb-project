@@ -1171,3 +1171,135 @@
     }
 
 }
+
+
+/* =====================================================
+   BASC · REGULARIZACIÓN POR CONTINGENCIA
+   Estilos aislados para no alterar la inspección ordinaria
+   ===================================================== */
+.basc-contingencia-acceso {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.4;
+}
+.basc-contingencia-formulario {
+    padding: 20px;
+    max-width: 920px;
+    margin-inline: auto;
+    color: #253044;
+}
+.basc-contingencia-formulario h2 {
+    margin: 0 0 8px;
+    font-size: clamp(18px, 2.5vw, 23px);
+    line-height: 1.3;
+}
+.basc-contingencia-formulario > p {
+    margin: 0 0 18px;
+    color: #64748b;
+    line-height: 1.55;
+}
+.basc-contingencia-campos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.basc-contingencia-campos > label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+.basc-contingencia-campos > label:has([name="carpetaEvidenciasUrl"]),
+.basc-contingencia-campos > label:has([name="motivo"]),
+.basc-contingencia-campos > label:has([name="hayObservaciones"]),
+.basc-contingencia-campos > .basc-contingencia-hallazgos,
+.basc-contingencia-campos > .basc-contingencia-confirmacion,
+.basc-contingencia-campos > .acciones-inspeccion,
+.basc-contingencia-campos > #bascContingenciaMensaje {
+    grid-column: 1 / -1;
+}
+.basc-contingencia-campos input:not([type="checkbox"]),
+.basc-contingencia-campos select,
+.basc-contingencia-campos textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 9px;
+    background: #fff;
+    color: #0f172a;
+    font: inherit;
+    font-weight: 400;
+    line-height: 1.4;
+}
+.basc-contingencia-campos textarea { resize: vertical; }
+.basc-contingencia-campos input:focus-visible,
+.basc-contingencia-campos select:focus-visible,
+.basc-contingencia-campos textarea:focus-visible {
+    outline: 2px solid #138a3d;
+    outline-offset: 2px;
+    border-color: #138a3d;
+}
+.basc-contingencia-hallazgos {
+    max-height: 330px;
+    overflow-y: auto;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+.basc-contingencia-hallazgos[hidden] { display: none !important; }
+.basc-contingencia-hallazgos > p {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: #475569;
+}
+.basc-contingencia-punto {
+    display: block;
+    padding: 12px;
+    margin-bottom: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    line-height: 1.5;
+    cursor: pointer;
+}
+.basc-contingencia-punto input[type="checkbox"] { margin-right: 8px; }
+.basc-contingencia-punto textarea { margin-top: 9px; }
+.basc-contingencia-confirmacion {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start;
+    gap: 10px !important;
+    padding: 12px;
+    border: 1px solid #d1e7d6;
+    border-radius: 9px;
+    background: #f0fdf4;
+    font-weight: 500 !important;
+    line-height: 1.5;
+}
+.basc-contingencia-confirmacion input { flex: 0 0 auto; margin-top: 3px; }
+.basc-contingencia-campos > .acciones-inspeccion {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+}
+#bascContingenciaMensaje { margin: 0; font-size: 13px; line-height: 1.5; }
+@media (max-width: 700px) {
+    .basc-contingencia-formulario { padding: 12px; }
+    .basc-contingencia-campos { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+    .basc-contingencia-campos > .acciones-inspeccion { flex-direction: column; }
+    .basc-contingencia-campos > .acciones-inspeccion button { width: 100%; }
+    .basc-contingencia-hallazgos { max-height: 280px; }
+}
